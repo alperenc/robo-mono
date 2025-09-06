@@ -10,11 +10,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  * @dev Manages authorized partners for the Roboshare protocol
  * Partners can register vehicles and participate in the ecosystem
  */
-contract PartnerManager is 
-    Initializable,
-    AccessControlUpgradeable,
-    UUPSUpgradeable
-{
+contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradeable {
     bytes32 public constant PARTNER_ADMIN_ROLE = keccak256("PARTNER_ADMIN_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
@@ -54,10 +50,7 @@ contract PartnerManager is
      * @param partner Address of the partner to authorize
      * @param name Name of the partner organization
      */
-    function authorizePartner(address partner, string calldata name) 
-        external 
-        onlyRole(PARTNER_ADMIN_ROLE) 
-    {
+    function authorizePartner(address partner, string calldata name) external onlyRole(PARTNER_ADMIN_ROLE) {
         if (partner == address(0)) revert PartnerManager__ZeroAddress();
         if (bytes(name).length == 0) revert PartnerManager__EmptyName();
         if (_authorizedPartners[partner]) revert PartnerManager__AlreadyAuthorized();
@@ -74,10 +67,7 @@ contract PartnerManager is
      * @dev Revoke partner authorization
      * @param partner Address of the partner to revoke
      */
-    function revokePartner(address partner) 
-        external 
-        onlyRole(PARTNER_ADMIN_ROLE) 
-    {
+    function revokePartner(address partner) external onlyRole(PARTNER_ADMIN_ROLE) {
         if (!_authorizedPartners[partner]) revert PartnerManager__NotAuthorized();
 
         _authorizedPartners[partner] = false;
@@ -101,10 +91,7 @@ contract PartnerManager is
      * @param partner Address of the partner
      * @param newName New name for the partner
      */
-    function updatePartnerName(address partner, string calldata newName) 
-        external 
-        onlyRole(PARTNER_ADMIN_ROLE) 
-    {
+    function updatePartnerName(address partner, string calldata newName) external onlyRole(PARTNER_ADMIN_ROLE) {
         if (!_authorizedPartners[partner]) revert PartnerManager__NotAuthorized();
         if (bytes(newName).length == 0) revert PartnerManager__EmptyName();
 
@@ -162,20 +149,12 @@ contract PartnerManager is
      * @return registrationTime When partner was registered
      * @return isAuthorized Current authorization status
      */
-    function getPartnerInfo(address partner) 
-        external 
-        view 
-        returns (
-            string memory name,
-            uint256 registrationTime,
-            bool isAuthorized
-        ) 
+    function getPartnerInfo(address partner)
+        external
+        view
+        returns (string memory name, uint256 registrationTime, bool isAuthorized)
     {
-        return (
-            _partnerNames[partner],
-            _partnerRegistrationTime[partner],
-            _authorizedPartners[partner]
-        );
+        return (_partnerNames[partner], _partnerRegistrationTime[partner], _authorizedPartners[partner]);
     }
 
     /**
@@ -189,9 +168,5 @@ contract PartnerManager is
     /**
      * @dev Required override for UUPS upgrades
      */
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyRole(UPGRADER_ROLE)
-    {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
 }

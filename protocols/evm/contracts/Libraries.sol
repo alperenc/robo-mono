@@ -24,19 +24,19 @@ library ProtocolLib {
     function isValidIPFSURI(string memory uri) internal pure returns (bool) {
         bytes memory uriBytes = bytes(uri);
         bytes memory prefix = bytes(IPFS_PREFIX);
-        
+
         // Check minimum length
         if (uriBytes.length < prefix.length + IPFS_HASH_LENGTH) {
             return false;
         }
-        
+
         // Check prefix
         for (uint256 i = 0; i < prefix.length; i++) {
             if (uriBytes[i] != prefix[i]) {
                 return false;
             }
         }
-        
+
         return true;
     }
 }
@@ -51,12 +51,12 @@ library VehicleLib {
      * Set once during registration, never changes
      */
     struct VehicleInfo {
-        string vin;                 // Vehicle Identification Number
-        string make;               // e.g., "Tesla", "Ford"  
-        string model;              // e.g., "Model S", "F-150"
-        uint256 year;              // Manufacturing year
-        uint256 manufacturerId;    // Partner's manufacturer ID
-        string optionCodes;        // e.g., "P90D,AP1,SUBW"
+        string vin; // Vehicle Identification Number
+        string make; // e.g., "Tesla", "Ford"
+        string model; // e.g., "Model S", "F-150"
+        uint256 year; // Manufacturing year
+        uint256 manufacturerId; // Partner's manufacturer ID
+        string optionCodes; // e.g., "P90D,AP1,SUBW"
         string dynamicMetadataURI; // IPFS URI for changing data (odometer, etc.)
     }
 
@@ -64,10 +64,10 @@ library VehicleLib {
      * @dev Main vehicle struct for protocol operations
      */
     struct Vehicle {
-        uint256 vehicleId;          // Unique protocol identifier
-        bool isActive;              // Active status in protocol
-        uint256 createdAt;          // Registration timestamp
-        VehicleInfo vehicleInfo;    // Immutable data + IPFS metadata URI
+        uint256 vehicleId; // Unique protocol identifier
+        bool isActive; // Active status in protocol
+        uint256 createdAt; // Registration timestamp
+        VehicleInfo vehicleInfo; // Immutable data + IPFS metadata URI
     }
 
     /**
@@ -113,10 +113,7 @@ library VehicleLib {
     /**
      * @dev Update dynamic metadata URI (for IPFS data changes like odometer)
      */
-    function updateDynamicMetadata(
-        VehicleInfo storage info,
-        string memory newMetadataURI
-    ) internal {
+    function updateDynamicMetadata(VehicleInfo storage info, string memory newMetadataURI) internal {
         if (!ProtocolLib.isValidIPFSURI(newMetadataURI)) {
             revert VehicleLib__EmptyMetadataURI();
         }
@@ -127,10 +124,7 @@ library VehicleLib {
      * @dev Get vehicle display name for UI/events
      */
     function getDisplayName(VehicleInfo storage info) internal view returns (string memory) {
-        return string(abi.encodePacked(
-            info.make, " ", info.model, " (", 
-            _uint256ToString(info.year), ")"
-        ));
+        return string(abi.encodePacked(info.make, " ", info.model, " (", _uint256ToString(info.year), ")"));
     }
 
     /**
