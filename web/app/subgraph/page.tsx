@@ -16,7 +16,7 @@ const Subgraph: NextPage = () => {
           <p className="text-center text-lg">
             Look at the subgraph manifest defined in{" "}
             <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/subgraph/subgraph.yaml
+              protocols/evm/subgraph/subgraph.yaml
             </code>
           </p>
           <p className="text-center text-lg">
@@ -26,13 +26,13 @@ const Subgraph: NextPage = () => {
             </code>{" "}
             located in{" "}
             <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/subgraph/src
+              protocols/evm/subgraph/src
             </code>
           </p>
           <p className="text-center text-lg">
             Data is processed using AssemblyScript Mappings in{" "}
             <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/subgraph/src/mapping.ts
+              protocols/evm/subgraph/src/mapping.ts
             </code>
           </p>
         </div>

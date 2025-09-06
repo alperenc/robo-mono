@@ -25,7 +25,7 @@ const Home: NextPage = () => {
           <p className="text-center text-lg">
             Get started by editing{" "}
             <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
+              web/app/page.tsx
             </code>
           </p>
           <p className="text-center text-lg">
@@ -35,7 +35,7 @@ const Home: NextPage = () => {
             </code>{" "}
             in{" "}
             <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
+              protocols/evm/contracts
             </code>
           </p>
         </div>

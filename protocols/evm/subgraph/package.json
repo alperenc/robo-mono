@@ -1,5 +1,5 @@
 {
-  "name": "@se-2/subgraph",
+  "name": "subgraph",
   "version": "0.0.1",
   "type": "module",
   "scripts": {

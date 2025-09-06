@@ -68,7 +68,7 @@ function publishContract(
   }
 }
 
-const DEPLOYED_CONTRACTS_FILE = "../nextjs/contracts/deployedContracts.ts";
+const DEPLOYED_CONTRACTS_FILE = "../../../web/contracts/deployedContracts.ts";
 async function main() {
   const fileContent = fs.readFileSync(DEPLOYED_CONTRACTS_FILE, "utf8");
 
