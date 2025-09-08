@@ -98,6 +98,22 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         string memory optionCodes,
         string memory dynamicMetadataURI
     ) external onlyAuthorizedPartner returns (uint256 vehicleId) {
+        return _registerVehicle(owner, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+    }
+
+    /**
+     * @dev Internal function to register vehicle and mint NFT token
+     */
+    function _registerVehicle(
+        address owner,
+        string memory vin,
+        string memory make,
+        string memory model,
+        uint256 year,
+        uint256 manufacturerId,
+        string memory optionCodes,
+        string memory dynamicMetadataURI
+    ) internal returns (uint256 vehicleId) {
         if (owner == address(0)) revert VehicleRegistry__ZeroAddress();
         if (vinExists[vin]) revert VehicleRegistry__VehicleAlreadyExists();
 
@@ -165,8 +181,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 revenueShareSupply
     ) external onlyAuthorizedPartner returns (uint256 vehicleId, uint256 revenueShareTokenId) {
         // Register vehicle and get vehicle ID
-        vehicleId =
-            registerVehicle(vehicleOwner, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        vehicleId = _registerVehicle(vehicleOwner, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
 
         // Calculate revenue share token ID (vehicleId + 1)
         revenueShareTokenId = getRevenueShareTokenIdFromVehicleId(vehicleId);
