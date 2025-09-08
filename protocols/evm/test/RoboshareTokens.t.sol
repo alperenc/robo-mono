@@ -243,6 +243,8 @@ contract RoboshareTokensTest is Test {
         vm.assume(to != address(0));
         vm.assume(amount > 0 && amount < type(uint128).max);
         vm.assume(tokenId > 0 && tokenId < type(uint64).max);
+        // Exclude contracts that might not implement ERC1155Receiver
+        vm.assume(to.code.length == 0);
 
         vm.prank(minter);
         tokens.mint(to, tokenId, amount, "");
