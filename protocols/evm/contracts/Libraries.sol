@@ -8,13 +8,30 @@ error VehicleLib__InvalidModel();
 error VehicleLib__InvalidYear();
 error VehicleLib__EmptyMetadataURI();
 
+// Collateral-specific errors
+error CollateralLib__InsufficientCollateral();
+error CollateralLib__InvalidCollateralAmount();
+error CollateralLib__CollateralAlreadyLocked();
+error CollateralLib__NoCollateralLocked();
+
 /**
- * @dev Protocol utilities for IPFS validation
+ * @dev Protocol utilities and constants
  */
 library ProtocolLib {
     // IPFS validation constants
     uint256 internal constant IPFS_HASH_LENGTH = 46; // "Qm" + 44 chars
     string internal constant IPFS_PREFIX = "ipfs://";
+    
+    // Time intervals
+    uint256 internal constant MIN_EVENT_INTERVAL = 15 days;
+    uint256 internal constant QUARTERLY_INTERVAL = 90 days;
+    uint256 internal constant YEARLY_INTERVAL = 365 days;
+    
+    // Protocol economic constants (basis points)
+    uint256 internal constant BP_PRECISION = 10000;
+    uint256 internal constant MIN_EARNINGS_BUFFER_BP = 1000; // 10%
+    uint256 internal constant MIN_PROTOCOL_BUFFER_BP = 500; // 5%
+    uint256 internal constant PROTOCOL_FEE_BP = 250; // 2.5%
 
     /**
      * @dev Validate IPFS URI format
@@ -38,6 +55,15 @@ library ProtocolLib {
         }
 
         return true;
+    }
+
+    /**
+     * @dev Calculate protocol fee
+     * @param amount Amount to calculate fee on
+     * @return Protocol fee amount
+     */
+    function calculateProtocolFee(uint256 amount) internal pure returns (uint256) {
+        return (amount * PROTOCOL_FEE_BP) / BP_PRECISION;
     }
 }
 
@@ -147,5 +173,126 @@ library VehicleLib {
             value /= 10;
         }
         return string(buffer);
+    }
+}
+
+/**
+ * @dev Collateral management library for USDC-based collateral operations
+ */
+library CollateralLib {
+    using ProtocolLib for uint256;
+
+    /**
+     * @dev Collateral information for vehicles with time-based calculations
+     */
+    struct CollateralInfo {
+        uint256 baseCollateral; // Base collateral amount in USDC
+        uint256 totalCollateral; // Total required collateral in USDC
+        bool isLocked; // Whether collateral is currently locked
+        uint256 lockedAt; // Timestamp when collateral was locked
+        uint256 lastEventTimestamp; // Last collateral event timestamp
+        uint256 createdAt; // When collateral info was initialized
+    }
+
+    /**
+     * @dev Initialize collateral info for a vehicle
+     * @param info Collateral info storage reference
+     * @param revenueTokenPrice Price per revenue share token in USDC
+     * @param totalRevenueTokens Total number of revenue share tokens
+     * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
+     */
+    function initializeCollateralInfo(
+        CollateralInfo storage info,
+        uint256 revenueTokenPrice,
+        uint256 totalRevenueTokens,
+        uint256 bufferTimeInterval
+    ) internal {
+        if (revenueTokenPrice == 0 || totalRevenueTokens == 0) {
+            revert CollateralLib__InvalidCollateralAmount();
+        }
+
+        info.baseCollateral = revenueTokenPrice * totalRevenueTokens;
+        info.totalCollateral = calculateCollateralRequirement(revenueTokenPrice, totalRevenueTokens, bufferTimeInterval);
+        info.isLocked = false;
+        info.lockedAt = 0;
+        info.lastEventTimestamp = block.timestamp;
+        info.createdAt = block.timestamp;
+    }
+
+    /**
+     * @dev Calculate total collateral requirement using time-based buffer calculations
+     * Buffers represent specified time period of expected earnings for investor protection
+     * @param revenueTokenPrice Price per revenue share token in USDC
+     * @param totalRevenueTokens Total number of revenue share tokens
+     * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
+     * @return Total collateral requirement in USDC
+     */
+    function calculateCollateralRequirement(
+        uint256 revenueTokenPrice,
+        uint256 totalRevenueTokens,
+        uint256 bufferTimeInterval
+    ) internal pure returns (uint256) {
+        uint256 baseAmount = revenueTokenPrice * totalRevenueTokens;
+        
+        // Calculate expected earnings for the specified time interval
+        uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
+        
+        // Calculate buffers for investor protection over the time interval
+        uint256 earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        uint256 protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        
+        return baseAmount + earningsBuffer + protocolBuffer;
+    }
+
+    /**
+     * @dev Check if collateral info is properly initialized
+     * @param info Collateral info to check
+     * @return True if initialized
+     */
+    function isInitialized(CollateralInfo storage info) internal view returns (bool) {
+        return info.totalCollateral > 0;
+    }
+
+    /**
+     * @dev Get collateral lock duration
+     * @param info Collateral info storage reference
+     * @return Duration in seconds since lock
+     */
+    function getLockDuration(CollateralInfo storage info) internal view returns (uint256) {
+        if (!info.isLocked || info.lockedAt == 0) {
+            return 0;
+        }
+        return block.timestamp - info.lockedAt;
+    }
+
+    /**
+     * @dev Get collateral breakdown for display
+     * @param revenueTokenPrice Price per revenue share token in USDC
+     * @param totalRevenueTokens Total number of revenue share tokens
+     * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
+     * @return baseAmount Base collateral amount
+     * @return earningsBuffer Earnings buffer amount
+     * @return protocolBuffer Protocol buffer amount
+     * @return totalRequired Total collateral required
+     */
+    function getCollateralBreakdown(
+        uint256 revenueTokenPrice,
+        uint256 totalRevenueTokens,
+        uint256 bufferTimeInterval
+    ) internal pure returns (
+        uint256 baseAmount,
+        uint256 earningsBuffer,
+        uint256 protocolBuffer,
+        uint256 totalRequired
+    ) {
+        baseAmount = revenueTokenPrice * totalRevenueTokens;
+        
+        // Calculate expected earnings for the specified time interval
+        uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
+        
+        // Calculate time-based buffers
+        earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        totalRequired = baseAmount + earningsBuffer + protocolBuffer;
     }
 }
