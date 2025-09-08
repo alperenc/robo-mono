@@ -10,11 +10,11 @@ contract LibrariesTest is Test {
     using ProtocolLib for string;
 
     VehicleLib.Vehicle internal testVehicle;
-    
+
     string constant VALID_IPFS_URI = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
     string constant INVALID_IPFS_URI_SHORT = "ipfs://Qm123";
     string constant INVALID_IPFS_URI_NO_PREFIX = "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
-    
+
     string constant TEST_VIN = "1HGCM82633A004352";
     string constant TEST_MAKE = "Tesla";
     string constant TEST_MODEL = "Model S";
@@ -30,7 +30,7 @@ contract LibrariesTest is Test {
     }
 
     // ProtocolLib Tests
-    
+
     function testValidIPFSURI() public {
         assertTrue(ProtocolLib.isValidIPFSURI(VALID_IPFS_URI));
     }
@@ -48,11 +48,15 @@ contract LibrariesTest is Test {
     }
 
     function testInvalidIPFSURIWrongPrefix() public {
-        assertFalse(ProtocolLib.isValidIPFSURI("https://gateway.pinata.cloud/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"));
+        assertFalse(
+            ProtocolLib.isValidIPFSURI(
+                "https://gateway.pinata.cloud/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"
+            )
+        );
     }
 
     // VehicleLib Tests
-    
+
     function testInitializeVehicleInfo() public {
         VehicleLib.initializeVehicleInfo(
             testVehicle.vehicleInfo,
@@ -188,7 +192,7 @@ contract LibrariesTest is Test {
 
         string memory newURI = "ipfs://QmNewHashForUpdatedMetadata123456789012345";
         VehicleLib.updateDynamicMetadata(testVehicle.vehicleInfo, newURI);
-        
+
         assertEq(testVehicle.vehicleInfo.dynamicMetadataURI, newURI);
     }
 
@@ -227,10 +231,10 @@ contract LibrariesTest is Test {
     }
 
     // Fuzz Tests
-    
+
     function testFuzzValidVIN(string calldata vin) public {
         vm.assume(bytes(vin).length >= 10 && bytes(vin).length <= 17);
-        
+
         VehicleLib.initializeVehicleInfo(
             testVehicle.vehicleInfo,
             vin,
@@ -241,14 +245,14 @@ contract LibrariesTest is Test {
             TEST_OPTION_CODES,
             VALID_IPFS_URI
         );
-        
+
         assertEq(testVehicle.vehicleInfo.vin, vin);
     }
 
     function testFuzzValidYear(uint256 year) public {
         uint256 maxYear = 1970 + (block.timestamp / 365 days) + 2;
         vm.assume(year >= 1990 && year <= maxYear);
-        
+
         VehicleLib.initializeVehicleInfo(
             testVehicle.vehicleInfo,
             TEST_VIN,
@@ -259,18 +263,18 @@ contract LibrariesTest is Test {
             TEST_OPTION_CODES,
             VALID_IPFS_URI
         );
-        
+
         assertEq(testVehicle.vehicleInfo.year, year);
     }
 
     function testFuzzIPFSValidation(string calldata uri) public {
         bool isValid = ProtocolLib.isValidIPFSURI(uri);
         bytes memory uriBytes = bytes(uri);
-        
+
         if (isValid) {
             // If marked as valid, should have proper prefix and length
             assertTrue(uriBytes.length >= 53); // "ipfs://" (7) + 46 chars minimum
-            
+
             // Check prefix
             bytes memory prefix = bytes("ipfs://");
             for (uint256 i = 0; i < prefix.length; i++) {
@@ -280,10 +284,10 @@ contract LibrariesTest is Test {
     }
 
     // Edge Cases
-    
+
     function testMinimumValidVIN() public {
         string memory minVIN = "1234567890"; // 10 chars - minimum
-        
+
         VehicleLib.initializeVehicleInfo(
             testVehicle.vehicleInfo,
             minVIN,
@@ -294,13 +298,13 @@ contract LibrariesTest is Test {
             TEST_OPTION_CODES,
             VALID_IPFS_URI
         );
-        
+
         assertEq(testVehicle.vehicleInfo.vin, minVIN);
     }
 
     function testMaximumValidVIN() public {
         string memory maxVIN = "12345678901234567"; // 17 chars - maximum
-        
+
         VehicleLib.initializeVehicleInfo(
             testVehicle.vehicleInfo,
             maxVIN,
@@ -311,13 +315,13 @@ contract LibrariesTest is Test {
             TEST_OPTION_CODES,
             VALID_IPFS_URI
         );
-        
+
         assertEq(testVehicle.vehicleInfo.vin, maxVIN);
     }
 
     function testCurrentYear() public {
         uint256 currentYear = 1970 + (block.timestamp / 365 days);
-        
+
         VehicleLib.initializeVehicleInfo(
             testVehicle.vehicleInfo,
             TEST_VIN,
@@ -328,7 +332,7 @@ contract LibrariesTest is Test {
             TEST_OPTION_CODES,
             VALID_IPFS_URI
         );
-        
+
         assertEq(testVehicle.vehicleInfo.year, currentYear);
     }
 }
