@@ -19,18 +19,23 @@ contract DeployScript is ScaffoldETHDeploy {
         
         // 1. Deploy base token contract (no dependencies)
         DeployRoboshareTokens deployTokens = new DeployRoboshareTokens();
-        deployTokens.run();
+        address roboshareTokensProxy = deployTokens.run();
 
         // 2. Deploy partner manager (no dependencies) 
         DeployPartnerManager deployPartnerManager = new DeployPartnerManager();
-        deployPartnerManager.run();
+        address partnerManagerProxy = deployPartnerManager.run();
 
         // 3. Deploy vehicle registry (depends on tokens + partner manager)
         DeployVehicleRegistry deployVehicleRegistry = new DeployVehicleRegistry();
-        deployVehicleRegistry.run();
+        address vehicleRegistryProxy = deployVehicleRegistry.run(roboshareTokensProxy, partnerManagerProxy);
 
         // 4. Deploy treasury (depends on vehicle registry + partner manager)
+        // For local testing, we'll use a mock USDC address (zero address will be caught by validation)
+        // In production, this should be the actual USDC contract address
+        address usdcAddress = address(0x1234567890123456789012345678901234567890); // Mock USDC for local testing
+        address adminAddress = msg.sender; // Use deployer as admin for local testing
+        
         DeployTreasury deployTreasury = new DeployTreasury();
-        deployTreasury.run();
+        deployTreasury.run(partnerManagerProxy, vehicleRegistryProxy, usdcAddress, adminAddress);
     }
 }

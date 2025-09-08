@@ -6,27 +6,69 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
 const deployedContracts = {
   31337: {
-    YourContract: {
+    RoboshareTokens: {
       address: "0x700b6a60ce7eaaea56f065753d8dcb9653dbad35",
       abi: [
         {
           type: "constructor",
-          inputs: [
-            {
-              name: "_owner",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+          inputs: [],
           stateMutability: "nonpayable",
         },
         {
-          type: "receive",
-          stateMutability: "payable",
+          type: "function",
+          name: "BURNER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
         },
         {
           type: "function",
-          name: "greeting",
+          name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "MINTER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADE_INTERFACE_VERSION",
           inputs: [],
           outputs: [
             {
@@ -39,21 +81,176 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "owner",
-          inputs: [],
+          name: "balanceOf",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           outputs: [
             {
               name: "",
-              type: "address",
-              internalType: "address",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           stateMutability: "view",
         },
         {
           type: "function",
-          name: "premium",
+          name: "balanceOfBatch",
+          inputs: [
+            {
+              name: "accounts",
+              type: "address[]",
+              internalType: "address[]",
+            },
+            {
+              name: "ids",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "burn",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "burnBatch",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "ids",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "amounts",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getAndIncrementTokenId",
           inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getNextTokenId",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
           outputs: [
             {
               name: "",
@@ -65,36 +262,28 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "setGreeting",
+          name: "initialize",
           inputs: [
             {
-              name: "_newGreeting",
-              type: "string",
-              internalType: "string",
+              name: "defaultAdmin",
+              type: "address",
+              internalType: "address",
             },
           ],
           outputs: [],
-          stateMutability: "payable",
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
-          name: "totalCounter",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "userGreetingCounter",
+          name: "isApprovedForAll",
           inputs: [
             {
-              name: "",
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "operator",
               type: "address",
               internalType: "address",
             },
@@ -102,40 +291,575 @@ const deployedContracts = {
           outputs: [
             {
               name: "",
-              type: "uint256",
-              internalType: "uint256",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           stateMutability: "view",
         },
         {
           type: "function",
-          name: "withdraw",
-          inputs: [],
+          name: "mint",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
           outputs: [],
           stateMutability: "nonpayable",
         },
         {
-          type: "event",
-          name: "GreetingChange",
+          type: "function",
+          name: "mintBatch",
           inputs: [
             {
-              name: "greetingSetter",
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "ids",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "amounts",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "onERC1155BatchReceived",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "onERC1155Received",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "proxiableUUID",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "safeBatchTransferFrom",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "ids",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "values",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "safeTransferFrom",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "setApprovalForAll",
+          inputs: [
+            {
+              name: "operator",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "approved",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "setURI",
+          inputs: [
+            {
+              name: "newuri",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          inputs: [
+            {
+              name: "newImplementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "uri",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "ApprovalForAll",
+          inputs: [
+            {
+              name: "account",
               type: "address",
               indexed: true,
               internalType: "address",
             },
             {
-              name: "newGreeting",
-              type: "string",
-              indexed: false,
-              internalType: "string",
+              name: "operator",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
             {
-              name: "premium",
+              name: "approved",
               type: "bool",
               indexed: false,
               internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "BatchTokensMinted",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "ids",
+              type: "uint256[]",
+              indexed: false,
+              internalType: "uint256[]",
+            },
+            {
+              name: "amounts",
+              type: "uint256[]",
+              indexed: false,
+              internalType: "uint256[]",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Initialized",
+          inputs: [
+            {
+              name: "version",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleAdminChanged",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "previousAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "newAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TokensBurned",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TransferBatch",
+          inputs: [
+            {
+              name: "operator",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "ids",
+              type: "uint256[]",
+              indexed: false,
+              internalType: "uint256[]",
+            },
+            {
+              name: "values",
+              type: "uint256[]",
+              indexed: false,
+              internalType: "uint256[]",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TransferSingle",
+          inputs: [
+            {
+              name: "operator",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
             {
               name: "value",
@@ -146,9 +870,2787 @@ const deployedContracts = {
           ],
           anonymous: false,
         },
+        {
+          type: "event",
+          name: "URI",
+          inputs: [
+            {
+              name: "value",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+            {
+              name: "id",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155InsufficientBalance",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "balance",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "needed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155InvalidApprover",
+          inputs: [
+            {
+              name: "approver",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155InvalidArrayLength",
+          inputs: [
+            {
+              name: "idsLength",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "valuesLength",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155InvalidOperator",
+          inputs: [
+            {
+              name: "operator",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155InvalidReceiver",
+          inputs: [
+            {
+              name: "receiver",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155InvalidSender",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1155MissingApprovalForAll",
+          inputs: [
+            {
+              name: "operator",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "owner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnauthorizedCallContext",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnsupportedProxiableUUID",
+          inputs: [
+            {
+              name: "slot",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1752331439.json",
+      deploymentFile: "run-1757334590.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    ERC1967Proxy: {
+      address: "0xa15bb66138824a1c7167f5e85b957d04dd34e468",
+      abi: [
+        {
+          type: "constructor",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "fallback",
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1757334590.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    PartnerManager: {
+      address: "0xb19b36b1456e65e3a6d514d3f715f204bd59f431",
+      abi: [
+        {
+          type: "constructor",
+          inputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "PARTNER_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADE_INTERFACE_VERSION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "authorizePartner",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getAllPartners",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address[]",
+              internalType: "address[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPartnerCount",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPartnerInfo",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "registrationTime",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isAuthorized",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPartnerName",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPartnerRegistrationTime",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "initialize",
+          inputs: [
+            {
+              name: "defaultAdmin",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "isAuthorizedPartner",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "proxiableUUID",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokePartner",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "updatePartnerName",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "newName",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          inputs: [
+            {
+              name: "newImplementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "Initialized",
+          inputs: [
+            {
+              name: "version",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PartnerAuthorized",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "name",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PartnerNameUpdated",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newName",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PartnerRevoked",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleAdminChanged",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "previousAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "newAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PartnerManager__AlreadyAuthorized",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PartnerManager__EmptyName",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PartnerManager__NotAuthorized",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PartnerManager__ZeroAddress",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnauthorizedCallContext",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnsupportedProxiableUUID",
+          inputs: [
+            {
+              name: "slot",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1757334590.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    VehicleRegistry: {
+      address: "0xe1aa25618fa0c7a1cfdab5d6b456af611873b629",
+      abi: [
+        {
+          type: "function",
+          name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADE_INTERFACE_VERSION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getCurrentTokenId",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRevenueShareTokenIdFromVehicleId",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getVehicleDisplayName",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getVehicleIdFromRevenueShareTokenId",
+          inputs: [
+            {
+              name: "revenueShareTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getVehicleInfo",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "vin",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "make",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "model",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "year",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "manufacturerId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "optionCodes",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "dynamicMetadataURI",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "initialize",
+          inputs: [
+            {
+              name: "_admin",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_partnerManager",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "mintRevenueShareTokens",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "revenueShareTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "partnerManager",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract PartnerManager",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "proxiableUUID",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "registerVehicle",
+          inputs: [
+            {
+              name: "owner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "vin",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "make",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "model",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "year",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "manufacturerId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "optionCodes",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "dynamicMetadataURI",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "registerVehicleAndMintRevenueShareTokens",
+          inputs: [
+            {
+              name: "vehicleOwner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "vin",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "make",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "model",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "year",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "manufacturerId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "optionCodes",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "dynamicMetadataURI",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "revenueShareSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueShareTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "roboshareTokens",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RoboshareTokens",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "updateVehicleMetadata",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "newMetadataURI",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          inputs: [
+            {
+              name: "newImplementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "vehicleExists",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "vehicles",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isActive",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "createdAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "vehicleInfo",
+              type: "tuple",
+              internalType: "struct VehicleLib.VehicleInfo",
+              components: [
+                {
+                  name: "vin",
+                  type: "string",
+                  internalType: "string",
+                },
+                {
+                  name: "make",
+                  type: "string",
+                  internalType: "string",
+                },
+                {
+                  name: "model",
+                  type: "string",
+                  internalType: "string",
+                },
+                {
+                  name: "year",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "manufacturerId",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "optionCodes",
+                  type: "string",
+                  internalType: "string",
+                },
+                {
+                  name: "dynamicMetadataURI",
+                  type: "string",
+                  internalType: "string",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "vinExists",
+          inputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "Initialized",
+          inputs: [
+            {
+              name: "version",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RevenueShareTokensMinted",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "revenueShareTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "totalSupply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleAdminChanged",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "previousAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "newAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "VehicleAndRevenueShareTokensMinted",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "revenueShareTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "vehicleOwner",
+              type: "address",
+              indexed: false,
+              internalType: "address",
+            },
+            {
+              name: "revenueShareSupply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "VehicleMetadataUpdated",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "newMetadataURI",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "VehicleRegistered",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "vin",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+            {
+              name: "owner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PartnerManager__NotAuthorized",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnauthorizedCallContext",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnsupportedProxiableUUID",
+          inputs: [
+            {
+              name: "slot",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "VehicleLib__EmptyMetadataURI",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleLib__InvalidMake",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleLib__InvalidModel",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleLib__InvalidVINLength",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleLib__InvalidYear",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__IncorrectRevenueShareTokenId",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__IncorrectVehicleId",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__VehicleAlreadyExists",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__VehicleDoesNotExist",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__ZeroAddress",
+          inputs: [],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1757334590.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    Treasury: {
+      address: "0x0c8e79f3534b00d9a3d4a856b665bf4ebc22f2ba",
+      abi: [
+        {
+          type: "function",
+          name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "TREASURER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADE_INTERFACE_VERSION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getCollateralBreakdown",
+          inputs: [
+            {
+              name: "revenueTokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalRevenueTokens",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "baseAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "earningsBuffer",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolBuffer",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalRequired",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getCollateralRequirement",
+          inputs: [
+            {
+              name: "revenueTokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalRevenueTokens",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getPendingWithdrawal",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getTreasuryStats",
+          inputs: [],
+          outputs: [
+            {
+              name: "totalDeposited",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "treasuryBalance",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getVehicleCollateralInfo",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "baseCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isLocked",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "lockedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "lockDuration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "initialize",
+          inputs: [
+            {
+              name: "_admin",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_partnerManager",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_vehicleRegistry",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_usdc",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "lockCollateral",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueTokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalRevenueTokens",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "partnerManager",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract PartnerManager",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "pendingWithdrawals",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "processWithdrawal",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "proxiableUUID",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalCollateralDeposited",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "unlockCollateral",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updatePartnerManager",
+          inputs: [
+            {
+              name: "_partnerManager",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateUSDC",
+          inputs: [
+            {
+              name: "_usdc",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateVehicleRegistry",
+          inputs: [
+            {
+              name: "_vehicleRegistry",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          inputs: [
+            {
+              name: "newImplementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "usdc",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract IERC20",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "vehicleCollateral",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "baseCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isLocked",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "lockedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "lastEventTimestamp",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "createdAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "vehicleRegistry",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract VehicleRegistry",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "CollateralLocked",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "CollateralUnlocked",
+          inputs: [
+            {
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Initialized",
+          inputs: [
+            {
+              name: "version",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleAdminChanged",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "previousAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "newAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawalProcessed",
+          inputs: [
+            {
+              name: "recipient",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "CollateralLib__InvalidCollateralAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ReentrancyGuardReentrantCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SafeERC20FailedOperation",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "Treasury__CollateralAlreadyLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__InsufficientCollateral",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoCollateralLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__UnauthorizedPartner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__VehicleNotFound",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__ZeroAddressNotAllowed",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnauthorizedCallContext",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnsupportedProxiableUUID",
+          inputs: [
+            {
+              name: "slot",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1757334590.json",
       deploymentScript: "Deploy.s.sol",
     },
   },
