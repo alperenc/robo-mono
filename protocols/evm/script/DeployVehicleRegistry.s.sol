@@ -11,8 +11,11 @@ contract DeployVehicleRegistry is Script {
      * @dev Deploy VehicleRegistry with dependency addresses as parameters
      * Usage: forge script DeployVehicleRegistry --sig "run(address,address)" $TOKENS_ADDR $PARTNER_ADDR
      */
-    function run(address roboshareTokensAddress, address partnerManagerAddress) external returns (address) {
-        address deployer = msg.sender;
+    function run(address roboshareTokensAddress, address partnerManagerAddress, address deployerAddress)
+        external
+        returns (address)
+    {
+        address deployer = deployerAddress;
 
         console.log("Deploying VehicleRegistry with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
@@ -23,8 +26,6 @@ contract DeployVehicleRegistry is Script {
         // Validate dependency addresses
         require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
         require(partnerManagerAddress != address(0), "PartnerManager address cannot be zero");
-
-        vm.startBroadcast();
 
         // Deploy implementation contract
         VehicleRegistry vehicleImplementation = new VehicleRegistry();
@@ -50,8 +51,6 @@ contract DeployVehicleRegistry is Script {
         console.log("RoboshareTokens reference:", address(vehicleRegistry.roboshareTokens()));
         console.log("PartnerManager reference:", address(vehicleRegistry.partnerManager()));
         console.log("Initial token counter:", vehicleRegistry.getCurrentTokenId());
-
-        vm.stopBroadcast();
 
         // Log deployment summary
         console.log("=== Deployment Summary ===");

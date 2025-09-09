@@ -12,12 +12,12 @@ contract DeployTreasury is Script {
      * Usage: forge script DeployTreasury --sig "run(address,address,address,address)" $PARTNER_MANAGER_ADDR $VEHICLE_REGISTRY_ADDR $USDC_ADDR $ADMIN_ADDR
      */
     function run(
-        address partnerManagerAddress, 
+        address partnerManagerAddress,
         address vehicleRegistryAddress,
         address usdcAddress,
         address adminAddress
     ) external returns (address) {
-        address deployer = msg.sender;
+        address deployer = adminAddress; // Use admin as deployer for logging consistency
 
         console.log("Deploying Treasury with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
@@ -33,17 +33,15 @@ contract DeployTreasury is Script {
         require(usdcAddress != address(0), "USDC address cannot be zero");
         require(adminAddress != address(0), "Admin address cannot be zero");
 
-        vm.startBroadcast();
-
         // Deploy implementation contract
         Treasury treasuryImplementation = new Treasury();
         console.log("Treasury implementation deployed at:", address(treasuryImplementation));
 
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSignature(
-            "initialize(address,address,address,address)", 
+            "initialize(address,address,address,address)",
             adminAddress,
-            partnerManagerAddress, 
+            partnerManagerAddress,
             vehicleRegistryAddress,
             usdcAddress
         );
@@ -63,8 +61,6 @@ contract DeployTreasury is Script {
         console.log("VehicleRegistry reference:", address(treasury.vehicleRegistry()));
         console.log("USDC reference:", address(treasury.usdc()));
         console.log("Total collateral deposited:", treasury.totalCollateralDeposited());
-
-        vm.stopBroadcast();
 
         // Log deployment summary
         console.log("=== Treasury Deployment Summary ===");

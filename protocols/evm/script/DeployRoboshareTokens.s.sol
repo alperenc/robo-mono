@@ -7,13 +7,11 @@ import "../contracts/RoboshareTokens.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployRoboshareTokens is Script {
-    function run() external returns (address) {
-        address deployer = msg.sender;
+    function run(address deployerAddress) external returns (address) {
+        address deployer = deployerAddress;
 
         console.log("Deploying RoboshareTokens with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
-
-        vm.startBroadcast();
 
         // Deploy implementation contract
         RoboshareTokens tokenImplementation = new RoboshareTokens();
@@ -34,8 +32,6 @@ contract DeployRoboshareTokens is Script {
         console.log("Admin has MINTER_ROLE:", tokens.hasRole(keccak256("MINTER_ROLE"), deployer));
         console.log("Admin has BURNER_ROLE:", tokens.hasRole(keccak256("BURNER_ROLE"), deployer));
         console.log("Next token ID:", tokens.getNextTokenId());
-
-        vm.stopBroadcast();
 
         // Log deployment summary
         console.log("=== Deployment Summary ===");
