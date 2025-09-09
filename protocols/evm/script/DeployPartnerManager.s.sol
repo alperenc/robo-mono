@@ -7,13 +7,11 @@ import "../contracts/PartnerManager.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployPartnerManager is Script {
-    function run() external returns (address) {
-        address deployer = msg.sender;
+    function run(address deployerAddress) external returns (address) {
+        address deployer = deployerAddress;
 
         console.log("Deploying PartnerManager with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
-
-        vm.startBroadcast();
 
         // Deploy implementation contract
         PartnerManager partnerImplementation = new PartnerManager();
@@ -36,8 +34,6 @@ contract DeployPartnerManager is Script {
         console.log("Admin has PARTNER_ADMIN_ROLE:", partnerManager.hasRole(keccak256("PARTNER_ADMIN_ROLE"), deployer));
         console.log("Admin has UPGRADER_ROLE:", partnerManager.hasRole(keccak256("UPGRADER_ROLE"), deployer));
         console.log("Initial partner count:", partnerManager.getPartnerCount());
-
-        vm.stopBroadcast();
 
         // Log deployment summary
         console.log("=== Deployment Summary ===");

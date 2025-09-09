@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     RoboshareTokens: {
-      address: "0x700b6a60ce7eaaea56f065753d8dcb9653dbad35",
+      address: "0x7f65d50b2915d5b2ca6cbb879cd5fe940fd44b86",
       abi: [
         {
           type: "constructor",
@@ -1085,84 +1085,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757334590.json",
-      deploymentScript: "Deploy.s.sol",
-    },
-    ERC1967Proxy: {
-      address: "0xa15bb66138824a1c7167f5e85b957d04dd34e468",
-      abi: [
-        {
-          type: "constructor",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_data",
-              type: "bytes",
-              internalType: "bytes",
-            },
-          ],
-          stateMutability: "payable",
-        },
-        {
-          type: "fallback",
-          stateMutability: "payable",
-        },
-        {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
-            {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
-        },
-      ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1757334590.json",
+      deploymentFile: "run-1757356925.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
-      address: "0xb19b36b1456e65e3a6d514d3f715f204bd59f431",
+      address: "0x9ea2f17f8e53d15c6828c2d99651b1ffe9b16e0e",
       abi: [
         {
           type: "constructor",
@@ -1795,11 +1722,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757334590.json",
+      deploymentFile: "run-1757356925.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
-      address: "0xe1aa25618fa0c7a1cfdab5d6b456af611873b629",
+      address: "0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d",
       abi: [
         {
           type: "function",
@@ -2779,11 +2706,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757334590.json",
+      deploymentFile: "run-1757356925.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
-      address: "0x0c8e79f3534b00d9a3d4a856b665bf4ebc22f2ba",
+      address: "0xc84678cbf0ce9cc53a1cb54c92eafe7ce0350e0a",
       abi: [
         {
           type: "function",
@@ -3650,7 +3577,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757334590.json",
+      deploymentFile: "run-1757356925.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

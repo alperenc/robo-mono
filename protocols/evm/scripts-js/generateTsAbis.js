@@ -69,18 +69,45 @@ function getDeploymentHistory(broadcastPath) {
 
     for (const tx of transactions) {
       if (tx.transactionType === "CREATE") {
-        // Store or update contract deployment info
+        // Handle deployment script contracts
         deploymentHistory.set(tx.contractAddress, {
           contractName: tx.contractName,
           address: tx.contractAddress,
           deploymentFile: file,
           transaction: tx,
         });
+      } else if (tx.transactionType === "CALL" && tx.additionalContracts) {
+        // Handle implementation contracts deployed by deployment scripts
+        for (const additionalContract of tx.additionalContracts) {
+          if (additionalContract.transactionType === "CREATE") {
+            // Map deployment script names to actual contract names
+            let actualContractName = mapDeploymentScriptToContract(tx.contractName);
+            if (actualContractName) {
+              deploymentHistory.set(additionalContract.address, {
+                contractName: actualContractName,
+                address: additionalContract.address,
+                deploymentFile: file,
+                transaction: additionalContract,
+                deploymentScript: tx.contractName,
+              });
+            }
+          }
+        }
       }
     }
   }
 
   return Array.from(deploymentHistory.values());
+}
+
+function mapDeploymentScriptToContract(deploymentScriptName) {
+  const mapping = {
+    "DeployRoboshareTokens": "RoboshareTokens",
+    "DeployPartnerManager": "PartnerManager", 
+    "DeployVehicleRegistry": "VehicleRegistry",
+    "DeployTreasury": "Treasury",
+  };
+  return mapping[deploymentScriptName];
 }
 
 function getArtifactOfContract(contractName) {
@@ -135,9 +162,26 @@ function getInheritedFunctions(mainArtifact) {
   return inheritedFunctions;
 }
 
+function getProxyMapping(chainId) {
+  // Hardcoded proxy mappings from chain analysis
+  // Implementation -> Proxy address mappings for upgradeable contracts
+  const proxyMapping = new Map();
+  
+  if (chainId === '31337') {
+    // Local development mappings
+    proxyMapping.set('0xa44b9f3f5bb8c278c1ee85d8f32517c6efa64b0d', '0x7f65d50b2915d5b2ca6cbb879cd5fe940fd44b86'); // RoboshareTokens
+    proxyMapping.set('0x21db43cdd6fbd4998ff67af132f953747bfacb97', '0x9ea2f17f8e53d15c6828c2d99651b1ffe9b16e0e'); // PartnerManager
+    proxyMapping.set('0x58fff7cf21aecd9d4b500e5490b10b07b9553e89', '0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d'); // VehicleRegistry
+    proxyMapping.set('0xc05e24398c12b31ee2626ab1b9708aacd287082f', '0xc84678cbf0ce9cc53a1cb54c92eafe7ce0350e0a'); // Treasury
+  }
+  
+  return proxyMapping;
+}
+
 function processAllDeployments(broadcastPath) {
   const scriptFolders = getDirectories(broadcastPath);
   const allDeployments = new Map();
+  const proxyMapping = getProxyMapping('31337');
 
   scriptFolders.forEach((scriptFolder) => {
     const scriptPath = join(broadcastPath, scriptFolder);
@@ -158,8 +202,13 @@ function processAllDeployments(broadcastPath) {
           !allDeployments.has(key) ||
           timestamp > allDeployments.get(key).timestamp
         ) {
+          // Use proxy address if available, otherwise use implementation address
+          const finalAddress = proxyMapping.get(deployment.address) || deployment.address;
+          
           allDeployments.set(key, {
             ...deployment,
+            address: finalAddress,
+            implementationAddress: deployment.address,
             timestamp,
             chainId,
             deploymentScript: scriptFolder,
@@ -181,7 +230,7 @@ function processAllDeployments(broadcastPath) {
       }
 
       allContracts[chainId][contractName] = {
-        address: deployment.address,
+        address: deployment.address, // This is now the proxy address
         abi: artifact.abi,
         inheritedFunctions: getInheritedFunctions(artifact),
         deploymentFile: deployment.deploymentFile,
