@@ -89,7 +89,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Register vehicle and mint NFT token
      */
     function registerVehicle(
-        address owner,
         string memory vin,
         string memory make,
         string memory model,
@@ -98,14 +97,18 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         string memory optionCodes,
         string memory dynamicMetadataURI
     ) external onlyAuthorizedPartner returns (uint256 vehicleId) {
-        return _registerVehicle(owner, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        vehicleId = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        
+        // Mint vehicle NFT token to partner
+        roboshareTokens.mint(msg.sender, vehicleId, 1, "");
+        
+        return vehicleId;
     }
 
     /**
-     * @dev Internal function to register vehicle and mint NFT token
+     * @dev Internal function to register vehicle data only
      */
     function _registerVehicle(
-        address owner,
         string memory vin,
         string memory make,
         string memory model,
@@ -114,7 +117,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         string memory optionCodes,
         string memory dynamicMetadataURI
     ) internal returns (uint256 vehicleId) {
-        if (owner == address(0)) revert VehicleRegistry__ZeroAddress();
         if (vinExists[vin]) revert VehicleRegistry__VehicleAlreadyExists();
 
         // Get current token ID (always odd for vehicles)
@@ -135,10 +137,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Mark VIN as used
         vinExists[vin] = true;
 
-        // Mint vehicle NFT token
-        roboshareTokens.mint(owner, vehicleId, 1, "");
-
-        emit VehicleRegistered(vehicleId, msg.sender, vin, owner);
+        emit VehicleRegistered(vehicleId, msg.sender, vin, msg.sender);
 
         return vehicleId;
     }
@@ -170,7 +169,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Register vehicle and mint both NFT and revenue share tokens in one transaction
      */
     function registerVehicleAndMintRevenueShareTokens(
-        address vehicleOwner,
         string memory vin,
         string memory make,
         string memory model,
@@ -181,16 +179,25 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 revenueShareSupply
     ) external onlyAuthorizedPartner returns (uint256 vehicleId, uint256 revenueShareTokenId) {
         // Register vehicle and get vehicle ID
-        vehicleId = _registerVehicle(vehicleOwner, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        vehicleId = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
 
         // Calculate revenue share token ID (vehicleId + 1)
         revenueShareTokenId = getRevenueShareTokenIdFromVehicleId(vehicleId);
 
-        // Mint revenue share tokens to partner
-        roboshareTokens.mint(msg.sender, revenueShareTokenId, revenueShareSupply, "");
+        // Batch mint both vehicle NFT and revenue share tokens
+        uint256[] memory tokenIds = new uint256[](2);
+        uint256[] memory amounts = new uint256[](2);
+        
+        tokenIds[0] = vehicleId;
+        amounts[0] = 1; // Single vehicle NFT
+        
+        tokenIds[1] = revenueShareTokenId;
+        amounts[1] = revenueShareSupply; // Revenue share tokens
+        
+        roboshareTokens.mintBatch(msg.sender, tokenIds, amounts, "");
 
         emit VehicleAndRevenueShareTokensMinted(
-            vehicleId, revenueShareTokenId, msg.sender, vehicleOwner, revenueShareSupply
+            vehicleId, revenueShareTokenId, msg.sender, msg.sender, revenueShareSupply
         );
 
         return (vehicleId, revenueShareTokenId);

@@ -1726,7 +1726,7 @@ const deployedContracts = {
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
-      address: "0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d",
+      address: "0x2a264f26859166c5bf3868a54593ee716aebc848",
       abi: [
         {
           type: "function",
@@ -2025,11 +2025,6 @@ const deployedContracts = {
           name: "registerVehicle",
           inputs: [
             {
-              name: "owner",
-              type: "address",
-              internalType: "address",
-            },
-            {
               name: "vin",
               type: "string",
               internalType: "string",
@@ -2078,11 +2073,6 @@ const deployedContracts = {
           type: "function",
           name: "registerVehicleAndMintRevenueShareTokens",
           inputs: [
-            {
-              name: "vehicleOwner",
-              type: "address",
-              internalType: "address",
-            },
             {
               name: "vin",
               type: "string",
@@ -2706,8 +2696,8 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757356925.json",
-      deploymentScript: "Deploy.s.sol",
+      deploymentFile: "run-1757512456.json",
+      deploymentScript: "UpgradeVehicleRegistry.s.sol",
     },
     Treasury: {
       address: "0xc84678cbf0ce9cc53a1cb54c92eafe7ce0350e0a",
