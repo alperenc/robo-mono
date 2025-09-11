@@ -11,7 +11,7 @@ import "../contracts/Treasury.sol";
 import "../contracts/Libraries.sol";
 import "../script/DeployHelpers.s.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract MarketplaceTest is Test {
     Marketplace public marketplace;
