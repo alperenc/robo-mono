@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Script, console } from "forge-std/Script.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { ERC20Mock } from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 
 contract ScaffoldETHDeploy is Script {
     error InvalidChain();
@@ -17,13 +18,41 @@ contract ScaffoldETHDeploy is Script {
         address addr;
     }
 
+    // Network configuration structure
+    struct NetworkConfig {
+        address usdcToken; // USDC token address
+        address treasuryFeeRecipient; // Where protocol fees go
+    }
+
     string root;
     string path;
     Deployment[] public deployments;
     uint256 constant ANVIL_BASE_BALANCE = 10000 ether;
+    
+    // Network configuration constants
+    uint8 public constant USDC_DECIMALS = 6;
+    uint256 public constant INITIAL_USDC_SUPPLY = 1000000 * 10 ** USDC_DECIMALS; // 1M USDC
 
     /// @notice The deployer address for every run
     address deployer;
+    
+    /// @notice Active network configuration
+    NetworkConfig public activeNetworkConfig;
+
+    /// @notice Constructor to initialize network configuration
+    constructor() {
+        if (block.chainid == 1) {
+            activeNetworkConfig = getMainnetConfig();
+        } else if (block.chainid == 11155111) {
+            activeNetworkConfig = getSepoliaConfig();
+        } else if (block.chainid == 137) {
+            activeNetworkConfig = getPolygonConfig();
+        } else if (block.chainid == 42161) {
+            activeNetworkConfig = getArbitrumConfig();
+        } else {
+            activeNetworkConfig = getOrCreateAnvilConfig();
+        }
+    }
 
     /// @notice Use this modifier on your run() function on your deploy scripts
     modifier ScaffoldEthDeployerRunner() {
@@ -117,5 +146,87 @@ contract ScaffoldETHDeploy is Script {
             }
         }
         revert InvalidChain();
+    }
+
+    // Network Configuration Methods
+
+    function getMainnetConfig() public pure returns (NetworkConfig memory) {
+        NetworkConfig memory mainnetConfig = NetworkConfig({
+            usdcToken: 0xA0b86a33E6A6C5e4F5b8F8F4a1A7F4c5A6C9b7d8, // Mainnet USDC
+            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
+        });
+        return mainnetConfig;
+    }
+
+    function getSepoliaConfig() public pure returns (NetworkConfig memory) {
+        NetworkConfig memory sepoliaConfig = NetworkConfig({
+            usdcToken: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238, // Sepolia USDC
+            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
+        });
+        return sepoliaConfig;
+    }
+
+    function getPolygonConfig() public pure returns (NetworkConfig memory) {
+        NetworkConfig memory polygonConfig = NetworkConfig({
+            usdcToken: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174, // Polygon USDC
+            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
+        });
+        return polygonConfig;
+    }
+
+    function getArbitrumConfig() public pure returns (NetworkConfig memory) {
+        NetworkConfig memory arbitrumConfig = NetworkConfig({
+            usdcToken: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831, // Arbitrum USDC
+            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
+        });
+        return arbitrumConfig;
+    }
+
+    function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
+        if (activeNetworkConfig.usdcToken != address(0)) {
+            return activeNetworkConfig;
+        }
+
+        // Deploy mock USDC for local testing
+        vm.startBroadcast();
+        ERC20Mock mockUsdc = new ERC20Mock();
+        // Mint initial supply to deployer for testing
+        mockUsdc.mint(msg.sender, INITIAL_USDC_SUPPLY);
+        vm.stopBroadcast();
+
+        NetworkConfig memory anvilConfig = NetworkConfig({
+            usdcToken: address(mockUsdc),
+            treasuryFeeRecipient: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 // Anvil default deployer
+        });
+        return anvilConfig;
+    }
+
+    // Helper functions for network management
+
+    /// @notice Get current network config
+    function getActiveNetworkConfig() public view returns (NetworkConfig memory) {
+        return activeNetworkConfig;
+    }
+
+    /// @notice Check if we're on a local network
+    function isLocalNetwork() public view returns (bool) {
+        return block.chainid == 31337; // Anvil chain ID
+    }
+
+    /// @notice Get network name for logging
+    function getNetworkName() public view returns (string memory) {
+        if (block.chainid == 1) {
+            return "mainnet";
+        } else if (block.chainid == 11155111) {
+            return "sepolia";
+        } else if (block.chainid == 137) {
+            return "polygon";
+        } else if (block.chainid == 42161) {
+            return "arbitrum";
+        } else if (block.chainid == 31337) {
+            return "anvil";
+        } else {
+            return "unknown";
+        }
     }
 }

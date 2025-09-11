@@ -6,6 +6,7 @@ import { DeployRoboshareTokens } from "./DeployRoboshareTokens.s.sol";
 import { DeployPartnerManager } from "./DeployPartnerManager.s.sol";
 import { DeployVehicleRegistry } from "./DeployVehicleRegistry.s.sol";
 import { DeployTreasury } from "./DeployTreasury.s.sol";
+import { DeployMarketplace } from "./DeployMarketplace.s.sol";
 
 /**
  * @notice Main deployment script for Roboshare protocol contracts
@@ -15,6 +16,13 @@ import { DeployTreasury } from "./DeployTreasury.s.sol";
  */
 contract DeployScript is ScaffoldETHDeploy {
     function run() external ScaffoldEthDeployerRunner {
+        // Get network configuration (now available from inherited ScaffoldETHDeploy)
+        NetworkConfig memory config = getActiveNetworkConfig();
+        
+        console.log("Deploying to network:", getNetworkName());
+        console.log("USDC Token:", config.usdcToken);
+        console.log("Treasury Fee Recipient:", config.treasuryFeeRecipient);
+
         // Deploy contracts in dependency order
 
         // 1. Deploy base token contract (no dependencies)
@@ -30,11 +38,19 @@ contract DeployScript is ScaffoldETHDeploy {
         address vehicleRegistryProxy = deployVehicleRegistry.run(roboshareTokensProxy, partnerManagerProxy, deployer);
 
         // 4. Deploy treasury (depends on vehicle registry + partner manager)
-        // For local testing, we'll use a mock USDC address (zero address will be caught by validation)
-        // In production, this should be the actual USDC contract address
-        address usdcAddress = address(0x1234567890123456789012345678901234567890); // Mock USDC for local testing
-
         DeployTreasury deployTreasury = new DeployTreasury();
-        deployTreasury.run(partnerManagerProxy, vehicleRegistryProxy, usdcAddress, deployer);
+        address treasuryProxy = deployTreasury.run(partnerManagerProxy, vehicleRegistryProxy, config.usdcToken, deployer);
+
+        // 5. Deploy marketplace (depends on all previous contracts)
+        DeployMarketplace deployMarketplace = new DeployMarketplace();
+        deployMarketplace.run(
+            roboshareTokensProxy,
+            vehicleRegistryProxy, 
+            partnerManagerProxy,
+            treasuryProxy,
+            config.usdcToken,
+            config.treasuryFeeRecipient,
+            deployer
+        );
     }
 }
