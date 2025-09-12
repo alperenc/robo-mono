@@ -185,7 +185,7 @@ contract Marketplace is
         }
         
         // Lock collateral in Treasury (requires prior USDC approval)
-        treasury.lockCollateral(vehicleId, revenueTokenPrice, totalRevenueTokens);
+        treasury.lockCollateralFor(msg.sender, vehicleId, revenueTokenPrice, totalRevenueTokens);
         
         // Create listing for specified portion of existing tokens
         listingId = _createListing(

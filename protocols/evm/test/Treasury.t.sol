@@ -86,10 +86,11 @@ contract TreasuryTest is Test {
         // Deploy Treasury
         treasuryImplementation = new Treasury();
         bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address)", 
+            "initialize(address,address,address,address,address)", 
             admin, 
             address(partnerManager), 
             address(vehicleRegistry),
+            address(roboshareTokens),
             address(usdc)
         );
         ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
@@ -131,19 +132,19 @@ contract TreasuryTest is Test {
         
         // Test zero admin
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(address(0), address(partnerManager), address(vehicleRegistry), address(usdc));
+        newTreasury.initialize(address(0), address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc));
         
         // Test zero partner manager
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(0), address(vehicleRegistry), address(usdc));
+        newTreasury.initialize(admin, address(0), address(vehicleRegistry), address(roboshareTokens), address(usdc));
         
         // Test zero vehicle registry
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(partnerManager), address(0), address(usdc));
+        newTreasury.initialize(admin, address(partnerManager), address(0), address(roboshareTokens), address(usdc));
         
         // Test zero USDC
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(partnerManager), address(vehicleRegistry), address(0));
+        newTreasury.initialize(admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(0));
     }
 
     // Collateral Calculation Tests
