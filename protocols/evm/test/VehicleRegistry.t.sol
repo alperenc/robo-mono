@@ -70,7 +70,7 @@ contract VehicleRegistryTest is Test {
 
     // Initialization Tests
 
-    function testInitialization() public {
+    function testInitialization() public view {
         // Check contract references
         assertEq(address(vehicleRegistry.roboshareTokens()), address(roboshareTokens));
         assertEq(address(vehicleRegistry.partnerManager()), address(partnerManager));
@@ -118,7 +118,7 @@ contract VehicleRegistryTest is Test {
 
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         // Check return value
@@ -162,14 +162,14 @@ contract VehicleRegistryTest is Test {
         // Register first vehicle (fleet operator 1)
         vm.prank(partner1);
         uint256 vehicleId1 = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         // Register second vehicle (fleet operator 2)
         string memory vin2 = "2HGCM82633A654321";
         vm.prank(partner2);
         uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            partner2, vin2, "Toyota", "Camry", 2023, 2, "LE,HYBRID", "ipfs://QmTestHash456789abcdefghijklmnopqrstuvwxyzDEFG"
+            vin2, "Toyota", "Camry", 2023, 2, "LE,HYBRID", "ipfs://QmTestHash456789abcdefghijklmnopqrstuvwxyzDEFG"
         );
 
         // Check vehicle IDs are odd and sequential
@@ -196,7 +196,7 @@ contract VehicleRegistryTest is Test {
         // First register a vehicle (fleet operator registers their vehicle)
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         uint256 totalSupply = 1000;
@@ -228,7 +228,6 @@ contract VehicleRegistryTest is Test {
         vm.prank(partner1);
         (uint256 vehicleId, uint256 revenueShareTokenId) = vehicleRegistry
             .registerVehicleAndMintRevenueShareTokens(
-            partner1,
             TEST_VIN,
             TEST_MAKE,
             TEST_MODEL,
@@ -261,10 +260,10 @@ contract VehicleRegistryTest is Test {
         // Register multiple vehicles to test the pattern
         vm.startPrank(partner1);
         uint256 vehicleId1 = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
         uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            partner1, "2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", "ipfs://QmTest456789abcdefghijklmnopqrstuvwxyzABCDEFGH"
+            "2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", "ipfs://QmTest456789abcdefghijklmnopqrstuvwxyzABCDEFGH"
         );
         vm.stopPrank();
 
@@ -283,7 +282,7 @@ contract VehicleRegistryTest is Test {
         // Register vehicle
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         string memory newMetadataURI = "ipfs://QmUpdatedHash789abcdefghijklmnopqrstuvwxyzGHIJ";
@@ -302,7 +301,7 @@ contract VehicleRegistryTest is Test {
         vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
         vm.prank(unauthorized);
         vehicleRegistry.registerVehicle(
-            unauthorized, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
     }
 
@@ -310,7 +309,7 @@ contract VehicleRegistryTest is Test {
         // Register vehicle first
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
@@ -322,7 +321,7 @@ contract VehicleRegistryTest is Test {
         // Register vehicle first
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
@@ -336,7 +335,7 @@ contract VehicleRegistryTest is Test {
         vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
         vm.prank(partner1);
         vehicleRegistry.registerVehicle(
-            address(0), TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
     }
 
@@ -344,14 +343,14 @@ contract VehicleRegistryTest is Test {
         // Register first vehicle
         vm.prank(partner1);
         vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         // Try to register with same VIN (different fleet operator)
         vm.expectRevert(VehicleRegistry__VehicleAlreadyExists.selector);
         vm.prank(partner2);
         vehicleRegistry.registerVehicle(
-            partner2, TEST_VIN, "Toyota", "Camry", 2023, 2, "LE", "ipfs://QmTest456789abcdefghijklmnopqrstuvwxyzABCDEFG"
+            TEST_VIN, "Toyota", "Camry", 2023, 2, "LE", "ipfs://QmTest456789abcdefghijklmnopqrstuvwxyzABCDEFG"
         );
     }
 
@@ -397,7 +396,7 @@ contract VehicleRegistryTest is Test {
         // First register a vehicle to advance the counter
         vm.prank(partner1);
         vehicleRegistry.registerVehicle(
-            partner1, "1TEST123456789ABC", "Honda", "Civic", 2024, 1, "EX", TEST_METADATA_URI
+            "1TEST123456789ABC", "Honda", "Civic", 2024, 1, "EX", TEST_METADATA_URI
         );
         
         // Now test with token IDs that are out of range
@@ -414,7 +413,7 @@ contract VehicleRegistryTest is Test {
         // 1. Fleet operator registers their vehicle
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         assertEq(vehicleId, 1);
@@ -450,7 +449,7 @@ contract VehicleRegistryTest is Test {
         // Register vehicle first
         vm.prank(partner1);
         uint256 vehicleId = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         vm.prank(partner1);
@@ -467,7 +466,7 @@ contract VehicleRegistryTest is Test {
 
         vm.prank(partner1);
         vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         assertTrue(vehicleRegistry.vehicleExists(1));
@@ -479,7 +478,7 @@ contract VehicleRegistryTest is Test {
 
         vm.prank(partner1);
         vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         assertTrue(vehicleRegistry.vinExists(TEST_VIN));
@@ -491,7 +490,7 @@ contract VehicleRegistryTest is Test {
 
         vm.prank(partner1);
         vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         assertEq(vehicleRegistry.getCurrentTokenId(), 3);

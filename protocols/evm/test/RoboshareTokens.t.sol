@@ -40,7 +40,7 @@ contract RoboshareTokensTest is Test {
         vm.stopPrank();
     }
 
-    function testInitialization() public {
+    function testInitialization() public view {
         // Check roles
         assertTrue(tokens.hasRole(tokens.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(tokens.hasRole(MINTER_ROLE, admin));

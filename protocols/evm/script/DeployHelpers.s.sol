@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Script, console } from "forge-std/Script.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { ERC20Mock } from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import { ERC20Mock } from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract ScaffoldETHDeploy is Script {
     error InvalidChain();
@@ -152,7 +152,7 @@ contract ScaffoldETHDeploy is Script {
 
     function getMainnetConfig() public pure returns (NetworkConfig memory) {
         NetworkConfig memory mainnetConfig = NetworkConfig({
-            usdcToken: 0xA0b86a33E6A6C5e4F5b8F8F4a1A7F4c5A6C9b7d8, // Mainnet USDC
+            usdcToken: 0xa0B86a33e6A6c5e4F5b8F8f4A1a7F4c5a6c9B7d8, // Mainnet USDC
             treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
         });
         return mainnetConfig;
