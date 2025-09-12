@@ -331,13 +331,6 @@ contract VehicleRegistryTest is Test {
 
     // Error Cases Tests
 
-    function testRegisterVehicleWithZeroOwnerFails() public {
-        vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
-        vm.prank(partner1);
-        vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
-    }
 
     function testRegisterVehicleWithDuplicateVinFails() public {
         // Register first vehicle

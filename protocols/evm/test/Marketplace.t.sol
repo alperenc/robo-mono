@@ -132,6 +132,10 @@ contract MarketplaceTest is Test {
         (vehicleId, revenueShareTokenId) = vehicleRegistry.registerVehicleAndMintRevenueShareTokens(
             TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI, TOTAL_REVENUE_TOKENS
         );
+        
+        // Approve marketplace to transfer tokens on behalf of partner1
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
     }
 
     function _approveAndLockCollateralAndList() internal returns (uint256 vehicleId, uint256 revenueShareTokenId, uint256 listingId) {
@@ -173,7 +177,7 @@ contract MarketplaceTest is Test {
         // Test that initialization fails with zero addresses
         Marketplace newImpl = new Marketplace();
         
-        vm.expectRevert("Marketplace__ZeroAddress");
+        vm.expectRevert(Marketplace__ZeroAddress.selector);
         new ERC1967Proxy(
             address(newImpl),
             abi.encodeWithSignature(
@@ -200,7 +204,20 @@ contract MarketplaceTest is Test {
         usdc.approve(address(treasury), requiredCollateral);
         
         // Expect CollateralLockedAndListed event
+        uint256 expectedListingId = 1;
+        uint256 expectedCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        
         vm.expectEmit(true, true, true, true, address(marketplace));
+        emit Marketplace.CollateralLockedAndListed(
+            vehicleId,
+            revenueShareTokenId,
+            expectedListingId,
+            partner1,
+            expectedCollateral,
+            TOKENS_TO_LIST,
+            REVENUE_TOKEN_PRICE,
+            true
+        );
         
         uint256 listingId = marketplace.lockCollateralAndList(
             vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS, TOKENS_TO_LIST, LISTING_DURATION, true
@@ -240,7 +257,7 @@ contract MarketplaceTest is Test {
     function testLockCollateralAndListInvalidAmount() public {
         (uint256 vehicleId, ) = _setupVehicleAndTokens();
         
-        vm.expectRevert("Marketplace__InvalidAmount");
+        vm.expectRevert(Marketplace__InvalidAmount.selector);
         vm.prank(partner1);
         marketplace.lockCollateralAndList(
             vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS, TOTAL_REVENUE_TOKENS + 1, LISTING_DURATION, true
@@ -259,7 +276,7 @@ contract MarketplaceTest is Test {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
         
-        vm.expectRevert("Marketplace__InsufficientTokenBalance");
+        vm.expectRevert(Marketplace__InsufficientTokenBalance.selector);
         marketplace.lockCollateralAndList(
             vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS, TOKENS_TO_LIST, LISTING_DURATION, true
         );
@@ -271,14 +288,14 @@ contract MarketplaceTest is Test {
     function testCreateListingRequiresCollateral() public {
         (, uint256 revenueShareTokenId) = _setupVehicleAndTokens();
         
-        vm.expectRevert("Marketplace__CollateralNotLocked");
+        vm.expectRevert(Marketplace__CollateralNotLocked.selector);
         vm.prank(partner1);
         marketplace.createListing(revenueShareTokenId, TOKENS_TO_LIST, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
     }
 
     function testCreateListingInvalidTokenType() public {
         // Try to list vehicle NFT (odd token ID) instead of revenue share token (even)
-        vm.expectRevert("Marketplace__InvalidTokenType");
+        vm.expectRevert(Marketplace__InvalidTokenType.selector);
         vm.prank(partner1);
         marketplace.createListing(1, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true); // Vehicle NFT token ID
     }
@@ -302,6 +319,14 @@ contract MarketplaceTest is Test {
         
         // Expect RevenueTokensTraded event
         vm.expectEmit(true, true, true, true, address(marketplace));
+        emit Marketplace.RevenueTokensTraded(
+            revenueShareTokenId,
+            partner1,
+            buyer,
+            purchaseAmount,
+            listingId,
+            totalPrice
+        );
         
         marketplace.purchaseListing(listingId, purchaseAmount);
         vm.stopPrank();
@@ -377,12 +402,19 @@ contract MarketplaceTest is Test {
         (, , uint256 listingId) = _approveAndLockCollateralAndList();
         
         uint256 purchaseAmount = 100;
-        uint256 insufficientPayment = 50 * 10 ** 6; // Way too low
+        uint256 totalPrice = purchaseAmount * REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
+        uint256 requiredPayment = totalPrice + protocolFee; // Buyer pays fee (listing created with buyerPaysFee=true)
         
-        vm.startPrank(buyer);
-        usdc.approve(address(marketplace), insufficientPayment);
+        // Create a new buyer with insufficient funds
+        address poorBuyer = makeAddr("poorBuyer");
+        uint256 insufficientAmount = requiredPayment / 2; // Half of what's needed
+        usdc.mint(poorBuyer, insufficientAmount);
         
-        vm.expectRevert("Marketplace__InsufficientPayment");
+        vm.startPrank(poorBuyer);
+        usdc.approve(address(marketplace), requiredPayment); // Approve enough, but balance is insufficient
+        
+        vm.expectRevert(Marketplace__InsufficientPayment.selector);
         marketplace.purchaseListing(listingId, purchaseAmount);
         vm.stopPrank();
     }
@@ -393,7 +425,7 @@ contract MarketplaceTest is Test {
         // Fast forward past expiration
         vm.warp(block.timestamp + LISTING_DURATION + 1);
         
-        vm.expectRevert("Marketplace__ListingExpired");
+        vm.expectRevert(Marketplace__ListingExpired.selector);
         vm.prank(buyer);
         marketplace.purchaseListing(listingId, 100);
     }
@@ -401,7 +433,7 @@ contract MarketplaceTest is Test {
     function testPurchaseListingInvalidAmount() public {
         (, , uint256 listingId) = _approveAndLockCollateralAndList();
         
-        vm.expectRevert("Marketplace__InvalidAmount");
+        vm.expectRevert(Marketplace__InvalidAmount.selector);
         vm.prank(buyer);
         marketplace.purchaseListing(listingId, TOKENS_TO_LIST + 1); // More than available
     }
@@ -428,7 +460,7 @@ contract MarketplaceTest is Test {
     function testCancelListingUnauthorized() public {
         (, , uint256 listingId) = _approveAndLockCollateralAndList();
         
-        vm.expectRevert("Marketplace__NotTokenOwner");
+        vm.expectRevert(Marketplace__NotTokenOwner.selector);
         vm.prank(unauthorized);
         marketplace.cancelListing(listingId);
     }
@@ -491,7 +523,7 @@ contract MarketplaceTest is Test {
     }
 
     function testSetTreasuryAddressZeroAddress() public {
-        vm.expectRevert("Marketplace__ZeroAddress");
+        vm.expectRevert(Marketplace__ZeroAddress.selector);
         vm.prank(admin);
         marketplace.setTreasuryAddress(address(0));
     }
