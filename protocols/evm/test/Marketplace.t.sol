@@ -87,7 +87,7 @@ contract MarketplaceTest is Test {
         // Deploy Treasury
         treasuryImplementation = new Treasury();
         bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address)", admin, address(partnerManager), address(vehicleRegistry), address(usdc)
+            "initialize(address,address,address,address,address)", admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc)
         );
         ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
         treasury = Treasury(address(treasuryProxy));
@@ -111,6 +111,8 @@ contract MarketplaceTest is Test {
         vm.startPrank(admin);
         // Grant MINTER_ROLE to VehicleRegistry for token operations
         roboshareTokens.grantRole(MINTER_ROLE, address(vehicleRegistry));
+        // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace for Treasury operations
+        treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(marketplace));
         // Authorize partners
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
         partnerManager.authorizePartner(partner2, PARTNER2_NAME);

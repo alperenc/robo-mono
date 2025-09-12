@@ -37,9 +37,9 @@ contract DeployScript is ScaffoldETHDeploy {
         DeployVehicleRegistry deployVehicleRegistry = new DeployVehicleRegistry();
         address vehicleRegistryProxy = deployVehicleRegistry.run(roboshareTokensProxy, partnerManagerProxy, deployer);
 
-        // 4. Deploy treasury (depends on vehicle registry + partner manager)
+        // 4. Deploy treasury (depends on vehicle registry + partner manager + tokens)
         DeployTreasury deployTreasury = new DeployTreasury();
-        address treasuryProxy = deployTreasury.run(partnerManagerProxy, vehicleRegistryProxy, config.usdcToken, deployer);
+        address treasuryProxy = deployTreasury.run(partnerManagerProxy, vehicleRegistryProxy, roboshareTokensProxy, config.usdcToken, deployer);
 
         // 5. Deploy marketplace (depends on all previous contracts)
         DeployMarketplace deployMarketplace = new DeployMarketplace();

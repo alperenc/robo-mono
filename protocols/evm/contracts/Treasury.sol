@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./Libraries.sol";
 import "./PartnerManager.sol";
 import "./VehicleRegistry.sol";
+import "./RoboshareTokens.sol";
 
 // Treasury errors
 error Treasury__UnauthorizedPartner();
@@ -22,6 +23,7 @@ error Treasury__ZeroAddressNotAllowed();
 error Treasury__TransferFailed();
 error Treasury__ExistingOutstandingRevenueTokens();
 error Treasury__VehicleNotFound();
+error Treasury__NotVehicleOwner();
 
 /**
  * @dev Treasury contract for USDC-based collateral management
@@ -33,10 +35,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
+    bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
     // Core contracts
     PartnerManager public partnerManager;
     VehicleRegistry public vehicleRegistry;
+    RoboshareTokens public roboshareTokens;
     IERC20 public usdc;
 
     // Collateral storage - vehicleId => CollateralInfo
@@ -64,16 +68,28 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
+     * @dev Modifier to restrict access to authorized contracts
+     */
+    modifier onlyAuthorizedContract() {
+        if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender)) {
+            revert Treasury__UnauthorizedPartner(); // Reusing same error for now
+        }
+        _;
+    }
+
+    /**
      * @dev Initialize Treasury with core contract references
      */
     function initialize(
         address _admin,
         address _partnerManager,
         address _vehicleRegistry,
+        address _roboshareTokens,
         address _usdc
     ) public initializer {
         if (_admin == address(0) || _partnerManager == address(0) || 
-            _vehicleRegistry == address(0) || _usdc == address(0)) {
+            _vehicleRegistry == address(0) || _roboshareTokens == address(0) || 
+            _usdc == address(0)) {
             revert Treasury__ZeroAddressNotAllowed();
         }
 
@@ -87,6 +103,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         partnerManager = PartnerManager(_partnerManager);
         vehicleRegistry = VehicleRegistry(_vehicleRegistry);
+        roboshareTokens = RoboshareTokens(_roboshareTokens);
         usdc = IERC20(_usdc);
     }
 
@@ -107,6 +124,11 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Verify vehicle exists and caller owns it
         if (!vehicleRegistry.vehicleExists(vehicleId)) {
             revert Treasury__VehicleNotFound();
+        }
+        
+        // Verify caller owns the vehicle NFT
+        if (roboshareTokens.balanceOf(msg.sender, vehicleId) == 0) {
+            revert Treasury__NotVehicleOwner();
         }
 
         CollateralLib.CollateralInfo storage collateralInfo = vehicleCollateral[vehicleId];
@@ -138,6 +160,65 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         totalCollateralDeposited += requiredCollateral;
 
         emit CollateralLocked(vehicleId, msg.sender, requiredCollateral);
+    }
+
+    /**
+     * @dev Lock USDC collateral for vehicle registration (delegated call by authorized contracts)
+     * @param partner The partner who owns the vehicle
+     * @param vehicleId The ID of the vehicle to lock collateral for
+     * @param revenueTokenPrice Price per revenue share token in USDC (with decimals)
+     * @param totalRevenueTokens Total number of revenue share tokens to be issued
+     */
+    function lockCollateralFor(
+        address partner,
+        uint256 vehicleId, 
+        uint256 revenueTokenPrice, 
+        uint256 totalRevenueTokens
+    ) external onlyAuthorizedContract nonReentrant {
+        // Verify partner is authorized
+        if (!partnerManager.isAuthorizedPartner(partner)) {
+            revert Treasury__UnauthorizedPartner();
+        }
+        
+        // Verify vehicle exists and partner owns it
+        if (!vehicleRegistry.vehicleExists(vehicleId)) {
+            revert Treasury__VehicleNotFound();
+        }
+        
+        // Verify partner owns the vehicle NFT
+        if (roboshareTokens.balanceOf(partner, vehicleId) == 0) {
+            revert Treasury__NotVehicleOwner();
+        }
+
+        CollateralLib.CollateralInfo storage collateralInfo = vehicleCollateral[vehicleId];
+        
+        // Check if collateral is already locked
+        if (collateralInfo.isLocked) {
+            revert Treasury__CollateralAlreadyLocked();
+        }
+
+        // Initialize or update collateral info
+        if (!CollateralLib.isInitialized(collateralInfo)) {
+            CollateralLib.initializeCollateralInfo(
+                collateralInfo, 
+                revenueTokenPrice, 
+                totalRevenueTokens, 
+                ProtocolLib.QUARTERLY_INTERVAL
+            );
+        }
+
+        uint256 requiredCollateral = collateralInfo.totalCollateral;
+        
+        // Transfer collateral from partner to Treasury
+        usdc.safeTransferFrom(partner, address(this), requiredCollateral);
+        
+        // Mark collateral as locked
+        collateralInfo.isLocked = true;
+        collateralInfo.lockedAt = block.timestamp;
+
+        totalCollateralDeposited += requiredCollateral;
+        
+        emit CollateralLocked(vehicleId, partner, requiredCollateral);
     }
 
     /**
