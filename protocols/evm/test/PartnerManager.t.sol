@@ -43,7 +43,7 @@ contract PartnerManagerTest is Test {
         vm.stopPrank();
     }
 
-    function testInitialization() public {
+    function testInitialization() public view {
         // Check roles
         assertTrue(partnerManager.hasRole(partnerManager.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(partnerManager.hasRole(PARTNER_ADMIN_ROLE, admin));

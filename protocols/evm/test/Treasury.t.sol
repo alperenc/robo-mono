@@ -111,7 +111,7 @@ contract TreasuryTest is Test {
 
     // Initialization Tests
 
-    function testInitialization() public {
+    function testInitialization() public view {
         // Check contract references
         assertEq(address(treasury.partnerManager()), address(partnerManager));
         assertEq(address(treasury.vehicleRegistry()), address(vehicleRegistry));
@@ -148,7 +148,7 @@ contract TreasuryTest is Test {
 
     // Collateral Calculation Tests
 
-    function testGetCollateralRequirement() public {
+    function testGetCollateralRequirement() public view {
         uint256 requirement = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         
         // Time-based calculation:
@@ -166,7 +166,7 @@ contract TreasuryTest is Test {
         assertEq(requirement, expectedTotal);
     }
 
-    function testGetCollateralBreakdown() public {
+    function testGetCollateralBreakdown() public view {
         (uint256 base, uint256 earnings, uint256 protocol, uint256 total) = 
             treasury.getCollateralBreakdown(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         
@@ -186,7 +186,7 @@ contract TreasuryTest is Test {
         // Register vehicle
         vm.prank(partner);
         vehicleId = vehicleRegistry.registerVehicle(
-            partner, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         // Calculate required collateral and approve Treasury
@@ -348,7 +348,6 @@ contract TreasuryTest is Test {
 
     function testProcessWithdrawal() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         uint256 initialBalance = usdc.balanceOf(partner1);
 
         // Lock and unlock collateral
@@ -490,12 +489,12 @@ contract TreasuryTest is Test {
         // Register multiple vehicles
         vm.prank(partner1);
         uint256 vehicleId1 = vehicleRegistry.registerVehicle(
-            partner1, TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
 
         vm.prank(partner2);
         uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            partner2, "2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", TEST_METADATA_URI
+            "2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", TEST_METADATA_URI
         );
 
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
