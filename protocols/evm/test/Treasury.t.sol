@@ -233,7 +233,7 @@ contract TreasuryTest is Test {
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         vm.expectEmit(true, true, false, true);
-        emit CollateralLocked(vehicleId, partner1, requiredCollateral);
+        emit Treasury.CollateralLocked(vehicleId, partner1, requiredCollateral);
 
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -323,7 +323,7 @@ contract TreasuryTest is Test {
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         vm.expectEmit(true, true, false, true);
-        emit CollateralUnlocked(vehicleId, partner1, requiredCollateral);
+        emit Treasury.CollateralUnlocked(vehicleId, partner1, requiredCollateral);
 
         vm.prank(partner1);
         treasury.unlockCollateral(vehicleId);
@@ -378,7 +378,7 @@ contract TreasuryTest is Test {
         treasury.unlockCollateral(vehicleId);
 
         vm.expectEmit(true, false, false, true);
-        emit WithdrawalProcessed(partner1, requiredCollateral);
+        emit Treasury.WithdrawalProcessed(partner1, requiredCollateral);
 
         vm.prank(partner1);
         treasury.processWithdrawal();
@@ -543,8 +543,28 @@ contract TreasuryTest is Test {
         assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
-    // Events
-    event CollateralLocked(uint256 indexed vehicleId, address indexed partner, uint256 amount);
-    event CollateralUnlocked(uint256 indexed vehicleId, address indexed partner, uint256 amount);
-    event WithdrawalProcessed(address indexed recipient, uint256 amount);
+    function testSetRoboshareTokens() public {
+        // Deploy a new RoboshareTokens contract for testing
+        RoboshareTokens newRoboshareTokens = new RoboshareTokens();
+        
+        vm.prank(admin);
+        treasury.setRoboshareTokens(address(newRoboshareTokens));
+        
+        assertEq(address(treasury.roboshareTokens()), address(newRoboshareTokens));
+    }
+
+    function testSetRoboshareTokensUnauthorizedFails() public {
+        RoboshareTokens newRoboshareTokens = new RoboshareTokens();
+        
+        vm.expectRevert();
+        vm.prank(partner1);
+        treasury.setRoboshareTokens(address(newRoboshareTokens));
+    }
+
+    function testSetRoboshareTokensZeroAddressFails() public {
+        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.prank(admin);
+        treasury.setRoboshareTokens(address(0));
+    }
+
 }

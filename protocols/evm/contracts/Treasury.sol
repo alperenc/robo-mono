@@ -394,6 +394,17 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         usdc = IERC20(_usdc);
     }
 
+    /**
+     * @dev Set RoboshareTokens contract reference (for upgrades)
+     * @param _roboshareTokens New RoboshareTokens contract address
+     */
+    function setRoboshareTokens(address _roboshareTokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_roboshareTokens == address(0)) {
+            revert Treasury__ZeroAddressNotAllowed();
+        }
+        roboshareTokens = RoboshareTokens(_roboshareTokens);
+    }
+
     // UUPS Upgrade authorization
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 }
