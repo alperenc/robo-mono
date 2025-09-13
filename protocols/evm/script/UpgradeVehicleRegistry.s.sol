@@ -34,7 +34,9 @@ contract UpgradeVehicleRegistry is ScaffoldETHDeploy {
         console.log("New implementation address:", address(newImplementation));
         console.log("Current token counter:", proxy.getCurrentTokenId());
         
-        console.log("Upgrade completed successfully!");
+        console.log("VehicleRegistry upgrade completed successfully!");
+        console.log("");
+        console.log("Note: Run any necessary admin functions for this upgrade manually or via script.");
     }
     
     function help() external pure {
