@@ -20,6 +20,8 @@ let network = "localhost";
 let keystoreArg = null;
 let contractName = null;
 let proxyAddress = null;
+let tokensAddress = null;
+let authorizedContract = null;
 
 // Show help message if --help is provided
 if (args.includes("--help") || args.includes("-h")) {
@@ -27,13 +29,16 @@ if (args.includes("--help") || args.includes("-h")) {
     console.log(`
 Usage: yarn upgrade [options]
 Options:
-  --contract <name>       Specify the contract to upgrade (required)
-  --proxy-address <addr>  Specify the proxy contract address (required)
-  --network <network>     Specify the network (default: localhost)
-  --keystore <name>       Specify the keystore account to use (bypasses selection prompt)
-  --help, -h             Show this help message
+  --contract <name>         Specify the contract to upgrade (required)
+  --proxy-address <addr>    Specify the proxy contract address (required)
+  --network <network>       Specify the network (default: localhost)
+  --keystore <name>         Specify the keystore account to use (bypasses selection prompt)
+  --tokens-address <addr>   Specify tokens contract address (script-specific)
+  --authorized-contract <addr>  Specify authorized contract address (script-specific)
+  --help, -h               Show this help message
 Examples:
   yarn upgrade --contract VehicleRegistry --proxy-address 0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d
+  yarn upgrade --contract Treasury --proxy-address 0x123... --tokens-address 0x456... --authorized-contract 0x789...
   yarn upgrade --contract VehicleRegistry --proxy-address 0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d --network sepolia
     `);
   } else {
@@ -70,6 +75,12 @@ for (let i = 0; i < args.length; i++) {
     i++; // Skip next arg since we used it
   } else if (args[i] === "--proxy-address" && args[i + 1]) {
     proxyAddress = args[i + 1];
+    i++; // Skip next arg since we used it
+  } else if (args[i] === "--tokens-address" && args[i + 1]) {
+    tokensAddress = args[i + 1];
+    i++; // Skip next arg since we used it
+  } else if (args[i] === "--authorized-contract" && args[i + 1]) {
+    authorizedContract = args[i + 1];
     i++; // Skip next arg since we used it
   }
 }
@@ -199,6 +210,14 @@ if (command === 'upgrade') {
   process.env.PROXY_ADDRESS = proxyAddress;
   process.env.RPC_URL = network;
   process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;
+  
+  // Set optional script-specific environment variables
+  if (tokensAddress) {
+    process.env.TOKENS_ADDRESS = tokensAddress;
+  }
+  if (authorizedContract) {
+    process.env.AUTHORIZED_CONTRACT_ADDRESS = authorizedContract;
+  }
   
   const result = spawnSync("make", ["deploy-and-generate-abis"], {
     stdio: "inherit",
