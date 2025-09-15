@@ -4,6 +4,8 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "./interfaces/IAssetsRegistry.sol";
+import "./interfaces/ITreasury.sol";
 import "./Libraries.sol";
 import "./RoboshareTokens.sol";
 import "./PartnerManager.sol";
@@ -20,8 +22,9 @@ error VehicleRegistry__IncorrectRevenueShareTokenId();
 /**
  * @dev Vehicle registration and management with IPFS metadata integration
  * Coordinates with RoboshareTokens for minting and PartnerManager for authorization
+ * Implements IAssetsRegistry for generic asset management capabilities
  */
-contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeable {
+contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeable, IAssetsRegistry {
     using VehicleLib for VehicleLib.VehicleInfo;
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -29,6 +32,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     // Core contracts
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
+    ITreasury public treasury;
 
     // Vehicle storage
     mapping(uint256 => VehicleLib.Vehicle) public vehicles;
@@ -123,15 +127,19 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         vehicleId = _tokenIdCounter;
         _tokenIdCounter += 2; // Next vehicle will be vehicleId + 2
 
-        // Initialize vehicle data
+        // Initialize vehicle data using new VehicleLib structure
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        vehicle.vehicleId = vehicleId;
-        vehicle.isActive = true;
-        vehicle.createdAt = block.timestamp;
-
-        // Initialize vehicle info with validation
-        VehicleLib.initializeVehicleInfo(
-            vehicle.vehicleInfo, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
+        VehicleLib.initializeVehicle(
+            vehicle,
+            vehicleId,
+            AssetsLib.AssetStatus.Active,
+            vin,
+            make,
+            model,
+            year,
+            manufacturerId,
+            optionCodes,
+            dynamicMetadataURI
         );
 
         // Mark VIN as used
@@ -152,7 +160,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     {
         // Validate vehicle exists
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        if (!vehicle.isActive) revert VehicleRegistry__VehicleDoesNotExist();
+        if (vehicle.vehicleId == 0) revert VehicleRegistry__VehicleDoesNotExist();
 
         // Calculate revenue share token ID (always even)
         revenueShareTokenId = getRevenueShareTokenIdFromVehicleId(vehicleId);
@@ -208,7 +216,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function updateVehicleMetadata(uint256 vehicleId, string memory newMetadataURI) external onlyAuthorizedPartner {
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        if (!vehicle.isActive) revert VehicleRegistry__VehicleDoesNotExist();
+        if (vehicle.vehicleId == 0) revert VehicleRegistry__VehicleDoesNotExist();
 
         VehicleLib.updateDynamicMetadata(vehicle.vehicleInfo, newMetadataURI);
 
@@ -234,7 +242,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         )
     {
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        if (!vehicle.isActive) revert VehicleRegistry__VehicleDoesNotExist();
+        if (vehicle.vehicleId == 0) revert VehicleRegistry__VehicleDoesNotExist();
 
         VehicleLib.VehicleInfo storage info = vehicle.vehicleInfo;
         return
@@ -246,7 +254,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getVehicleDisplayName(uint256 vehicleId) external view returns (string memory) {
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        if (!vehicle.isActive) revert VehicleRegistry__VehicleDoesNotExist();
+        if (vehicle.vehicleId == 0) revert VehicleRegistry__VehicleDoesNotExist();
 
         return VehicleLib.getDisplayName(vehicle.vehicleInfo);
     }
@@ -262,7 +270,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         uint256 vehicleId = revenueShareTokenId - 1;
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        if (!vehicle.isActive) {
+        if (vehicle.vehicleId == 0) {
             revert VehicleRegistry__VehicleDoesNotExist();
         }
 
@@ -278,7 +286,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert VehicleRegistry__IncorrectVehicleId();
         }
 
-        if (!vehicles[vehicleId].isActive) {
+        if (vehicles[vehicleId].vehicleId == 0) {
             revert VehicleRegistry__VehicleDoesNotExist();
         }
 
@@ -289,7 +297,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Check if a vehicle exists and is active
      */
     function vehicleExists(uint256 vehicleId) external view returns (bool) {
-        return vehicles[vehicleId].isActive;
+        return vehicles[vehicleId].vehicleId != 0;
     }
 
     /**
@@ -297,6 +305,159 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getCurrentTokenId() external view returns (uint256) {
         return _tokenIdCounter;
+    }
+
+    // IAssetsRegistry implementation
+
+    /**
+     * @dev Check if asset exists
+     */
+    function assetExists(uint256 assetId) external view override returns (bool) {
+        return vehicles[assetId].vehicleId != 0;
+    }
+
+    /**
+     * @dev Get asset information
+     */
+    function getAssetInfo(uint256 assetId) external view override returns (AssetInfo memory) {
+        VehicleLib.Vehicle storage vehicle = vehicles[assetId];
+        if (vehicle.vehicleId == 0) revert AssetsRegistry__AssetNotFound(assetId);
+        
+        return AssetInfo({
+            assetId: vehicle.vehicleId,
+            status: vehicle.assetInfo.status,
+            createdAt: vehicle.assetInfo.createdAt,
+            updatedAt: vehicle.assetInfo.updatedAt
+        });
+    }
+
+    /**
+     * @dev Check if asset is active
+     */
+    function isAssetActive(uint256 assetId) external view override returns (bool) {
+        VehicleLib.Vehicle storage vehicle = vehicles[assetId];
+        return vehicle.vehicleId != 0 && vehicle.assetInfo.status == AssetsLib.AssetStatus.Active;
+    }
+
+    /**
+     * @dev Get asset ID from token ID
+     */
+    function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
+        if (tokenId % 2 == 1) {
+            // Vehicle NFT token (odd IDs)
+            return tokenId;
+        } else {
+            // Revenue share token (even IDs)
+            return getVehicleIdFromRevenueShareTokenId(tokenId);
+        }
+    }
+
+    /**
+     * @dev Get token ID from asset ID and token type
+     */
+    function getTokenIdFromAssetId(uint256 assetId, TokenType tokenType) external view override returns (uint256) {
+        if (tokenType == TokenType.Asset) {
+            return assetId; // Vehicle NFT has same ID as asset
+        } else if (tokenType == TokenType.RevenueShare) {
+            return getRevenueShareTokenIdFromVehicleId(assetId);
+        } else {
+            revert AssetsRegistry__InvalidTokenType(tokenType);
+        }
+    }
+
+    /**
+     * @dev Get asset token info
+     */
+    function getAssetTokenInfo(uint256 assetId) external view override returns (TokenLib.TokenInfo memory) {
+        if (address(treasury) != address(0) && treasury.isAssetTokenInfoInitialized(assetId)) {
+            return treasury.getAssetTokenInfo(assetId);
+        }
+        
+        // Return empty token info if not initialized
+        return TokenLib.TokenInfo({
+            totalSupply: 0,
+            currentPositionIndex: 0,
+            lastUpdateTimestamp: 0
+        });
+    }
+
+    /**
+     * @dev Check if token is revenue share token
+     */
+    function isRevenueShareToken(uint256 tokenId) external view override returns (bool) {
+        return tokenId % 2 == 0 && tokenId > 0;
+    }
+
+    /**
+     * @dev Update token positions (delegated to Treasury)
+     */
+    function updateTokenPositions(
+        uint256 tokenId,
+        address from,
+        address to,
+        uint256 amount,
+        bool checkPenalty
+    ) external override returns (uint256 penalty) {
+        uint256 assetId = this.getAssetIdFromTokenId(tokenId);
+        if (address(treasury) != address(0)) {
+            return treasury.updateAssetTokenPositions(assetId, from, to, amount, checkPenalty);
+        }
+        return 0;
+    }
+
+    /**
+     * @dev Update batch token positions
+     */
+    function updateBatchTokenPositions(
+        uint256[] calldata tokenIds,
+        address from,
+        address to,
+        uint256[] calldata amounts,
+        bool checkPenalty
+    ) external override returns (uint256 totalPenalty) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            totalPenalty += this.updateTokenPositions(tokenIds[i], from, to, amounts[i], checkPenalty);
+        }
+    }
+
+    /**
+     * @dev Check if caller can update positions
+     */
+    function canUpdatePositions(address caller, uint256 assetId) external view override returns (bool) {
+        // Only the RoboshareTokens contract should be able to update positions
+        return caller == address(roboshareTokens);
+    }
+
+    /**
+     * @dev Check if account is authorized for asset
+     */
+    function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
+        // For now, only authorized partners can manage assets
+        return partnerManager.isAuthorizedPartner(account);
+    }
+
+    /**
+     * @dev Get registry type
+     */
+    function getRegistryType() external pure override returns (string memory) {
+        return "VehicleRegistry";
+    }
+
+    /**
+     * @dev Get registry version
+     */
+    function getRegistryVersion() external pure override returns (uint256) {
+        return 1;
+    }
+
+    /**
+     * @dev Get supported token types
+     */
+    function getSupportedTokenTypes() external pure override returns (TokenType[] memory) {
+        TokenType[] memory types = new TokenType[](2);
+        types[0] = TokenType.Asset;
+        types[1] = TokenType.RevenueShare;
+        return types;
     }
 
     // UUPS Upgrade authorization
