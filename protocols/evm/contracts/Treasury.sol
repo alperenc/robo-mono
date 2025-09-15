@@ -665,14 +665,19 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             TokenLib.initializeTokenInfo(tokenInfo, assetId, 0, 0, ProtocolLib.MONTHLY_INTERVAL);
         }
 
-        // Update positions and calculate penalty if required
-        penalty = TokenLib.updatePositions(
-            tokenInfo,
-            from,
-            to,
-            amount,
-            checkPenalty ? ProtocolLib.MONTHLY_INTERVAL : 0
-        );
+        // Handle position tracking based on transfer type
+        if (from == address(0)) {
+            // Minting - add position to receiver
+            TokenLib.addPosition(tokenInfo, to, amount);
+            penalty = 0;
+        } else if (to == address(0)) {
+            // Burning/Sale - remove position from sender with penalty check
+            penalty = TokenLib.removePosition(tokenInfo, from, amount, checkPenalty);
+        } else {
+            // User-to-user transfer - remove from sender (no penalty), add to receiver
+            penalty = TokenLib.removePosition(tokenInfo, from, amount, false);
+            TokenLib.addPosition(tokenInfo, to, amount);
+        }
 
         return penalty;
     }

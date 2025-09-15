@@ -240,7 +240,7 @@ contract MarketplaceTest is Test {
         assertEq(roboshareTokens.balanceOf(partner1, revenueShareTokenId), TOTAL_REVENUE_TOKENS - TOKENS_TO_LIST);
 
         // Verify collateral locked
-        (, , bool isLocked, ,) = treasury.getVehicleCollateralInfo(vehicleId);
+        (, , bool isLocked, ,) = treasury.getAssetCollateralInfo(vehicleId);
         assertTrue(isLocked);
     }
 

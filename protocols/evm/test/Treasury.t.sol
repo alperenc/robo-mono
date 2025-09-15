@@ -117,7 +117,7 @@ contract TreasuryTest is Test {
     function testInitialization() public view {
         // Check contract references
         assertEq(address(treasury.partnerManager()), address(partnerManager));
-        assertEq(address(treasury.vehicleRegistry()), address(vehicleRegistry));
+        assertEq(address(treasury.assetRegistry()), address(vehicleRegistry));
         assertEq(address(treasury.usdc()), address(usdc));
 
         // Check initial state
@@ -222,7 +222,7 @@ contract TreasuryTest is Test {
 
         // Check collateral info
         (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) = 
-            treasury.getVehicleCollateralInfo(vehicleId);
+            treasury.getAssetCollateralInfo(vehicleId);
         
         assertEq(base, BASE_COLLATERAL);
         assertEq(total, requiredCollateral);
@@ -312,7 +312,7 @@ contract TreasuryTest is Test {
         treasury.releaseCollateral(vehicleId);
 
         // Check collateral info
-        (,, bool locked,,) = treasury.getVehicleCollateralInfo(vehicleId);
+        (,, bool locked,,) = treasury.getAssetCollateralInfo(vehicleId);
         assertFalse(locked);
 
         // Check pending withdrawal
@@ -438,7 +438,7 @@ contract TreasuryTest is Test {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
 
         (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) = 
-            treasury.getVehicleCollateralInfo(vehicleId);
+            treasury.getAssetCollateralInfo(vehicleId);
 
         assertEq(base, 0);
         assertEq(total, 0);
@@ -476,9 +476,9 @@ contract TreasuryTest is Test {
         VehicleRegistry newRegistry = new VehicleRegistry();
 
         vm.prank(admin);
-        treasury.updateVehicleRegistry(address(newRegistry));
+        treasury.updateAssetRegistry(address(newRegistry));
 
-        assertEq(address(treasury.vehicleRegistry()), address(newRegistry));
+        assertEq(address(treasury.assetRegistry()), address(newRegistry));
     }
 
     function testUpdateUSDC() public {
@@ -521,8 +521,8 @@ contract TreasuryTest is Test {
         assertEq(treasury.totalCollateralDeposited(), requiredCollateral * 2);
         
         // Check individual collateral states
-        (,, bool locked1,,) = treasury.getVehicleCollateralInfo(vehicleId1);
-        (,, bool locked2,,) = treasury.getVehicleCollateralInfo(vehicleId2);
+        (,, bool locked1,,) = treasury.getAssetCollateralInfo(vehicleId1);
+        (,, bool locked2,,) = treasury.getAssetCollateralInfo(vehicleId2);
         assertTrue(locked1);
         assertTrue(locked2);
     }

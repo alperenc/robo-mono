@@ -197,7 +197,7 @@ contract Marketplace is
         );
         
         // Get collateral amount for event
-        (, uint256 collateralAmount, , ,) = treasury.getVehicleCollateralInfo(vehicleId);
+        (, uint256 collateralAmount, , ,) = treasury.getAssetCollateralInfo(vehicleId);
         
         emit CollateralLockedAndListed(
             vehicleId,
@@ -235,7 +235,7 @@ contract Marketplace is
         
         // Get vehicle ID and check collateral is locked
         uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueShareTokenId(tokenId);
-        (, , bool isLocked, ,) = treasury.getVehicleCollateralInfo(vehicleId);
+        (, , bool isLocked, ,) = treasury.getAssetCollateralInfo(vehicleId);
         if (!isLocked) {
             revert Marketplace__CollateralNotLocked();
         }
@@ -444,7 +444,7 @@ contract Marketplace is
      * @dev Check if vehicle has locked collateral (required for listing)
      */
     function isVehicleEligibleForListing(uint256 vehicleId) external view returns (bool) {
-        (, , bool isLocked, ,) = treasury.getVehicleCollateralInfo(vehicleId);
+        (, , bool isLocked, ,) = treasury.getAssetCollateralInfo(vehicleId);
         return isLocked;
     }
     

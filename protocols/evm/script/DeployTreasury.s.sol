@@ -62,7 +62,7 @@ contract DeployTreasury is Script {
         console.log("Admin has UPGRADER_ROLE:", treasury.hasRole(keccak256("UPGRADER_ROLE"), adminAddress));
         console.log("Admin has TREASURER_ROLE:", treasury.hasRole(keccak256("TREASURER_ROLE"), adminAddress));
         console.log("PartnerManager reference:", address(treasury.partnerManager()));
-        console.log("VehicleRegistry reference:", address(treasury.vehicleRegistry()));
+        console.log("AssetRegistry reference:", address(treasury.assetRegistry()));
         console.log("RoboshareTokens reference:", address(treasury.roboshareTokens()));
         console.log("USDC reference:", address(treasury.usdc()));
         console.log("Total collateral deposited:", treasury.totalCollateralDeposited());
