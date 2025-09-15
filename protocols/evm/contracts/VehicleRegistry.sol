@@ -24,7 +24,7 @@ error VehicleRegistry__IncorrectRevenueShareTokenId();
  * Coordinates with RoboshareTokens for minting and PartnerManager for authorization
  * Implements IAssetsRegistry for generic asset management capabilities
  */
-contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeable, IAssetsRegistry {
+contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeable, IAssetRegistry {
     using VehicleLib for VehicleLib.VehicleInfo;
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -321,7 +321,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getAssetInfo(uint256 assetId) external view override returns (AssetInfo memory) {
         VehicleLib.Vehicle storage vehicle = vehicles[assetId];
-        if (vehicle.vehicleId == 0) revert AssetsRegistry__AssetNotFound(assetId);
+        if (vehicle.vehicleId == 0) revert AssetRegistry__AssetNotFound(assetId);
         
         return AssetInfo({
             assetId: vehicle.vehicleId,
@@ -361,7 +361,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         } else if (tokenType == TokenType.RevenueShare) {
             return getRevenueShareTokenIdFromVehicleId(assetId);
         } else {
-            revert AssetsRegistry__InvalidTokenType(tokenType);
+            revert AssetRegistry__InvalidTokenType(tokenType);
         }
     }
 

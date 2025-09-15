@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ITreasury.sol";
-import "./interfaces/IAssetsRegistry.sol";
+import "./interfaces/IAssetRegistry.sol";
 import "./Libraries.sol";
 import "./PartnerManager.sol";
 import "./VehicleRegistry.sol";
@@ -50,7 +50,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     // Core contracts
     PartnerManager public partnerManager;
-    IAssetsRegistry public assetRegistry;
+    IAssetRegistry public assetRegistry;
     RoboshareTokens public roboshareTokens;
     IERC20 public usdc;
 
@@ -129,7 +129,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _grantRole(TREASURER_ROLE, _admin);
 
         partnerManager = PartnerManager(_partnerManager);
-        assetRegistry = IAssetsRegistry(_assetRegistry);
+        assetRegistry = IAssetRegistry(_assetRegistry);
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         usdc = IERC20(_usdc);
         treasuryFeeRecipient = _treasuryFeeRecipient;
@@ -598,7 +598,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         if (_assetRegistry == address(0)) {
             revert Treasury__ZeroAddressNotAllowed();
         }
-        assetRegistry = IAssetsRegistry(_assetRegistry);
+        assetRegistry = IAssetRegistry(_assetRegistry);
     }
 
     /**

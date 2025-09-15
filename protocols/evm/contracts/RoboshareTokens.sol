@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpg
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./interfaces/IAssetsRegistry.sol";
+import "./interfaces/IAssetRegistry.sol";
 import "./Libraries.sol";
 
 /**
@@ -26,7 +26,7 @@ contract RoboshareTokens is
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     uint256 private _tokenIdCounter;
-    IAssetsRegistry public assetsRegistry;
+    IAssetRegistry public assetRegistry;
 
     // Events
     event BatchTokensMinted(address indexed to, uint256[] ids, uint256[] amounts);
@@ -128,11 +128,11 @@ contract RoboshareTokens is
     }
 
     /**
-     * @dev Set assets registry for position tracking
-     * @param _assetsRegistry Assets registry contract address
+     * @dev Set asset registry for position tracking
+     * @param _assetRegistry Asset registry contract address
      */
-    function setAssetsRegistry(address _assetsRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        assetsRegistry = IAssetsRegistry(_assetsRegistry);
+    function setAssetRegistry(address _assetRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        assetRegistry = IAssetRegistry(_assetRegistry);
     }
 
     /**
@@ -149,18 +149,18 @@ contract RoboshareTokens is
         super._update(from, to, ids, values);
         
         // Update positions if registry is set
-        if (address(assetsRegistry) != address(0)) {
+        if (address(assetRegistry) != address(0)) {
             for (uint256 i = 0; i < ids.length; i++) {
                 uint256 tokenId = ids[i];
                 uint256 amount = values[i];
                 
                 // Only track revenue share tokens (even IDs)
-                if (assetsRegistry.isRevenueShareToken(tokenId)) {
+                if (assetRegistry.isRevenueShareToken(tokenId)) {
                     // Update positions with penalty check for sales (not mints/burns)
                     bool checkPenalty = from != address(0) && to != address(0);
                     
                     // Update positions - revert if this fails since earnings depend on it
-                    assetsRegistry.updateTokenPositions(
+                    assetRegistry.updateTokenPositions(
                         tokenId,
                         from,
                         to,

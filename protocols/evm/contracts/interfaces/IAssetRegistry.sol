@@ -4,12 +4,12 @@ pragma solidity ^0.8.19;
 import "../Libraries.sol";
 
 /**
- * @title IAssetsRegistry
- * @dev Generic Assets Registry interface for protocol-wide asset management
+ * @title IAssetRegistry
+ * @dev Generic Asset Registry interface for protocol-wide asset management
  * Designed to be implemented by different asset registries (Vehicle, Equipment, Real Estate, etc.)
  * Provides standardized access to asset information and token position management
  */
-interface IAssetsRegistry {
+interface IAssetRegistry {
     // Asset status enumeration for lifecycle management
     enum AssetStatus { 
         Inactive,   // Asset exists but not operational
@@ -110,10 +110,10 @@ interface IAssetsRegistry {
     /**
      * @dev Registry-specific errors
      */
-    error AssetsRegistry__AssetNotFound(uint256 assetId);
-    error AssetsRegistry__AssetNotActive(uint256 assetId);
-    error AssetsRegistry__UnauthorizedCaller(address caller);
-    error AssetsRegistry__InvalidTokenType(TokenType tokenType);
-    error AssetsRegistry__TokenNotFound(uint256 tokenId);
-    error AssetsRegistry__InvalidAssetStatus(AssetStatus status);
+    error AssetRegistry__AssetNotFound(uint256 assetId);
+    error AssetRegistry__AssetNotActive(uint256 assetId);
+    error AssetRegistry__UnauthorizedCaller(address caller);
+    error AssetRegistry__InvalidTokenType(TokenType tokenType);
+    error AssetRegistry__TokenNotFound(uint256 tokenId);
+    error AssetRegistry__InvalidAssetStatus(AssetStatus status);
 }
