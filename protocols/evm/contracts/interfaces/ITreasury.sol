@@ -9,12 +9,6 @@ import "../Libraries.sol";
  * Used by asset registries to delegate TokenLib operations
  */
 interface ITreasury {
-    /**
-     * @dev Get token info for an asset
-     * @param assetId The asset ID
-     * @return Token info with position tracking data
-     */
-    function getAssetTokenInfo(uint256 assetId) external view returns (TokenLib.TokenInfo memory);
 
     /**
      * @dev Update token positions during transfers

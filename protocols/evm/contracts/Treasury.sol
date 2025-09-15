@@ -150,7 +150,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         uint256 totalRevenueTokens
     ) external onlyAuthorizedPartner nonReentrant {
         // Verify vehicle exists and caller owns it
-        if (!vehicleRegistry.vehicleExists(assetId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
         
@@ -178,7 +178,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         // Initialize token tracking for earnings distribution
         TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
-        uint256 revenueShareTokenId = vehicleRegistry.getRevenueShareTokenIdFromVehicleId(assetId);
+        uint256 revenueShareTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
         TokenLib.initializeTokenInfo(
             tokenInfo,
             revenueShareTokenId,
@@ -223,7 +223,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
         
         // Verify vehicle exists and partner owns it
-        if (!vehicleRegistry.vehicleExists(assetId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
         
@@ -269,7 +269,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function releaseCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
         // Verify vehicle exists
-        if (!vehicleRegistry.vehicleExists(assetId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
 
@@ -326,7 +326,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         // Verify vehicle exists
-        if (!vehicleRegistry.vehicleExists(assetId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
 
@@ -385,12 +385,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function claimEarnings(uint256 assetId) external nonReentrant {
         // Verify vehicle exists
-        if (!vehicleRegistry.vehicleExists(assetId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
 
         // Check token ownership (source of truth)
-        uint256 revenueShareTokenId = vehicleRegistry.getRevenueShareTokenIdFromVehicleId(assetId);
+        uint256 revenueShareTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
         uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueShareTokenId);
 
         if (tokenBalance == 0) {
@@ -433,7 +433,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function releasePartialCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
         // Verify vehicle exists
-        if (!vehicleRegistry.vehicleExists(assetId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
 
@@ -591,8 +591,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Update vehicle registry reference
-     * @param _vehicleRegistry New vehicle registry address
+     * @dev Update asset registry reference
+     * @param _assetRegistry New asset registry address
      */
     function updateAssetRegistry(address _assetRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_assetRegistry == address(0)) {
@@ -636,14 +636,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     // ITreasury interface implementation
 
-    /**
-     * @dev Get token info for an asset
-     * @param assetId The asset ID
-     * @return Token info with position tracking data
-     */
-    function getAssetTokenInfo(uint256 assetId) external view override returns (TokenLib.TokenInfo memory) {
-        return assetTokens[assetId];
-    }
 
     /**
      * @dev Update token positions during transfers
@@ -662,15 +654,15 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         bool checkPenalty
     ) external override returns (uint256 penalty) {
         // Only allow authorized callers (asset registries)
-        if (!hasRole(PARTNER_ROLE, msg.sender) && msg.sender != address(assetRegistry)) {
+        if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender) && msg.sender != address(assetRegistry)) {
             revert Treasury__UnauthorizedPartner();
         }
 
         TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
         
         // Initialize token info if first time
-        if (!tokenInfo.isInitialized) {
-            TokenLib.initializeTokenInfo(tokenInfo);
+        if (tokenInfo.tokenId == 0) {
+            TokenLib.initializeTokenInfo(tokenInfo, assetId, 0, 0, ProtocolLib.MONTHLY_INTERVAL);
         }
 
         // Update positions and calculate penalty if required
@@ -691,7 +683,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @return Whether token tracking is set up for this asset
      */
     function isAssetTokenInfoInitialized(uint256 assetId) external view override returns (bool) {
-        return assetTokens[assetId].isInitialized;
+        return assetTokens[assetId].tokenId != 0;
     }
 
     // UUPS Upgrade authorization

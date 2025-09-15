@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./interfaces/IAssetsRegistry.sol";
+import "./interfaces/IAssetRegistry.sol";
 import "./interfaces/ITreasury.sol";
 import "./Libraries.sol";
 import "./RoboshareTokens.sol";
@@ -365,21 +365,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
     }
 
-    /**
-     * @dev Get asset token info
-     */
-    function getAssetTokenInfo(uint256 assetId) external view override returns (TokenLib.TokenInfo memory) {
-        if (address(treasury) != address(0) && treasury.isAssetTokenInfoInitialized(assetId)) {
-            return treasury.getAssetTokenInfo(assetId);
-        }
-        
-        // Return empty token info if not initialized
-        return TokenLib.TokenInfo({
-            totalSupply: 0,
-            currentPositionIndex: 0,
-            lastUpdateTimestamp: 0
-        });
-    }
 
     /**
      * @dev Check if token is revenue share token

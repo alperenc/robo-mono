@@ -179,15 +179,6 @@ library AssetsLib {
     }
 
     /**
-     * @dev Check if asset exists (has been registered)
-     * @param info Storage reference to asset info
-     * @return Whether asset has been initialized
-     */
-    function exists(AssetInfo storage info) internal view returns (bool) {
-        return info.assetId != 0; // Assuming 0 is not a valid asset ID
-    }
-
-    /**
      * @dev Get asset age in seconds
      * @param info Storage reference to asset info
      * @return Age since creation

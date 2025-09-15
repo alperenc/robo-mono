@@ -10,18 +10,11 @@ import "../Libraries.sol";
  * Provides standardized access to asset information and token position management
  */
 interface IAssetRegistry {
-    // Asset status enumeration for lifecycle management
-    enum AssetStatus { 
-        Inactive,   // Asset exists but not operational
-        Active,     // Asset is operational and earning
-        Suspended,  // Temporarily halted operations
-        Archived    // Permanently retired
-    }
     
     // Generic asset information structure
     struct AssetInfo {
         uint256 assetId;           // Unique asset identifier
-        AssetStatus status;        // Current asset status
+        AssetsLib.AssetStatus status;        // Current asset status
         uint256 createdAt;         // Asset registration timestamp
         uint256 updatedAt;         // Last status/metadata update
     }
@@ -45,7 +38,6 @@ interface IAssetRegistry {
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view returns (uint256);
     function getTokenIdFromAssetId(uint256 assetId, TokenType tokenType) external view returns (uint256);
-    function getAssetTokenInfo(uint256 assetId) external view returns (TokenLib.TokenInfo memory);
     function isRevenueShareToken(uint256 tokenId) external view returns (bool);
 
     /**
@@ -89,8 +81,8 @@ interface IAssetRegistry {
     /**
      * @dev Events for cross-contract communication and indexing
      */
-    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetStatus status);
-    event AssetStatusUpdated(uint256 indexed assetId, AssetStatus indexed oldStatus, AssetStatus indexed newStatus);
+    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetsLib.AssetStatus status);
+    event AssetStatusUpdated(uint256 indexed assetId, AssetsLib.AssetStatus indexed oldStatus, AssetsLib.AssetStatus indexed newStatus);
     event AssetOwnerUpdated(uint256 indexed assetId, address indexed oldOwner, address indexed newOwner);
     event TokenPositionsUpdated(
         uint256 indexed tokenId, 
@@ -115,5 +107,5 @@ interface IAssetRegistry {
     error AssetRegistry__UnauthorizedCaller(address caller);
     error AssetRegistry__InvalidTokenType(TokenType tokenType);
     error AssetRegistry__TokenNotFound(uint256 tokenId);
-    error AssetRegistry__InvalidAssetStatus(AssetStatus status);
+    error AssetRegistry__InvalidAssetStatus(AssetsLib.AssetStatus status);
 }
