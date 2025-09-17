@@ -7,10 +7,15 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./interfaces/IAssetRegistry.sol";
 import "./Libraries.sol";
 import "./PartnerManager.sol";
 import "./VehicleRegistry.sol";
 import "./RoboshareTokens.sol";
+
+using EarningsLib for EarningsLib.EarningsInfo;
+using CollateralLib for CollateralLib.CollateralInfo;
+using TokenLib for TokenLib.TokenInfo;
 
 // Treasury errors
 error Treasury__UnauthorizedPartner();
@@ -24,10 +29,15 @@ error Treasury__TransferFailed();
 error Treasury__ExistingOutstandingRevenueTokens();
 error Treasury__VehicleNotFound();
 error Treasury__NotVehicleOwner();
+error Treasury__InvalidEarningsAmount();
+error Treasury__NoEarningsToDistribute();
+error Treasury__NoEarningsToClaim();
+error Treasury__NoRevenueTokensIssued();
+error Treasury__TooSoonForCollateralRelease();
 
 /**
  * @dev Treasury contract for USDC-based collateral management
- * Phase 1: Collateral locking functionality for vehicle registration
+ * Phase 1: Collateral locking functionality for asset registration
  */
 contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
@@ -39,23 +49,36 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     // Core contracts
     PartnerManager public partnerManager;
-    VehicleRegistry public vehicleRegistry;
+    IAssetRegistry public assetRegistry;
     RoboshareTokens public roboshareTokens;
     IERC20 public usdc;
 
-    // Collateral storage - vehicleId => CollateralInfo
-    mapping(uint256 => CollateralLib.CollateralInfo) public vehicleCollateral;
+    // Collateral storage - assetId => CollateralInfo
+    mapping(uint256 => CollateralLib.CollateralInfo) public assetCollateral;
+    
+    // Earnings tracking - assetId => EarningsInfo
+    mapping(uint256 => EarningsLib.EarningsInfo) public assetEarnings;
+    
+    // Token info for earnings distribution (positions tracked in RoboshareTokens)
+    mapping(uint256 => TokenLib.TokenInfo) public assetTokens;
+    
     
     // Partner pending withdrawals
     mapping(address => uint256) public pendingWithdrawals;
     
     // Treasury state
     uint256 public totalCollateralDeposited;
+    uint256 public totalEarningsDeposited;
+    
+    // Treasury fee recipient
+    address public treasuryFeeRecipient;
 
     // Events
-    event CollateralLocked(uint256 indexed vehicleId, address indexed partner, uint256 amount);
-    event CollateralUnlocked(uint256 indexed vehicleId, address indexed partner, uint256 amount);
+    event CollateralLocked(uint256 indexed assetId, address indexed partner, uint256 amount);
+    event CollateralReleased(uint256 indexed assetId, address indexed partner, uint256 amount);
     event WithdrawalProcessed(address indexed recipient, uint256 amount);
+    event EarningsDistributed(uint256 indexed assetId, address indexed partner, uint256 amount, uint256 period);
+    event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
 
     /**
      * @dev Modifier to restrict access to authorized partners
@@ -83,13 +106,14 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     function initialize(
         address _admin,
         address _partnerManager,
-        address _vehicleRegistry,
+        address _assetRegistry,
         address _roboshareTokens,
-        address _usdc
+        address _usdc,
+        address _treasuryFeeRecipient
     ) public initializer {
         if (_admin == address(0) || _partnerManager == address(0) || 
-            _vehicleRegistry == address(0) || _roboshareTokens == address(0) || 
-            _usdc == address(0)) {
+            _assetRegistry == address(0) || _roboshareTokens == address(0) || 
+            _usdc == address(0) || _treasuryFeeRecipient == address(0)) {
             revert Treasury__ZeroAddressNotAllowed();
         }
 
@@ -102,36 +126,37 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _grantRole(TREASURER_ROLE, _admin);
 
         partnerManager = PartnerManager(_partnerManager);
-        vehicleRegistry = VehicleRegistry(_vehicleRegistry);
+        assetRegistry = IAssetRegistry(_assetRegistry);
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         usdc = IERC20(_usdc);
+        treasuryFeeRecipient = _treasuryFeeRecipient;
     }
 
     // Collateral Locking Functions
 
     /**
-     * @dev Lock USDC collateral for vehicle registration
+     * @dev Lock USDC collateral for asset registration
      * Note: Partner must approve Treasury to spend USDC before calling this function
-     * @param vehicleId The ID of the vehicle to lock collateral for
+     * @param assetId The ID of the asset to lock collateral for
      * @param revenueTokenPrice Price per revenue share token in USDC (with decimals)
      * @param totalRevenueTokens Total number of revenue share tokens to be issued
      */
     function lockCollateral(
-        uint256 vehicleId, 
+        uint256 assetId, 
         uint256 revenueTokenPrice, 
         uint256 totalRevenueTokens
     ) external onlyAuthorizedPartner nonReentrant {
         // Verify vehicle exists and caller owns it
-        if (!vehicleRegistry.vehicleExists(vehicleId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
         
         // Verify caller owns the vehicle NFT
-        if (roboshareTokens.balanceOf(msg.sender, vehicleId) == 0) {
+        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
             revert Treasury__NotVehicleOwner();
         }
 
-        CollateralLib.CollateralInfo storage collateralInfo = vehicleCollateral[vehicleId];
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         
         // Check if collateral is already locked
         if (collateralInfo.isLocked) {
@@ -148,6 +173,18 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             );
         }
 
+        // Initialize token info for earnings distribution (positions tracked in RoboshareTokens)
+        TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
+        uint256 revenueShareTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
+        TokenLib.initializeTokenInfo(
+            tokenInfo,
+            revenueShareTokenId,
+            totalRevenueTokens,
+            revenueTokenPrice,
+            ProtocolLib.MONTHLY_INTERVAL
+        );
+        // Note: Initial positions are tracked automatically in RoboshareTokens via _update
+
         uint256 requiredCollateral = collateralInfo.totalCollateral;
 
         // Transfer USDC from partner to treasury (requires prior approval)
@@ -159,19 +196,19 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         totalCollateralDeposited += requiredCollateral;
 
-        emit CollateralLocked(vehicleId, msg.sender, requiredCollateral);
+        emit CollateralLocked(assetId, msg.sender, requiredCollateral);
     }
 
     /**
-     * @dev Lock USDC collateral for vehicle registration (delegated call by authorized contracts)
+     * @dev Lock USDC collateral for asset registration (delegated call by authorized contracts)
      * @param partner The partner who owns the vehicle
-     * @param vehicleId The ID of the vehicle to lock collateral for
+     * @param assetId The ID of the asset to lock collateral for
      * @param revenueTokenPrice Price per revenue share token in USDC (with decimals)
      * @param totalRevenueTokens Total number of revenue share tokens to be issued
      */
     function lockCollateralFor(
         address partner,
-        uint256 vehicleId, 
+        uint256 assetId, 
         uint256 revenueTokenPrice, 
         uint256 totalRevenueTokens
     ) external onlyAuthorizedContract nonReentrant {
@@ -181,16 +218,16 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
         
         // Verify vehicle exists and partner owns it
-        if (!vehicleRegistry.vehicleExists(vehicleId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
         
         // Verify partner owns the vehicle NFT
-        if (roboshareTokens.balanceOf(partner, vehicleId) == 0) {
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
             revert Treasury__NotVehicleOwner();
         }
 
-        CollateralLib.CollateralInfo storage collateralInfo = vehicleCollateral[vehicleId];
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         
         // Check if collateral is already locked
         if (collateralInfo.isLocked) {
@@ -218,20 +255,20 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         totalCollateralDeposited += requiredCollateral;
         
-        emit CollateralLocked(vehicleId, partner, requiredCollateral);
+        emit CollateralLocked(assetId, partner, requiredCollateral);
     }
 
     /**
-     * @dev Unlock collateral for vehicle (Phase 1: simplified version)
-     * @param vehicleId The ID of the vehicle to unlock collateral for
+     * @dev Release full collateral for asset (when partner owns all tokens)
+     * @param assetId The ID of the asset to release collateral for
      */
-    function unlockCollateral(uint256 vehicleId) external onlyAuthorizedPartner nonReentrant {
+    function releaseCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
         // Verify vehicle exists
-        if (!vehicleRegistry.vehicleExists(vehicleId)) {
+        if (!assetRegistry.assetExists(assetId)) {
             revert Treasury__VehicleNotFound();
         }
 
-        CollateralLib.CollateralInfo storage collateralInfo = vehicleCollateral[vehicleId];
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         
         if (!collateralInfo.isLocked) {
             revert Treasury__NoCollateralLocked();
@@ -247,7 +284,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         pendingWithdrawals[msg.sender] += collateralAmount;
         totalCollateralDeposited -= collateralAmount;
 
-        emit CollateralUnlocked(vehicleId, msg.sender, collateralAmount);
+        emit CollateralReleased(assetId, msg.sender, collateralAmount);
     }
 
     /**
@@ -265,6 +302,182 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         usdc.safeTransfer(msg.sender, amount);
 
         emit WithdrawalProcessed(msg.sender, amount);
+    }
+
+    // Earnings Distribution Functions
+
+    /**
+     * @dev Distribute USDC earnings for revenue token holders
+     * @param assetId The ID of the asset
+     * @param amount Amount of USDC earnings to distribute
+     */
+    function distributeEarnings(uint256 assetId, uint256 amount) 
+        external 
+        onlyAuthorizedPartner 
+        nonReentrant 
+    {
+        if (amount == 0) {
+            revert Treasury__InvalidEarningsAmount();
+        }
+
+        // Verify vehicle exists
+        if (!assetRegistry.assetExists(assetId)) {
+            revert Treasury__VehicleNotFound();
+        }
+
+        // Verify partner owns the vehicle
+        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
+            revert Treasury__NotVehicleOwner();
+        }
+
+        // Get token info (must be initialized during collateral locking)
+        TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
+        if (tokenInfo.totalSupply == 0) {
+            revert Treasury__NoRevenueTokensIssued();
+        }
+
+        // Calculate protocol fee and net earnings
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(amount);
+        uint256 netEarnings = amount - protocolFee;
+
+        // Transfer USDC from partner to treasury
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
+
+        // Initialize earnings tracking if needed
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+        if (!earningsInfo.isInitialized) {
+            EarningsLib.initializeEarningsInfo(earningsInfo);
+        }
+
+        // Calculate earnings per token
+        uint256 earningsPerToken = netEarnings / tokenInfo.totalSupply;
+        
+        // Update earnings info
+        earningsInfo.totalEarnings += netEarnings;
+        earningsInfo.totalEarningsPerToken += earningsPerToken;
+        earningsInfo.currentPeriod++;
+        
+        earningsInfo.periods[earningsInfo.currentPeriod] = EarningsLib.EarningsPeriod({
+            earningsPerToken: earningsPerToken,
+            timestamp: block.timestamp,
+            totalEarnings: netEarnings
+        });
+
+        // Update treasury totals (total amount deposited, including protocol fees)
+        totalEarningsDeposited += amount;
+
+        // Add protocol fee to pending withdrawals for treasury fee collection
+        if (protocolFee > 0) {
+            pendingWithdrawals[treasuryFeeRecipient] += protocolFee;
+        }
+
+        emit EarningsDistributed(assetId, msg.sender, netEarnings, earningsInfo.currentPeriod);
+    }
+
+    /**
+     * @dev Claim earnings from revenue token holdings
+     * @param assetId The ID of the asset
+     */
+    function claimEarnings(uint256 assetId) external nonReentrant {
+        // Verify vehicle exists
+        if (!assetRegistry.assetExists(assetId)) {
+            revert Treasury__VehicleNotFound();
+        }
+
+        // Check token ownership (source of truth)
+        uint256 revenueShareTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
+        uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueShareTokenId);
+
+        if (tokenBalance == 0) {
+            revert Treasury__NoEarningsToClaim();
+        }
+
+        // Get earnings info
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+        
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            revert Treasury__NoEarningsToClaim();
+        }
+
+        // Get user's positions from RoboshareTokens (single source of truth)
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueShareTokenId, msg.sender);
+        
+        // Calculate position-based earnings using Treasury's claim tracking
+        uint256 unclaimedAmount = EarningsLib.calculateEarningsForPositions(
+            earningsInfo,
+            msg.sender,
+            positions
+        );
+
+        if (unclaimedAmount == 0) {
+            revert Treasury__NoEarningsToClaim();
+        }
+
+        // Update claim periods for all positions
+        EarningsLib.updateClaimPeriods(earningsInfo, msg.sender, positions);
+
+        // Add to pending withdrawals
+        pendingWithdrawals[msg.sender] += unclaimedAmount;
+
+        emit EarningsClaimed(assetId, msg.sender, unclaimedAmount);
+    }
+
+    /**
+     * @dev Release partial collateral based on depreciation
+     * @param assetId The ID of the asset
+     */
+    function releasePartialCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
+        // Verify vehicle exists
+        if (!assetRegistry.assetExists(assetId)) {
+            revert Treasury__VehicleNotFound();
+        }
+
+        // Verify partner owns the vehicle
+        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
+            revert Treasury__NotVehicleOwner();
+        }
+
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+
+        if (!collateralInfo.isLocked) {
+            revert Treasury__NoCollateralLocked();
+        }
+
+        // Calculate collateral release amount
+        (uint256 releaseAmount, bool canRelease) = EarningsLib.calculateCollateralRelease(
+            earningsInfo,
+            collateralInfo
+        );
+
+        if (!canRelease) {
+            revert Treasury__TooSoonForCollateralRelease();
+        }
+
+        if (releaseAmount == 0) {
+            revert Treasury__InsufficientCollateral();
+        }
+
+        // Ensure we don't release more than available
+        if (releaseAmount > collateralInfo.totalCollateral) {
+            releaseAmount = collateralInfo.totalCollateral;
+        }
+
+        // Update collateral info
+        collateralInfo.baseCollateral -= releaseAmount;
+        collateralInfo.totalCollateral -= releaseAmount;
+        
+        // Update earnings info timestamps
+        earningsInfo.lastEventTimestamp = block.timestamp;
+        earningsInfo.lastProcessedPeriod = earningsInfo.currentPeriod;
+
+        // Update treasury totals
+        totalCollateralDeposited -= releaseAmount;
+
+        // Add to pending withdrawals
+        pendingWithdrawals[msg.sender] += releaseAmount;
+
+        emit CollateralReleased(assetId, msg.sender, releaseAmount);
     }
 
     // View Functions
@@ -312,15 +525,15 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Get vehicle's collateral information
-     * @param vehicleId The ID of the vehicle
+     * @dev Get asset's collateral information
+     * @param assetId The ID of the asset
      * @return baseCollateral Base collateral amount
      * @return totalCollateral Total collateral amount
      * @return isLocked Whether collateral is locked
      * @return lockedAt Timestamp when locked
      * @return lockDuration Duration since lock in seconds
      */
-    function getVehicleCollateralInfo(uint256 vehicleId) 
+    function getAssetCollateralInfo(uint256 assetId) 
         external 
         view 
         returns (
@@ -331,7 +544,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             uint256 lockDuration
         )
     {
-        CollateralLib.CollateralInfo storage info = vehicleCollateral[vehicleId];
+        CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
         return (
             info.baseCollateral,
             info.totalCollateral,
@@ -373,14 +586,14 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Update vehicle registry reference
-     * @param _vehicleRegistry New vehicle registry address
+     * @dev Update asset registry reference
+     * @param _assetRegistry New asset registry address
      */
-    function updateVehicleRegistry(address _vehicleRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_vehicleRegistry == address(0)) {
+    function updateAssetRegistry(address _assetRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_assetRegistry == address(0)) {
             revert Treasury__ZeroAddressNotAllowed();
         }
-        vehicleRegistry = VehicleRegistry(_vehicleRegistry);
+        assetRegistry = IAssetRegistry(_assetRegistry);
     }
 
     /**
@@ -403,6 +616,71 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__ZeroAddressNotAllowed();
         }
         roboshareTokens = RoboshareTokens(_roboshareTokens);
+    }
+
+    /**
+     * @dev Update treasury fee recipient address
+     * @param _treasuryFeeRecipient New treasury fee recipient address
+     */
+    function setTreasuryFeeRecipient(address _treasuryFeeRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_treasuryFeeRecipient == address(0)) {
+            revert Treasury__ZeroAddressNotAllowed();
+        }
+        treasuryFeeRecipient = _treasuryFeeRecipient;
+    }
+
+    /**
+     * @dev Update token positions during transfers
+     * @param assetId The asset ID
+     * @param from Source address (address(0) for minting)
+     * @param to Destination address (address(0) for burning)
+     * @param amount Number of tokens transferred
+     * @param checkPenalty Whether to calculate early sale penalties
+     * @return penalty Penalty amount if applicable
+     */
+    function updateAssetTokenPositions(
+        uint256 assetId,
+        address from,
+        address to,
+        uint256 amount,
+        bool checkPenalty
+    ) external returns (uint256 penalty) {
+        // Only allow authorized callers (asset registries)
+        if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender) && msg.sender != address(assetRegistry)) {
+            revert Treasury__UnauthorizedPartner();
+        }
+
+        TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
+        
+        // Initialize token info if first time
+        if (tokenInfo.tokenId == 0) {
+            TokenLib.initializeTokenInfo(tokenInfo, assetId, 0, 0, ProtocolLib.MONTHLY_INTERVAL);
+        }
+
+        // Handle position tracking based on transfer type
+        if (from == address(0)) {
+            // Minting - add position to receiver
+            TokenLib.addPosition(tokenInfo, to, amount);
+            penalty = 0;
+        } else if (to == address(0)) {
+            // Burning/Sale - remove position from sender with penalty check
+            penalty = TokenLib.removePosition(tokenInfo, from, amount, checkPenalty);
+        } else {
+            // User-to-user transfer - remove from sender (no penalty), add to receiver
+            penalty = TokenLib.removePosition(tokenInfo, from, amount, false);
+            TokenLib.addPosition(tokenInfo, to, amount);
+        }
+
+        return penalty;
+    }
+
+    /**
+     * @dev Check if asset token info is initialized
+     * @param assetId The asset ID
+     * @return Whether token tracking is set up for this asset
+     */
+    function isAssetTokenInfoInitialized(uint256 assetId) external view returns (bool) {
+        return assetTokens[assetId].tokenId != 0;
     }
 
     // UUPS Upgrade authorization

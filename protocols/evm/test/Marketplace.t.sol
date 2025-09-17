@@ -87,7 +87,7 @@ contract MarketplaceTest is Test {
         // Deploy Treasury
         treasuryImplementation = new Treasury();
         bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address)", admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc)
+            "initialize(address,address,address,address,address,address)", admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc), config.treasuryFeeRecipient
         );
         ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
         treasury = Treasury(address(treasuryProxy));
@@ -240,7 +240,7 @@ contract MarketplaceTest is Test {
         assertEq(roboshareTokens.balanceOf(partner1, revenueShareTokenId), TOTAL_REVENUE_TOKENS - TOKENS_TO_LIST);
 
         // Verify collateral locked
-        (, , bool isLocked, ,) = treasury.getVehicleCollateralInfo(vehicleId);
+        (, , bool isLocked, ,) = treasury.getAssetCollateralInfo(vehicleId);
         assertTrue(isLocked);
     }
 
