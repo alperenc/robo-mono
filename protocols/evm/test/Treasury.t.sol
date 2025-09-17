@@ -606,8 +606,8 @@ contract TreasuryTest is Test {
         vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
 
-        // Verify treasury state
-        assertEq(treasury.totalEarningsDeposited(), initialTreasuryBalance + expectedNetEarnings);
+        // Verify treasury state (total deposited includes protocol fees)
+        assertEq(treasury.totalEarningsDeposited(), initialTreasuryBalance + earningsAmount);
         
         // Verify protocol fee was allocated to treasury fee recipient
         assertEq(treasury.getPendingWithdrawal(treasuryFeeRecipient), initialTreasuryFeePending + expectedProtocolFee);

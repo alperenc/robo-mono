@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/ITreasury.sol";
 import "./interfaces/IAssetRegistry.sol";
 import "./Libraries.sol";
 import "./PartnerManager.sol";
@@ -40,7 +39,7 @@ error Treasury__TooSoonForCollateralRelease();
  * @dev Treasury contract for USDC-based collateral management
  * Phase 1: Collateral locking functionality for asset registration
  */
-contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, ITreasury {
+contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using CollateralLib for CollateralLib.CollateralInfo;
 
@@ -60,11 +59,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     // Earnings tracking - assetId => EarningsInfo
     mapping(uint256 => EarningsLib.EarningsInfo) public assetEarnings;
     
-    // Revenue token tracking - assetId => TokenInfo
+    // Token info for earnings distribution (positions tracked in RoboshareTokens)
     mapping(uint256 => TokenLib.TokenInfo) public assetTokens;
     
-    // Token holder earnings claims - holder => assetId => lastClaimedPeriod
-    mapping(address => mapping(uint256 => uint256)) public holderLastClaimedPeriod;
     
     // Partner pending withdrawals
     mapping(address => uint256) public pendingWithdrawals;
@@ -176,7 +173,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             );
         }
 
-        // Initialize token tracking for earnings distribution
+        // Initialize token info for earnings distribution (positions tracked in RoboshareTokens)
         TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
         uint256 revenueShareTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
         TokenLib.initializeTokenInfo(
@@ -186,9 +183,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revenueTokenPrice,
             ProtocolLib.MONTHLY_INTERVAL
         );
-
-        // Add initial position for partner (they own all tokens initially)
-        TokenLib.addPosition(tokenInfo, msg.sender, totalRevenueTokens);
+        // Note: Initial positions are tracked automatically in RoboshareTokens via _update
 
         uint256 requiredCollateral = collateralInfo.totalCollateral;
 
@@ -368,8 +363,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             totalEarnings: netEarnings
         });
 
-        // Update treasury totals
-        totalEarningsDeposited += netEarnings;
+        // Update treasury totals (total amount deposited, including protocol fees)
+        totalEarningsDeposited += amount;
 
         // Add protocol fee to pending withdrawals for treasury fee collection
         if (protocolFee > 0) {
@@ -397,29 +392,29 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__NoEarningsToClaim();
         }
 
-        // Get token info and earnings info
-        TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
+        // Get earnings info
         EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
         
         if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
             revert Treasury__NoEarningsToClaim();
         }
 
-        // Calculate unclaimed earnings using position-based tracking
-        uint256 lastClaimedPeriod = holderLastClaimedPeriod[msg.sender][assetId];
-        uint256 unclaimedAmount = TokenLib.calculateUnclaimedEarningsForPositions(
-            tokenInfo,
-            msg.sender,
+        // Get user's positions from RoboshareTokens (single source of truth)
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueShareTokenId, msg.sender);
+        
+        // Calculate position-based earnings using Treasury's claim tracking
+        uint256 unclaimedAmount = EarningsLib.calculateEarningsForPositions(
             earningsInfo,
-            lastClaimedPeriod
+            msg.sender,
+            positions
         );
 
         if (unclaimedAmount == 0) {
             revert Treasury__NoEarningsToClaim();
         }
 
-        // Update last claimed period
-        holderLastClaimedPeriod[msg.sender][assetId] = earningsInfo.currentPeriod;
+        // Update claim periods for all positions
+        EarningsLib.updateClaimPeriods(earningsInfo, msg.sender, positions);
 
         // Add to pending withdrawals
         pendingWithdrawals[msg.sender] += unclaimedAmount;
@@ -634,9 +629,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         treasuryFeeRecipient = _treasuryFeeRecipient;
     }
 
-    // ITreasury interface implementation
-
-
     /**
      * @dev Update token positions during transfers
      * @param assetId The asset ID
@@ -652,7 +644,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         address to,
         uint256 amount,
         bool checkPenalty
-    ) external override returns (uint256 penalty) {
+    ) external returns (uint256 penalty) {
         // Only allow authorized callers (asset registries)
         if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender) && msg.sender != address(assetRegistry)) {
             revert Treasury__UnauthorizedPartner();
@@ -687,7 +679,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @param assetId The asset ID
      * @return Whether token tracking is set up for this asset
      */
-    function isAssetTokenInfoInitialized(uint256 assetId) external view override returns (bool) {
+    function isAssetTokenInfoInitialized(uint256 assetId) external view returns (bool) {
         return assetTokens[assetId].tokenId != 0;
     }
 

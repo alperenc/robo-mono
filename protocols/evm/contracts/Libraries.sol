@@ -700,6 +700,8 @@ library EarningsLib {
         uint256 cumulativeBenchmarkEarnings; // Cumulative benchmark earnings for investor protection
         bool isInitialized;              // Whether earnings tracking is initialized
         mapping(uint256 => EarningsPeriod) periods; // period => earnings data
+        // Track last claimed period for each individual position
+        mapping(address => mapping(uint256 => mapping(uint256 => uint256))) positionsLastClaimedPeriod; // holder => tokenId => positionIndex => lastClaimedPeriod
     }
 
     /**
@@ -799,5 +801,75 @@ library EarningsLib {
         canRelease = true;
 
         return (releaseAmount, canRelease);
+    }
+
+    /**
+     * @dev Calculate earnings for positions with per-position claim tracking  
+     * @param earningsInfo Storage reference to earnings info
+     * @param holder Address of the token holder
+     * @param positions Memory array of user's positions
+     * @return totalEarnings Total claimable earnings
+     */
+    function calculateEarningsForPositions(
+        EarningsInfo storage earningsInfo,
+        address holder,
+        TokenLib.TokenPosition[] memory positions
+    ) internal view returns (uint256 totalEarnings) {
+        for (uint256 i = 0; i < positions.length; i++) {
+            TokenLib.TokenPosition memory position = positions[i];
+            if (position.amount > 0) {
+                uint256 lastClaimedPeriod = earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][i];
+                uint256 endPeriod = position.soldAt > 0 
+                    ? getPeriodAtTimestamp(earningsInfo, position.soldAt)
+                    : earningsInfo.currentPeriod;
+                
+                // Calculate unclaimed earnings for this position
+                for (uint256 period = lastClaimedPeriod + 1; period <= endPeriod; period++) {
+                    uint256 periodTimestamp = earningsInfo.periods[period].timestamp;
+                    bool wasHeldDuringPeriod = position.acquiredAt <= periodTimestamp && 
+                                             (position.soldAt == 0 || position.soldAt >= periodTimestamp);
+                    
+                    if (wasHeldDuringPeriod) {
+                        totalEarnings += earningsInfo.periods[period].earningsPerToken * position.amount;
+                    }
+                }
+            }
+        }
+        return totalEarnings;
+    }
+
+    /**
+     * @dev Update claim periods for all positions
+     * @param earningsInfo Storage reference to earnings info
+     * @param holder Address of the token holder
+     * @param positions Memory array of user's positions  
+     */
+    function updateClaimPeriods(
+        EarningsInfo storage earningsInfo,
+        address holder,
+        TokenLib.TokenPosition[] memory positions
+    ) internal {
+        for (uint256 i = 0; i < positions.length; i++) {
+            TokenLib.TokenPosition memory position = positions[i];
+            earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][i] = earningsInfo.currentPeriod;
+        }
+    }
+
+    /**
+     * @dev Get period number at specific timestamp
+     * @param earningsInfo Storage reference to earnings info
+     * @param timestamp Timestamp to find period for
+     * @return period Period number at timestamp
+     */
+    function getPeriodAtTimestamp(EarningsInfo storage earningsInfo, uint256 timestamp)
+        internal
+        view
+        returns (uint256 period)
+    {
+        period = earningsInfo.currentPeriod;
+        while (period > 0 && earningsInfo.periods[period].timestamp > timestamp) {
+            period--;
+        }
+        return period;
     }
 }

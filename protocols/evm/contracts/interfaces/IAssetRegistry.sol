@@ -41,33 +41,8 @@ interface IAssetRegistry {
     function isRevenueShareToken(uint256 tokenId) external view returns (bool);
 
     /**
-     * @dev Position management (called by token contract during transfers)
-     * Updates TokenLib positions to track earnings eligibility
-     */
-    function updateTokenPositions(
-        uint256 tokenId,
-        address from,
-        address to,
-        uint256 amount,
-        bool checkPenalty
-    ) external returns (uint256 penalty);
-
-    /**
-     * @dev Batch position updates for gas efficiency
-     * Handles multiple token transfers in single transaction
-     */
-    function updateBatchTokenPositions(
-        uint256[] calldata tokenIds,
-        address from,
-        address to,
-        uint256[] calldata amounts,
-        bool checkPenalty
-    ) external returns (uint256 totalPenalty);
-
-    /**
      * @dev Access control and permissions
      */
-    function canUpdatePositions(address caller, uint256 assetId) external view returns (bool);
     function isAuthorizedForAsset(address account, uint256 assetId) external view returns (bool);
 
     /**
@@ -84,20 +59,6 @@ interface IAssetRegistry {
     event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetsLib.AssetStatus status);
     event AssetStatusUpdated(uint256 indexed assetId, AssetsLib.AssetStatus indexed oldStatus, AssetsLib.AssetStatus indexed newStatus);
     event AssetOwnerUpdated(uint256 indexed assetId, address indexed oldOwner, address indexed newOwner);
-    event TokenPositionsUpdated(
-        uint256 indexed tokenId, 
-        address indexed from, 
-        address indexed to, 
-        uint256 amount, 
-        uint256 penalty
-    );
-    event BatchTokenPositionsUpdated(
-        uint256[] tokenIds, 
-        address indexed from, 
-        address indexed to, 
-        uint256[] amounts, 
-        uint256 totalPenalty
-    );
 
     /**
      * @dev Registry-specific errors

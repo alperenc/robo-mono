@@ -6,13 +6,12 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpg
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./interfaces/IAssetRegistry.sol";
 import "./Libraries.sol";
 
 /**
  * @title RoboshareTokens
- * @dev Pure ERC1155 token contract for Roboshare protocol
- * Handles vehicle shares as fungible tokens within each vehicle type
+ * @dev ERC1155 token contract with automatic position tracking for Roboshare protocol
+ * Handles vehicle shares as fungible tokens with FIFO position tracking
  */
 contract RoboshareTokens is
     Initializable,
@@ -26,11 +25,14 @@ contract RoboshareTokens is
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     uint256 private _tokenIdCounter;
-    IAssetRegistry public assetRegistry;
+    
+    // Position tracking for revenue share tokens
+    mapping(uint256 => TokenLib.TokenInfo) private tokenPositions;
 
     // Events
     event BatchTokensMinted(address indexed to, uint256[] ids, uint256[] amounts);
     event TokensBurned(address indexed from, uint256 id, uint256 amount);
+    event PositionsUpdated(uint256 indexed tokenId, address indexed from, address indexed to, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -128,15 +130,58 @@ contract RoboshareTokens is
     }
 
     /**
-     * @dev Set asset registry for position tracking
-     * @param _assetRegistry Asset registry contract address
+     * @dev Get total supply tracked in positions for a token
+     * @param tokenId Token ID to get supply for
+     * @return totalSupply Total supply tracked in positions
      */
-    function setAssetRegistry(address _assetRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        assetRegistry = IAssetRegistry(_assetRegistry);
+    function getTokenTotalSupply(uint256 tokenId) external view returns (uint256) {
+        return tokenPositions[tokenId].totalSupply;
+    }
+    
+    /**
+     * @dev Get user balance from position tracking (should match balanceOf)
+     * @param user User address
+     * @param tokenId Token ID
+     * @return balance User's balance from positions
+     */
+    function getPositionBalance(address user, uint256 tokenId) external view returns (uint256 balance) {
+        return TokenLib.getBalance(tokenPositions[tokenId], user);
+    }
+    
+    /**
+     * @dev Check if a token ID is a revenue share token (even numbers)
+     * @param tokenId Token ID to check
+     * @return isRevenueShare True if token is revenue share token
+     */
+    function isRevenueShareToken(uint256 tokenId) public pure returns (bool) {
+        return tokenId % 2 == 0;
     }
 
     /**
-     * @dev Override _update to implement position tracking
+     * @dev Get user's token positions for earnings calculations
+     * @param tokenId Revenue share token ID
+     * @param holder Address of the token holder
+     * @return positions Array of user's positions
+     */
+    function getUserPositions(uint256 tokenId, address holder) 
+        external 
+        view 
+        returns (TokenLib.TokenPosition[] memory positions) 
+    {
+        require(isRevenueShareToken(tokenId), "Not a revenue share token");
+        TokenLib.TokenInfo storage info = tokenPositions[tokenId];
+        uint256 length = info.positions[holder].length;
+        positions = new TokenLib.TokenPosition[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            positions[i] = info.positions[holder][i];
+        }
+        
+        return positions;
+    }
+
+    /**
+     * @dev Override _update to implement automatic position tracking
      * Called on all mints, burns, and transfers
      */
     function _update(
@@ -148,30 +193,50 @@ contract RoboshareTokens is
         // Call parent implementation first
         super._update(from, to, ids, values);
         
-        // Update positions if registry is set
-        if (address(assetRegistry) != address(0)) {
-            for (uint256 i = 0; i < ids.length; i++) {
-                uint256 tokenId = ids[i];
-                uint256 amount = values[i];
-                
-                // Only track revenue share tokens (even IDs)
-                if (assetRegistry.isRevenueShareToken(tokenId)) {
-                    // Update positions with penalty check for sales (not mints/burns)
-                    bool checkPenalty = from != address(0) && to != address(0);
-                    
-                    // Update positions - revert if this fails since earnings depend on it
-                    assetRegistry.updateTokenPositions(
-                        tokenId,
-                        from,
-                        to,
-                        amount,
-                        checkPenalty
-                    );
-                }
+        // Update positions for revenue share tokens
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 tokenId = ids[i];
+            uint256 amount = values[i];
+            
+            // Only track revenue share tokens (even IDs)
+            if (isRevenueShareToken(tokenId)) {
+                _updateTokenPositions(from, to, tokenId, amount);
+                emit PositionsUpdated(tokenId, from, to, amount);
             }
         }
     }
+    
+    /**
+     * @dev Internal function to update token positions using FIFO logic
+     * @param from Address transferring from (address(0) for mints)
+     * @param to Address transferring to (address(0) for burns)
+     * @param tokenId Token ID being transferred
+     * @param amount Amount being transferred
+     */
+    function _updateTokenPositions(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount
+    ) internal {
+        TokenLib.TokenInfo storage tokenInfo = tokenPositions[tokenId];
+        
+        if (from == address(0)) {
+            // Minting - add position to receiver
+            TokenLib.addPosition(tokenInfo, to, amount);
+        } else if (to == address(0)) {
+            // Burning - remove position from sender
+            // Note: We don't apply penalties on burns, only on sales to other users
+            TokenLib.removePosition(tokenInfo, from, amount, false);
+        } else {
+            // Transfer between users - remove from sender, add to receiver
+            // No penalty for user-to-user transfers
+            TokenLib.removePosition(tokenInfo, from, amount, false);
+            TokenLib.addPosition(tokenInfo, to, amount);
+        }
+    }
 
+    
     /**
      * @dev Required override for UUPS upgrades
      */

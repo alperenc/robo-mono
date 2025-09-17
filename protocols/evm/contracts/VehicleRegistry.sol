@@ -5,7 +5,6 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IAssetRegistry.sol";
-import "./interfaces/ITreasury.sol";
 import "./Libraries.sol";
 import "./RoboshareTokens.sol";
 import "./PartnerManager.sol";
@@ -32,7 +31,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     // Core contracts
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
-    ITreasury public treasury;
 
     // Vehicle storage
     mapping(uint256 => VehicleLib.Vehicle) public vehicles;
@@ -373,45 +371,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return tokenId % 2 == 0 && tokenId > 0;
     }
 
-    /**
-     * @dev Update token positions (delegated to Treasury)
-     */
-    function updateTokenPositions(
-        uint256 tokenId,
-        address from,
-        address to,
-        uint256 amount,
-        bool checkPenalty
-    ) external override returns (uint256 penalty) {
-        uint256 assetId = this.getAssetIdFromTokenId(tokenId);
-        if (address(treasury) != address(0)) {
-            return treasury.updateAssetTokenPositions(assetId, from, to, amount, checkPenalty);
-        }
-        return 0;
-    }
-
-    /**
-     * @dev Update batch token positions
-     */
-    function updateBatchTokenPositions(
-        uint256[] calldata tokenIds,
-        address from,
-        address to,
-        uint256[] calldata amounts,
-        bool checkPenalty
-    ) external override returns (uint256 totalPenalty) {
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            totalPenalty += this.updateTokenPositions(tokenIds[i], from, to, amounts[i], checkPenalty);
-        }
-    }
-
-    /**
-     * @dev Check if caller can update positions
-     */
-    function canUpdatePositions(address caller, uint256 assetId) external view override returns (bool) {
-        // Only the RoboshareTokens contract should be able to update positions
-        return caller == address(roboshareTokens);
-    }
 
     /**
      * @dev Check if account is authorized for asset
