@@ -76,6 +76,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     // Events
     event CollateralLocked(uint256 indexed assetId, address indexed partner, uint256 amount);
     event CollateralReleased(uint256 indexed assetId, address indexed partner, uint256 amount);
+    event ShortfallReserved(uint256 indexed assetId, uint256 amount);
     event WithdrawalProcessed(address indexed recipient, uint256 amount);
     event EarningsDistributed(uint256 indexed assetId, address indexed partner, uint256 amount, uint256 period);
     event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
@@ -423,7 +424,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Release partial collateral based on depreciation
+     * @dev Release partial collateral based on depreciation and unprocessed earnings periods
+     * @dev Aggregates all unprocessed earnings and processes buffer logic once
      * @param assetId The ID of the asset
      */
     function releasePartialCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
@@ -444,7 +446,60 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__NoCollateralLocked();
         }
 
-        // Calculate collateral release amount
+        // Early revert if no prior earnings distribution
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            revert Treasury__NoPriorEarningsDistribution();
+        }
+
+        // Early revert if no new periods to process
+        if (earningsInfo.currentPeriod <= earningsInfo.lastProcessedPeriod) {
+            revert Treasury__NoNewPeriodsToProcess();
+        }
+
+        // Early revert if minimum interval not met
+        uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
+        if (timeSinceLastEvent < ProtocolLib.MIN_EVENT_INTERVAL) {
+            revert Treasury__TooSoonForCollateralRelease();
+        }
+
+        uint256 startPeriod = earningsInfo.lastProcessedPeriod;
+        uint256 endPeriod = earningsInfo.currentPeriod;
+
+        // Calculate benchmark earnings for the full period since last collateral event
+        uint256 aggregatedBenchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(
+            collateralInfo.baseCollateral,
+            timeSinceLastEvent
+        );
+
+        // Aggregate all unprocessed net earnings
+        uint256 aggregatedNetEarnings = 0;
+        for (uint256 i = startPeriod + 1; i <= endPeriod; i++) {
+            aggregatedNetEarnings += earningsInfo.periods[i].totalEarnings;
+        }
+
+        // Process buffer replenishment/shortfall with aggregated values
+        int256 earningsResult = CollateralLib.processEarningsForBuffers(
+            collateralInfo,
+            aggregatedNetEarnings,
+            aggregatedBenchmarkEarnings
+        );
+
+        // Emit shortfall event if applicable
+        if (earningsResult < 0) {
+            uint256 shortfallAmount = uint256(-earningsResult);
+            emit ShortfallReserved(assetId, shortfallAmount);
+        }
+        // Handle remaining excess earnings
+        else if (earningsResult > 0) {
+            uint256 excessEarnings = uint256(earningsResult);
+            // Add to cumulative excess earnings tracking
+            earningsInfo.cumulativeExcessEarnings += excessEarnings;
+        }
+
+        // Update processed period tracking
+        earningsInfo.lastProcessedPeriod = endPeriod;
+
+        // Calculate depreciation-based collateral release amount (existing logic)
         (uint256 releaseAmount, bool canRelease) = EarningsLib.calculateCollateralRelease(
             earningsInfo,
             collateralInfo
@@ -469,7 +524,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         
         // Update earnings info timestamps
         earningsInfo.lastEventTimestamp = block.timestamp;
-        earningsInfo.lastProcessedPeriod = earningsInfo.currentPeriod;
 
         // Update treasury totals
         totalCollateralDeposited -= releaseAmount;
