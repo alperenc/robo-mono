@@ -553,10 +553,14 @@ library CollateralLib {
      */
     struct CollateralInfo {
         uint256 baseCollateral; // Base collateral amount in USDC
+        uint256 earningsBuffer; // Current earnings buffer amount
+        uint256 protocolBuffer; // Current protocol buffer amount
         uint256 totalCollateral; // Total required collateral in USDC
         bool isLocked; // Whether collateral is currently locked
         uint256 lockedAt; // Timestamp when collateral was locked
         uint256 lastEventTimestamp; // Last collateral event timestamp
+        uint256 reservedForLiquidation; // Tracks shortfalls reserved for liquidation
+        uint256 liquidationThreshold; // Threshold for liquidation
         uint256 createdAt; // When collateral info was initialized
     }
 
@@ -577,37 +581,41 @@ library CollateralLib {
             revert CollateralLib__InvalidCollateralAmount();
         }
 
-        info.baseCollateral = revenueTokenPrice * totalRevenueTokens;
-        info.totalCollateral = calculateCollateralRequirement(revenueTokenPrice, totalRevenueTokens, bufferTimeInterval);
+        uint256 baseAmount = revenueTokenPrice * totalRevenueTokens;
+        (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) = 
+            calculateCollateralRequirements(baseAmount, bufferTimeInterval);
+
+        info.baseCollateral = baseAmount;
+        info.earningsBuffer = earningsBuffer;
+        info.protocolBuffer = protocolBuffer;
+        info.totalCollateral = totalCollateral;
         info.isLocked = false;
         info.lockedAt = 0;
         info.lastEventTimestamp = block.timestamp;
+        info.reservedForLiquidation = 0;
+        info.liquidationThreshold = earningsBuffer; // Set initial liquidation threshold to earnings buffer
         info.createdAt = block.timestamp;
     }
 
     /**
-     * @dev Calculate total collateral requirement using time-based buffer calculations
-     * Buffers represent specified time period of expected earnings for investor protection
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param totalRevenueTokens Total number of revenue share tokens
+     * @dev Calculate collateral requirements with separate buffer components
+     * @param baseAmount Base collateral amount (revenueTokenPrice * totalRevenueTokens)
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
-     * @return Total collateral requirement in USDC
+     * @return earningsBuffer Earnings buffer amount
+     * @return protocolBuffer Protocol buffer amount
+     * @return totalCollateral Total collateral requirement
      */
-    function calculateCollateralRequirement(
-        uint256 revenueTokenPrice,
-        uint256 totalRevenueTokens,
+    function calculateCollateralRequirements(
+        uint256 baseAmount,
         uint256 bufferTimeInterval
-    ) internal pure returns (uint256) {
-        uint256 baseAmount = revenueTokenPrice * totalRevenueTokens;
-        
+    ) internal pure returns (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) {
         // Calculate expected earnings for the specified time interval
         uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
         
         // Calculate buffers for investor protection over the time interval
-        uint256 earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
-        uint256 protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
-        
-        return baseAmount + earningsBuffer + protocolBuffer;
+        earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        totalCollateral = baseAmount + earningsBuffer + protocolBuffer;
     }
 
     /**
@@ -672,6 +680,85 @@ library CollateralLib {
         uint256 DEPRECIATION_RATE_BP = 1200; // 12% annually
         return (baseAmount * DEPRECIATION_RATE_BP * timeElapsed) / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
     }
+
+    /**
+     * @dev Process earnings distribution and handle buffer replenishment/shortfall
+     * @param info Collateral info storage reference
+     * @param netEarnings Actual earnings received for the period
+     * @param baseEarnings Expected base earnings for the period
+     * @return earningsResult Positive: remaining excess earnings, Negative: shortfall amount, Zero: exact match
+     * @return replenishmentAmount Amount replenished to earnings buffer from reserved funds
+     */
+    function processEarningsForBuffers(
+        CollateralInfo storage info,
+        uint256 netEarnings,
+        uint256 baseEarnings
+    ) internal returns (int256 earningsResult, uint256 replenishmentAmount) {
+        // Handle shortfall (when netEarnings < baseEarnings)
+        if (netEarnings < baseEarnings) {
+            uint256 shortfallAmount = baseEarnings - netEarnings;
+            
+            if (info.earningsBuffer >= shortfallAmount) {
+                // Earnings buffer can cover the shortfall
+                info.earningsBuffer -= shortfallAmount;
+                info.reservedForLiquidation += shortfallAmount;
+            } else {
+                // Earnings buffer can't fully cover shortfall
+                info.reservedForLiquidation += info.earningsBuffer;
+                info.earningsBuffer = 0;
+            }
+            // Update total collateral to reflect the shortfall impact (covers both cases above)
+            info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
+            
+            // Return negative value to indicate shortfall
+            return (-int256(shortfallAmount), 0);
+        }
+        // Handle excess earnings (when netEarnings > baseEarnings)
+        else if (netEarnings > baseEarnings) {
+            uint256 excessEarnings = netEarnings - baseEarnings;
+            
+            // Calculate target buffer amount (what buffer should be)
+            uint256 targetEarningsBuffer = getTargetEarningsBuffer(info.baseCollateral);
+            uint256 bufferDeficit = targetEarningsBuffer > info.earningsBuffer 
+                ? targetEarningsBuffer - info.earningsBuffer 
+                : 0;
+
+            uint256 replenished = 0;
+            if (info.reservedForLiquidation > 0) {
+                // Replenish from reservedForLiquidation first
+                uint256 toReplenish = bufferDeficit < info.reservedForLiquidation 
+                    ? bufferDeficit 
+                    : info.reservedForLiquidation;
+                toReplenish = toReplenish < excessEarnings ? toReplenish : excessEarnings;
+                
+                if (toReplenish > 0) {
+                    info.earningsBuffer += toReplenish;
+                    info.reservedForLiquidation -= toReplenish;
+                    excessEarnings -= toReplenish;
+                    replenished = toReplenish;
+                    
+                    // Update total collateral
+                    info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
+                }
+            }
+            
+            // Return remaining excess earnings and replenishment amount
+            return (int256(excessEarnings), replenished);
+        }
+        
+        // Perfect match: netEarnings == baseEarnings
+        return (0, 0);
+    }
+
+    /**
+     * @dev Get target earnings buffer amount based on current base collateral
+     * @param baseCollateral Current base collateral amount
+     * @return Target earnings buffer amount
+     */
+    function getTargetEarningsBuffer(uint256 baseCollateral) internal pure returns (uint256) {
+        uint256 expectedQuarterlyEarnings = (baseCollateral * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
+        return (expectedQuarterlyEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+    }
 }
 
 /**
@@ -698,6 +785,7 @@ library EarningsLib {
         uint256 lastEventTimestamp;      // Last collateral event timestamp
         uint256 lastProcessedPeriod;     // Last period processed for collateral release
         uint256 cumulativeBenchmarkEarnings; // Cumulative benchmark earnings for investor protection
+        uint256 cumulativeExcessEarnings; // Cumulative excess earnings for performance bonus calculations
         bool isInitialized;              // Whether earnings tracking is initialized
         mapping(uint256 => EarningsPeriod) periods; // period => earnings data
         // Track last claimed period for each individual position
@@ -776,27 +864,16 @@ library EarningsLib {
 
     /**
      * @dev Calculate collateral release amount (simple depreciation)
-     * @param earningsInfo Storage reference to earnings info
      * @param collateralInfo Storage reference to collateral info
      * @return releaseAmount Amount of collateral to release based on depreciation
      * @return canRelease Whether enough time has passed for release
      */
     function calculateCollateralRelease(
-        EarningsInfo storage earningsInfo,
         CollateralLib.CollateralInfo storage collateralInfo
     ) internal view returns (uint256 releaseAmount, bool canRelease) {
-        // Check time restrictions
-        uint256 timeSinceLastEvent = block.timestamp - earningsInfo.lastEventTimestamp;
-        if (timeSinceLastEvent < ProtocolLib.MIN_EVENT_INTERVAL) {
-            return (0, false);
-        }
-
-        // Check for new periods to process
-        if (earningsInfo.currentPeriod <= earningsInfo.lastProcessedPeriod) {
-            return (0, false);
-        }
 
         // Calculate simple depreciation release
+        uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
         releaseAmount = CollateralLib.calculateDepreciation(collateralInfo.baseCollateral, timeSinceLastEvent);
         canRelease = true;
 

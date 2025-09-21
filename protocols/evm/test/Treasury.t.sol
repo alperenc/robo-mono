@@ -13,12 +13,12 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // Mock USDC contract for testing
 contract MockUSDC is ERC20 {
-    constructor() ERC20("USD Coin", "USDC") {}
-    
+    constructor() ERC20("USD Coin", "USDC") { }
+
     function decimals() public pure override returns (uint8) {
         return 6;
     }
-    
+
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
@@ -56,7 +56,7 @@ contract TreasuryTest is Test {
     uint256 constant REVENUE_TOKEN_PRICE = 100 * 1e6; // $100 in USDC
     uint256 constant TOTAL_REVENUE_TOKENS = 10;
     uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * TOTAL_REVENUE_TOKENS; // $1000
-    
+
     // Role constants
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
@@ -87,9 +87,9 @@ contract TreasuryTest is Test {
         // Deploy Treasury
         treasuryImplementation = new Treasury();
         bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address,address)", 
-            admin, 
-            address(partnerManager), 
+            "initialize(address,address,address,address,address,address)",
+            admin,
+            address(partnerManager),
             address(vehicleRegistry),
             address(roboshareTokens),
             address(usdc),
@@ -131,33 +131,58 @@ contract TreasuryTest is Test {
 
     function testInitializationWithZeroAddressesFails() public {
         Treasury newTreasury = new Treasury();
-        
+
         // Test zero admin
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(address(0), address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc), treasuryFeeRecipient);
-        
+        newTreasury.initialize(
+            address(0),
+            address(partnerManager),
+            address(vehicleRegistry),
+            address(roboshareTokens),
+            address(usdc),
+            treasuryFeeRecipient
+        );
+
         // Test zero partner manager
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(0), address(vehicleRegistry), address(roboshareTokens), address(usdc), treasuryFeeRecipient);
-        
+        newTreasury.initialize(
+            admin, address(0), address(vehicleRegistry), address(roboshareTokens), address(usdc), treasuryFeeRecipient
+        );
+
         // Test zero vehicle registry
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(partnerManager), address(0), address(roboshareTokens), address(usdc), treasuryFeeRecipient);
-        
+        newTreasury.initialize(
+            admin, address(partnerManager), address(0), address(roboshareTokens), address(usdc), treasuryFeeRecipient
+        );
+
         // Test zero USDC
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(0), treasuryFeeRecipient);
-        
+        newTreasury.initialize(
+            admin,
+            address(partnerManager),
+            address(vehicleRegistry),
+            address(roboshareTokens),
+            address(0),
+            treasuryFeeRecipient
+        );
+
         // Test zero treasury fee recipient
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        newTreasury.initialize(admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc), address(0));
+        newTreasury.initialize(
+            admin,
+            address(partnerManager),
+            address(vehicleRegistry),
+            address(roboshareTokens),
+            address(usdc),
+            address(0)
+        );
     }
 
     // Collateral Calculation Tests
 
     function testGetCollateralRequirement() public view {
         uint256 requirement = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         // Time-based calculation:
         // Base: $1000
         // Expected quarterly earnings: $1000 * 90 days / 365 days = ~$246.58
@@ -167,21 +192,21 @@ contract TreasuryTest is Test {
         uint256 baseAmount = BASE_COLLATERAL;
         uint256 expectedQuarterlyEarnings = (baseAmount * 90 days) / 365 days;
         uint256 earningsBuffer = (expectedQuarterlyEarnings * 1000) / 10000; // 10%
-        uint256 protocolBuffer = (expectedQuarterlyEarnings * 500) / 10000;  // 5%
+        uint256 protocolBuffer = (expectedQuarterlyEarnings * 500) / 10000; // 5%
         uint256 expectedTotal = baseAmount + earningsBuffer + protocolBuffer;
-        
+
         assertEq(requirement, expectedTotal);
     }
 
     function testGetCollateralBreakdown() public view {
-        (uint256 base, uint256 earnings, uint256 protocol, uint256 total) = 
+        (uint256 base, uint256 earnings, uint256 protocol, uint256 total) =
             treasury.getCollateralBreakdown(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         // Time-based calculation components
         uint256 expectedQuarterlyEarnings = (BASE_COLLATERAL * 90 days) / 365 days;
         uint256 expectedEarningsBuffer = (expectedQuarterlyEarnings * 1000) / 10000; // 10%
-        uint256 expectedProtocolBuffer = (expectedQuarterlyEarnings * 500) / 10000;  // 5%
-        
+        uint256 expectedProtocolBuffer = (expectedQuarterlyEarnings * 500) / 10000; // 5%
+
         assertEq(base, BASE_COLLATERAL);
         assertEq(earnings, expectedEarningsBuffer);
         assertEq(protocol, expectedProtocolBuffer);
@@ -204,7 +229,7 @@ contract TreasuryTest is Test {
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         vm.prank(partner);
         usdc.approve(address(treasury), requiredCollateral);
-        
+
         return vehicleId;
     }
 
@@ -213,7 +238,7 @@ contract TreasuryTest is Test {
     function testLockCollateral() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         uint256 initialBalance = usdc.balanceOf(partner1);
         uint256 initialTreasuryBalance = usdc.balanceOf(address(treasury));
 
@@ -225,9 +250,9 @@ contract TreasuryTest is Test {
         assertEq(usdc.balanceOf(address(treasury)), initialTreasuryBalance + requiredCollateral);
 
         // Check collateral info
-        (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) = 
+        (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) =
             treasury.getAssetCollateralInfo(vehicleId);
-        
+
         assertEq(base, BASE_COLLATERAL);
         assertEq(total, requiredCollateral);
         assertTrue(locked);
@@ -251,7 +276,7 @@ contract TreasuryTest is Test {
 
     function testLockCollateralForNonexistentVehicleFails() public {
         uint256 nonexistentVehicleId = 999;
-        
+
         vm.prank(partner1);
         usdc.approve(address(treasury), 1000 * 1e6);
 
@@ -270,7 +295,7 @@ contract TreasuryTest is Test {
         // Try to lock again - should fail
         vm.prank(partner1);
         usdc.approve(address(treasury), treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS));
-        
+
         vm.expectRevert(Treasury__CollateralAlreadyLocked.selector);
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -364,7 +389,7 @@ contract TreasuryTest is Test {
         // Lock and unlock collateral
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         vm.prank(partner1);
         treasury.releaseCollateral(vehicleId);
 
@@ -441,7 +466,7 @@ contract TreasuryTest is Test {
     function testGetVehicleCollateralInfoUninitialized() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
 
-        (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) = 
+        (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) =
             treasury.getAssetCollateralInfo(vehicleId);
 
         assertEq(base, 0);
@@ -504,9 +529,8 @@ contract TreasuryTest is Test {
         );
 
         vm.prank(partner2);
-        uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            "2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", TEST_METADATA_URI
-        );
+        uint256 vehicleId2 =
+            vehicleRegistry.registerVehicle("2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", TEST_METADATA_URI);
 
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
@@ -523,7 +547,7 @@ contract TreasuryTest is Test {
 
         // Check treasury state
         assertEq(treasury.totalCollateralDeposited(), requiredCollateral * 2);
-        
+
         // Check individual collateral states
         (,, bool locked1,,) = treasury.getAssetCollateralInfo(vehicleId1);
         (,, bool locked2,,) = treasury.getAssetCollateralInfo(vehicleId2);
@@ -541,7 +565,7 @@ contract TreasuryTest is Test {
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         assertEq(usdc.balanceOf(partner1), initialBalance - requiredCollateral);
 
-        // 2. Unlock collateral  
+        // 2. Unlock collateral
         vm.prank(partner1);
         treasury.releaseCollateral(vehicleId);
         assertEq(treasury.getPendingWithdrawal(partner1), requiredCollateral);
@@ -556,16 +580,16 @@ contract TreasuryTest is Test {
     function testSetRoboshareTokens() public {
         // Deploy a new RoboshareTokens contract for testing
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
-        
+
         vm.prank(admin);
         treasury.setRoboshareTokens(address(newRoboshareTokens));
-        
+
         assertEq(address(treasury.roboshareTokens()), address(newRoboshareTokens));
     }
 
     function testSetRoboshareTokensUnauthorizedFails() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
-        
+
         vm.expectRevert();
         vm.prank(partner1);
         treasury.setRoboshareTokens(address(newRoboshareTokens));
@@ -582,7 +606,7 @@ contract TreasuryTest is Test {
     function testDistributeEarnings() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         // Lock collateral first
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -590,7 +614,6 @@ contract TreasuryTest is Test {
         uint256 earningsAmount = 1000 * 1e6; // $1000 USDC
         uint256 expectedProtocolFee = (earningsAmount * 250) / 10000; // 2.5%
         uint256 expectedNetEarnings = earningsAmount - expectedProtocolFee;
-        uint256 expectedEarningsPerToken = expectedNetEarnings / TOTAL_REVENUE_TOKENS;
 
         // Approve USDC for earnings distribution
         vm.prank(partner1);
@@ -608,7 +631,7 @@ contract TreasuryTest is Test {
 
         // Verify treasury state (total deposited includes protocol fees)
         assertEq(treasury.totalEarningsDeposited(), initialTreasuryBalance + earningsAmount);
-        
+
         // Verify protocol fee was allocated to treasury fee recipient
         assertEq(treasury.getPendingWithdrawal(treasuryFeeRecipient), initialTreasuryFeePending + expectedProtocolFee);
 
@@ -618,7 +641,7 @@ contract TreasuryTest is Test {
 
     function testDistributeEarningsUnauthorized() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         vm.expectRevert(Treasury__UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         treasury.distributeEarnings(vehicleId, 1000 * 1e6);
@@ -642,7 +665,7 @@ contract TreasuryTest is Test {
 
     function testDistributeEarningsNoRevenueTokensIssued() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Don't lock collateral, so no revenue tokens are issued
 
         vm.expectRevert(Treasury__NoRevenueTokensIssued.selector);
@@ -654,7 +677,7 @@ contract TreasuryTest is Test {
 
     function testClaimEarnings() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Lock collateral and distribute earnings
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -684,7 +707,7 @@ contract TreasuryTest is Test {
 
     function testClaimEarningsMultiplePeriods() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Lock collateral
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -709,7 +732,7 @@ contract TreasuryTest is Test {
 
         // Claim all earnings from both periods
         uint256 initialPendingWithdrawal = treasury.getPendingWithdrawal(partner1);
-        
+
         vm.prank(partner1);
         treasury.claimEarnings(vehicleId);
 
@@ -719,7 +742,7 @@ contract TreasuryTest is Test {
 
     function testClaimEarningsNoBalance() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Lock collateral and distribute earnings
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -731,14 +754,14 @@ contract TreasuryTest is Test {
         treasury.distributeEarnings(vehicleId, earningsAmount);
 
         // Unauthorized user has no tokens
-        vm.expectRevert(Treasury__NoEarningsToClaim.selector);
+        vm.expectRevert(Treasury__InsufficientTokenBalance.selector);
         vm.prank(unauthorized);
         treasury.claimEarnings(vehicleId);
     }
 
     function testClaimEarningsAlreadyClaimed() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Lock collateral and distribute earnings
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -763,27 +786,24 @@ contract TreasuryTest is Test {
 
     function testReleasePartialCollateral() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
-        // Lock collateral and distribute earnings
+
+        // Lock collateral
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
+        // Wait past minimum event interval
+        vm.warp(block.timestamp + 30 days);
+
+        // Distribute earnings
         uint256 earningsAmount = 1000 * 1e6;
         vm.prank(partner1);
         usdc.approve(address(treasury), earningsAmount);
         vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
 
-        // Fast forward past minimum event interval
-        vm.warp(block.timestamp + 16 days);
-
         uint256 initialPendingWithdrawal = treasury.getPendingWithdrawal(partner1);
         uint256 initialTotalDeposited = treasury.totalCollateralDeposited();
 
-        // Calculate expected depreciation (simplified calculation)
-        uint256 timeElapsed = 16 days;
-        uint256 expectedDepreciation = ((requiredCollateral - ((requiredCollateral * 1000) / 10000) - ((requiredCollateral * 500) / 10000)) * 1200 * timeElapsed) / (10000 * 365 days);
 
         vm.prank(partner1);
         treasury.releasePartialCollateral(vehicleId);
@@ -795,7 +815,7 @@ contract TreasuryTest is Test {
 
     function testReleasePartialCollateralTooSoon() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Lock collateral and distribute earnings
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -814,7 +834,7 @@ contract TreasuryTest is Test {
 
     function testReleasePartialCollateralNoEarnings() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        
+
         // Lock collateral but don't distribute earnings
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
@@ -822,8 +842,8 @@ contract TreasuryTest is Test {
         // Fast forward past minimum event interval
         vm.warp(block.timestamp + 16 days);
 
-        // Should fail because no earnings periods to process
-        vm.expectRevert(Treasury__TooSoonForCollateralRelease.selector);
+        // Should fail because no prior earnings distribution
+        vm.expectRevert(Treasury__NoPriorEarningsDistribution.selector);
         vm.prank(partner1);
         treasury.releasePartialCollateral(vehicleId);
     }
@@ -832,30 +852,31 @@ contract TreasuryTest is Test {
 
     function testCompleteEarningsLifecycle() public {
         uint256 vehicleId = _setupVehicleAndApproval(partner1);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         uint256 initialBalance = usdc.balanceOf(partner1);
 
         // 1. Lock collateral
         vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
-        // 2. Distribute earnings
+        // 2. Wait past minimum event interval
+        vm.warp(block.timestamp + 30 days);
+
+        // 3. Distribute earnings
         uint256 earningsAmount = 1000 * 1e6;
         vm.prank(partner1);
         usdc.approve(address(treasury), earningsAmount);
         vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
 
-        // 3. Claim earnings
+        // 4. Claim earnings
         vm.prank(partner1);
         treasury.claimEarnings(vehicleId);
 
-        // 4. Process withdrawal
+        // 5. Process withdrawal
         vm.prank(partner1);
         treasury.processWithdrawal();
 
-        // 5. Release partial collateral (after time delay)
-        vm.warp(block.timestamp + 16 days);
+        // 6. Release partial collateral
         vm.prank(partner1);
         treasury.releasePartialCollateral(vehicleId);
 
@@ -865,14 +886,11 @@ contract TreasuryTest is Test {
 
         // Verify partner received back their earnings (minus protocol fee)
         uint256 finalBalance = usdc.balanceOf(partner1);
-        uint256 protocolFee = (earningsAmount * 250) / 10000;
-        uint256 netEarnings = earningsAmount - protocolFee;
-        
+
         // Partner should have received back the net earnings plus some partial collateral
         // They paid: requiredCollateral + earningsAmount
         // They received: netEarnings + partial collateral release
         // Final balance should be: initial - paid + received
         assertTrue(finalBalance < initialBalance); // They should have less than they started with since most collateral is still locked
     }
-
 }
