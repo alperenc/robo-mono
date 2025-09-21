@@ -367,7 +367,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     /**
      * @dev Check if token is revenue share token
      */
-    function isRevenueShareToken(uint256 tokenId) external view override returns (bool) {
+    function isRevenueShareToken(uint256 tokenId) external pure override returns (bool) {
         return tokenId % 2 == 0 && tokenId > 0;
     }
 
@@ -376,8 +376,13 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Check if account is authorized for asset
      */
     function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
-        // For now, only authorized partners can manage assets
-        return partnerManager.isAuthorizedPartner(account);
+        // Must be an authorized partner AND own the asset
+        if (!partnerManager.isAuthorizedPartner(account)) {
+            return false;
+        }
+        
+        // Check if the account owns the vehicle (has the vehicle NFT)
+        return roboshareTokens.balanceOf(account, assetId) > 0;
     }
 
     /**

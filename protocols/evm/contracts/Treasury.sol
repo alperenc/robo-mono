@@ -34,6 +34,9 @@ error Treasury__NoEarningsToDistribute();
 error Treasury__NoEarningsToClaim();
 error Treasury__NoRevenueTokensIssued();
 error Treasury__TooSoonForCollateralRelease();
+error Treasury__NoPriorEarningsDistribution();
+error Treasury__NoNewPeriodsToProcess();
+error Treasury__InsufficientTokenBalance();
 
 /**
  * @dev Treasury contract for USDC-based collateral management
@@ -77,6 +80,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     event CollateralLocked(uint256 indexed assetId, address indexed partner, uint256 amount);
     event CollateralReleased(uint256 indexed assetId, address indexed partner, uint256 amount);
     event ShortfallReserved(uint256 indexed assetId, uint256 amount);
+    event BufferReplenished(uint256 indexed assetId, uint256 amount, uint256 fromReserved);
+    event CollateralBuffersUpdated(uint256 indexed assetId, uint256 newEarningsBuffer, uint256 newReservedForLiquidation);
     event WithdrawalProcessed(address indexed recipient, uint256 amount);
     event EarningsDistributed(uint256 indexed assetId, address indexed partner, uint256 amount, uint256 period);
     event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
@@ -194,6 +199,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Lock the collateral
         collateralInfo.isLocked = true;
         collateralInfo.lockedAt = block.timestamp;
+        collateralInfo.lastEventTimestamp = block.timestamp;
 
         totalCollateralDeposited += requiredCollateral;
 
@@ -253,6 +259,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Mark collateral as locked
         collateralInfo.isLocked = true;
         collateralInfo.lockedAt = block.timestamp;
+        collateralInfo.lastEventTimestamp = block.timestamp;
 
         totalCollateralDeposited += requiredCollateral;
         
@@ -390,7 +397,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueShareTokenId);
 
         if (tokenBalance == 0) {
-            revert Treasury__NoEarningsToClaim();
+            revert Treasury__InsufficientTokenBalance();
         }
 
         // Get earnings info
@@ -451,10 +458,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__NoPriorEarningsDistribution();
         }
 
-        // Early revert if no new periods to process
-        if (earningsInfo.currentPeriod <= earningsInfo.lastProcessedPeriod) {
-            revert Treasury__NoNewPeriodsToProcess();
-        }
+        // Check if there are new periods to process for buffer calculation
+        bool hasNewPeriods = earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod;
 
         // Early revert if minimum interval not met
         uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
@@ -462,46 +467,56 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__TooSoonForCollateralRelease();
         }
 
-        uint256 startPeriod = earningsInfo.lastProcessedPeriod;
-        uint256 endPeriod = earningsInfo.currentPeriod;
+        // Only process buffers if there are new periods to process
+        if (hasNewPeriods) {
+            uint256 startPeriod = earningsInfo.lastProcessedPeriod;
+            uint256 endPeriod = earningsInfo.currentPeriod;
 
-        // Calculate benchmark earnings for the full period since last collateral event
-        uint256 aggregatedBenchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(
-            collateralInfo.baseCollateral,
-            timeSinceLastEvent
-        );
+            // Calculate benchmark earnings for the full period since last collateral event
+            uint256 aggregatedBenchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(
+                collateralInfo.baseCollateral,
+                timeSinceLastEvent
+            );
 
-        // Aggregate all unprocessed net earnings
-        uint256 aggregatedNetEarnings = 0;
-        for (uint256 i = startPeriod + 1; i <= endPeriod; i++) {
-            aggregatedNetEarnings += earningsInfo.periods[i].totalEarnings;
+            // Aggregate all unprocessed net earnings
+            uint256 aggregatedNetEarnings = 0;
+            for (uint256 i = startPeriod + 1; i <= endPeriod; i++) {
+                aggregatedNetEarnings += earningsInfo.periods[i].totalEarnings;
+            }
+
+            // Process buffer replenishment/shortfall with aggregated values
+            (int256 earningsResult, uint256 replenishmentAmount) = CollateralLib.processEarningsForBuffers(
+                collateralInfo,
+                aggregatedNetEarnings,
+                aggregatedBenchmarkEarnings
+            );
+
+            // Emit shortfall event if applicable
+            if (earningsResult < 0) {
+                uint256 shortfallAmount = uint256(-earningsResult);
+                emit ShortfallReserved(assetId, shortfallAmount);
+            }
+            // Handle remaining excess earnings
+            else if (earningsResult > 0) {
+                uint256 excessEarnings = uint256(earningsResult);
+                // Add to cumulative excess earnings tracking
+                earningsInfo.cumulativeExcessEarnings += excessEarnings;
+            }
+
+            // Emit buffer replenishment event if any buffer was replenished
+            if (replenishmentAmount > 0) {
+                emit BufferReplenished(assetId, replenishmentAmount, replenishmentAmount);
+            }
+
+            // Update processed period tracking
+            earningsInfo.lastProcessedPeriod = endPeriod;
         }
 
-        // Process buffer replenishment/shortfall with aggregated values
-        int256 earningsResult = CollateralLib.processEarningsForBuffers(
-            collateralInfo,
-            aggregatedNetEarnings,
-            aggregatedBenchmarkEarnings
-        );
-
-        // Emit shortfall event if applicable
-        if (earningsResult < 0) {
-            uint256 shortfallAmount = uint256(-earningsResult);
-            emit ShortfallReserved(assetId, shortfallAmount);
-        }
-        // Handle remaining excess earnings
-        else if (earningsResult > 0) {
-            uint256 excessEarnings = uint256(earningsResult);
-            // Add to cumulative excess earnings tracking
-            earningsInfo.cumulativeExcessEarnings += excessEarnings;
-        }
-
-        // Update processed period tracking
-        earningsInfo.lastProcessedPeriod = endPeriod;
+        // Always emit buffer status update for transparency
+        emit CollateralBuffersUpdated(assetId, collateralInfo.earningsBuffer, collateralInfo.reservedForLiquidation);
 
         // Calculate depreciation-based collateral release amount (existing logic)
         (uint256 releaseAmount, bool canRelease) = EarningsLib.calculateCollateralRelease(
-            earningsInfo,
             collateralInfo
         );
 
@@ -521,6 +536,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Update collateral info
         collateralInfo.baseCollateral -= releaseAmount;
         collateralInfo.totalCollateral -= releaseAmount;
+        collateralInfo.lastEventTimestamp = block.timestamp;
         
         // Update earnings info timestamps
         earningsInfo.lastEventTimestamp = block.timestamp;
@@ -546,11 +562,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         uint256 revenueTokenPrice, 
         uint256 totalRevenueTokens
     ) external pure returns (uint256) {
-        return CollateralLib.calculateCollateralRequirement(
-            revenueTokenPrice, 
-            totalRevenueTokens, 
+        uint256 baseAmount = revenueTokenPrice * totalRevenueTokens;
+        (,, uint256 totalCollateral) = CollateralLib.calculateCollateralRequirements(
+            baseAmount, 
             ProtocolLib.QUARTERLY_INTERVAL
         );
+        return totalCollateral;
     }
 
     /**
