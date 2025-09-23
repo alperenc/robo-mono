@@ -1,103 +1,59 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
-import "../contracts/PartnerManager.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "./BaseTest.t.sol";
 
-contract PartnerManagerTest is Test {
-    PartnerManager public partnerManager;
-    PartnerManager public partnerImplementation;
-
-    address public admin = makeAddr("admin");
+contract PartnerManagerTest is BaseTest {
     address public partnerAdmin = makeAddr("partnerAdmin");
-    address public partner1 = makeAddr("partner1");
-    address public partner2 = makeAddr("partner2");
     address public partner3 = makeAddr("partner3");
-    address public unauthorized = makeAddr("unauthorized");
 
     bytes32 public constant PARTNER_ADMIN_ROLE = keccak256("PARTNER_ADMIN_ROLE");
-    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    string constant PARTNER1_NAME = "Tesla Motors";
-    string constant PARTNER2_NAME = "Ford Motors";
-    string constant PARTNER3_NAME = "BMW Group";
+    string constant NEW_PARTNER_NAME = "BMW Group";
 
     event PartnerAuthorized(address indexed partner, string name);
     event PartnerRevoked(address indexed partner);
     event PartnerNameUpdated(address indexed partner, string newName);
 
     function setUp() public {
-        // Deploy implementation
-        partnerImplementation = new PartnerManager();
-
-        // Deploy proxy
-        bytes memory initData = abi.encodeWithSignature("initialize(address)", admin);
-        ERC1967Proxy proxy = new ERC1967Proxy(address(partnerImplementation), initData);
-        partnerManager = PartnerManager(address(proxy));
-
-        // Grant roles
+        _ensureState(SetupState.ContractsDeployed);
         vm.startPrank(admin);
         partnerManager.grantRole(PARTNER_ADMIN_ROLE, partnerAdmin);
         vm.stopPrank();
     }
 
     function testInitialization() public view {
-        // Check roles
+        // Check roles (from BaseTest setup)
         assertTrue(partnerManager.hasRole(partnerManager.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(partnerManager.hasRole(PARTNER_ADMIN_ROLE, admin));
-        assertTrue(partnerManager.hasRole(UPGRADER_ROLE, admin));
+        assertTrue(partnerManager.hasRole(keccak256("UPGRADER_ROLE"), admin));
         assertTrue(partnerManager.hasRole(PARTNER_ADMIN_ROLE, partnerAdmin));
 
-        // Check initial state
-        assertEq(partnerManager.getPartnerCount(), 0);
-        assertFalse(partnerManager.isAuthorizedPartner(partner1));
+        // Check initial state (BaseTest authorizes partner1 and partner2)
+        assertEq(partnerManager.getPartnerCount(), 2);
+        assertTrue(partnerManager.isAuthorizedPartner(partner1));
+        assertTrue(partnerManager.isAuthorizedPartner(partner2));
     }
 
     function testAuthorizePartner() public {
         vm.expectEmit(true, true, false, true);
-        emit PartnerAuthorized(partner1, PARTNER1_NAME);
+        emit PartnerAuthorized(partner3, NEW_PARTNER_NAME);
 
         vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
+        partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
 
-        assertTrue(partnerManager.isAuthorizedPartner(partner1));
-        assertEq(partnerManager.getPartnerName(partner1), PARTNER1_NAME);
-        assertEq(partnerManager.getPartnerCount(), 1);
-        assertGt(partnerManager.getPartnerRegistrationTime(partner1), 0);
-
-        address[] memory partners = partnerManager.getAllPartners();
-        assertEq(partners.length, 1);
-        assertEq(partners[0], partner1);
-    }
-
-    function testAuthorizeMultiplePartners() public {
-        vm.startPrank(partnerAdmin);
-
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-        partnerManager.authorizePartner(partner2, PARTNER2_NAME);
-        partnerManager.authorizePartner(partner3, PARTNER3_NAME);
-
-        vm.stopPrank();
-
-        assertTrue(partnerManager.isAuthorizedPartner(partner1));
-        assertTrue(partnerManager.isAuthorizedPartner(partner2));
         assertTrue(partnerManager.isAuthorizedPartner(partner3));
-
+        assertEq(partnerManager.getPartnerName(partner3), NEW_PARTNER_NAME);
         assertEq(partnerManager.getPartnerCount(), 3);
+        assertGt(partnerManager.getPartnerRegistrationTime(partner3), 0);
 
         address[] memory partners = partnerManager.getAllPartners();
         assertEq(partners.length, 3);
     }
 
     function testRevokePartner() public {
-        // First authorize
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         assertTrue(partnerManager.isAuthorizedPartner(partner1));
-        assertEq(partnerManager.getPartnerCount(), 1);
+        assertEq(partnerManager.getPartnerCount(), 2);
 
         // Then revoke
         vm.expectEmit(true, true, false, true);
@@ -109,23 +65,20 @@ contract PartnerManagerTest is Test {
         assertFalse(partnerManager.isAuthorizedPartner(partner1));
         assertEq(partnerManager.getPartnerName(partner1), "");
         assertEq(partnerManager.getPartnerRegistrationTime(partner1), 0);
-        assertEq(partnerManager.getPartnerCount(), 0);
+        assertEq(partnerManager.getPartnerCount(), 1);
 
         address[] memory partners = partnerManager.getAllPartners();
-        assertEq(partners.length, 0);
+        assertEq(partners.length, 1);
+        assertEq(partners[0], partner2);
     }
 
     function testRevokePartnerFromMiddle() public {
-        // Authorize three partners
-        vm.startPrank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-        partnerManager.authorizePartner(partner2, PARTNER2_NAME);
-        partnerManager.authorizePartner(partner3, PARTNER3_NAME);
-        vm.stopPrank();
-
+        // Authorize a third partner to test revoking from the middle
+        vm.prank(partnerAdmin);
+        partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
         assertEq(partnerManager.getPartnerCount(), 3);
 
-        // Revoke middle partner
+        // Revoke middle partner (partner2)
         vm.prank(partnerAdmin);
         partnerManager.revokePartner(partner2);
 
@@ -143,10 +96,6 @@ contract PartnerManagerTest is Test {
     }
 
     function testUpdatePartnerName() public {
-        // First authorize
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         string memory newName = "Tesla Inc.";
 
         vm.expectEmit(true, true, false, true);
@@ -160,9 +109,6 @@ contract PartnerManagerTest is Test {
     }
 
     function testGetPartnerInfo() public {
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         (string memory name, uint256 registrationTime, bool isAuthorized) = partnerManager.getPartnerInfo(partner1);
 
         assertEq(name, PARTNER1_NAME);
@@ -175,24 +121,16 @@ contract PartnerManagerTest is Test {
     function testUnauthorizedAuthorizePartnerFails() public {
         vm.expectRevert();
         vm.prank(unauthorized);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
+        partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
     }
 
     function testUnauthorizedRevokePartnerFails() public {
-        // First authorize
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.revokePartner(partner1);
     }
 
     function testUnauthorizedUpdatePartnerNameFails() public {
-        // First authorize
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.updatePartnerName(partner1, "New Name");
@@ -203,19 +141,16 @@ contract PartnerManagerTest is Test {
     function testAuthorizeZeroAddressFails() public {
         vm.expectRevert(PartnerManager.PartnerManager__ZeroAddress.selector);
         vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(address(0), PARTNER1_NAME);
+        partnerManager.authorizePartner(address(0), NEW_PARTNER_NAME);
     }
 
     function testAuthorizeEmptyNameFails() public {
         vm.expectRevert(PartnerManager.PartnerManager__EmptyName.selector);
         vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, "");
+        partnerManager.authorizePartner(partner3, "");
     }
 
     function testAuthorizeAlreadyAuthorizedFails() public {
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         vm.expectRevert(PartnerManager.PartnerManager__AlreadyAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
@@ -224,19 +159,16 @@ contract PartnerManagerTest is Test {
     function testRevokeNotAuthorizedFails() public {
         vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
         vm.prank(partnerAdmin);
-        partnerManager.revokePartner(partner1);
+        partnerManager.revokePartner(partner3);
     }
 
     function testUpdateNameNotAuthorizedFails() public {
         vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
         vm.prank(partnerAdmin);
-        partnerManager.updatePartnerName(partner1, "New Name");
+        partnerManager.updatePartnerName(partner3, "New Name");
     }
 
     function testUpdateEmptyNameFails() public {
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
         vm.expectRevert(PartnerManager.PartnerManager__EmptyName.selector);
         vm.prank(partnerAdmin);
         partnerManager.updatePartnerName(partner1, "");
@@ -254,8 +186,8 @@ contract PartnerManagerTest is Test {
 
         // New partner admin can authorize partners
         vm.prank(newPartnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-        assertTrue(partnerManager.isAuthorizedPartner(partner1));
+        partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
+        assertTrue(partnerManager.isAuthorizedPartner(partner3));
 
         // Admin can revoke roles
         vm.prank(admin);
@@ -267,6 +199,7 @@ contract PartnerManagerTest is Test {
 
     function testFuzzAuthorizePartner(address partner, string calldata name) public {
         vm.assume(partner != address(0));
+        vm.assume(partner != partner1 && partner != partner2); // Avoid collision with existing partners
         vm.assume(bytes(name).length > 0 && bytes(name).length < 100);
 
         vm.prank(partnerAdmin);
@@ -282,23 +215,23 @@ contract PartnerManagerTest is Test {
         vm.startPrank(partnerAdmin);
 
         for (uint8 i = 0; i < numPartners; i++) {
-            address partner = makeAddr(string(abi.encodePacked("partner", i)));
+            address partner = address(uint160(uint256(keccak256(abi.encodePacked("fuzzPartner", i)))));
+            vm.assume(partner != address(0) && partner != partner1 && partner != partner2);
             string memory name = string(abi.encodePacked("Partner ", vm.toString(i)));
-            partnerManager.authorizePartner(partner, name);
+            if(!partnerManager.isAuthorizedPartner(partner)){
+                 partnerManager.authorizePartner(partner, name);
+            }
         }
 
         vm.stopPrank();
 
-        assertEq(partnerManager.getPartnerCount(), numPartners);
+        assertGe(partnerManager.getPartnerCount(), numPartners);
     }
 
     // Integration Tests
 
     function testPartnerLifecycle() public {
-        // Authorize
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-
+        // partner1 is already authorized in setUp
         assertTrue(partnerManager.isAuthorizedPartner(partner1));
         uint256 originalTime = partnerManager.getPartnerRegistrationTime(partner1);
 

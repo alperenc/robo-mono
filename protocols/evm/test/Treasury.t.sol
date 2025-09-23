@@ -1,115 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
-import "../contracts/Treasury.sol";
-import "../contracts/RoboshareTokens.sol";
-import "../contracts/PartnerManager.sol";
-import "../contracts/VehicleRegistry.sol";
-import "../contracts/Libraries.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./BaseTest.t.sol";
 
-// Mock USDC contract for testing
-contract MockUSDC is ERC20 {
-    constructor() ERC20("USD Coin", "USDC") { }
-
-    function decimals() public pure override returns (uint8) {
-        return 6;
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
-
-contract TreasuryTest is Test {
-    Treasury public treasury;
-    Treasury public treasuryImplementation;
-    RoboshareTokens public roboshareTokens;
-    RoboshareTokens public tokenImplementation;
-    PartnerManager public partnerManager;
-    PartnerManager public partnerImplementation;
-    VehicleRegistry public vehicleRegistry;
-    VehicleRegistry public vehicleImplementation;
-    MockUSDC public usdc;
-
-    address public admin = makeAddr("admin");
-    address public partner1 = makeAddr("partner1"); // Fleet operator 1
-    address public partner2 = makeAddr("partner2"); // Fleet operator 2
-    address public unauthorized = makeAddr("unauthorized");
-    address public treasuryFeeRecipient = makeAddr("treasuryFeeRecipient");
-
-    // Test constants
-    string constant PARTNER1_NAME = "RideShare Fleet Co.";
-    string constant PARTNER2_NAME = "Urban Delivery Services";
-    string constant TEST_VIN = "1HGCM82633A123456";
-    string constant TEST_MAKE = "Honda";
-    string constant TEST_MODEL = "Civic";
-    uint256 constant TEST_YEAR = 2024;
-    uint256 constant TEST_MANUFACTURER_ID = 1;
-    string constant TEST_OPTION_CODES = "EX-L,NAV,HSS";
-    string constant TEST_METADATA_URI = "ipfs://QmTestHash123456789abcdefghijklmnopqrstuvwxyzABC";
-
-    // Collateral test constants (USDC has 6 decimals)
-    uint256 constant REVENUE_TOKEN_PRICE = 100 * 1e6; // $100 in USDC
-    uint256 constant TOTAL_REVENUE_TOKENS = 10;
-    uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * TOTAL_REVENUE_TOKENS; // $1000
-
-    // Role constants
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+contract TreasuryTest is BaseTest {
+    uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * TOTAL_REVENUE_TOKENS;
 
     function setUp() public {
-        // Deploy USDC mock
-        usdc = new MockUSDC();
-
-        // Deploy RoboshareTokens
-        tokenImplementation = new RoboshareTokens();
-        bytes memory tokenInitData = abi.encodeWithSignature("initialize(address)", admin);
-        ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImplementation), tokenInitData);
-        roboshareTokens = RoboshareTokens(address(tokenProxy));
-
-        // Deploy PartnerManager
-        partnerImplementation = new PartnerManager();
-        bytes memory partnerInitData = abi.encodeWithSignature("initialize(address)", admin);
-        ERC1967Proxy partnerProxy = new ERC1967Proxy(address(partnerImplementation), partnerInitData);
-        partnerManager = PartnerManager(address(partnerProxy));
-
-        // Deploy VehicleRegistry
-        vehicleImplementation = new VehicleRegistry();
-        bytes memory vehicleInitData = abi.encodeWithSignature(
-            "initialize(address,address,address)", admin, address(roboshareTokens), address(partnerManager)
-        );
-        ERC1967Proxy vehicleProxy = new ERC1967Proxy(address(vehicleImplementation), vehicleInitData);
-        vehicleRegistry = VehicleRegistry(address(vehicleProxy));
-
-        // Deploy Treasury
-        treasuryImplementation = new Treasury();
-        bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address,address)",
-            admin,
-            address(partnerManager),
-            address(vehicleRegistry),
-            address(roboshareTokens),
-            address(usdc),
-            treasuryFeeRecipient
-        );
-        ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
-        treasury = Treasury(address(treasuryProxy));
-
-        // Setup roles and permissions
+        _ensureState(SetupState.ContractsDeployed);
+        // Explicitly set the partner manager again to be sure
         vm.startPrank(admin);
-        // Grant MINTER_ROLE to VehicleRegistry for token operations
-        roboshareTokens.grantRole(MINTER_ROLE, address(vehicleRegistry));
-        // Authorize partners (fleet operators)
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-        partnerManager.authorizePartner(partner2, PARTNER2_NAME);
+        treasury.updatePartnerManager(address(partnerManager));
         vm.stopPrank();
-
-        // Mint USDC to partners for testing
-        usdc.mint(partner1, 10000 * 1e6); // $10,000
-        usdc.mint(partner2, 10000 * 1e6); // $10,000
     }
 
     // Initialization Tests
@@ -140,19 +42,29 @@ contract TreasuryTest is Test {
             address(vehicleRegistry),
             address(roboshareTokens),
             address(usdc),
-            treasuryFeeRecipient
+            config.treasuryFeeRecipient
         );
 
         // Test zero partner manager
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
         newTreasury.initialize(
-            admin, address(0), address(vehicleRegistry), address(roboshareTokens), address(usdc), treasuryFeeRecipient
+            admin,
+            address(0),
+            address(vehicleRegistry),
+            address(roboshareTokens),
+            address(usdc),
+            config.treasuryFeeRecipient
         );
 
         // Test zero vehicle registry
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
         newTreasury.initialize(
-            admin, address(partnerManager), address(0), address(roboshareTokens), address(usdc), treasuryFeeRecipient
+            admin,
+            address(partnerManager),
+            address(0),
+            address(roboshareTokens),
+            address(usdc),
+            config.treasuryFeeRecipient
         );
 
         // Test zero USDC
@@ -163,7 +75,7 @@ contract TreasuryTest is Test {
             address(vehicleRegistry),
             address(roboshareTokens),
             address(0),
-            treasuryFeeRecipient
+            config.treasuryFeeRecipient
         );
 
         // Test zero treasury fee recipient
@@ -183,12 +95,6 @@ contract TreasuryTest is Test {
     function testGetCollateralRequirement() public view {
         uint256 requirement = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
-        // Time-based calculation:
-        // Base: $1000
-        // Expected quarterly earnings: $1000 * 90 days / 365 days = ~$246.58
-        // Earnings buffer: $246.58 * 10% = ~$24.66
-        // Protocol buffer: $246.58 * 5% = ~$12.33
-        // Total: $1000 + $24.66 + $12.33 = ~$1036.99
         uint256 baseAmount = BASE_COLLATERAL;
         uint256 expectedQuarterlyEarnings = (baseAmount * 90 days) / 365 days;
         uint256 earningsBuffer = (expectedQuarterlyEarnings * 1000) / 10000; // 10%
@@ -202,7 +108,6 @@ contract TreasuryTest is Test {
         (uint256 base, uint256 earnings, uint256 protocol, uint256 total) =
             treasury.getCollateralBreakdown(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
-        // Time-based calculation components
         uint256 expectedQuarterlyEarnings = (BASE_COLLATERAL * 90 days) / 365 days;
         uint256 expectedEarningsBuffer = (expectedQuarterlyEarnings * 1000) / 10000; // 10%
         uint256 expectedProtocolBuffer = (expectedQuarterlyEarnings * 500) / 10000; // 5%
@@ -213,37 +118,19 @@ contract TreasuryTest is Test {
         assertEq(total, base + earnings + protocol);
     }
 
-    // Helper function to register vehicle and approve USDC
-    function _setupVehicleAndApproval(address partner) internal returns (uint256 vehicleId) {
-        // Register vehicle
-        vm.prank(partner);
-        vehicleId = vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
-
-        // Mint revenue share tokens for earnings tests
-        vm.prank(partner);
-        vehicleRegistry.mintRevenueShareTokens(vehicleId, TOTAL_REVENUE_TOKENS);
-
-        // Calculate required collateral and approve Treasury
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        vm.prank(partner);
-        usdc.approve(address(treasury), requiredCollateral);
-
-        return vehicleId;
-    }
-
     // Collateral Locking Tests
 
     function testLockCollateral() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         uint256 initialBalance = usdc.balanceOf(partner1);
         uint256 initialTreasuryBalance = usdc.balanceOf(address(treasury));
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         // Check USDC transfers
         assertEq(usdc.balanceOf(partner1), initialBalance - requiredCollateral);
@@ -264,81 +151,85 @@ contract TreasuryTest is Test {
     }
 
     function testLockCollateralEmitsEvent() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
 
         vm.expectEmit(true, true, false, true);
         emit Treasury.CollateralLocked(vehicleId, partner1, requiredCollateral);
 
-        vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
     }
 
     function testLockCollateralForNonexistentVehicleFails() public {
         uint256 nonexistentVehicleId = 999;
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), 1000 * 1e6);
 
         vm.expectRevert(Treasury__VehicleNotFound.selector);
-        vm.prank(partner1);
         treasury.lockCollateral(nonexistentVehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
     }
 
     function testLockCollateralAlreadyLockedFails() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         // Lock collateral first time
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         // Try to lock again - should fail
-        vm.prank(partner1);
-        usdc.approve(address(treasury), treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS));
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
 
         vm.expectRevert(Treasury__CollateralAlreadyLocked.selector);
-        vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
     }
 
     function testLockCollateralWithoutApprovalFails() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         // Clear approval
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), 0);
 
         vm.expectRevert();
-        vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
     }
 
     function testLockCollateralInsufficientApprovalFails() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         // Approve less than required
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral - 1);
 
         vm.expectRevert();
-        vm.prank(partner1);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
     }
 
     // Collateral Unlocking Tests
 
     function testUnlockCollateral() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.CollateralLockedAndListed);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
-        // Lock collateral first
-        vm.prank(partner1);
-        treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-
         // Unlock collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releaseCollateral(vehicleId);
+        vm.stopPrank();
 
         // Check collateral info
         (,, bool locked,,) = treasury.getAssetCollateralInfo(vehicleId);
@@ -350,93 +241,112 @@ contract TreasuryTest is Test {
     }
 
     function testUnlockCollateralEmitsEvent() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.CollateralLockedAndListed);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
-        // Lock first
-        vm.prank(partner1);
-        treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-
+        vm.startPrank(partner1);
         vm.expectEmit(true, true, false, true);
         emit Treasury.CollateralReleased(vehicleId, partner1, requiredCollateral);
 
-        vm.prank(partner1);
         treasury.releaseCollateral(vehicleId);
+        vm.stopPrank();
     }
 
     function testUnlockCollateralNotLockedFails() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
 
         vm.expectRevert(Treasury__NoCollateralLocked.selector);
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releaseCollateral(vehicleId);
+        vm.stopPrank();
     }
 
     function testUnlockCollateralNonexistentVehicleFails() public {
         uint256 nonexistentVehicleId = 999;
 
         vm.expectRevert(Treasury__VehicleNotFound.selector);
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releaseCollateral(nonexistentVehicleId);
+        vm.stopPrank();
     }
 
     // Withdrawal Tests
 
     function testProcessWithdrawal() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         uint256 initialBalance = usdc.balanceOf(partner1);
 
-        // Lock and unlock collateral
-        vm.prank(partner1);
+        // Lock collateral
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
-        vm.prank(partner1);
+        // Unlock collateral
+        vm.startPrank(partner1);
         treasury.releaseCollateral(vehicleId);
+        vm.stopPrank();
 
         // Process withdrawal
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.processWithdrawal();
+        vm.stopPrank();
 
         // Check balances
-        assertEq(usdc.balanceOf(partner1), initialBalance);
+        assertEq(usdc.balanceOf(partner1), initialBalance); // Should be back to initial balance
         assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
     function testProcessWithdrawalEmitsEvent() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.CollateralLockedAndListed);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
-        // Setup pending withdrawal
-        vm.prank(partner1);
-        treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        vm.prank(partner1);
+        // Unlock collateral
+        vm.startPrank(partner1);
         treasury.releaseCollateral(vehicleId);
+        vm.stopPrank();
 
         vm.expectEmit(true, false, false, true);
         emit Treasury.WithdrawalProcessed(partner1, requiredCollateral);
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.processWithdrawal();
+        vm.stopPrank();
     }
 
     function testProcessWithdrawalNoPendingFails() public {
         vm.expectRevert(Treasury__InsufficientCollateral.selector);
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.processWithdrawal();
+        vm.stopPrank();
     }
 
     // Access Control Tests
 
     function testUnauthorizedPartnerCannotLockCollateral() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        // Manually register a vehicle with partner1
+        vm.startPrank(partner1);
+        uint256 registeredVehicleId = vehicleRegistry.registerVehicle(
+            "TEMP_VIN_12345678",
+            TEST_MAKE,
+            TEST_MODEL,
+            TEST_YEAR,
+            TEST_MANUFACTURER_ID,
+            TEST_OPTION_CODES,
+            TEST_METADATA_URI
+        );
+        vm.stopPrank();
 
+        vm.startPrank(unauthorized);
+        usdc.approve(address(treasury), 1000 * 1e6); // Approve some amount
         vm.expectRevert(Treasury__UnauthorizedPartner.selector);
-        vm.prank(unauthorized);
-        treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        treasury.lockCollateral(registeredVehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
     }
 
     function testUnauthorizedPartnerCannotUnlockCollateral() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.CollateralLockedAndListed);
 
         vm.expectRevert(Treasury__UnauthorizedPartner.selector);
         vm.prank(unauthorized);
@@ -446,7 +356,7 @@ contract TreasuryTest is Test {
     // View Functions Tests
 
     function testGetTreasuryStats() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.VehicleRegistered);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         // Initially empty
@@ -455,8 +365,10 @@ contract TreasuryTest is Test {
         assertEq(balance, 0);
 
         // After locking collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         (deposited, balance) = treasury.getTreasuryStats();
         assertEq(deposited, requiredCollateral);
@@ -464,10 +376,22 @@ contract TreasuryTest is Test {
     }
 
     function testGetVehicleCollateralInfoUninitialized() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.ContractsDeployed);
+        // Register a vehicle without locking collateral
+        vm.startPrank(partner1);
+        uint256 newVehicleId = vehicleRegistry.registerVehicle(
+            "NEWVIN123456789",
+            TEST_MAKE,
+            TEST_MODEL,
+            TEST_YEAR,
+            TEST_MANUFACTURER_ID,
+            TEST_OPTION_CODES,
+            TEST_METADATA_URI
+        );
+        vm.stopPrank();
 
         (uint256 base, uint256 total, bool locked, uint256 lockedAt, uint256 duration) =
-            treasury.getAssetCollateralInfo(vehicleId);
+            treasury.getAssetCollateralInfo(newVehicleId);
 
         assertEq(base, 0);
         assertEq(total, 0);
@@ -479,21 +403,26 @@ contract TreasuryTest is Test {
     // Admin Functions Tests
 
     function testUpdatePartnerManager() public {
+        _ensureState(SetupState.ContractsDeployed);
         PartnerManager newPartnerManager = new PartnerManager();
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         treasury.updatePartnerManager(address(newPartnerManager));
+        vm.stopPrank();
 
         assertEq(address(treasury.partnerManager()), address(newPartnerManager));
     }
 
     function testUpdatePartnerManagerZeroAddressFails() public {
+        _ensureState(SetupState.ContractsDeployed);
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        vm.prank(admin);
+        vm.startPrank(admin);
         treasury.updatePartnerManager(address(0));
+        vm.stopPrank();
     }
 
     function testUpdatePartnerManagerUnauthorizedFails() public {
+        _ensureState(SetupState.ContractsDeployed);
         PartnerManager newPartnerManager = new PartnerManager();
 
         vm.expectRevert();
@@ -502,19 +431,23 @@ contract TreasuryTest is Test {
     }
 
     function testUpdateVehicleRegistry() public {
+        _ensureState(SetupState.ContractsDeployed);
         VehicleRegistry newRegistry = new VehicleRegistry();
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         treasury.updateAssetRegistry(address(newRegistry));
+        vm.stopPrank();
 
         assertEq(address(treasury.assetRegistry()), address(newRegistry));
     }
 
     function testUpdateUSDC() public {
-        MockUSDC newUSDC = new MockUSDC();
+        _ensureState(SetupState.ContractsDeployed);
+        ERC20Mock newUSDC = new ERC20Mock();
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         treasury.updateUSDC(address(newUSDC));
+        vm.stopPrank();
 
         assertEq(address(treasury.usdc()), address(newUSDC));
     }
@@ -522,28 +455,31 @@ contract TreasuryTest is Test {
     // Integration Tests
 
     function testMultipleVehicleCollateralLocking() public {
+        _ensureState(SetupState.ContractsDeployed);
         // Register multiple vehicles
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         uint256 vehicleId1 = vehicleRegistry.registerVehicle(
             TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
         );
+        vm.stopPrank();
 
-        vm.prank(partner2);
+        vm.startPrank(partner2);
         uint256 vehicleId2 =
             vehicleRegistry.registerVehicle("2HGCM82633A654321", "Toyota", "Camry", 2023, 2, "LE", TEST_METADATA_URI);
+        vm.stopPrank();
 
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         // Approve and lock collateral for both vehicles
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
-        vm.prank(partner1);
         treasury.lockCollateral(vehicleId1, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
-        vm.prank(partner2);
+        vm.startPrank(partner2);
         usdc.approve(address(treasury), requiredCollateral);
-        vm.prank(partner2);
         treasury.lockCollateral(vehicleId2, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         // Check treasury state
         assertEq(treasury.totalCollateralDeposited(), requiredCollateral * 2);
@@ -556,106 +492,120 @@ contract TreasuryTest is Test {
     }
 
     function testCompleteCollateralLifecycle() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         uint256 initialBalance = usdc.balanceOf(partner1);
 
         // 1. Lock collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
         assertEq(usdc.balanceOf(partner1), initialBalance - requiredCollateral);
 
         // 2. Unlock collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releaseCollateral(vehicleId);
+        vm.stopPrank();
         assertEq(treasury.getPendingWithdrawal(partner1), requiredCollateral);
 
         // 3. Process withdrawal
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.processWithdrawal();
+        vm.stopPrank();
         assertEq(usdc.balanceOf(partner1), initialBalance);
         assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
     function testSetRoboshareTokens() public {
+        _ensureState(SetupState.ContractsDeployed);
         // Deploy a new RoboshareTokens contract for testing
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         treasury.setRoboshareTokens(address(newRoboshareTokens));
+        vm.stopPrank();
 
         assertEq(address(treasury.roboshareTokens()), address(newRoboshareTokens));
     }
 
     function testSetRoboshareTokensUnauthorizedFails() public {
+        _ensureState(SetupState.ContractsDeployed);
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
         vm.expectRevert();
-        vm.prank(partner1);
+        vm.prank(unauthorized);
         treasury.setRoboshareTokens(address(newRoboshareTokens));
     }
 
     function testSetRoboshareTokensZeroAddressFails() public {
+        _ensureState(SetupState.ContractsDeployed);
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        vm.prank(admin);
+        vm.startPrank(admin);
         treasury.setRoboshareTokens(address(0));
+        vm.stopPrank();
     }
 
     // Earnings Distribution Tests
 
     function testDistributeEarnings() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
 
         // Lock collateral first
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         uint256 earningsAmount = 1000 * 1e6; // $1000 USDC
         uint256 expectedProtocolFee = (earningsAmount * 250) / 10000; // 2.5%
         uint256 expectedNetEarnings = earningsAmount - expectedProtocolFee;
 
         // Approve USDC for earnings distribution
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
+        vm.stopPrank();
 
         uint256 initialTreasuryBalance = treasury.totalEarningsDeposited();
-        uint256 initialTreasuryFeePending = treasury.getPendingWithdrawal(treasuryFeeRecipient);
+        uint256 initialTreasuryFeePending = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
 
         // Expect EarningsDistributed event
         vm.expectEmit(true, true, false, true);
         emit Treasury.EarningsDistributed(vehicleId, partner1, expectedNetEarnings, 1);
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         // Verify treasury state (total deposited includes protocol fees)
         assertEq(treasury.totalEarningsDeposited(), initialTreasuryBalance + earningsAmount);
 
         // Verify protocol fee was allocated to treasury fee recipient
-        assertEq(treasury.getPendingWithdrawal(treasuryFeeRecipient), initialTreasuryFeePending + expectedProtocolFee);
+        assertEq(
+            treasury.getPendingWithdrawal(config.treasuryFeeRecipient), initialTreasuryFeePending + expectedProtocolFee
+        );
 
         // Verify USDC was transferred to treasury
         assertEq(usdc.balanceOf(address(treasury)), requiredCollateral + earningsAmount);
     }
 
     function testDistributeEarningsUnauthorized() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
-
+        _ensureState(SetupState.RevenueTokensMinted);
         vm.expectRevert(Treasury__UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         treasury.distributeEarnings(vehicleId, 1000 * 1e6);
     }
 
     function testDistributeEarningsInvalidAmount() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
-
+        _ensureState(SetupState.RevenueTokensMinted);
         vm.expectRevert(Treasury__InvalidEarningsAmount.selector);
         vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, 0);
     }
 
     function testDistributeEarningsVehicleNotFound() public {
+        _ensureState(SetupState.ContractsDeployed);
         uint256 nonexistentVehicleId = 999;
 
         vm.expectRevert(Treasury__VehicleNotFound.selector);
@@ -664,9 +614,7 @@ contract TreasuryTest is Test {
     }
 
     function testDistributeEarningsNoRevenueTokensIssued() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
-
-        // Don't lock collateral, so no revenue tokens are issued
+        _ensureState(SetupState.VehicleRegistered);
 
         vm.expectRevert(Treasury__NoRevenueTokensIssued.selector);
         vm.prank(partner1);
@@ -676,20 +624,23 @@ contract TreasuryTest is Test {
     // Earnings Claims Tests
 
     function testClaimEarnings() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral and distribute earnings
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         uint256 earningsAmount = 1000 * 1e6;
         uint256 expectedProtocolFee = (earningsAmount * 250) / 10000;
         uint256 expectedNetEarnings = earningsAmount - expectedProtocolFee;
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         // Partner1 owns all tokens, so should be able to claim all earnings
         uint256 initialPendingWithdrawal = treasury.getPendingWithdrawal(partner1);
@@ -698,19 +649,23 @@ contract TreasuryTest is Test {
         vm.expectEmit(true, true, false, true);
         emit Treasury.EarningsClaimed(vehicleId, partner1, expectedNetEarnings);
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.claimEarnings(vehicleId);
+        vm.stopPrank();
 
         // Verify earnings were added to pending withdrawals
         assertEq(treasury.getPendingWithdrawal(partner1), initialPendingWithdrawal + expectedNetEarnings);
     }
 
     function testClaimEarningsMultiplePeriods() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         uint256 earningsAmount1 = 1000 * 1e6;
         uint256 earningsAmount2 = 500 * 1e6;
@@ -719,39 +674,43 @@ contract TreasuryTest is Test {
         uint256 totalNetEarnings = totalEarnings - totalProtocolFee;
 
         // First distribution
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount1);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount1);
+        vm.stopPrank();
 
         // Second distribution
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount2);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount2);
+        vm.stopPrank();
 
         // Claim all earnings from both periods
         uint256 initialPendingWithdrawal = treasury.getPendingWithdrawal(partner1);
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.claimEarnings(vehicleId);
+        vm.stopPrank();
 
         // Should receive earnings from both periods
         assertEq(treasury.getPendingWithdrawal(partner1), initialPendingWithdrawal + totalNetEarnings);
     }
 
     function testClaimEarningsNoBalance() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral and distribute earnings
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         uint256 earningsAmount = 1000 * 1e6;
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         // Unauthorized user has no tokens
         vm.expectRevert(Treasury__InsufficientTokenBalance.selector);
@@ -760,53 +719,61 @@ contract TreasuryTest is Test {
     }
 
     function testClaimEarningsAlreadyClaimed() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral and distribute earnings
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         uint256 earningsAmount = 1000 * 1e6;
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         // First claim
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.claimEarnings(vehicleId);
+        vm.stopPrank();
 
         // Second claim should fail (no new earnings)
         vm.expectRevert(Treasury__NoEarningsToClaim.selector);
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.claimEarnings(vehicleId);
+        vm.stopPrank();
     }
 
     // Partial Collateral Release Tests
 
     function testReleasePartialCollateral() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         // Wait past minimum event interval
         vm.warp(block.timestamp + 30 days);
 
         // Distribute earnings
         uint256 earningsAmount = 1000 * 1e6;
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         uint256 initialPendingWithdrawal = treasury.getPendingWithdrawal(partner1);
         uint256 initialTotalDeposited = treasury.totalCollateralDeposited();
 
-
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releasePartialCollateral(vehicleId);
+        vm.stopPrank();
 
         // Verify some collateral was released
         assertTrue(treasury.getPendingWithdrawal(partner1) > initialPendingWithdrawal);
@@ -814,75 +781,90 @@ contract TreasuryTest is Test {
     }
 
     function testReleasePartialCollateralTooSoon() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral and distribute earnings
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         uint256 earningsAmount = 1000 * 1e6;
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         // Try to release immediately (should fail due to time restriction)
         vm.expectRevert(Treasury__TooSoonForCollateralRelease.selector);
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releasePartialCollateral(vehicleId);
+        vm.stopPrank();
     }
 
     function testReleasePartialCollateralNoEarnings() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Lock collateral but don't distribute earnings
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         // Fast forward past minimum event interval
         vm.warp(block.timestamp + 16 days);
 
         // Should fail because no prior earnings distribution
         vm.expectRevert(Treasury__NoPriorEarningsDistribution.selector);
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releasePartialCollateral(vehicleId);
+        vm.stopPrank();
     }
 
     // Integration Tests
 
     function testCompleteEarningsLifecycle() public {
-        uint256 vehicleId = _setupVehicleAndApproval(partner1);
+        _ensureState(SetupState.RevenueTokensMinted);
         uint256 initialBalance = usdc.balanceOf(partner1);
 
         // 1. Lock collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
+        vm.stopPrank();
 
         // 2. Wait past minimum event interval
         vm.warp(block.timestamp + 30 days);
 
         // 3. Distribute earnings
         uint256 earningsAmount = 1000 * 1e6;
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        vm.prank(partner1);
         treasury.distributeEarnings(vehicleId, earningsAmount);
+        vm.stopPrank();
 
         // 4. Claim earnings
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.claimEarnings(vehicleId);
+        vm.stopPrank();
 
         // 5. Process withdrawal
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.processWithdrawal();
+        vm.stopPrank();
 
         // 6. Release partial collateral
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.releasePartialCollateral(vehicleId);
+        vm.stopPrank();
 
         // 6. Process collateral withdrawal
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         treasury.processWithdrawal();
+        vm.stopPrank();
 
         // Verify partner received back their earnings (minus protocol fee)
         uint256 finalBalance = usdc.balanceOf(partner1);

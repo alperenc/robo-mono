@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Libraries.sol";
 import "./RoboshareTokens.sol";
 import "./VehicleRegistry.sol";
-import "./PartnerManager.sol";
+import "././PartnerManager.sol";
 import "./Treasury.sol";
 
 // Marketplace errors
