@@ -13,35 +13,33 @@ contract UpgradeVehicleRegistry is ScaffoldETHDeploy {
         // Get proxy address from environment variable (set by parseArgs.js)
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
         require(proxyAddress != address(0), "Proxy address cannot be zero");
-        
+
         console.log("Upgrading VehicleRegistry proxy at:", proxyAddress);
-        
+
         // Deploy new implementation
         // Note: Implementation is intentionally left uninitialized
         // The proxy retains all existing storage (partnerManager, roboshareTokens, vehicles, etc.)
         VehicleRegistry newImplementation = new VehicleRegistry();
         console.log("New VehicleRegistry implementation deployed at:", address(newImplementation));
-        
+
         // Get the proxy as VehicleRegistry to call upgradeToAndCall
         VehicleRegistry proxy = VehicleRegistry(proxyAddress);
-        
+
         // Upgrade the proxy to the new implementation
         proxy.upgradeToAndCall(address(newImplementation), "");
-        
+
         // Verify the upgrade
         console.log("=== Upgrade Verification ===");
         console.log("Proxy address:", proxyAddress);
         console.log("New implementation address:", address(newImplementation));
         console.log("Current token counter:", proxy.getCurrentTokenId());
-        
+
         console.log("VehicleRegistry upgrade completed successfully!");
         console.log("");
         console.log("Note: Run any necessary admin functions for this upgrade manually or via script.");
     }
-    
+
     function help() external pure {
-        console.log(
-            "Use: forge script UpgradeVehicleRegistry --sig 'run(address)' $PROXY_ADDRESS"
-        );
+        console.log("Use: forge script UpgradeVehicleRegistry --sig 'run(address)' $PROXY_ADDRESS");
     }
 }

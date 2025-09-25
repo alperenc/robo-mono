@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import "./BaseTest.t.sol";
 
 contract MarketplaceTest is BaseTest {
-
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }
@@ -31,7 +30,7 @@ contract MarketplaceTest is BaseTest {
     function testInitializationWithZeroAddresses() public {
         // Test that initialization fails with zero addresses
         Marketplace newImpl = new Marketplace();
-        
+
         vm.expectRevert(Marketplace__ZeroAddress.selector);
         new ERC1967Proxy(
             address(newImpl),
@@ -52,17 +51,17 @@ contract MarketplaceTest is BaseTest {
 
     function testLockCollateralAndListSuccess() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        
+
         // Expect CollateralLockedAndListed event
         uint256 expectedListingId = 1;
         uint256 expectedCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         vm.expectEmit(true, true, true, true, address(marketplace));
         emit Marketplace.CollateralLockedAndListed(
             vehicleId,
@@ -74,7 +73,7 @@ contract MarketplaceTest is BaseTest {
             REVENUE_TOKEN_PRICE,
             true
         );
-        
+
         uint256 newListingId = marketplace.lockCollateralAndList(
             vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS, TOKENS_TO_LIST, LISTING_DURATION, true
         );
@@ -82,7 +81,7 @@ contract MarketplaceTest is BaseTest {
 
         // Verify listing created
         assertEq(newListingId, 1);
-        
+
         Marketplace.Listing memory listing = marketplace.getListing(newListingId);
         assertEq(listing.tokenId, revenueShareTokenId);
         assertEq(listing.amount, TOKENS_TO_LIST);
@@ -96,13 +95,13 @@ contract MarketplaceTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, revenueShareTokenId), TOTAL_REVENUE_TOKENS - TOKENS_TO_LIST);
 
         // Verify collateral locked
-        (, , bool isLocked, ,) = treasury.getAssetCollateralInfo(vehicleId);
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(vehicleId);
         assertTrue(isLocked);
     }
 
     function testLockCollateralAndListUnauthorizedPartner() public {
         _ensureState(SetupState.VehicleRegistered);
-        
+
         vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
         vm.prank(unauthorized);
         marketplace.lockCollateralAndList(
@@ -112,7 +111,7 @@ contract MarketplaceTest is BaseTest {
 
     function testLockCollateralAndListInvalidAmount() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         vm.expectRevert(Marketplace__InvalidAmount.selector);
         vm.prank(partner1);
         marketplace.lockCollateralAndList(
@@ -122,16 +121,16 @@ contract MarketplaceTest is BaseTest {
 
     function testLockCollateralAndListInsufficientTokenBalance() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         // Transfer away some tokens so partner doesn't have enough
         vm.prank(partner1);
         roboshareTokens.safeTransferFrom(partner1, partner2, revenueShareTokenId, 600, "");
-        
+
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
-        
+
         vm.expectRevert(Marketplace__InsufficientTokenBalance.selector);
         marketplace.lockCollateralAndList(
             vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS, TOKENS_TO_LIST, LISTING_DURATION, true
@@ -143,7 +142,7 @@ contract MarketplaceTest is BaseTest {
 
     function testCreateListingRequiresCollateral() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         vm.expectRevert(Marketplace__CollateralNotLocked.selector);
         vm.prank(partner1);
         marketplace.createListing(revenueShareTokenId, TOKENS_TO_LIST, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
@@ -161,40 +160,35 @@ contract MarketplaceTest is BaseTest {
 
     function testPurchaseListingBuyerPaysFee() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         uint256 purchaseAmount = 100;
         uint256 totalPrice = purchaseAmount * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
         uint256 expectedPayment = totalPrice + protocolFee; // Buyer pays fee
-        
+
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        
+
         uint256 buyerTokenBalanceBefore = roboshareTokens.balanceOf(buyer, revenueShareTokenId);
         uint256 sellerUsdcBalanceBefore = usdc.balanceOf(partner1);
         uint256 treasuryUsdcBalanceBefore = usdc.balanceOf(config.treasuryFeeRecipient);
-        
+
         // Expect RevenueTokensTraded event
         vm.expectEmit(true, true, true, true, address(marketplace));
         emit Marketplace.RevenueTokensTraded(
-            revenueShareTokenId,
-            partner1,
-            buyer,
-            purchaseAmount,
-            listingId,
-            totalPrice
+            revenueShareTokenId, partner1, buyer, purchaseAmount, listingId, totalPrice
         );
-        
+
         marketplace.purchaseListing(listingId, purchaseAmount);
         vm.stopPrank();
 
         // Verify tokens transferred
         assertEq(roboshareTokens.balanceOf(buyer, revenueShareTokenId), buyerTokenBalanceBefore + purchaseAmount);
-        
+
         // Verify USDC payments
         assertEq(usdc.balanceOf(partner1), sellerUsdcBalanceBefore + totalPrice); // Seller gets full price
         assertEq(usdc.balanceOf(config.treasuryFeeRecipient), treasuryUsdcBalanceBefore + protocolFee); // Treasury gets fee
-        
+
         // Verify listing updated
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertEq(listing.amount, TOKENS_TO_LIST - purchaseAmount);
@@ -203,9 +197,9 @@ contract MarketplaceTest is BaseTest {
 
     function testPurchaseListingSellerPaysFee() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-        
+
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
@@ -214,19 +208,19 @@ contract MarketplaceTest is BaseTest {
             vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS, TOKENS_TO_LIST, LISTING_DURATION, false
         );
         vm.stopPrank();
-        
+
         uint256 purchaseAmount = 100;
         uint256 totalPrice = purchaseAmount * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
         uint256 expectedPayment = totalPrice; // Buyer pays just the price
         uint256 sellerReceives = totalPrice - protocolFee; // Seller absorbs fee
-        
+
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        
+
         uint256 sellerUsdcBalanceBefore = usdc.balanceOf(partner1);
         uint256 treasuryUsdcBalanceBefore = usdc.balanceOf(config.treasuryFeeRecipient);
-        
+
         marketplace.purchaseListing(newListingId, purchaseAmount);
         vm.stopPrank();
 
@@ -237,10 +231,10 @@ contract MarketplaceTest is BaseTest {
 
     function testPurchaseListingCompletelyExhaustsListing() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         uint256 totalPrice = TOKENS_TO_LIST * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
-        
+
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), totalPrice + protocolFee);
         marketplace.purchaseListing(listingId, TOKENS_TO_LIST); // Buy all tokens
@@ -250,7 +244,7 @@ contract MarketplaceTest is BaseTest {
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertEq(listing.amount, 0);
         assertFalse(listing.isActive);
-        
+
         // Verify all tokens transferred
         assertEq(roboshareTokens.balanceOf(buyer, revenueShareTokenId), TOKENS_TO_LIST);
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueShareTokenId), 0);
@@ -258,20 +252,20 @@ contract MarketplaceTest is BaseTest {
 
     function testPurchaseListingInsufficientPayment() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         uint256 purchaseAmount = 100;
         uint256 totalPrice = purchaseAmount * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
         uint256 requiredPayment = totalPrice + protocolFee; // Buyer pays fee (listing created with buyerPaysFee=true)
-        
+
         // Create a new buyer with insufficient funds
         address poorBuyer = makeAddr("poorBuyer");
         uint256 insufficientAmount = requiredPayment / 2; // Half of what's needed
         usdc.mint(poorBuyer, insufficientAmount);
-        
+
         vm.startPrank(poorBuyer);
         usdc.approve(address(marketplace), requiredPayment); // Approve enough, but balance is insufficient
-        
+
         vm.expectRevert(Marketplace__InsufficientPayment.selector);
         marketplace.purchaseListing(listingId, purchaseAmount);
         vm.stopPrank();
@@ -279,10 +273,10 @@ contract MarketplaceTest is BaseTest {
 
     function testPurchaseListingExpired() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         // Fast forward past expiration
         vm.warp(block.timestamp + LISTING_DURATION + 1);
-        
+
         vm.expectRevert(Marketplace__ListingExpired.selector);
         vm.prank(buyer);
         marketplace.purchaseListing(listingId, 100);
@@ -290,7 +284,7 @@ contract MarketplaceTest is BaseTest {
 
     function testPurchaseListingInvalidAmount() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         vm.expectRevert(Marketplace__InvalidAmount.selector);
         vm.prank(buyer);
         marketplace.purchaseListing(listingId, TOKENS_TO_LIST + 1); // More than available
@@ -300,16 +294,16 @@ contract MarketplaceTest is BaseTest {
 
     function testCancelListingSuccess() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         uint256 partnerBalanceBefore = roboshareTokens.balanceOf(partner1, revenueShareTokenId);
-        
+
         vm.prank(partner1);
         marketplace.cancelListing(listingId);
-        
+
         // Verify listing cancelled
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertFalse(listing.isActive);
-        
+
         // Verify tokens returned
         assertEq(roboshareTokens.balanceOf(partner1, revenueShareTokenId), partnerBalanceBefore + TOKENS_TO_LIST);
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueShareTokenId), 0);
@@ -317,7 +311,7 @@ contract MarketplaceTest is BaseTest {
 
     function testCancelListingUnauthorized() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         vm.expectRevert(Marketplace__NotTokenOwner.selector);
         vm.prank(unauthorized);
         marketplace.cancelListing(listingId);
@@ -327,7 +321,7 @@ contract MarketplaceTest is BaseTest {
 
     function testGetVehicleListings() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         uint256[] memory activeListings = marketplace.getVehicleListings(vehicleId);
         assertEq(activeListings.length, 1);
         assertEq(activeListings[0], listingId);
@@ -335,10 +329,11 @@ contract MarketplaceTest is BaseTest {
 
     function testCalculatePurchaseCost() public {
         _ensureState(SetupState.CollateralLockedAndListed);
-        
+
         uint256 purchaseAmount = 100;
-        (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, purchaseAmount);
-        
+        (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment) =
+            marketplace.calculatePurchaseCost(listingId, purchaseAmount);
+
         assertEq(totalCost, purchaseAmount * REVENUE_TOKEN_PRICE);
         assertEq(protocolFee, ProtocolLib.calculateProtocolFee(totalCost));
         assertEq(expectedPayment, totalCost + protocolFee); // Buyer pays fee in this test
@@ -346,17 +341,17 @@ contract MarketplaceTest is BaseTest {
 
     function testIsVehicleEligibleForListing() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         // Initially not eligible (no collateral locked)
         assertFalse(marketplace.isVehicleEligibleForListing(vehicleId));
-        
+
         // Lock collateral
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
         treasury.lockCollateral(vehicleId, REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
         vm.stopPrank();
-        
+
         // Now eligible
         assertTrue(marketplace.isVehicleEligibleForListing(vehicleId));
     }
@@ -365,16 +360,16 @@ contract MarketplaceTest is BaseTest {
 
     function testSetTreasuryAddress() public {
         address newTreasury = makeAddr("newTreasury");
-        
+
         vm.prank(admin);
         marketplace.setTreasuryAddress(newTreasury);
-        
+
         assertEq(marketplace.treasuryAddress(), newTreasury);
     }
 
     function testSetTreasuryAddressUnauthorized() public {
         address newTreasury = makeAddr("newTreasury");
-        
+
         vm.expectRevert();
         vm.prank(unauthorized);
         marketplace.setTreasuryAddress(newTreasury);

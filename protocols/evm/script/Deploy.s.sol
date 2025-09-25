@@ -18,7 +18,7 @@ contract DeployScript is ScaffoldETHDeploy {
     function run() external ScaffoldEthDeployerRunner {
         // Get network configuration (now available from inherited ScaffoldETHDeploy)
         NetworkConfig memory config = getActiveNetworkConfig();
-        
+
         console.log("Deploying to network:", getNetworkName());
         console.log("USDC Token:", config.usdcToken);
         console.log("Treasury Fee Recipient:", config.treasuryFeeRecipient);
@@ -39,13 +39,15 @@ contract DeployScript is ScaffoldETHDeploy {
 
         // 4. Deploy treasury (depends on vehicle registry + partner manager + tokens)
         DeployTreasury deployTreasury = new DeployTreasury();
-        address treasuryProxy = deployTreasury.run(partnerManagerProxy, vehicleRegistryProxy, roboshareTokensProxy, config.usdcToken, deployer);
+        address treasuryProxy = deployTreasury.run(
+            partnerManagerProxy, vehicleRegistryProxy, roboshareTokensProxy, config.usdcToken, deployer
+        );
 
         // 5. Deploy marketplace (depends on all previous contracts)
         DeployMarketplace deployMarketplace = new DeployMarketplace();
         deployMarketplace.run(
             roboshareTokensProxy,
-            vehicleRegistryProxy, 
+            vehicleRegistryProxy,
             partnerManagerProxy,
             treasuryProxy,
             config.usdcToken,

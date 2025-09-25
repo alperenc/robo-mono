@@ -13,7 +13,7 @@ contract DeployMarketplace is Script {
      */
     function run(
         address roboshareTokensAddress,
-        address vehicleRegistryAddress, 
+        address vehicleRegistryAddress,
         address partnerManagerAddress,
         address treasuryAddress,
         address usdcTokenAddress,
@@ -47,13 +47,13 @@ contract DeployMarketplace is Script {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address,address,address,address)",
-            deployer,                    // admin
-            roboshareTokensAddress,      // roboshareTokens
-            vehicleRegistryAddress,      // vehicleRegistry
-            partnerManagerAddress,       // partnerManager
-            treasuryAddress,            // treasury
-            usdcTokenAddress,           // usdcToken
-            treasuryFeeAddress          // treasuryAddress (for fees)
+            deployer, // admin
+            roboshareTokensAddress, // roboshareTokens
+            vehicleRegistryAddress, // vehicleRegistry
+            partnerManagerAddress, // partnerManager
+            treasuryAddress, // treasury
+            usdcTokenAddress, // usdcToken
+            treasuryFeeAddress // treasuryAddress (for fees)
         );
 
         // Deploy proxy contract

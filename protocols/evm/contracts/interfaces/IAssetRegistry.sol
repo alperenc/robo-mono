@@ -10,19 +10,19 @@ import "../Libraries.sol";
  * Provides standardized access to asset information and token position management
  */
 interface IAssetRegistry {
-    
     // Generic asset information structure
     struct AssetInfo {
-        uint256 assetId;           // Unique asset identifier
-        AssetsLib.AssetStatus status;        // Current asset status
-        uint256 createdAt;         // Asset registration timestamp
-        uint256 updatedAt;         // Last status/metadata update
+        uint256 assetId; // Unique asset identifier
+        AssetsLib.AssetStatus status; // Current asset status
+        uint256 createdAt; // Asset registration timestamp
+        uint256 updatedAt; // Last status/metadata update
     }
-    
+
     // Token type enumeration for multi-token assets
     enum TokenType {
-        Asset,          // Asset ownership token (e.g., vehicle NFT)
-        RevenueShare    // Revenue sharing token (e.g., earnings rights)
+        Asset, // Asset ownership token (e.g., vehicle NFT)
+        RevenueShare // Revenue sharing token (e.g., earnings rights)
+
     }
 
     /**
@@ -57,7 +57,9 @@ interface IAssetRegistry {
      * @dev Events for cross-contract communication and indexing
      */
     event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetsLib.AssetStatus status);
-    event AssetStatusUpdated(uint256 indexed assetId, AssetsLib.AssetStatus indexed oldStatus, AssetsLib.AssetStatus indexed newStatus);
+    event AssetStatusUpdated(
+        uint256 indexed assetId, AssetsLib.AssetStatus indexed oldStatus, AssetsLib.AssetStatus indexed newStatus
+    );
     event AssetOwnerUpdated(uint256 indexed assetId, address indexed oldOwner, address indexed newOwner);
 
     /**

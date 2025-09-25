@@ -28,14 +28,14 @@ contract ScaffoldETHDeploy is Script {
     string path;
     Deployment[] public deployments;
     uint256 constant ANVIL_BASE_BALANCE = 10000 ether;
-    
+
     // Network configuration constants
     uint8 public constant USDC_DECIMALS = 6;
     uint256 public constant INITIAL_USDC_SUPPLY = 1000000 * 10 ** USDC_DECIMALS; // 1M USDC
 
     /// @notice The deployer address for every run
     address deployer;
-    
+
     /// @notice Active network configuration
     NetworkConfig public activeNetworkConfig;
 
@@ -154,7 +154,7 @@ contract ScaffoldETHDeploy is Script {
         NetworkConfig memory mainnetConfig = NetworkConfig({
             usdcToken: 0xa0B86a33e6A6c5e4F5b8F8f4A1a7F4c5a6c9B7d8, // Mainnet USDC
             treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-        });
+         });
         return mainnetConfig;
     }
 
@@ -162,7 +162,7 @@ contract ScaffoldETHDeploy is Script {
         NetworkConfig memory sepoliaConfig = NetworkConfig({
             usdcToken: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238, // Sepolia USDC
             treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-        });
+         });
         return sepoliaConfig;
     }
 
@@ -170,7 +170,7 @@ contract ScaffoldETHDeploy is Script {
         NetworkConfig memory polygonConfig = NetworkConfig({
             usdcToken: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174, // Polygon USDC
             treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-        });
+         });
         return polygonConfig;
     }
 
@@ -178,7 +178,7 @@ contract ScaffoldETHDeploy is Script {
         NetworkConfig memory arbitrumConfig = NetworkConfig({
             usdcToken: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831, // Arbitrum USDC
             treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-        });
+         });
         return arbitrumConfig;
     }
 
@@ -197,7 +197,7 @@ contract ScaffoldETHDeploy is Script {
         NetworkConfig memory anvilConfig = NetworkConfig({
             usdcToken: address(mockUsdc),
             treasuryFeeRecipient: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 // Anvil default deployer
-        });
+         });
         return anvilConfig;
     }
 
