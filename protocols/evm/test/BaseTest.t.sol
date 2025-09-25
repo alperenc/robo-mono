@@ -35,7 +35,7 @@ contract BaseTest is Test {
     Treasury public treasury;
     Treasury public treasuryImplementation;
     ERC20Mock public usdc;
-    
+
     ScaffoldETHDeploy public deployHelpers;
     ScaffoldETHDeploy.NetworkConfig public config;
 
@@ -94,15 +94,17 @@ contract BaseTest is Test {
             revenueShareTokenId = vehicleRegistry.mintRevenueShareTokens(vehicleId, TOTAL_REVENUE_TOKENS);
             currentState = SetupState.RevenueTokensMinted;
         }
-        
-        if (requiredState >= SetupState.CollateralLockedAndListed && currentState < SetupState.CollateralLockedAndListed) {
+
+        if (
+            requiredState >= SetupState.CollateralLockedAndListed && currentState < SetupState.CollateralLockedAndListed
+        ) {
             // Approve marketplace to transfer tokens on behalf of partner1
             vm.prank(partner1);
             roboshareTokens.setApprovalForAll(address(marketplace), true);
 
             // Calculate required collateral
             uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, TOTAL_REVENUE_TOKENS);
-            
+
             vm.startPrank(partner1);
             // Approve USDC for collateral
             usdc.approve(address(treasury), requiredCollateral);
@@ -119,7 +121,7 @@ contract BaseTest is Test {
         // Setup network configuration
         deployHelpers = new ScaffoldETHDeploy();
         config = deployHelpers.getActiveNetworkConfig();
-        
+
         // Cast to ERC20Mock for local testing (we know it's a mock on Anvil)
         usdc = ERC20Mock(config.usdcToken);
 
@@ -147,7 +149,13 @@ contract BaseTest is Test {
         // Deploy Treasury
         treasuryImplementation = new Treasury();
         bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address,address)", admin, address(partnerManager), address(vehicleRegistry), address(roboshareTokens), address(usdc), config.treasuryFeeRecipient
+            "initialize(address,address,address,address,address,address)",
+            admin,
+            address(partnerManager),
+            address(vehicleRegistry),
+            address(roboshareTokens),
+            address(usdc),
+            config.treasuryFeeRecipient
         );
         ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
         treasury = Treasury(address(treasuryProxy));

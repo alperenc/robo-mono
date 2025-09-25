@@ -218,8 +218,8 @@ contract PartnerManagerTest is BaseTest {
             address partner = address(uint160(uint256(keccak256(abi.encodePacked("fuzzPartner", i)))));
             vm.assume(partner != address(0) && partner != partner1 && partner != partner2);
             string memory name = string(abi.encodePacked("Partner ", vm.toString(i)));
-            if(!partnerManager.isAuthorizedPartner(partner)){
-                 partnerManager.authorizePartner(partner, name);
+            if (!partnerManager.isAuthorizedPartner(partner)) {
+                partnerManager.authorizePartner(partner, name);
             }
         }
 

@@ -21,13 +21,13 @@ library ProtocolLib {
     // IPFS validation constants
     uint256 internal constant IPFS_HASH_LENGTH = 46; // "Qm" + 44 chars
     string internal constant IPFS_PREFIX = "ipfs://";
-    
+
     // Time intervals
     uint256 internal constant MIN_EVENT_INTERVAL = 15 days;
     uint256 internal constant MONTHLY_INTERVAL = 30 days;
     uint256 internal constant QUARTERLY_INTERVAL = 90 days;
     uint256 internal constant YEARLY_INTERVAL = 365 days;
-    
+
     // Protocol economic constants (basis points)
     uint256 internal constant BP_PRECISION = 10000;
     uint256 internal constant MIN_EARNINGS_BUFFER_BP = 1000; // 10%
@@ -85,18 +85,19 @@ library ProtocolLib {
  */
 library AssetsLib {
     // Asset status enumeration for lifecycle management
-    enum AssetStatus { 
-        Inactive,   // Asset exists but not operational
-        Active,     // Asset is operational and earning
-        Suspended,  // Temporarily halted operations
-        Archived    // Permanently retired
+    enum AssetStatus {
+        Inactive, // Asset exists but not operational
+        Active, // Asset is operational and earning
+        Suspended, // Temporarily halted operations
+        Archived // Permanently retired
+
     }
-    
+
     // Generic asset information structure
     struct AssetInfo {
-        AssetStatus status;        // Current asset status
-        uint256 createdAt;         // Asset registration timestamp
-        uint256 updatedAt;         // Last status/metadata update
+        AssetStatus status; // Current asset status
+        uint256 createdAt; // Asset registration timestamp
+        uint256 updatedAt; // Last status/metadata update
     }
 
     // Asset lifecycle errors
@@ -109,10 +110,7 @@ library AssetsLib {
      * @param info Storage reference to asset info
      * @param initialStatus Initial status (typically Inactive or Active)
      */
-    function initializeAssetInfo(
-        AssetInfo storage info,
-        AssetStatus initialStatus
-    ) internal {
+    function initializeAssetInfo(AssetInfo storage info, AssetStatus initialStatus) internal {
         info.status = initialStatus;
         info.createdAt = block.timestamp;
         info.updatedAt = block.timestamp;
@@ -123,17 +121,14 @@ library AssetsLib {
      * @param info Storage reference to asset info
      * @param newStatus New status to set
      */
-    function updateAssetStatus(
-        AssetInfo storage info,
-        AssetStatus newStatus
-    ) internal {
+    function updateAssetStatus(AssetInfo storage info, AssetStatus newStatus) internal {
         AssetStatus currentStatus = info.status;
-        
+
         // Validate status transition
         if (!isValidStatusTransition(currentStatus, newStatus)) {
             revert AssetsLib__InvalidStatusTransition(currentStatus, newStatus);
         }
-        
+
         info.status = newStatus;
         info.updatedAt = block.timestamp;
     }
@@ -147,25 +142,25 @@ library AssetsLib {
     function isValidStatusTransition(AssetStatus from, AssetStatus to) internal pure returns (bool) {
         // Allow same status (no-op)
         if (from == to) return true;
-        
+
         // Define valid transitions
         if (from == AssetStatus.Inactive) {
             return to == AssetStatus.Active;
         }
-        
+
         if (from == AssetStatus.Active) {
             return to == AssetStatus.Suspended || to == AssetStatus.Archived;
         }
-        
+
         if (from == AssetStatus.Suspended) {
             return to == AssetStatus.Active || to == AssetStatus.Archived;
         }
-        
+
         // Archived is final state
         if (from == AssetStatus.Archived) {
             return false;
         }
-        
+
         return false;
     }
 
@@ -242,20 +237,13 @@ library VehicleLib {
     ) internal {
         // Set vehicle ID
         vehicle.vehicleId = vehicleId;
-        
+
         // Initialize asset info
         AssetsLib.initializeAssetInfo(vehicle.assetInfo, initialStatus);
-        
+
         // Initialize vehicle-specific info
         initializeVehicleInfo(
-            vehicle.vehicleInfo,
-            vin,
-            make,
-            model,
-            year,
-            manufacturerId,
-            optionCodes,
-            dynamicMetadataURI
+            vehicle.vehicleInfo, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
         );
     }
 
@@ -350,19 +338,19 @@ library TokenLib {
      * @dev Individual token position
      */
     struct TokenPosition {
-        uint256 tokenId;        // ERC1155 token ID
-        uint256 amount;         // Number of tokens in this position
-        uint256 acquiredAt;     // Timestamp when position was acquired
-        uint256 soldAt;         // Timestamp when position was sold (0 if still held)
+        uint256 tokenId; // ERC1155 token ID
+        uint256 amount; // Number of tokens in this position
+        uint256 acquiredAt; // Timestamp when position was acquired
+        uint256 soldAt; // Timestamp when position was sold (0 if still held)
     }
 
     /**
      * @dev Token information for tracking
      */
     struct TokenInfo {
-        uint256 tokenId;        // ERC1155 token ID
-        uint256 totalSupply;    // Total number of tokens issued
-        uint256 tokenPrice;     // Price per token in USDC (6 decimals)
+        uint256 tokenId; // ERC1155 token ID
+        uint256 totalSupply; // Total number of tokens issued
+        uint256 tokenPrice; // Price per token in USDC (6 decimals)
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
         // Track positions per user
         mapping(address => TokenPosition[]) positions;
@@ -388,9 +376,8 @@ library TokenLib {
         info.tokenId = tokenId;
         info.totalSupply = totalSupply;
         info.tokenPrice = tokenPrice;
-        info.minHoldingPeriod = minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL 
-            ? ProtocolLib.MONTHLY_INTERVAL 
-            : minHoldingPeriod;
+        info.minHoldingPeriod =
+            minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
         // mappings are automatically initialized
     }
 
@@ -402,12 +389,7 @@ library TokenLib {
      */
     function addPosition(TokenInfo storage info, address holder, uint256 amount) internal {
         info.positions[holder].push(
-            TokenPosition({
-                tokenId: info.tokenId,
-                amount: amount,
-                acquiredAt: block.timestamp,
-                soldAt: 0
-            })
+            TokenPosition({ tokenId: info.tokenId, amount: amount, acquiredAt: block.timestamp, soldAt: 0 })
         );
         info.balances[holder] += amount;
     }
@@ -473,11 +455,7 @@ library TokenLib {
      * @param tokenAmount Number of tokens
      * @return Total value in USDC
      */
-    function calculateTokenValue(TokenInfo storage info, uint256 tokenAmount) 
-        internal 
-        view 
-        returns (uint256) 
-    {
+    function calculateTokenValue(TokenInfo storage info, uint256 tokenAmount) internal view returns (uint256) {
         return info.tokenPrice * tokenAmount;
     }
 
@@ -497,11 +475,7 @@ library TokenLib {
      * @param minHoldingPeriod Minimum holding period to check against
      * @return Whether the position can be transferred penalty-free
      */
-    function isPositionMature(TokenPosition storage position, uint256 minHoldingPeriod) 
-        internal 
-        view 
-        returns (bool) 
-    {
+    function isPositionMature(TokenPosition storage position, uint256 minHoldingPeriod) internal view returns (bool) {
         return block.timestamp >= position.acquiredAt + minHoldingPeriod;
     }
 
@@ -520,24 +494,25 @@ library TokenLib {
         uint256 lastClaimedPeriod
     ) internal view returns (uint256 unclaimedAmount) {
         TokenPosition[] storage positions = info.positions[holder];
-        
+
         for (uint256 i = 0; i < positions.length; i++) {
             TokenPosition storage position = positions[i];
-            if (position.amount > 0) { // Active position
+            if (position.amount > 0) {
+                // Active position
                 // Calculate earnings for this position across unclaimed periods
                 for (uint256 period = lastClaimedPeriod + 1; period <= earningsInfo.currentPeriod; period++) {
                     // Only count earnings for periods where the position was held
                     uint256 periodTimestamp = earningsInfo.periods[period].timestamp;
-                    bool wasHeldDuringPeriod = position.acquiredAt <= periodTimestamp && 
-                                             (position.soldAt == 0 || position.soldAt >= periodTimestamp);
-                    
+                    bool wasHeldDuringPeriod = position.acquiredAt <= periodTimestamp
+                        && (position.soldAt == 0 || position.soldAt >= periodTimestamp);
+
                     if (wasHeldDuringPeriod) {
                         unclaimedAmount += earningsInfo.periods[period].earningsPerToken * position.amount;
                     }
                 }
             }
         }
-        
+
         return unclaimedAmount;
     }
 }
@@ -582,7 +557,7 @@ library CollateralLib {
         }
 
         uint256 baseAmount = revenueTokenPrice * totalRevenueTokens;
-        (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) = 
+        (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
             calculateCollateralRequirements(baseAmount, bufferTimeInterval);
 
         info.baseCollateral = baseAmount;
@@ -605,13 +580,14 @@ library CollateralLib {
      * @return protocolBuffer Protocol buffer amount
      * @return totalCollateral Total collateral requirement
      */
-    function calculateCollateralRequirements(
-        uint256 baseAmount,
-        uint256 bufferTimeInterval
-    ) internal pure returns (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) {
+    function calculateCollateralRequirements(uint256 baseAmount, uint256 bufferTimeInterval)
+        internal
+        pure
+        returns (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
+    {
         // Calculate expected earnings for the specified time interval
         uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
-        
+
         // Calculate buffers for investor protection over the time interval
         earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
         protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
@@ -649,21 +625,16 @@ library CollateralLib {
      * @return protocolBuffer Protocol buffer amount
      * @return totalRequired Total collateral required
      */
-    function getCollateralBreakdown(
-        uint256 revenueTokenPrice,
-        uint256 totalRevenueTokens,
-        uint256 bufferTimeInterval
-    ) internal pure returns (
-        uint256 baseAmount,
-        uint256 earningsBuffer,
-        uint256 protocolBuffer,
-        uint256 totalRequired
-    ) {
+    function getCollateralBreakdown(uint256 revenueTokenPrice, uint256 totalRevenueTokens, uint256 bufferTimeInterval)
+        internal
+        pure
+        returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalRequired)
+    {
         baseAmount = revenueTokenPrice * totalRevenueTokens;
-        
+
         // Calculate expected earnings for the specified time interval
         uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
-        
+
         // Calculate time-based buffers
         earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
         protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
@@ -678,7 +649,8 @@ library CollateralLib {
      */
     function calculateDepreciation(uint256 baseAmount, uint256 timeElapsed) internal pure returns (uint256) {
         uint256 DEPRECIATION_RATE_BP = 1200; // 12% annually
-        return (baseAmount * DEPRECIATION_RATE_BP * timeElapsed) / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
+        return
+            (baseAmount * DEPRECIATION_RATE_BP * timeElapsed) / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
     }
 
     /**
@@ -689,15 +661,14 @@ library CollateralLib {
      * @return earningsResult Positive: remaining excess earnings, Negative: shortfall amount, Zero: exact match
      * @return replenishmentAmount Amount replenished to earnings buffer from reserved funds
      */
-    function processEarningsForBuffers(
-        CollateralInfo storage info,
-        uint256 netEarnings,
-        uint256 baseEarnings
-    ) internal returns (int256 earningsResult, uint256 replenishmentAmount) {
+    function processEarningsForBuffers(CollateralInfo storage info, uint256 netEarnings, uint256 baseEarnings)
+        internal
+        returns (int256 earningsResult, uint256 replenishmentAmount)
+    {
         // Handle shortfall (when netEarnings < baseEarnings)
         if (netEarnings < baseEarnings) {
             uint256 shortfallAmount = baseEarnings - netEarnings;
-            
+
             if (info.earningsBuffer >= shortfallAmount) {
                 // Earnings buffer can cover the shortfall
                 info.earningsBuffer -= shortfallAmount;
@@ -709,43 +680,41 @@ library CollateralLib {
             }
             // Update total collateral to reflect the shortfall impact (covers both cases above)
             info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
-            
+
             // Return negative value to indicate shortfall
             return (-int256(shortfallAmount), 0);
         }
         // Handle excess earnings (when netEarnings > baseEarnings)
         else if (netEarnings > baseEarnings) {
             uint256 excessEarnings = netEarnings - baseEarnings;
-            
+
             // Calculate target buffer amount (what buffer should be)
             uint256 targetEarningsBuffer = getTargetEarningsBuffer(info.baseCollateral);
-            uint256 bufferDeficit = targetEarningsBuffer > info.earningsBuffer 
-                ? targetEarningsBuffer - info.earningsBuffer 
-                : 0;
+            uint256 bufferDeficit =
+                targetEarningsBuffer > info.earningsBuffer ? targetEarningsBuffer - info.earningsBuffer : 0;
 
             uint256 replenished = 0;
             if (info.reservedForLiquidation > 0) {
                 // Replenish from reservedForLiquidation first
-                uint256 toReplenish = bufferDeficit < info.reservedForLiquidation 
-                    ? bufferDeficit 
-                    : info.reservedForLiquidation;
+                uint256 toReplenish =
+                    bufferDeficit < info.reservedForLiquidation ? bufferDeficit : info.reservedForLiquidation;
                 toReplenish = toReplenish < excessEarnings ? toReplenish : excessEarnings;
-                
+
                 if (toReplenish > 0) {
                     info.earningsBuffer += toReplenish;
                     info.reservedForLiquidation -= toReplenish;
                     excessEarnings -= toReplenish;
                     replenished = toReplenish;
-                    
+
                     // Update total collateral
                     info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
                 }
             }
-            
+
             // Return remaining excess earnings and replenishment amount
             return (int256(excessEarnings), replenished);
         }
-        
+
         // Perfect match: netEarnings == baseEarnings
         return (0, 0);
     }
@@ -756,7 +725,8 @@ library CollateralLib {
      * @return Target earnings buffer amount
      */
     function getTargetEarningsBuffer(uint256 baseCollateral) internal pure returns (uint256) {
-        uint256 expectedQuarterlyEarnings = (baseCollateral * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
+        uint256 expectedQuarterlyEarnings =
+            (baseCollateral * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
         return (expectedQuarterlyEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
     }
 }
@@ -771,22 +741,22 @@ library EarningsLib {
      */
     struct EarningsPeriod {
         uint256 earningsPerToken; // USDC earnings per revenue token
-        uint256 timestamp;        // When earnings were distributed
-        uint256 totalEarnings;    // Total USDC distributed in this period
+        uint256 timestamp; // When earnings were distributed
+        uint256 totalEarnings; // Total USDC distributed in this period
     }
 
     /**
      * @dev Vehicle earnings tracking information
      */
     struct EarningsInfo {
-        uint256 totalEarnings;            // Total USDC earnings ever distributed
-        uint256 totalEarningsPerToken;    // Cumulative USDC earnings per token across all periods
-        uint256 currentPeriod;           // Current earnings period number
-        uint256 lastEventTimestamp;      // Last collateral event timestamp
-        uint256 lastProcessedPeriod;     // Last period processed for collateral release
+        uint256 totalEarnings; // Total USDC earnings ever distributed
+        uint256 totalEarningsPerToken; // Cumulative USDC earnings per token across all periods
+        uint256 currentPeriod; // Current earnings period number
+        uint256 lastEventTimestamp; // Last collateral event timestamp
+        uint256 lastProcessedPeriod; // Last period processed for collateral release
         uint256 cumulativeBenchmarkEarnings; // Cumulative benchmark earnings for investor protection
         uint256 cumulativeExcessEarnings; // Cumulative excess earnings for performance bonus calculations
-        bool isInitialized;              // Whether earnings tracking is initialized
+        bool isInitialized; // Whether earnings tracking is initialized
         mapping(uint256 => EarningsPeriod) periods; // period => earnings data
         // Track last claimed period for each individual position
         mapping(address => mapping(uint256 => mapping(uint256 => uint256))) positionsLastClaimedPeriod; // holder => tokenId => positionIndex => lastClaimedPeriod
@@ -818,9 +788,8 @@ library EarningsLib {
         pure
         returns (uint256)
     {
-        uint256 effectiveRate = earningsBP > ProtocolLib.MIN_EARNINGS_BUFFER_BP 
-            ? earningsBP 
-            : ProtocolLib.MIN_EARNINGS_BUFFER_BP;
+        uint256 effectiveRate =
+            earningsBP > ProtocolLib.MIN_EARNINGS_BUFFER_BP ? earningsBP : ProtocolLib.MIN_EARNINGS_BUFFER_BP;
         return (principal * effectiveRate * timeElapsed) / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
     }
 
@@ -830,11 +799,7 @@ library EarningsLib {
      * @param timeElapsed Time elapsed in seconds
      * @return Benchmark earnings amount
      */
-    function calculateBenchmarkEarnings(uint256 principal, uint256 timeElapsed)
-        internal
-        pure
-        returns (uint256)
-    {
+    function calculateBenchmarkEarnings(uint256 principal, uint256 timeElapsed) internal pure returns (uint256) {
         return calculateBenchmarkEarnings(principal, timeElapsed, ProtocolLib.MIN_EARNINGS_BUFFER_BP);
     }
 
@@ -868,10 +833,11 @@ library EarningsLib {
      * @return releaseAmount Amount of collateral to release based on depreciation
      * @return canRelease Whether enough time has passed for release
      */
-    function calculateCollateralRelease(
-        CollateralLib.CollateralInfo storage collateralInfo
-    ) internal view returns (uint256 releaseAmount, bool canRelease) {
-
+    function calculateCollateralRelease(CollateralLib.CollateralInfo storage collateralInfo)
+        internal
+        view
+        returns (uint256 releaseAmount, bool canRelease)
+    {
         // Calculate simple depreciation release
         uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
         releaseAmount = CollateralLib.calculateDepreciation(collateralInfo.baseCollateral, timeSinceLastEvent);
@@ -881,7 +847,7 @@ library EarningsLib {
     }
 
     /**
-     * @dev Calculate earnings for positions with per-position claim tracking  
+     * @dev Calculate earnings for positions with per-position claim tracking
      * @param earningsInfo Storage reference to earnings info
      * @param holder Address of the token holder
      * @param positions Memory array of user's positions
@@ -896,16 +862,16 @@ library EarningsLib {
             TokenLib.TokenPosition memory position = positions[i];
             if (position.amount > 0) {
                 uint256 lastClaimedPeriod = earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][i];
-                uint256 endPeriod = position.soldAt > 0 
+                uint256 endPeriod = position.soldAt > 0
                     ? getPeriodAtTimestamp(earningsInfo, position.soldAt)
                     : earningsInfo.currentPeriod;
-                
+
                 // Calculate unclaimed earnings for this position
                 for (uint256 period = lastClaimedPeriod + 1; period <= endPeriod; period++) {
                     uint256 periodTimestamp = earningsInfo.periods[period].timestamp;
-                    bool wasHeldDuringPeriod = position.acquiredAt <= periodTimestamp && 
-                                             (position.soldAt == 0 || position.soldAt >= periodTimestamp);
-                    
+                    bool wasHeldDuringPeriod = position.acquiredAt <= periodTimestamp
+                        && (position.soldAt == 0 || position.soldAt >= periodTimestamp);
+
                     if (wasHeldDuringPeriod) {
                         totalEarnings += earningsInfo.periods[period].earningsPerToken * position.amount;
                     }
@@ -919,7 +885,7 @@ library EarningsLib {
      * @dev Update claim periods for all positions
      * @param earningsInfo Storage reference to earnings info
      * @param holder Address of the token holder
-     * @param positions Memory array of user's positions  
+     * @param positions Memory array of user's positions
      */
     function updateClaimPeriods(
         EarningsInfo storage earningsInfo,

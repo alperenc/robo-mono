@@ -100,10 +100,10 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         string memory dynamicMetadataURI
     ) external onlyAuthorizedPartner returns (uint256 vehicleId) {
         vehicleId = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
-        
+
         // Mint vehicle NFT token to partner
         roboshareTokens.mint(msg.sender, vehicleId, 1, "");
-        
+
         return vehicleId;
     }
 
@@ -193,13 +193,13 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Batch mint both vehicle NFT and revenue share tokens
         uint256[] memory tokenIds = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
-        
+
         tokenIds[0] = vehicleId;
         amounts[0] = 1; // Single vehicle NFT
-        
+
         tokenIds[1] = revenueShareTokenId;
         amounts[1] = revenueShareSupply; // Revenue share tokens
-        
+
         roboshareTokens.mintBatch(msg.sender, tokenIds, amounts, "");
 
         emit VehicleAndRevenueShareTokensMinted(
@@ -320,7 +320,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function getAssetInfo(uint256 assetId) external view override returns (AssetInfo memory) {
         VehicleLib.Vehicle storage vehicle = vehicles[assetId];
         if (vehicle.vehicleId == 0) revert AssetRegistry__AssetNotFound(assetId);
-        
+
         return AssetInfo({
             assetId: vehicle.vehicleId,
             status: vehicle.assetInfo.status,
@@ -363,14 +363,12 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
     }
 
-
     /**
      * @dev Check if token is revenue share token
      */
     function isRevenueShareToken(uint256 tokenId) external pure override returns (bool) {
         return tokenId % 2 == 0 && tokenId > 0;
     }
-
 
     /**
      * @dev Check if account is authorized for asset
@@ -380,7 +378,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (!partnerManager.isAuthorizedPartner(account)) {
             return false;
         }
-        
+
         // Check if the account owns the vehicle (has the vehicle NFT)
         return roboshareTokens.balanceOf(account, assetId) > 0;
     }

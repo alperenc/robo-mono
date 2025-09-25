@@ -25,7 +25,7 @@ contract RoboshareTokens is
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     uint256 private _tokenIdCounter;
-    
+
     // Position tracking for revenue share tokens
     mapping(uint256 => TokenLib.TokenInfo) private tokenPositions;
 
@@ -137,7 +137,7 @@ contract RoboshareTokens is
     function getTokenTotalSupply(uint256 tokenId) external view returns (uint256) {
         return tokenPositions[tokenId].totalSupply;
     }
-    
+
     /**
      * @dev Get user balance from position tracking (should match balanceOf)
      * @param user User address
@@ -147,7 +147,7 @@ contract RoboshareTokens is
     function getPositionBalance(address user, uint256 tokenId) external view returns (uint256 balance) {
         return TokenLib.getBalance(tokenPositions[tokenId], user);
     }
-    
+
     /**
      * @dev Check if a token ID is a revenue share token (even numbers)
      * @param tokenId Token ID to check
@@ -163,20 +163,20 @@ contract RoboshareTokens is
      * @param holder Address of the token holder
      * @return positions Array of user's positions
      */
-    function getUserPositions(uint256 tokenId, address holder) 
-        external 
-        view 
-        returns (TokenLib.TokenPosition[] memory positions) 
+    function getUserPositions(uint256 tokenId, address holder)
+        external
+        view
+        returns (TokenLib.TokenPosition[] memory positions)
     {
         require(isRevenueShareToken(tokenId), "Not a revenue share token");
         TokenLib.TokenInfo storage info = tokenPositions[tokenId];
         uint256 length = info.positions[holder].length;
         positions = new TokenLib.TokenPosition[](length);
-        
+
         for (uint256 i = 0; i < length; i++) {
             positions[i] = info.positions[holder][i];
         }
-        
+
         return positions;
     }
 
@@ -184,20 +184,15 @@ contract RoboshareTokens is
      * @dev Override _update to implement automatic position tracking
      * Called on all mints, burns, and transfers
      */
-    function _update(
-        address from,
-        address to,
-        uint256[] memory ids,
-        uint256[] memory values
-    ) internal override {
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
         // Call parent implementation first
         super._update(from, to, ids, values);
-        
+
         // Update positions for revenue share tokens
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 tokenId = ids[i];
             uint256 amount = values[i];
-            
+
             // Only track revenue share tokens (even IDs)
             if (isRevenueShareToken(tokenId)) {
                 _updateTokenPositions(from, to, tokenId, amount);
@@ -205,7 +200,7 @@ contract RoboshareTokens is
             }
         }
     }
-    
+
     /**
      * @dev Internal function to update token positions using FIFO logic
      * @param from Address transferring from (address(0) for mints)
@@ -213,14 +208,9 @@ contract RoboshareTokens is
      * @param tokenId Token ID being transferred
      * @param amount Amount being transferred
      */
-    function _updateTokenPositions(
-        address from,
-        address to,
-        uint256 tokenId,
-        uint256 amount
-    ) internal {
+    function _updateTokenPositions(address from, address to, uint256 tokenId, uint256 amount) internal {
         TokenLib.TokenInfo storage tokenInfo = tokenPositions[tokenId];
-        
+
         if (from == address(0)) {
             // Minting - add position to receiver
             TokenLib.addPosition(tokenInfo, to, amount);
@@ -236,7 +226,6 @@ contract RoboshareTokens is
         }
     }
 
-    
     /**
      * @dev Required override for UUPS upgrades
      */

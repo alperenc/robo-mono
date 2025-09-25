@@ -13,7 +13,7 @@ config();
 const args = process.argv.slice(2);
 
 // Detect command type from package.json script name
-const command = process.env.npm_lifecycle_event || 'deploy';
+const command = process.env.npm_lifecycle_event || "deploy";
 
 let fileName = "Deploy.s.sol";
 let network = "localhost";
@@ -23,7 +23,7 @@ let proxyAddress = null;
 
 // Show help message if --help is provided
 if (args.includes("--help") || args.includes("-h")) {
-  if (command === 'upgrade') {
+  if (command === "upgrade") {
     console.log(`
 Usage: yarn upgrade [options]
 Options:
@@ -78,22 +78,30 @@ for (let i = 0; i < args.length; i++) {
 }
 
 // Handle upgrade-specific logic
-if (command === 'upgrade') {
+if (command === "upgrade") {
   // Validate required arguments
   if (!contractName) {
-    console.log('\n❌ Error: --contract argument is required for upgrade command');
-    console.log('Usage: yarn upgrade --contract <ContractName> --proxy-address <address>');
+    console.log(
+      "\n❌ Error: --contract argument is required for upgrade command"
+    );
+    console.log(
+      "Usage: yarn upgrade --contract <ContractName> --proxy-address <address>"
+    );
     process.exit(1);
   }
   if (!proxyAddress) {
-    console.log('\n❌ Error: --proxy-address argument is required for upgrade command');
-    console.log('Usage: yarn upgrade --contract <ContractName> --proxy-address <address>');
+    console.log(
+      "\n❌ Error: --proxy-address argument is required for upgrade command"
+    );
+    console.log(
+      "Usage: yarn upgrade --contract <ContractName> --proxy-address <address>"
+    );
     process.exit(1);
   }
-  
+
   // Construct upgrade script filename from contract name
   fileName = `Upgrade${contractName}.s.sol`;
-} else if (command === 'deploy' && contractName) {
+} else if (command === "deploy" && contractName) {
   // Handle contract-specific deployments
   fileName = `Deploy${contractName}.s.sol`;
 }
@@ -200,20 +208,20 @@ The default account (scaffold-eth-default) can only be used for localhost deploy
 }
 
 // Set environment variables for the make command
-if (command === 'upgrade') {
+if (command === "upgrade") {
   process.env.DEPLOY_SCRIPT = `script/${fileName}`;
   process.env.PROXY_ADDRESS = proxyAddress;
   process.env.RPC_URL = network;
   process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;
-  
+
   const result = spawnSync("make", ["deploy-and-generate-abis"], {
     stdio: "inherit",
     shell: true,
   });
-  
+
   process.exit(result.status);
 } else {
-  // Deploy command  
+  // Deploy command
   process.env.DEPLOY_SCRIPT = `script/${fileName}`;
   process.env.RPC_URL = network;
   process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;

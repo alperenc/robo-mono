@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import "./BaseTest.t.sol";
 
 contract VehicleRegistryTest is BaseTest {
-
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }
@@ -62,7 +61,15 @@ contract VehicleRegistryTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, 1), 1);
 
         // Check vehicle info
-        (string memory vin, string memory make, string memory model, uint256 year, uint256 manufacturerId, string memory optionCodes, string memory metadataURI) = vehicleRegistry.getVehicleInfo(1);
+        (
+            string memory vin,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory metadataURI
+        ) = vehicleRegistry.getVehicleInfo(1);
 
         assertEq(vin, TEST_VIN);
         assertEq(make, TEST_MAKE);
@@ -170,5 +177,4 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     // ... other tests from VehicleRegistry.t.sol, refactored to use BaseTest ...
-
 }
