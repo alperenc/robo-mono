@@ -16,7 +16,7 @@ error VehicleRegistry__VehicleDoesNotExist();
 error VehicleRegistry__NotVehicleOwner();
 error VehicleRegistry__InvalidTokenId();
 error VehicleRegistry__IncorrectVehicleId();
-error VehicleRegistry__IncorrectRevenueShareTokenId();
+error VehicleRegistry__IncorrectRevenueTokenId();
 
 /**
  * @dev Vehicle registration and management with IPFS metadata integration
@@ -40,18 +40,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     uint256 private _tokenIdCounter;
 
     // Events
-    event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin, address indexed owner);
+    event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
 
-    event RevenueShareTokensMinted(
-        uint256 indexed vehicleId, uint256 indexed revenueShareTokenId, address indexed partner, uint256 totalSupply
+    event RevenueTokensMinted(
+        uint256 indexed vehicleId, uint256 indexed revenueTokenId, address indexed partner, uint256 totalSupply
     );
 
-    event VehicleAndRevenueShareTokensMinted(
-        uint256 indexed vehicleId,
-        uint256 indexed revenueShareTokenId,
-        address indexed partner,
-        address vehicleOwner,
-        uint256 revenueShareSupply
+    event VehicleRegisteredAndRevenueTokensMinted(
+        uint256 indexed vehicleId, uint256 indexed revenueTokenId, address indexed partner, uint256 revenueShareSupply
     );
 
     event VehicleMetadataUpdated(uint256 indexed vehicleId, string newMetadataURI);
@@ -143,38 +139,38 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Mark VIN as used
         vinExists[vin] = true;
 
-        emit VehicleRegistered(vehicleId, msg.sender, vin, msg.sender);
+        emit VehicleRegistered(vehicleId, msg.sender, vin);
 
         return vehicleId;
     }
 
     /**
-     * @dev Mint revenue share tokens for existing vehicle
+     * @dev Mint revenue tokens for existing vehicle
      */
-    function mintRevenueShareTokens(uint256 vehicleId, uint256 totalSupply)
+    function mintRevenueTokens(uint256 vehicleId, uint256 totalSupply)
         external
         onlyAuthorizedPartner
-        returns (uint256 revenueShareTokenId)
+        returns (uint256 revenueTokenId)
     {
         // Validate vehicle exists
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         if (vehicle.vehicleId == 0) revert VehicleRegistry__VehicleDoesNotExist();
 
-        // Calculate revenue share token ID (always even)
-        revenueShareTokenId = getRevenueShareTokenIdFromVehicleId(vehicleId);
+        // Calculate revenue token ID (always even)
+        revenueTokenId = getRevenueTokenIdFromVehicleId(vehicleId);
 
-        // Mint revenue share tokens to partner (who can distribute)
-        roboshareTokens.mint(msg.sender, revenueShareTokenId, totalSupply, "");
+        // Mint revenue tokens to partner (who can distribute)
+        roboshareTokens.mint(msg.sender, revenueTokenId, totalSupply, "");
 
-        emit RevenueShareTokensMinted(vehicleId, revenueShareTokenId, msg.sender, totalSupply);
+        emit RevenueTokensMinted(vehicleId, revenueTokenId, msg.sender, totalSupply);
 
-        return revenueShareTokenId;
+        return revenueTokenId;
     }
 
     /**
-     * @dev Register vehicle and mint both NFT and revenue share tokens in one transaction
+     * @dev Register vehicle and mint both NFT and revenue tokens in one transaction
      */
-    function registerVehicleAndMintRevenueShareTokens(
+    function registerVehicleAndMintRevenueTokens(
         string memory vin,
         string memory make,
         string memory model,
@@ -183,30 +179,28 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         string memory optionCodes,
         string memory dynamicMetadataURI,
         uint256 revenueShareSupply
-    ) external onlyAuthorizedPartner returns (uint256 vehicleId, uint256 revenueShareTokenId) {
+    ) external onlyAuthorizedPartner returns (uint256 vehicleId, uint256 revenueTokenId) {
         // Register vehicle and get vehicle ID
         vehicleId = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
 
-        // Calculate revenue share token ID (vehicleId + 1)
-        revenueShareTokenId = getRevenueShareTokenIdFromVehicleId(vehicleId);
+        // Calculate revenue token ID (vehicleId + 1)
+        revenueTokenId = getRevenueTokenIdFromVehicleId(vehicleId);
 
-        // Batch mint both vehicle NFT and revenue share tokens
+        // Batch mint both vehicle NFT and revenue tokens
         uint256[] memory tokenIds = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
 
         tokenIds[0] = vehicleId;
         amounts[0] = 1; // Single vehicle NFT
 
-        tokenIds[1] = revenueShareTokenId;
-        amounts[1] = revenueShareSupply; // Revenue share tokens
+        tokenIds[1] = revenueTokenId;
+        amounts[1] = revenueShareSupply; // Revenue tokens
 
         roboshareTokens.mintBatch(msg.sender, tokenIds, amounts, "");
 
-        emit VehicleAndRevenueShareTokensMinted(
-            vehicleId, revenueShareTokenId, msg.sender, msg.sender, revenueShareSupply
-        );
+        emit VehicleRegisteredAndRevenueTokensMinted(vehicleId, revenueTokenId, msg.sender, revenueShareSupply);
 
-        return (vehicleId, revenueShareTokenId);
+        return (vehicleId, revenueTokenId);
     }
 
     /**
@@ -258,15 +252,15 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     /**
-     * @dev Get the vehicle ID corresponding to a revenue share token ID
-     * Revenue share token IDs are always even, vehicle IDs are always odd
+     * @dev Get the vehicle ID corresponding to a revenue token ID
+     * Revenue token IDs are always even, vehicle IDs are always odd
      */
-    function getVehicleIdFromRevenueShareTokenId(uint256 revenueShareTokenId) public view returns (uint256) {
-        if (revenueShareTokenId == 0 || revenueShareTokenId % 2 != 0 || revenueShareTokenId >= _tokenIdCounter) {
-            revert VehicleRegistry__IncorrectRevenueShareTokenId();
+    function getVehicleIdFromRevenueTokenId(uint256 revenueTokenId) public view returns (uint256) {
+        if (revenueTokenId == 0 || revenueTokenId % 2 != 0 || revenueTokenId >= _tokenIdCounter) {
+            revert VehicleRegistry__IncorrectRevenueTokenId();
         }
 
-        uint256 vehicleId = revenueShareTokenId - 1;
+        uint256 vehicleId = revenueTokenId - 1;
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         if (vehicle.vehicleId == 0) {
             revert VehicleRegistry__VehicleDoesNotExist();
@@ -276,10 +270,10 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     /**
-     * @dev Get the revenue share token ID corresponding to a vehicle ID
-     * Vehicle IDs are always odd, revenue share token IDs are always even (vehicleId + 1)
+     * @dev Get the revenue token ID corresponding to a vehicle ID
+     * Vehicle IDs are always odd, revenue token IDs are always even (vehicleId + 1)
      */
-    function getRevenueShareTokenIdFromVehicleId(uint256 vehicleId) public view returns (uint256) {
+    function getRevenueTokenIdFromVehicleId(uint256 vehicleId) public view returns (uint256) {
         if (vehicleId == 0 || vehicleId % 2 != 1 || vehicleId >= _tokenIdCounter) {
             revert VehicleRegistry__IncorrectVehicleId();
         }
@@ -345,8 +339,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             // Vehicle NFT token (odd IDs)
             return tokenId;
         } else {
-            // Revenue share token (even IDs)
-            return getVehicleIdFromRevenueShareTokenId(tokenId);
+            // Revenue token (even IDs)
+            return getVehicleIdFromRevenueTokenId(tokenId);
         }
     }
 
@@ -356,17 +350,17 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function getTokenIdFromAssetId(uint256 assetId, TokenType tokenType) external view override returns (uint256) {
         if (tokenType == TokenType.Asset) {
             return assetId; // Vehicle NFT has same ID as asset
-        } else if (tokenType == TokenType.RevenueShare) {
-            return getRevenueShareTokenIdFromVehicleId(assetId);
+        } else if (tokenType == TokenType.Revenue) {
+            return getRevenueTokenIdFromVehicleId(assetId);
         } else {
             revert AssetRegistry__InvalidTokenType(tokenType);
         }
     }
 
     /**
-     * @dev Check if token is revenue share token
+     * @dev Check if token is revenue token
      */
-    function isRevenueShareToken(uint256 tokenId) external pure override returns (bool) {
+    function isRevenueToken(uint256 tokenId) external pure override returns (bool) {
         return tokenId % 2 == 0 && tokenId > 0;
     }
 
@@ -403,7 +397,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function getSupportedTokenTypes() external pure override returns (TokenType[] memory) {
         TokenType[] memory types = new TokenType[](2);
         types[0] = TokenType.Asset;
-        types[1] = TokenType.RevenueShare;
+        types[1] = TokenType.Revenue;
         return types;
     }
 

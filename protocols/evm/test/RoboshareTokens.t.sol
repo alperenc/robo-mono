@@ -9,23 +9,21 @@ contract RoboshareTokensTest is BaseTest {
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-
     event BatchTokensMinted(address indexed to, uint256[] ids, uint256[] amounts);
     event TokensBurned(address indexed from, uint256 id, uint256 amount);
 
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
-        minter = address(vehicleRegistry);
+        minter = admin; // Admin has minter role by default
         burner = admin; // Admin has burner role by default
     }
 
     function testInitialization() public view {
         // Check roles
         assertTrue(roboshareTokens.hasRole(roboshareTokens.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(MINTER_ROLE, admin));
-        assertTrue(roboshareTokens.hasRole(BURNER_ROLE, admin));
-        assertTrue(roboshareTokens.hasRole(keccak256("UPGRADER_ROLE"), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.BURNER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
 
         // Check token counter starts at 1
         assertEq(roboshareTokens.getNextTokenId(), 1);
@@ -40,7 +38,7 @@ contract RoboshareTokensTest is BaseTest {
         uint256 amount = 100;
         bytes memory data = "";
 
-        vm.prank(admin); // Admin has minter role
+        vm.prank(minter);
         roboshareTokens.mint(user1, tokenId, amount, data);
 
         assertEq(roboshareTokens.balanceOf(user1, tokenId), amount);
@@ -55,10 +53,10 @@ contract RoboshareTokensTest is BaseTest {
         amounts[1] = 200;
         bytes memory data = "";
 
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, false, false, true);
         emit BatchTokensMinted(user1, ids, amounts);
 
-        vm.prank(admin); // Admin has minter role
+        vm.prank(minter);
         roboshareTokens.mintBatch(user1, ids, amounts, data);
 
         assertEq(roboshareTokens.balanceOf(user1, 101), 100);
@@ -70,11 +68,11 @@ contract RoboshareTokensTest is BaseTest {
         uint256 tokenId = 101;
         uint256 amount = 100;
 
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, tokenId, amount, "");
 
         // Test burn
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, false, false, true);
         emit TokensBurned(user1, tokenId, 50);
 
         vm.prank(burner);
@@ -92,7 +90,7 @@ contract RoboshareTokensTest is BaseTest {
         amounts[0] = 100;
         amounts[1] = 200;
 
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mintBatch(user1, ids, amounts, "");
 
         // Test burn batch
@@ -110,12 +108,12 @@ contract RoboshareTokensTest is BaseTest {
     function testTokenIdManagement() public {
         assertEq(roboshareTokens.getNextTokenId(), 1);
 
-        vm.prank(admin);
+        vm.prank(minter);
         uint256 nextId = roboshareTokens.getAndIncrementTokenId();
         assertEq(nextId, 1);
         assertEq(roboshareTokens.getNextTokenId(), 2);
 
-        vm.prank(admin);
+        vm.prank(minter);
         uint256 nextId2 = roboshareTokens.getAndIncrementTokenId();
         assertEq(nextId2, 2);
         assertEq(roboshareTokens.getNextTokenId(), 3);
@@ -135,7 +133,7 @@ contract RoboshareTokensTest is BaseTest {
         uint256 tokenId = 101;
         uint256 amount = 100;
 
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, tokenId, amount, "");
 
         // Transfer from user1 to user2
@@ -155,7 +153,7 @@ contract RoboshareTokensTest is BaseTest {
         amounts[0] = 100;
         amounts[1] = 200;
 
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mintBatch(user1, ids, amounts, "");
 
         // Batch transfer
@@ -182,7 +180,7 @@ contract RoboshareTokensTest is BaseTest {
 
     function testUnauthorizedBurnFails() public {
         // Setup: mint token first
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, 1, 100, "");
 
         vm.expectRevert();
@@ -205,13 +203,13 @@ contract RoboshareTokensTest is BaseTest {
     function testRoleManagement() public {
         // Admin can grant roles
         vm.prank(admin);
-        roboshareTokens.grantRole(MINTER_ROLE, user1);
-        assertTrue(roboshareTokens.hasRole(MINTER_ROLE, user1));
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), user1);
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), user1));
 
         // Admin can revoke roles
         vm.prank(admin);
-        roboshareTokens.revokeRole(MINTER_ROLE, user1);
-        assertFalse(roboshareTokens.hasRole(MINTER_ROLE, user1));
+        roboshareTokens.revokeRole(roboshareTokens.MINTER_ROLE(), user1);
+        assertFalse(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), user1));
     }
 
     // Fuzz Tests
@@ -223,7 +221,7 @@ contract RoboshareTokensTest is BaseTest {
         // Exclude contracts that might not implement ERC1155Receiver
         vm.assume(to.code.length == 0);
 
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(to, tokenId, amount, "");
 
         assertEq(roboshareTokens.balanceOf(to, tokenId), amount);
@@ -236,7 +234,7 @@ contract RoboshareTokensTest is BaseTest {
         uint256 tokenId = 101;
 
         // Mint first
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, tokenId, mintAmount, "");
 
         // Then burn
@@ -253,7 +251,7 @@ contract RoboshareTokensTest is BaseTest {
         uint256 tokenId = 101;
 
         // Mint to user1
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, tokenId, mintAmount, "");
 
         // Transfer to user2
@@ -268,14 +266,14 @@ contract RoboshareTokensTest is BaseTest {
 
     function testMintZeroAmount() public {
         // ERC1155 allows minting 0 amount by default
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, 1, 0, "");
 
         assertEq(roboshareTokens.balanceOf(user1, 1), 0);
     }
 
     function testBurnMoreThanBalance() public {
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, 1, 100, "");
 
         vm.expectRevert();
@@ -284,7 +282,7 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testTransferMoreThanBalance() public {
-        vm.prank(admin);
+        vm.prank(minter);
         roboshareTokens.mint(user1, 1, 100, "");
 
         vm.expectRevert();
