@@ -21,7 +21,7 @@ interface IAssetRegistry {
     // Token type enumeration for multi-token assets
     enum TokenType {
         Asset, // Asset ownership token (e.g., vehicle NFT)
-        RevenueShare // Revenue sharing token (e.g., earnings rights)
+        Revenue // Revenue sharing token (e.g., earnings rights)
 
     }
 
@@ -38,7 +38,7 @@ interface IAssetRegistry {
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view returns (uint256);
     function getTokenIdFromAssetId(uint256 assetId, TokenType tokenType) external view returns (uint256);
-    function isRevenueShareToken(uint256 tokenId) external view returns (bool);
+    function isRevenueToken(uint256 tokenId) external view returns (bool);
 
     /**
      * @dev Access control and permissions

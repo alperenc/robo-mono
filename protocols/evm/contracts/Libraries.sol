@@ -44,7 +44,7 @@ library ProtocolLib {
         bytes memory prefix = bytes(IPFS_PREFIX);
 
         // Check minimum length
-        if (uriBytes.length < prefix.length + IPFS_HASH_LENGTH) {
+        if (uriBytes.length <= prefix.length) {
             return false;
         }
 

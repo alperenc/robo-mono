@@ -10,7 +10,7 @@ import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { Treasury } from "../contracts/Treasury.sol";
 import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 
-contract Deploy is ScaffoldETHDeploy {
+contract DeployForTest is ScaffoldETHDeploy {
     // Contract instances
     Marketplace public marketplace;
     VehicleRegistry public vehicleRegistry;
@@ -25,9 +25,15 @@ contract Deploy is ScaffoldETHDeploy {
     PartnerManager public partnerImplementation;
     Treasury public treasuryImplementation;
 
-    function run()
-        external
-        ScaffoldEthDeployerRunner
+    modifier TestDeployerRunner(address _deployer) {
+        vm.startPrank(_deployer);
+        _;
+        vm.stopPrank();
+    }
+
+    function run(address _deployer)
+        public
+        TestDeployerRunner(_deployer)
         returns (
             Marketplace,
             VehicleRegistry,
@@ -46,20 +52,20 @@ contract Deploy is ScaffoldETHDeploy {
 
         // Deploy RoboshareTokens
         tokenImplementation = new RoboshareTokens();
-        bytes memory tokenInitData = abi.encodeWithSignature("initialize(address)", deployer);
+        bytes memory tokenInitData = abi.encodeWithSignature("initialize(address)", _deployer);
         ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImplementation), tokenInitData);
         roboshareTokens = RoboshareTokens(address(tokenProxy));
 
         // Deploy PartnerManager
         partnerImplementation = new PartnerManager();
-        bytes memory partnerInitData = abi.encodeWithSignature("initialize(address)", deployer);
+        bytes memory partnerInitData = abi.encodeWithSignature("initialize(address)", _deployer);
         ERC1967Proxy partnerProxy = new ERC1967Proxy(address(partnerImplementation), partnerInitData);
         partnerManager = PartnerManager(address(partnerProxy));
 
         // Deploy VehicleRegistry
         vehicleImplementation = new VehicleRegistry();
         bytes memory vehicleInitData = abi.encodeWithSignature(
-            "initialize(address,address,address)", deployer, address(roboshareTokens), address(partnerManager)
+            "initialize(address,address,address)", _deployer, address(roboshareTokens), address(partnerManager)
         );
         ERC1967Proxy vehicleProxy = new ERC1967Proxy(address(vehicleImplementation), vehicleInitData);
         vehicleRegistry = VehicleRegistry(address(vehicleProxy));
@@ -68,7 +74,7 @@ contract Deploy is ScaffoldETHDeploy {
         treasuryImplementation = new Treasury();
         bytes memory treasuryInitData = abi.encodeWithSignature(
             "initialize(address,address,address,address,address,address)",
-            deployer,
+            _deployer,
             address(partnerManager),
             address(vehicleRegistry),
             address(roboshareTokens),
@@ -82,7 +88,7 @@ contract Deploy is ScaffoldETHDeploy {
         marketplaceImplementation = new Marketplace();
         bytes memory marketplaceInitData = abi.encodeWithSignature(
             "initialize(address,address,address,address,address,address,address)",
-            deployer,
+            _deployer,
             address(roboshareTokens),
             address(vehicleRegistry),
             address(partnerManager),

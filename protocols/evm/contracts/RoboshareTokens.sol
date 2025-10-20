@@ -11,7 +11,7 @@ import "./Libraries.sol";
 /**
  * @title RoboshareTokens
  * @dev ERC1155 token contract with automatic position tracking for Roboshare protocol
- * Handles vehicle shares as fungible tokens with FIFO position tracking
+ * Handles revenue sharing rights as fungible tokens with FIFO position tracking
  */
 contract RoboshareTokens is
     Initializable,
@@ -20,9 +20,9 @@ contract RoboshareTokens is
     AccessControlUpgradeable,
     UUPSUpgradeable
 {
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     uint256 private _tokenIdCounter;
 
@@ -151,9 +151,9 @@ contract RoboshareTokens is
     /**
      * @dev Check if a token ID is a revenue share token (even numbers)
      * @param tokenId Token ID to check
-     * @return isRevenueShare True if token is revenue share token
+     * @return isRevenueToken True if token is revenue share token
      */
-    function isRevenueShareToken(uint256 tokenId) public pure returns (bool) {
+    function isRevenueToken(uint256 tokenId) public pure returns (bool) {
         return tokenId % 2 == 0;
     }
 
@@ -168,7 +168,7 @@ contract RoboshareTokens is
         view
         returns (TokenLib.TokenPosition[] memory positions)
     {
-        require(isRevenueShareToken(tokenId), "Not a revenue share token");
+        require(isRevenueToken(tokenId), "Not a revenue share token");
         TokenLib.TokenInfo storage info = tokenPositions[tokenId];
         uint256 length = info.positions[holder].length;
         positions = new TokenLib.TokenPosition[](length);
@@ -194,7 +194,7 @@ contract RoboshareTokens is
             uint256 amount = values[i];
 
             // Only track revenue share tokens (even IDs)
-            if (isRevenueShareToken(tokenId)) {
+            if (isRevenueToken(tokenId)) {
                 _updateTokenPositions(from, to, tokenId, amount);
                 emit PositionsUpdated(tokenId, from, to, amount);
             }

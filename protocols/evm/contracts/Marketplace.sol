@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Libraries.sol";
 import "./RoboshareTokens.sol";
 import "./VehicleRegistry.sol";
-import "././PartnerManager.sol";
+import "./PartnerManager.sol";
 import "./Treasury.sol";
 
 // Marketplace errors
@@ -85,7 +85,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     event CollateralLockedAndListed(
         uint256 indexed vehicleId,
-        uint256 indexed revenueShareTokenId,
+        uint256 indexed revenueTokenId,
         uint256 indexed listingId,
         address partner,
         uint256 collateralAmount,
@@ -167,10 +167,10 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Get revenue share token ID
-        uint256 revenueShareTokenId = vehicleRegistry.getRevenueShareTokenIdFromVehicleId(vehicleId);
+        uint256 revenueTokenId = vehicleRegistry.getRevenueTokenIdFromVehicleId(vehicleId);
 
         // Verify partner owns enough tokens (tokens should already exist from vehicle registration)
-        uint256 partnerBalance = roboshareTokens.balanceOf(msg.sender, revenueShareTokenId);
+        uint256 partnerBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
         if (partnerBalance < tokensToList) {
             revert Marketplace__InsufficientTokenBalance();
         }
@@ -179,14 +179,14 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         treasury.lockCollateralFor(msg.sender, vehicleId, revenueTokenPrice, totalRevenueTokens);
 
         // Create listing for specified portion of existing tokens
-        listingId = _createListing(revenueShareTokenId, tokensToList, revenueTokenPrice, listingDuration, buyerPaysFee);
+        listingId = _createListing(revenueTokenId, tokensToList, revenueTokenPrice, listingDuration, buyerPaysFee);
 
         // Get collateral amount for event
         (, uint256 collateralAmount,,,) = treasury.getAssetCollateralInfo(vehicleId);
 
         emit CollateralLockedAndListed(
             vehicleId,
-            revenueShareTokenId,
+            revenueTokenId,
             listingId,
             msg.sender,
             collateralAmount,
@@ -217,7 +217,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Get vehicle ID and check collateral is locked
-        uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueShareTokenId(tokenId);
+        uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueTokenId(tokenId);
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(vehicleId);
         if (!isLocked) {
             revert Marketplace__CollateralNotLocked();
@@ -245,7 +245,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Get vehicle ID for indexing
-        uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueShareTokenId(tokenId);
+        uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueTokenId(tokenId);
 
         // Create listing
         listingId = _listingIdCounter++;
@@ -277,7 +277,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     /**
      * @dev Purchase tokens from a listing
      */
-    function purchaseListing(uint256 listingId, uint256 amount) external nonReentrant {
+    function purchaseTokens(uint256 listingId, uint256 amount) external nonReentrant {
         Listing storage listing = listings[listingId];
 
         // Validate listing exists and is active

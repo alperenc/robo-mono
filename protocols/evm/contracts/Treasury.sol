@@ -180,10 +180,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         // Initialize token info for earnings distribution (positions tracked in RoboshareTokens)
         TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
-        uint256 revenueShareTokenId =
-            assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
+        uint256 revenueTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.Revenue);
         TokenLib.initializeTokenInfo(
-            tokenInfo, revenueShareTokenId, totalRevenueTokens, revenueTokenPrice, ProtocolLib.MONTHLY_INTERVAL
+            tokenInfo, revenueTokenId, totalRevenueTokens, revenueTokenPrice, ProtocolLib.MONTHLY_INTERVAL
         );
         // Note: Initial positions are tracked automatically in RoboshareTokens via _update
 
@@ -243,6 +242,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             );
         }
 
+        // Initialize token info for earnings distribution (positions tracked in RoboshareTokens)
+        TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
+        uint256 revenueTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.Revenue);
+        TokenLib.initializeTokenInfo(
+            tokenInfo, revenueTokenId, totalRevenueTokens, revenueTokenPrice, ProtocolLib.MONTHLY_INTERVAL
+        );
+
         uint256 requiredCollateral = collateralInfo.totalCollateral;
 
         // Transfer collateral from partner to Treasury
@@ -279,6 +285,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Unlock the collateral
         collateralInfo.isLocked = false;
         collateralInfo.lockedAt = 0;
+        collateralInfo.baseCollateral = 0;
+        collateralInfo.totalCollateral = 0;
 
         // Add to pending withdrawals instead of direct transfer
         pendingWithdrawals[msg.sender] += collateralAmount;
@@ -381,9 +389,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         // Check token ownership (source of truth)
-        uint256 revenueShareTokenId =
-            assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.RevenueShare);
-        uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueShareTokenId);
+        uint256 revenueTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.Revenue);
+        uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
 
         if (tokenBalance == 0) {
             revert Treasury__InsufficientTokenBalance();
@@ -397,7 +404,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         // Get user's positions from RoboshareTokens (single source of truth)
-        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueShareTokenId, msg.sender);
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, msg.sender);
 
         // Calculate position-based earnings using Treasury's claim tracking
         uint256 unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, msg.sender, positions);

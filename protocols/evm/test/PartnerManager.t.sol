@@ -2,12 +2,11 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.t.sol";
+import "../contracts/PartnerManager.sol";
 
 contract PartnerManagerTest is BaseTest {
     address public partnerAdmin = makeAddr("partnerAdmin");
     address public partner3 = makeAddr("partner3");
-
-    bytes32 public constant PARTNER_ADMIN_ROLE = keccak256("PARTNER_ADMIN_ROLE");
 
     string constant NEW_PARTNER_NAME = "BMW Group";
 
@@ -16,18 +15,18 @@ contract PartnerManagerTest is BaseTest {
     event PartnerNameUpdated(address indexed partner, string newName);
 
     function setUp() public {
-        _ensureState(SetupState.ContractsDeployed);
+        _ensureState(SetupState.PartnersAuthorized);
         vm.startPrank(admin);
-        partnerManager.grantRole(PARTNER_ADMIN_ROLE, partnerAdmin);
+        partnerManager.grantRole(partnerManager.PARTNER_ADMIN_ROLE(), partnerAdmin);
         vm.stopPrank();
     }
 
     function testInitialization() public view {
         // Check roles (from BaseTest setup)
         assertTrue(partnerManager.hasRole(partnerManager.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(partnerManager.hasRole(PARTNER_ADMIN_ROLE, admin));
-        assertTrue(partnerManager.hasRole(keccak256("UPGRADER_ROLE"), admin));
-        assertTrue(partnerManager.hasRole(PARTNER_ADMIN_ROLE, partnerAdmin));
+        assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), admin));
+        assertTrue(partnerManager.hasRole(partnerManager.UPGRADER_ROLE(), admin));
+        assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), partnerAdmin));
 
         // Check initial state (BaseTest authorizes partner1 and partner2)
         assertEq(partnerManager.getPartnerCount(), 2);
@@ -36,10 +35,9 @@ contract PartnerManagerTest is BaseTest {
     }
 
     function testAuthorizePartner() public {
-        vm.expectEmit(true, true, false, true);
-        emit PartnerAuthorized(partner3, NEW_PARTNER_NAME);
-
         vm.prank(partnerAdmin);
+        vm.expectEmit(true, false, false, true);
+        emit PartnerAuthorized(partner3, NEW_PARTNER_NAME);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
 
         assertTrue(partnerManager.isAuthorizedPartner(partner3));
@@ -56,10 +54,9 @@ contract PartnerManagerTest is BaseTest {
         assertEq(partnerManager.getPartnerCount(), 2);
 
         // Then revoke
-        vm.expectEmit(true, true, false, true);
-        emit PartnerRevoked(partner1);
-
         vm.prank(partnerAdmin);
+        vm.expectEmit(true, false, false, false);
+        emit PartnerRevoked(partner1);
         partnerManager.revokePartner(partner1);
 
         assertFalse(partnerManager.isAuthorizedPartner(partner1));
@@ -98,7 +95,7 @@ contract PartnerManagerTest is BaseTest {
     function testUpdatePartnerName() public {
         string memory newName = "Tesla Inc.";
 
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, false, false, true);
         emit PartnerNameUpdated(partner1, newName);
 
         vm.prank(partnerAdmin);
@@ -108,7 +105,7 @@ contract PartnerManagerTest is BaseTest {
         assertTrue(partnerManager.isAuthorizedPartner(partner1));
     }
 
-    function testGetPartnerInfo() public {
+    function testGetPartnerInfo() public view {
         (string memory name, uint256 registrationTime, bool isAuthorized) = partnerManager.getPartnerInfo(partner1);
 
         assertEq(name, PARTNER1_NAME);
@@ -180,19 +177,22 @@ contract PartnerManagerTest is BaseTest {
         address newPartnerAdmin = makeAddr("newPartnerAdmin");
 
         // Admin can grant roles
-        vm.prank(admin);
-        partnerManager.grantRole(PARTNER_ADMIN_ROLE, newPartnerAdmin);
-        assertTrue(partnerManager.hasRole(PARTNER_ADMIN_ROLE, newPartnerAdmin));
+        vm.startPrank(admin);
+        partnerManager.grantRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
+        assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
+        vm.stopPrank();
 
         // New partner admin can authorize partners
-        vm.prank(newPartnerAdmin);
+        vm.startPrank(newPartnerAdmin);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
         assertTrue(partnerManager.isAuthorizedPartner(partner3));
+        vm.stopPrank();
 
         // Admin can revoke roles
-        vm.prank(admin);
-        partnerManager.revokeRole(PARTNER_ADMIN_ROLE, newPartnerAdmin);
-        assertFalse(partnerManager.hasRole(PARTNER_ADMIN_ROLE, newPartnerAdmin));
+        vm.startPrank(admin);
+        partnerManager.revokeRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
+        assertFalse(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
+        vm.stopPrank();
     }
 
     // Fuzz Tests
