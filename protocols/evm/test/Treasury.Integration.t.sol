@@ -7,6 +7,7 @@ contract TreasuryIntegrationTest is BaseTest {
     uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
 
     function setUp() public {
+        // Integration tests need funded accounts and authorized partners as a baseline
         _ensureState(SetupState.AccountsFunded);
     }
 
@@ -203,7 +204,12 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.lockCollateral(vehicleId1, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
 
-        (uint256 vehicleId2,) = _setupVehicleWithTokens(); // Second vehicle for partner1
+        string memory vin2 = generateVIN(2);
+        vm.prank(partner1);
+        (uint256 vehicleId2, ) = vehicleRegistry.registerVehicleAndMintRevenueTokens(
+            vin2, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI, REVENUE_TOKEN_SUPPLY
+        );
+
         uint256 requiredCollateral2 = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral2);
@@ -285,8 +291,14 @@ contract TreasuryIntegrationTest is BaseTest {
     function testClaimEarnings() public {
         _ensureState(SetupState.VehicleWithPurchase);
         uint256 earningsAmount = 1000 * 1e6;
+
+        console.log("partner1 balance:", usdc.balanceOf(partner1));
+        console.log("treasury allowance:", usdc.allowance(partner1, address(treasury)));
+        console.log("earningsAmount:", earningsAmount);
+
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
+        console.log("treasury allowance after approve:", usdc.allowance(partner1, address(treasury)));
         treasury.distributeEarnings(scenario.vehicleId, earningsAmount);
         vm.stopPrank();
 
@@ -342,7 +354,7 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.distributeEarnings(scenario.vehicleId, 1000e6);
         vm.stopPrank();
 
-        vm.prank(buyer);
+        vm.startPrank(buyer);
         treasury.claimEarnings(scenario.vehicleId);
         vm.expectRevert(Treasury__NoEarningsToClaim.selector);
         treasury.claimEarnings(scenario.vehicleId);
@@ -389,7 +401,7 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.distributeEarnings(scenario.vehicleId, earningsAmount);
         vm.stopPrank();
 
-        vm.prank(buyer);
+        vm.startPrank(buyer);
         treasury.claimEarnings(scenario.vehicleId);
         treasury.processWithdrawal();
         vm.stopPrank();

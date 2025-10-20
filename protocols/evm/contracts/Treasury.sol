@@ -242,6 +242,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             );
         }
 
+        // Initialize token info for earnings distribution (positions tracked in RoboshareTokens)
+        TokenLib.TokenInfo storage tokenInfo = assetTokens[assetId];
+        uint256 revenueTokenId = assetRegistry.getTokenIdFromAssetId(assetId, IAssetRegistry.TokenType.Revenue);
+        TokenLib.initializeTokenInfo(
+            tokenInfo, revenueTokenId, totalRevenueTokens, revenueTokenPrice, ProtocolLib.MONTHLY_INTERVAL
+        );
+
         uint256 requiredCollateral = collateralInfo.totalCollateral;
 
         // Transfer collateral from partner to Treasury

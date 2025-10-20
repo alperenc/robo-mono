@@ -151,7 +151,7 @@ contract RoboshareTokens is
     /**
      * @dev Check if a token ID is a revenue share token (even numbers)
      * @param tokenId Token ID to check
-     * @return isRevenueShare True if token is revenue share token
+     * @return isRevenueToken True if token is revenue share token
      */
     function isRevenueToken(uint256 tokenId) public pure returns (bool) {
         return tokenId % 2 == 0;

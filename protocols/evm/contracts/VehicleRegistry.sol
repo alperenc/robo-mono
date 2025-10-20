@@ -47,7 +47,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     );
 
     event VehicleRegisteredAndRevenueTokensMinted(
-        uint256 indexed vehicleId, uint256 indexed revenueTokenId, address indexed partner, uint256 revenueShareSupply
+        uint256 indexed vehicleId, uint256 indexed revenueTokenId, address indexed partner, uint256 revenueTokensSupply
     );
 
     event VehicleMetadataUpdated(uint256 indexed vehicleId, string newMetadataURI);
@@ -178,7 +178,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 manufacturerId,
         string memory optionCodes,
         string memory dynamicMetadataURI,
-        uint256 revenueShareSupply
+        uint256 revenueTokensSupply
     ) external onlyAuthorizedPartner returns (uint256 vehicleId, uint256 revenueTokenId) {
         // Register vehicle and get vehicle ID
         vehicleId = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
@@ -194,11 +194,11 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         amounts[0] = 1; // Single vehicle NFT
 
         tokenIds[1] = revenueTokenId;
-        amounts[1] = revenueShareSupply; // Revenue tokens
+        amounts[1] = revenueTokensSupply; // Revenue tokens
 
         roboshareTokens.mintBatch(msg.sender, tokenIds, amounts, "");
 
-        emit VehicleRegisteredAndRevenueTokensMinted(vehicleId, revenueTokenId, msg.sender, revenueShareSupply);
+        emit VehicleRegisteredAndRevenueTokensMinted(vehicleId, revenueTokenId, msg.sender, revenueTokensSupply);
 
         return (vehicleId, revenueTokenId);
     }

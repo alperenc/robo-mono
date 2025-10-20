@@ -12,7 +12,7 @@ import "../contracts/RoboshareTokens.sol";
 import "../contracts/PartnerManager.sol";
 import "../contracts/Treasury.sol";
 import "../contracts/Libraries.sol";
-import "../script/DeployHelpers.s.sol";
+import { DeployForTest } from "../script/DeployForTest.s.sol";
 
 contract BaseTest is Test {
     enum SetupState {
@@ -30,6 +30,7 @@ contract BaseTest is Test {
 
     SetupState private currentState;
 
+    DeployForTest public deployer;
     Marketplace public marketplace;
     Marketplace public marketplaceImplementation;
     VehicleRegistry public vehicleRegistry;
@@ -42,8 +43,7 @@ contract BaseTest is Test {
     Treasury public treasuryImplementation;
     IERC20 public usdc;
 
-    ScaffoldETHDeploy public deployHelpers;
-    ScaffoldETHDeploy.NetworkConfig public config;
+    DeployForTest.NetworkConfig public config;
 
     address public admin = makeAddr("admin");
     address public partner1 = makeAddr("partner1");
@@ -58,7 +58,7 @@ contract BaseTest is Test {
     uint256 constant TEST_YEAR = 2024;
     uint256 constant TEST_MANUFACTURER_ID = 1;
     string constant TEST_OPTION_CODES = "EX-L,NAV,HSS";
-    string constant TEST_METADATA_URI = "ipfs://QmTestHash123456789abcdefghijklmnopqrstuvwxyzABC";
+    string constant TEST_METADATA_URI = "ipfs://QmYwAPJzv5CZsnA625b3Xm2fa12p45a8V34vG27s2p45a8";
 
     string constant PARTNER1_NAME = "RideShare Fleet Co.";
     string constant PARTNER2_NAME = "Urban Delivery Services";
@@ -144,8 +144,9 @@ contract BaseTest is Test {
 
         if (requiredState >= SetupState.VehicleWithPurchase && currentState < SetupState.VehicleWithPurchase) {
             // Buyer approves USDC for purchase
+            (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
             vm.startPrank(buyer);
-            usdc.approve(address(marketplace), REVENUE_TOKEN_PRICE * PURCHASE_AMOUNT);
+            usdc.approve(address(marketplace), expectedPayment);
 
             // Buyer purchases tokens
             marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
@@ -154,69 +155,15 @@ contract BaseTest is Test {
         }
     }
 
-    function _deployContracts() private {
-        // Setup network configuration
-        deployHelpers = new ScaffoldETHDeploy();
-        config = deployHelpers.getActiveNetworkConfig();
+    function _deployContracts() internal {
+        deployer = new DeployForTest();
+        (marketplace, vehicleRegistry, roboshareTokens, partnerManager, treasury, marketplaceImplementation, vehicleImplementation, tokenImplementation, partnerImplementation, treasuryImplementation) = deployer.run(admin);
 
-        // Safe casting with environment validation
-        if (deployHelpers.isLocalNetwork()) {
-            usdc = ERC20Mock(config.usdcToken);
-            // Now we can safely call usdc.mint() in tests
-        } else {
-            // This would be for fork testing against real networks
-            usdc = IERC20(config.usdcToken);
-        }
-
-        // Deploy RoboshareTokens
-        tokenImplementation = new RoboshareTokens();
-        ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImplementation), "");
-        roboshareTokens = RoboshareTokens(address(tokenProxy));
-        roboshareTokens.initialize(admin);
-
-        // Deploy PartnerManager
-        partnerImplementation = new PartnerManager();
-        ERC1967Proxy partnerProxy = new ERC1967Proxy(address(partnerImplementation), "");
-        partnerManager = PartnerManager(address(partnerProxy));
-        partnerManager.initialize(admin);
-        console.log("PartnerManager proxy address in test:", address(partnerManager));
-
-        // Deploy VehicleRegistry
-        vehicleImplementation = new VehicleRegistry();
-        ERC1967Proxy vehicleProxy = new ERC1967Proxy(address(vehicleImplementation), "");
-        vehicleRegistry = VehicleRegistry(address(vehicleProxy));
-        vehicleRegistry.initialize(admin, address(roboshareTokens), address(partnerManager));
-
-        // Deploy Treasury
-        treasuryImplementation = new Treasury();
-        ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), "");
-        treasury = Treasury(address(treasuryProxy));
-        treasury.initialize(
-            admin,
-            address(partnerManager),
-            address(vehicleRegistry),
-            address(roboshareTokens),
-            address(usdc),
-            config.treasuryFeeRecipient
-        );
-        console.log("Treasury proxy address in test:", address(treasury));
-
-        // Deploy Marketplace
-        marketplaceImplementation = new Marketplace();
-        ERC1967Proxy marketplaceProxy = new ERC1967Proxy(address(marketplaceImplementation), "");
-        marketplace = Marketplace(address(marketplaceProxy));
-        marketplace.initialize(
-            admin,
-            address(roboshareTokens),
-            address(vehicleRegistry),
-            address(partnerManager),
-            address(treasury),
-            address(usdc),
-            config.treasuryFeeRecipient
-        );
+        config = deployer.getActiveNetworkConfig();
+        usdc = IERC20(config.usdcToken);
     }
 
-    function _setupInitialRolesAndPartners() private {
+    function _setupInitialRolesAndPartners() internal {
         // Setup roles and permissions
         vm.startPrank(admin);
         // Grant MINTER_ROLE and BURNER_ROLE to VehicleRegistry for token operations
@@ -232,7 +179,7 @@ contract BaseTest is Test {
 
     function _fundInitialAccounts() private {
         // Fund accounts with USDC for testing
-        if (deployHelpers.isLocalNetwork()) {
+        if (deployer.isLocalNetwork()) {
             ERC20Mock mockUSDC = ERC20Mock(address(usdc));
             mockUSDC.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
             mockUSDC.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
@@ -391,7 +338,8 @@ contract BaseTest is Test {
         year = 2020 + (seed % 5); // 2020-2024
         manufacturerId = (seed % 100) + 1;
         optionCodes = "TEST,OPTION";
-        metadataURI = string(abi.encodePacked("ipfs://QmTestHash", vm.toString(seed)));
+        // Use a valid-length IPFS URI (prefix + 46-char CID)
+        metadataURI = "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb";
     }
 
     /**
@@ -716,7 +664,7 @@ contract BaseTest is Test {
             partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i))));
 
             // Fund partners if on local network
-            if (deployHelpers.isLocalNetwork()) {
+            if (deployer.isLocalNetwork()) {
                 ERC20Mock(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
             }
         }
@@ -733,7 +681,7 @@ contract BaseTest is Test {
      * @dev Fund an address with USDC (local network only)
      */
     function fundAddressWithUSDC(address account, uint256 amount) internal {
-        if (deployHelpers.isLocalNetwork()) {
+        if (deployer.isLocalNetwork()) {
             ERC20Mock(address(usdc)).mint(account, amount);
         }
     }

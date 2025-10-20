@@ -177,19 +177,22 @@ contract PartnerManagerTest is BaseTest {
         address newPartnerAdmin = makeAddr("newPartnerAdmin");
 
         // Admin can grant roles
-        vm.prank(admin);
+        vm.startPrank(admin);
         partnerManager.grantRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
         assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
+        vm.stopPrank();
 
         // New partner admin can authorize partners
-        vm.prank(newPartnerAdmin);
+        vm.startPrank(newPartnerAdmin);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
         assertTrue(partnerManager.isAuthorizedPartner(partner3));
+        vm.stopPrank();
 
         // Admin can revoke roles
-        vm.prank(admin);
+        vm.startPrank(admin);
         partnerManager.revokeRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
         assertFalse(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
+        vm.stopPrank();
     }
 
     // Fuzz Tests
