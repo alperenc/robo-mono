@@ -224,7 +224,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testPurchaseListingExpired() public {
         _ensureState(SetupState.VehicleWithListing);
 
-        vm.warp(block.timestamp + LISTING_DURATION + 1);
+        setupExpiredListing(scenario.listingId);
 
         vm.expectRevert(Marketplace__ListingExpired.selector);
         vm.prank(buyer);
