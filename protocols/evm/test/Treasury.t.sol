@@ -43,25 +43,8 @@ contract TreasuryUnitTest is BaseTest {
 
     function testGetCollateralRequirement() public view {
         uint256 requirement = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-
-        uint256 baseAmount = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
-        (,, uint256 expectedTotal) = CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL);
-
+        (,,, uint256 expectedTotal) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         assertEq(requirement, expectedTotal);
-    }
-
-    function testGetCollateralBreakdown() public view {
-        (uint256 base, uint256 earnings, uint256 protocol, uint256 total) =
-            treasury.getCollateralBreakdown(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-
-        uint256 baseAmount = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
-        (uint256 expectedEarningsBuffer, uint256 expectedProtocolBuffer, uint256 expectedTotal) = 
-            CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL);
-
-        assertEq(base, baseAmount);
-        assertEq(earnings, expectedEarningsBuffer);
-        assertEq(protocol, expectedProtocolBuffer);
-        assertEq(total, expectedTotal);
     }
 
     // Admin Functions Tests

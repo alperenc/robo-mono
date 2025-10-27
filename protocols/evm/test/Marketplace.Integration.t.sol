@@ -39,12 +39,18 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
 
         assertEq(newListingId, 1);
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
-        assertEq(listing.tokenId, scenario.revenueTokenId);
-        assertEq(listing.amount, PURCHASE_AMOUNT);
+        assertListingState(
+            newListingId,
+            scenario.revenueTokenId,
+            PURCHASE_AMOUNT,
+            REVENUE_TOKEN_PRICE,
+            partner1,
+            true,
+            true
+        );
 
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), PURCHASE_AMOUNT);
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT);
+        assertTokenBalance(address(marketplace), scenario.revenueTokenId, PURCHASE_AMOUNT, "Marketplace token balance mismatch");
+        assertTokenBalance(partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT, "Partner token balance mismatch");
 
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
         assertTrue(isLocked);
@@ -130,7 +136,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             afterBalance,
             int256(totalPrice), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
-            int256(protocolFee), // Treasury USDC change
+            int256(protocolFee), // Treasury Fee Recipient USDC change
+            0, // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
             int256(purchaseAmount) // Buyer token change
         );
@@ -170,7 +177,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             afterBalance,
             int256(sellerReceives), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
-            int256(protocolFee), // Treasury USDC change
+            int256(protocolFee), // Treasury Fee Recipient USDC change
+            0, // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
             int256(purchaseAmount) // Buyer token change
         );
@@ -191,7 +199,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.amount, 0);
         assertFalse(listing.isActive);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), PURCHASE_AMOUNT);
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
+        assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
     }
 
     function testPurchaseListingInsufficientPayment() public {
@@ -203,7 +211,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 requiredPayment = totalPrice + protocolFee;
 
         address poorBuyer = makeAddr("poorBuyer");
-        fundAddressWithUSDC(poorBuyer, requiredPayment - 1);
+        setupInsufficientFunds(poorBuyer, requiredPayment);
 
         vm.startPrank(poorBuyer);
         usdc.approve(address(marketplace), requiredPayment);
@@ -216,7 +224,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testPurchaseListingExpired() public {
         _ensureState(SetupState.VehicleWithListing);
 
-        vm.warp(block.timestamp + LISTING_DURATION + 1);
+        setupExpiredListing(scenario.listingId);
 
         vm.expectRevert(Marketplace__ListingExpired.selector);
         vm.prank(buyer);
@@ -244,8 +252,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertFalse(listing.isActive);
 
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), partnerBalanceBefore + PURCHASE_AMOUNT);
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
+        assertTokenBalance(partner1, scenario.revenueTokenId, partnerBalanceBefore + PURCHASE_AMOUNT, "Partner token balance mismatch after cancellation");
+        assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation");
     }
 
     function testCancelListingUnauthorized() public {
