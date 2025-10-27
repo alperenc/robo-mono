@@ -20,10 +20,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
 
         assertEq(newVehicleId, 1);
-        assertTrue(vehicleRegistry.vehicleExists(1));
-        assertTrue(vehicleRegistry.vinExists(TEST_VIN));
+        assertVehicleState(newVehicleId, partner1, TEST_VIN, true);
         assertEq(vehicleRegistry.getCurrentTokenId(), 3);
-        assertEq(roboshareTokens.balanceOf(partner1, 1), 1);
     }
 
     function testRegisterMultipleVehicles() public {
