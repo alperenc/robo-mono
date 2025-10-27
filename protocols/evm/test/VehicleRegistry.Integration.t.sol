@@ -112,9 +112,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRegisterVehicleWithDuplicateVinFails() public {
         _ensureState(SetupState.VehicleWithTokens);
+        (string memory vin, string memory make, string memory model, uint256 year, uint256 manufacturerId, string memory optionCodes, string memory metadataURI) = generateVehicleData(3);
         vm.expectRevert(VehicleRegistry__VehicleAlreadyExists.selector);
         vm.prank(partner2);
-        vehicleRegistry.registerVehicle(TEST_VIN, "Toyota", "Camry", 2023, 2, "LE", "ipfs://hash");
+        vehicleRegistry.registerVehicle(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI);
     }
 
     function testMintRevenueTokensForNonexistentVehicleFails() public {
