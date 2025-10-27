@@ -11,47 +11,39 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     // Vehicle Registration Tests
 
     function testRegisterVehicle() public {
+        (string memory vin, string memory make, string memory model, uint256 year, uint256 manufacturerId, string memory optionCodes, string memory metadataURI) = generateVehicleData(1);
+
         vm.expectEmit(true, true, false, true);
-        emit VehicleRegistry.VehicleRegistered(1, partner1, TEST_VIN);
+        emit VehicleRegistry.VehicleRegistered(1, partner1, vin);
 
         vm.prank(partner1);
         uint256 newVehicleId = vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            vin, make, model, year, manufacturerId, optionCodes, metadataURI
         );
 
         assertEq(newVehicleId, 1);
-        assertTrue(vehicleRegistry.vehicleExists(1));
-        assertTrue(vehicleRegistry.vinExists(TEST_VIN));
+        assertVehicleState(newVehicleId, partner1, vin, true);
         assertEq(vehicleRegistry.getCurrentTokenId(), 3);
-        assertEq(roboshareTokens.balanceOf(partner1, 1), 1);
     }
 
     function testRegisterMultipleVehicles() public {
+        (string memory vin1, string memory make1, string memory model1, uint256 year1, uint256 manufacturerId1, string memory optionCodes1, string memory metadataURI1) = generateVehicleData(1);
         vm.prank(partner1);
         uint256 vehicleId1 = vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            vin1, make1, model1, year1, manufacturerId1, optionCodes1, metadataURI1
         );
 
-        string memory vin2 = "2HGCM82633A654321";
+        (string memory vin2, string memory make2, string memory model2, uint256 year2, uint256 manufacturerId2, string memory optionCodes2, string memory metadataURI2) = generateVehicleData(2);
         vm.prank(partner2);
         uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            vin2,
-            "Toyota",
-            "Camry",
-            2023,
-            2,
-            "LE,HYBRID",
-            // Valid-length IPFS URI
-            "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb"
+            vin2, make2, model2, year2, manufacturerId2, optionCodes2, metadataURI2
         );
 
         assertEq(vehicleId1, 1);
         assertEq(vehicleId2, 3);
-        assertTrue(vehicleRegistry.vehicleExists(vehicleId1));
-        assertTrue(vehicleRegistry.vehicleExists(vehicleId2));
+        assertVehicleState(vehicleId1, partner1, vin1, true);
+        assertVehicleState(vehicleId2, partner2, vin2, true);
         assertEq(vehicleRegistry.getCurrentTokenId(), 5);
-        assertEq(roboshareTokens.balanceOf(partner1, 1), 1);
-        assertEq(roboshareTokens.balanceOf(partner2, 3), 1);
     }
 
     // Revenue Share Token Tests
@@ -144,6 +136,47 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
         vehicleRegistry.getRevenueTokenIdFromVehicleId(101);
+    }
+
+    function testGetVehicleIdFromRevenueTokenIdErrorCases() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Test revenueTokenId == 0
+        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vehicleRegistry.getVehicleIdFromRevenueTokenId(0);
+
+        // Test revenueTokenId % 2 != 0 (odd revenue token ID)
+        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vehicleRegistry.getVehicleIdFromRevenueTokenId(1); // 1 is an odd ID
+
+        // Test revenueTokenId >= _tokenIdCounter (non-existent revenue token ID)
+        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vehicleRegistry.getVehicleIdFromRevenueTokenId(999999);
+
+        // Test vehicles[vehicleId].vehicleId == 0 (corresponding vehicle NFT doesn't exist)
+        // To test this, we need a revenueTokenId that is valid in terms of parity and counter,
+        // but whose corresponding vehicleId does not exist. This is hard to achieve without
+        // directly manipulating _tokenIdCounter or deleting a vehicle, which is not possible.
+        // The existing test `testMintRevenueTokensForNonexistentVehicleFails` covers a similar scenario.
+    }
+
+    function testGetRevenueTokenIdFromVehicleIdErrorCases() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Test vehicleId == 0
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
+
+        // Test vehicleId % 2 != 1 (even vehicle ID)
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vehicleRegistry.getRevenueTokenIdFromVehicleId(2); // 2 is an even ID
+
+        // Test vehicleId >= _tokenIdCounter (non-existent vehicle ID)
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vehicleRegistry.getRevenueTokenIdFromVehicleId(999999);
+
+        // Test vehicles[vehicleId].vehicleId == 0 (vehicle NFT doesn't exist)
+        // This is covered by the non-existent vehicle ID test above.
     }
 
     // View Function Tests
