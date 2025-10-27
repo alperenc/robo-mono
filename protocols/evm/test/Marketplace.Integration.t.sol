@@ -211,7 +211,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 requiredPayment = totalPrice + protocolFee;
 
         address poorBuyer = makeAddr("poorBuyer");
-        fundAddressWithUSDC(poorBuyer, requiredPayment - 1);
+        setupInsufficientFunds(poorBuyer, requiredPayment);
 
         vm.startPrank(poorBuyer);
         usdc.approve(address(marketplace), requiredPayment);
