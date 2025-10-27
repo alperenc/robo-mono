@@ -375,9 +375,8 @@ contract TreasuryIntegrationTest is BaseTest {
     function testReleasePartialCollateral() public {
         _ensureState(SetupState.VehicleWithListing);
         vm.warp(block.timestamp + 30 days);
+        setupEarningsScenario(scenario.vehicleId, 1000e6);
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), 1000e6);
-        treasury.distributeEarnings(scenario.vehicleId, 1000e6);
         treasury.releasePartialCollateral(scenario.vehicleId);
         vm.stopPrank();
     }
