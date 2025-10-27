@@ -39,12 +39,18 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
 
         assertEq(newListingId, 1);
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
-        assertEq(listing.tokenId, scenario.revenueTokenId);
-        assertEq(listing.amount, PURCHASE_AMOUNT);
+        assertListingState(
+            newListingId,
+            scenario.revenueTokenId,
+            PURCHASE_AMOUNT,
+            REVENUE_TOKEN_PRICE,
+            partner1,
+            true,
+            true
+        );
 
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), PURCHASE_AMOUNT);
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT);
+        assertTokenBalance(address(marketplace), scenario.revenueTokenId, PURCHASE_AMOUNT, "Marketplace token balance mismatch");
+        assertTokenBalance(partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT, "Partner token balance mismatch");
 
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
         assertTrue(isLocked);
