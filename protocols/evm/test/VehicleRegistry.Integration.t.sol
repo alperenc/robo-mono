@@ -11,41 +11,37 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     // Vehicle Registration Tests
 
     function testRegisterVehicle() public {
+        (string memory vin, string memory make, string memory model, uint256 year, uint256 manufacturerId, string memory optionCodes, string memory metadataURI) = generateVehicleData(1);
+
         vm.expectEmit(true, true, false, true);
-        emit VehicleRegistry.VehicleRegistered(1, partner1, TEST_VIN);
+        emit VehicleRegistry.VehicleRegistered(1, partner1, vin);
 
         vm.prank(partner1);
         uint256 newVehicleId = vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            vin, make, model, year, manufacturerId, optionCodes, metadataURI
         );
 
         assertEq(newVehicleId, 1);
-        assertVehicleState(newVehicleId, partner1, TEST_VIN, true);
+        assertVehicleState(newVehicleId, partner1, vin, true);
         assertEq(vehicleRegistry.getCurrentTokenId(), 3);
     }
 
     function testRegisterMultipleVehicles() public {
+        (string memory vin1, string memory make1, string memory model1, uint256 year1, uint256 manufacturerId1, string memory optionCodes1, string memory metadataURI1) = generateVehicleData(1);
         vm.prank(partner1);
         uint256 vehicleId1 = vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            vin1, make1, model1, year1, manufacturerId1, optionCodes1, metadataURI1
         );
 
-        string memory vin2 = "2HGCM82633A654321";
+        (string memory vin2, string memory make2, string memory model2, uint256 year2, uint256 manufacturerId2, string memory optionCodes2, string memory metadataURI2) = generateVehicleData(2);
         vm.prank(partner2);
         uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            vin2,
-            "Toyota",
-            "Camry",
-            2023,
-            2,
-            "LE,HYBRID",
-            // Valid-length IPFS URI
-            "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb"
+            vin2, make2, model2, year2, manufacturerId2, optionCodes2, metadataURI2
         );
 
         assertEq(vehicleId1, 1);
         assertEq(vehicleId2, 3);
-        assertVehicleState(vehicleId1, partner1, TEST_VIN, true);
+        assertVehicleState(vehicleId1, partner1, vin1, true);
         assertVehicleState(vehicleId2, partner2, vin2, true);
         assertEq(vehicleRegistry.getCurrentTokenId(), 5);
     }
