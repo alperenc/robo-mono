@@ -146,6 +146,47 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vehicleRegistry.getRevenueTokenIdFromVehicleId(101);
     }
 
+    function testGetVehicleIdFromRevenueTokenIdErrorCases() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Test revenueTokenId == 0
+        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vehicleRegistry.getVehicleIdFromRevenueTokenId(0);
+
+        // Test revenueTokenId % 2 != 0 (odd revenue token ID)
+        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vehicleRegistry.getVehicleIdFromRevenueTokenId(1); // 1 is an odd ID
+
+        // Test revenueTokenId >= _tokenIdCounter (non-existent revenue token ID)
+        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vehicleRegistry.getVehicleIdFromRevenueTokenId(999999);
+
+        // Test vehicles[vehicleId].vehicleId == 0 (corresponding vehicle NFT doesn't exist)
+        // To test this, we need a revenueTokenId that is valid in terms of parity and counter,
+        // but whose corresponding vehicleId does not exist. This is hard to achieve without
+        // directly manipulating _tokenIdCounter or deleting a vehicle, which is not possible.
+        // The existing test `testMintRevenueTokensForNonexistentVehicleFails` covers a similar scenario.
+    }
+
+    function testGetRevenueTokenIdFromVehicleIdErrorCases() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Test vehicleId == 0
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
+
+        // Test vehicleId % 2 != 1 (even vehicle ID)
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vehicleRegistry.getRevenueTokenIdFromVehicleId(2); // 2 is an even ID
+
+        // Test vehicleId >= _tokenIdCounter (non-existent vehicle ID)
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vehicleRegistry.getRevenueTokenIdFromVehicleId(999999);
+
+        // Test vehicles[vehicleId].vehicleId == 0 (vehicle NFT doesn't exist)
+        // This is covered by the non-existent vehicle ID test above.
+    }
+
     // View Function Tests
 
     function testVehicleExists() public {
