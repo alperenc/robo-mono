@@ -252,8 +252,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertFalse(listing.isActive);
 
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), partnerBalanceBefore + PURCHASE_AMOUNT);
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
+        assertTokenBalance(partner1, scenario.revenueTokenId, partnerBalanceBefore + PURCHASE_AMOUNT, "Partner token balance mismatch after cancellation");
+        assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation");
     }
 
     function testCancelListingUnauthorized() public {
