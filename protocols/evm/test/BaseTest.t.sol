@@ -395,7 +395,8 @@ contract BaseTest is Test {
     struct BalanceSnapshot {
         uint256 partnerUsdc;
         uint256 buyerUsdc;
-        uint256 treasuryUsdc;
+        uint256 treasuryFeeRecipientUsdc;
+        uint256 treasuryContractUsdc;
         uint256 partnerTokens;
         uint256 buyerTokens;
         uint256 marketplaceTokens;
@@ -408,7 +409,8 @@ contract BaseTest is Test {
     function takeBalanceSnapshot(uint256 tokenId) internal view returns (BalanceSnapshot memory snapshot) {
         snapshot.partnerUsdc = usdc.balanceOf(partner1);
         snapshot.buyerUsdc = usdc.balanceOf(buyer);
-        snapshot.treasuryUsdc = usdc.balanceOf(config.treasuryFeeRecipient);
+        snapshot.treasuryFeeRecipientUsdc = usdc.balanceOf(config.treasuryFeeRecipient);
+        snapshot.treasuryContractUsdc = usdc.balanceOf(address(treasury));
         snapshot.partnerTokens = roboshareTokens.balanceOf(partner1, tokenId);
         snapshot.buyerTokens = roboshareTokens.balanceOf(buyer, tokenId);
         snapshot.marketplaceTokens = roboshareTokens.balanceOf(address(marketplace), tokenId);
@@ -423,7 +425,8 @@ contract BaseTest is Test {
         BalanceSnapshot memory afterSnapshot,
         int256 expectedPartnerUsdcChange,
         int256 expectedBuyerUsdcChange,
-        int256 expectedTreasuryUsdcChange,
+        int256 expectedTreasuryFeeRecipientUsdcChange,
+        int256 expectedTreasuryContractUsdcChange,
         int256 expectedPartnerTokenChange,
         int256 expectedBuyerTokenChange
     ) internal pure {
@@ -438,9 +441,14 @@ contract BaseTest is Test {
             "Buyer USDC change mismatch"
         );
         assertEq(
-            int256(afterSnapshot.treasuryUsdc) - int256(before.treasuryUsdc),
-            expectedTreasuryUsdcChange,
-            "Treasury USDC change mismatch"
+            int256(afterSnapshot.treasuryFeeRecipientUsdc) - int256(before.treasuryFeeRecipientUsdc),
+            expectedTreasuryFeeRecipientUsdcChange,
+            "Treasury Fee Recipient USDC change mismatch"
+        );
+        assertEq(
+            int256(afterSnapshot.treasuryContractUsdc) - int256(before.treasuryContractUsdc),
+            expectedTreasuryContractUsdcChange,
+            "Treasury Contract USDC change mismatch"
         );
         assertEq(
             int256(afterSnapshot.partnerTokens) - int256(before.partnerTokens),
