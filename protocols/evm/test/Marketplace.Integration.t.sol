@@ -199,7 +199,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.amount, 0);
         assertFalse(listing.isActive);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), PURCHASE_AMOUNT);
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
+        assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
     }
 
     function testPurchaseListingInsufficientPayment() public {
