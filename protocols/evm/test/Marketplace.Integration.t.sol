@@ -130,7 +130,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             afterBalance,
             int256(totalPrice), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
-            int256(protocolFee), // Treasury USDC change
+            int256(protocolFee), // Treasury Fee Recipient USDC change
+            0, // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
             int256(purchaseAmount) // Buyer token change
         );
@@ -170,7 +171,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             afterBalance,
             int256(sellerReceives), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
-            int256(protocolFee), // Treasury USDC change
+            int256(protocolFee), // Treasury Fee Recipient USDC change
+            0, // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
             int256(purchaseAmount) // Buyer token change
         );

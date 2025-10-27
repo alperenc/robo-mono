@@ -17,16 +17,27 @@ contract TreasuryIntegrationTest is BaseTest {
         _ensureState(SetupState.VehicleWithTokens);
         uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
-        uint256 initialBalance = usdc.balanceOf(partner1);
-        uint256 initialTreasuryBalance = usdc.balanceOf(address(treasury));
-
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
+
+        BalanceSnapshot memory beforeSnapshot = takeBalanceSnapshot(scenario.revenueTokenId);
+
         treasury.lockCollateral(scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
 
-        assertEq(usdc.balanceOf(partner1), initialBalance - requiredCollateral);
-        assertEq(usdc.balanceOf(address(treasury)), initialTreasuryBalance + requiredCollateral);
+        BalanceSnapshot memory afterSnapshot = takeBalanceSnapshot(scenario.revenueTokenId);
+
+        assertBalanceChanges(
+            beforeSnapshot,
+            afterSnapshot,
+            -int256(requiredCollateral), // Partner USDC change
+            0,                          // Buyer USDC change
+            0,                          // Treasury Fee Recipient USDC change
+            int256(requiredCollateral), // Treasury Contract USDC change
+            0,                          // Partner token change
+            0                           // Buyer token change
+        );
+
         assertCollateralState(scenario.vehicleId, BASE_COLLATERAL, requiredCollateral, true);
         assertEq(treasury.totalCollateralDeposited(), requiredCollateral);
     }
