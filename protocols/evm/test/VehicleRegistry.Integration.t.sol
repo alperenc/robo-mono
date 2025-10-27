@@ -45,11 +45,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         assertEq(vehicleId1, 1);
         assertEq(vehicleId2, 3);
-        assertTrue(vehicleRegistry.vehicleExists(vehicleId1));
-        assertTrue(vehicleRegistry.vehicleExists(vehicleId2));
+        assertVehicleState(vehicleId1, partner1, TEST_VIN, true);
+        assertVehicleState(vehicleId2, partner2, vin2, true);
         assertEq(vehicleRegistry.getCurrentTokenId(), 5);
-        assertEq(roboshareTokens.balanceOf(partner1, 1), 1);
-        assertEq(roboshareTokens.balanceOf(partner2, 3), 1);
     }
 
     // Revenue Share Token Tests
