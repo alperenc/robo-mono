@@ -147,7 +147,7 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.processWithdrawal();
         vm.stopPrank();
 
-        assertEq(usdc.balanceOf(partner1), initialBalance + collateralAmount);
+        assertUSDCBalance(partner1, initialBalance + collateralAmount, "Partner USDC balance mismatch after withdrawal");
         assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
