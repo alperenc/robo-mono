@@ -308,6 +308,25 @@ contract LibrariesTest is Test {
         assertGe(replenished, 0);
     }
 
+    function test_Collateral_PerfectMatchBuffers() public {
+        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        uint256 dt = 30 days;
+        (uint256 baseCol,,,) = cteh.collateralView();
+        uint256 baseEarnings = EarningsLib.calculateBenchmarkEarnings(baseCol, dt);
+        (int256 result, uint256 replenished) = cteh.process(baseEarnings, baseEarnings);
+        assertEq(result, 0);
+        assertEq(replenished, 0);
+    }
+
+    function test_Benchmark_WithHigherBP() public pure {
+        uint256 principal = 1000e6;
+        uint256 dt = 30 days;
+        uint256 defaultBench = EarningsLib.calculateBenchmarkEarnings(principal, dt);
+        uint256 higherBench =
+            EarningsLib.calculateBenchmarkEarnings(principal, dt, ProtocolLib.MIN_EARNINGS_BUFFER_BP + 500);
+        assertGt(higherBench, defaultBench);
+    }
+
     // TokenLib tests
     function test_Token_InitAddRemoveAndValues() public {
         // min holding coerced to at least MONTHLY_INTERVAL

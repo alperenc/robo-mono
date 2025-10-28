@@ -97,6 +97,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(metadataURI, newURI);
     }
 
+    function testUpdateVehicleMetadata_InvalidUriFails() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        vm.expectRevert(VehicleLib__EmptyMetadataURI.selector);
+        vm.prank(partner1);
+        vehicleRegistry.updateVehicleMetadata(scenario.vehicleId, "http://not-ipfs");
+    }
+
     function testTokenIdConversions() public {
         _ensureState(SetupState.VehicleWithTokens);
         assertEq(vehicleRegistry.getRevenueTokenIdFromVehicleId(scenario.vehicleId), scenario.revenueTokenId);

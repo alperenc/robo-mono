@@ -439,6 +439,28 @@ contract TreasuryIntegrationTest is BaseTest {
         assertEq(usdc.balanceOf(buyer), buyerInitialBalance + buyerShare);
     }
 
+    function testTreasuryFeeRecipientWithdrawal() public {
+        _ensureState(SetupState.VehicleWithListing);
+        uint256 amount = 5_000e6;
+
+        // Distribute earnings to accrue protocol fee to fee recipient
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), amount);
+        treasury.distributeEarnings(scenario.vehicleId, amount);
+        vm.stopPrank();
+
+        uint256 fee = calculateExpectedProtocolFee(amount);
+        assertEq(treasury.getPendingWithdrawal(config.treasuryFeeRecipient), fee);
+
+        // Fee recipient withdraws
+        uint256 before = usdc.balanceOf(config.treasuryFeeRecipient);
+        vm.prank(config.treasuryFeeRecipient);
+        treasury.processWithdrawal();
+        uint256 afterBal = usdc.balanceOf(config.treasuryFeeRecipient);
+        assertEq(afterBal, before + fee);
+        assertEq(treasury.getPendingWithdrawal(config.treasuryFeeRecipient), 0);
+    }
+
     // Release without new earnings periods should still process depreciation
     function testReleasePartialCollateral_NoNewPeriodsProcessesDepreciation() public {
         _ensureState(SetupState.VehicleWithListing);
