@@ -1,0 +1,41 @@
+name: Contracts Coverage
+
+on:
+  pull_request:
+    paths:
+      - 'protocols/evm/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'protocols/evm/**'
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Run coverage
+        working-directory: protocols/evm
+        env:
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: '1'
+        run: |
+          forge --version
+          forge cleanup || true
+          forge coverage --ir-minimum --report lcov
+
+      - name: Upload lcov
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evm-lcov
+          path: protocols/evm/lcov.info
+
