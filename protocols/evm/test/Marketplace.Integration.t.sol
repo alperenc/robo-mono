@@ -8,8 +8,6 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.VehicleWithTokens);
     }
 
-
-
     // Lock Collateral and List Tests
 
     function testLockCollateralAndListSuccess() public {
@@ -40,17 +38,15 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         assertEq(newListingId, 1);
         assertListingState(
-            newListingId,
-            scenario.revenueTokenId,
-            PURCHASE_AMOUNT,
-            REVENUE_TOKEN_PRICE,
-            partner1,
-            true,
-            true
+            newListingId, scenario.revenueTokenId, PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, partner1, true, true
         );
 
-        assertTokenBalance(address(marketplace), scenario.revenueTokenId, PURCHASE_AMOUNT, "Marketplace token balance mismatch");
-        assertTokenBalance(partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT, "Partner token balance mismatch");
+        assertTokenBalance(
+            address(marketplace), scenario.revenueTokenId, PURCHASE_AMOUNT, "Marketplace token balance mismatch"
+        );
+        assertTokenBalance(
+            partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT, "Partner token balance mismatch"
+        );
 
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
         assertTrue(isLocked);
@@ -252,8 +248,15 @@ contract MarketplaceIntegrationTest is BaseTest {
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertFalse(listing.isActive);
 
-        assertTokenBalance(partner1, scenario.revenueTokenId, partnerBalanceBefore + PURCHASE_AMOUNT, "Partner token balance mismatch after cancellation");
-        assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation");
+        assertTokenBalance(
+            partner1,
+            scenario.revenueTokenId,
+            partnerBalanceBefore + PURCHASE_AMOUNT,
+            "Partner token balance mismatch after cancellation"
+        );
+        assertTokenBalance(
+            address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation"
+        );
     }
 
     function testCancelListingUnauthorized() public {

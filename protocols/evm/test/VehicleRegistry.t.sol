@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.t.sol";
+import "../contracts/interfaces/IAssetRegistry.sol";
 
 contract VehicleRegistryTest is BaseTest {
     function setUp() public {
@@ -72,5 +73,31 @@ contract VehicleRegistryTest is BaseTest {
 
         vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
         vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
+    }
+
+    // New branch coverage for registry view helpers
+    function testGetAssetIdFromTokenId_OddAndEven() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        // Odd token id is vehicle id
+        uint256 assetFromVehicle = vehicleRegistry.getAssetIdFromTokenId(scenario.vehicleId);
+        assertEq(assetFromVehicle, scenario.vehicleId);
+
+        // Even token id maps back to vehicle id
+        uint256 assetFromRevenue = vehicleRegistry.getAssetIdFromTokenId(scenario.revenueTokenId);
+        assertEq(assetFromRevenue, scenario.vehicleId);
+    }
+
+    function testIsAuthorizedForAsset_Scenarios() public {
+        _ensureState(SetupState.VehicleWithTokens);
+
+        // Unauthorized account: not a partner
+        assertFalse(vehicleRegistry.isAuthorizedForAsset(unauthorized, scenario.vehicleId));
+
+        // Authorized partner but no ownership
+        // partner2 is authorized in BaseTest but doesn't own scenario.vehicleId
+        assertFalse(vehicleRegistry.isAuthorizedForAsset(partner2, scenario.vehicleId));
+
+        // Authorized and owns
+        assertTrue(vehicleRegistry.isAuthorizedForAsset(partner1, scenario.vehicleId));
     }
 }

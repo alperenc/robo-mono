@@ -118,4 +118,45 @@ contract TreasuryUnitTest is BaseTest {
         treasury.setRoboshareTokens(address(0));
         vm.stopPrank();
     }
+
+    // New branch coverage for permissions and fee recipient
+    function testSetTreasuryFeeRecipient() public {
+        address newRecipient = makeAddr("treasuryFee");
+        vm.startPrank(admin);
+        treasury.setTreasuryFeeRecipient(newRecipient);
+        vm.stopPrank();
+        // Indirectly validated via future transfers; just ensure no revert
+    }
+
+    function testSetTreasuryFeeRecipientZeroAddressReverts() public {
+        vm.startPrank(admin);
+        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        treasury.setTreasuryFeeRecipient(address(0));
+        vm.stopPrank();
+    }
+
+    function testUpdateAssetTokenPositions_UnauthorizedReverts() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        vm.expectRevert(Treasury__UnauthorizedPartner.selector);
+        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 10, false);
+    }
+
+    function testUpdateAssetTokenPositions_ByRegistryWithPenalty() public {
+        // Ensure token info is initialized with price via collateral lock
+        _ensureState(SetupState.VehicleWithListing);
+
+        // As asset registry, seed initial position for partner (mint into positions)
+        vm.startPrank(address(vehicleRegistry));
+        uint256 seedAmount = 20;
+        uint256 penalty0 =
+            treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, seedAmount, false);
+        assertEq(penalty0, 0);
+
+        // Now remove before maturity with checkPenalty = true -> expect positive penalty
+        uint256 removeAmount = 5;
+        uint256 penalty =
+            treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), removeAmount, true);
+        assertGt(penalty, 0);
+        vm.stopPrank();
+    }
 }

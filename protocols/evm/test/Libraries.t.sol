@@ -100,11 +100,7 @@ contract CollateralTokenEarningsHelper {
         return CollateralLib.getCollateralBreakdown(price, total, interval);
     }
 
-    function calcReq(uint256 base, uint256 interval)
-        external
-        pure
-        returns (uint256, uint256, uint256)
-    {
+    function calcReq(uint256 base, uint256 interval) external pure returns (uint256, uint256, uint256) {
         return CollateralLib.calculateCollateralRequirements(base, interval);
     }
 
@@ -298,14 +294,12 @@ contract LibrariesTest is Test {
 
         // Excess path with replenishment from reserved
         // Manually top-up state to simulate reserved funds and low earningsBuffer
-        (
-            uint256 baseCol,
-            uint256 eBuf,
-            uint256 pBuf,
-            uint256 totalCol
-        ) = cteh.collateralView();
+        (uint256 baseCol, uint256 eBuf, uint256 pBuf, uint256 totalCol) = cteh.collateralView();
         // silence warnings
-        baseCol; pBuf; totalCol; eBuf;
+        baseCol;
+        pBuf;
+        totalCol;
+        eBuf;
 
         // Call process with net > base to trigger replenishment logic
         (int256 posRes, uint256 replenished) = cteh.process(10e9, 2e9);

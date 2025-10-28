@@ -11,15 +11,22 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     // Vehicle Registration Tests
 
     function testRegisterVehicle() public {
-        (string memory vin, string memory make, string memory model, uint256 year, uint256 manufacturerId, string memory optionCodes, string memory metadataURI) = generateVehicleData(1);
+        (
+            string memory vin,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory metadataURI
+        ) = generateVehicleData(1);
 
         vm.expectEmit(true, true, false, true);
         emit VehicleRegistry.VehicleRegistered(1, partner1, vin);
 
         vm.prank(partner1);
-        uint256 newVehicleId = vehicleRegistry.registerVehicle(
-            vin, make, model, year, manufacturerId, optionCodes, metadataURI
-        );
+        uint256 newVehicleId =
+            vehicleRegistry.registerVehicle(vin, make, model, year, manufacturerId, optionCodes, metadataURI);
 
         assertEq(newVehicleId, 1);
         assertVehicleState(newVehicleId, partner1, vin, true);
@@ -27,17 +34,31 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testRegisterMultipleVehicles() public {
-        (string memory vin1, string memory make1, string memory model1, uint256 year1, uint256 manufacturerId1, string memory optionCodes1, string memory metadataURI1) = generateVehicleData(1);
+        (
+            string memory vin1,
+            string memory make1,
+            string memory model1,
+            uint256 year1,
+            uint256 manufacturerId1,
+            string memory optionCodes1,
+            string memory metadataURI1
+        ) = generateVehicleData(1);
         vm.prank(partner1);
-        uint256 vehicleId1 = vehicleRegistry.registerVehicle(
-            vin1, make1, model1, year1, manufacturerId1, optionCodes1, metadataURI1
-        );
+        uint256 vehicleId1 =
+            vehicleRegistry.registerVehicle(vin1, make1, model1, year1, manufacturerId1, optionCodes1, metadataURI1);
 
-        (string memory vin2, string memory make2, string memory model2, uint256 year2, uint256 manufacturerId2, string memory optionCodes2, string memory metadataURI2) = generateVehicleData(2);
+        (
+            string memory vin2,
+            string memory make2,
+            string memory model2,
+            uint256 year2,
+            uint256 manufacturerId2,
+            string memory optionCodes2,
+            string memory metadataURI2
+        ) = generateVehicleData(2);
         vm.prank(partner2);
-        uint256 vehicleId2 = vehicleRegistry.registerVehicle(
-            vin2, make2, model2, year2, manufacturerId2, optionCodes2, metadataURI2
-        );
+        uint256 vehicleId2 =
+            vehicleRegistry.registerVehicle(vin2, make2, model2, year2, manufacturerId2, optionCodes2, metadataURI2);
 
         assertEq(vehicleId1, 1);
         assertEq(vehicleId2, 3);
@@ -112,7 +133,15 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRegisterVehicleWithDuplicateVinFails() public {
         _ensureState(SetupState.VehicleWithTokens);
-        (string memory vin, string memory make, string memory model, uint256 year, uint256 manufacturerId, string memory optionCodes, string memory metadataURI) = generateVehicleData(3);
+        (
+            ,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory metadataURI
+        ) = generateVehicleData(3);
         vm.expectRevert(VehicleRegistry__VehicleAlreadyExists.selector);
         vm.prank(partner2);
         vehicleRegistry.registerVehicle(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI);
@@ -198,6 +227,25 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(vehicleRegistry.getCurrentTokenId(), 1);
         _ensureState(SetupState.VehicleWithTokens);
         assertEq(vehicleRegistry.getCurrentTokenId(), 3);
+    }
+
+    // New: registry introspection and asset info branches
+    function testRegistryIntrospectionAndAssetInfo() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        // Introspection
+        assertEq(vehicleRegistry.getRegistryType(), "VehicleRegistry");
+        assertEq(vehicleRegistry.getRegistryVersion(), 1);
+        IAssetRegistry.TokenType[] memory types = vehicleRegistry.getSupportedTokenTypes();
+        assertEq(types.length, 2);
+
+        // Asset info and active status
+        IAssetRegistry.AssetInfo memory info = vehicleRegistry.getAssetInfo(scenario.vehicleId);
+        assertEq(info.assetId, scenario.vehicleId);
+        assertEq(uint8(info.status), uint8(AssetsLib.AssetStatus.Active));
+        assertGt(info.createdAt, 0);
+        assertGe(info.updatedAt, info.createdAt);
+        assertTrue(vehicleRegistry.isAssetActive(scenario.vehicleId));
+        assertFalse(vehicleRegistry.isAssetActive(999999));
     }
 
     // Fuzz Tests

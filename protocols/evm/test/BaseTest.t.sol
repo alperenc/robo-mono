@@ -157,7 +157,18 @@ contract BaseTest is Test {
 
     function _deployContracts() internal {
         deployer = new DeployForTest();
-        (marketplace, vehicleRegistry, roboshareTokens, partnerManager, treasury, marketplaceImplementation, vehicleImplementation, tokenImplementation, partnerImplementation, treasuryImplementation) = deployer.run(admin);
+        (
+            marketplace,
+            vehicleRegistry,
+            roboshareTokens,
+            partnerManager,
+            treasury,
+            marketplaceImplementation,
+            vehicleImplementation,
+            tokenImplementation,
+            partnerImplementation,
+            treasuryImplementation
+        ) = deployer.run(admin);
 
         config = deployer.getActiveNetworkConfig();
         usdc = IERC20(config.usdcToken);
