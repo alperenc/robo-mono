@@ -449,13 +449,18 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.distributeEarnings(scenario.vehicleId, 1000e6);
         vm.stopPrank();
 
-        // Wait min interval then process
-        vm.warp(block.timestamp + 16 days);
+        // Wait min interval then process (first release)
+        vm.warp(block.timestamp + ProtocolLib.MIN_EVENT_INTERVAL + 1);
         vm.prank(partner1);
-        treasury.releasePartialCollateral(scenario.vehicleId); // processes periods, sets lastProcessedPeriod
+        treasury.releasePartialCollateral(scenario.vehicleId); // processes periods, sets lastProcessedPeriod & lastEventTimestamp
 
-        // Warp again past min interval, but do NOT add new earnings (hasNewPeriods == false)
-        vm.warp(block.timestamp + 16 days);
+        // Derive the next warp from the timestamp after the first release,
+        // which is the value written to collateralInfo.lastEventTimestamp
+        uint256 tsAfterFirstRelease = block.timestamp;
+
+        // Warp again past min interval from the updated lastEventTimestamp,
+        // but do NOT add new earnings (hasNewPeriods == false)
+        vm.warp(tsAfterFirstRelease + ProtocolLib.MIN_EVENT_INTERVAL + 1);
 
         // Expect no revert and a depreciation-based release path
         vm.prank(partner1);
@@ -472,10 +477,11 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.distributeEarnings(scenario.vehicleId, 100e6); // small amount to trigger shortfall vs benchmark
         vm.stopPrank();
 
-        // Advance past min interval and process
-        vm.warp(block.timestamp + 16 days);
+        // Advance past min interval and process (first release)
+        vm.warp(block.timestamp + ProtocolLib.MIN_EVENT_INTERVAL + 1);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.vehicleId);
+        uint256 tsAfterFirstShortfallRelease = block.timestamp;
 
         // Now add excess earnings and process to replenish buffers
         vm.startPrank(partner1);
@@ -483,7 +489,8 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.distributeEarnings(scenario.vehicleId, 10_000e6);
         vm.stopPrank();
 
-        vm.warp(block.timestamp + 16 days);
+        // Warp relative to the updated lastEventTimestamp from the prior release
+        vm.warp(tsAfterFirstShortfallRelease + ProtocolLib.MIN_EVENT_INTERVAL + 1);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.vehicleId);
     }

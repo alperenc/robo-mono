@@ -148,16 +148,14 @@ contract TreasuryUnitTest is BaseTest {
         // As asset registry, seed initial position for partner (mint into positions)
         vm.startPrank(address(vehicleRegistry));
         uint256 seedAmount = 20;
-        uint256 penalty0 = treasury.updateAssetTokenPositions(
-            scenario.vehicleId, address(0), partner1, seedAmount, false
-        );
+        uint256 penalty0 =
+            treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, seedAmount, false);
         assertEq(penalty0, 0);
 
         // Now remove before maturity with checkPenalty = true -> expect positive penalty
         uint256 removeAmount = 5;
-        uint256 penalty = treasury.updateAssetTokenPositions(
-            scenario.vehicleId, partner1, address(0), removeAmount, true
-        );
+        uint256 penalty =
+            treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), removeAmount, true);
         assertGt(penalty, 0);
         vm.stopPrank();
     }
