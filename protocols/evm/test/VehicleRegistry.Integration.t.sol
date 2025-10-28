@@ -200,6 +200,25 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(vehicleRegistry.getCurrentTokenId(), 3);
     }
 
+    // New: registry introspection and asset info branches
+    function testRegistryIntrospectionAndAssetInfo() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        // Introspection
+        assertEq(vehicleRegistry.getRegistryType(), "VehicleRegistry");
+        assertEq(vehicleRegistry.getRegistryVersion(), 1);
+        IAssetRegistry.TokenType[] memory types = vehicleRegistry.getSupportedTokenTypes();
+        assertEq(types.length, 2);
+
+        // Asset info and active status
+        IAssetRegistry.AssetInfo memory info = vehicleRegistry.getAssetInfo(scenario.vehicleId);
+        assertEq(info.assetId, scenario.vehicleId);
+        assertEq(uint8(info.status), uint8(AssetsLib.AssetStatus.Active));
+        assertGt(info.createdAt, 0);
+        assertGe(info.updatedAt, info.createdAt);
+        assertTrue(vehicleRegistry.isAssetActive(scenario.vehicleId));
+        assertFalse(vehicleRegistry.isAssetActive(999999));
+    }
+
     // Fuzz Tests
 
     function testFuzzMintRevenueTokens(uint256 supply) public {
