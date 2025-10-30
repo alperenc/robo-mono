@@ -134,6 +134,22 @@ contract TreasuryUnitTest is BaseTest {
         assertEq(penalty, 0);
     }
 
+    function testUpdateAssetTokenPositions_BurnPath() public {
+        // Ensure token tracking is initialized via listing
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Seed a fresh position for partner1 (mint-like)
+        vm.startPrank(address(vehicleRegistry));
+        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 12, false);
+
+        // Burn/sale path: from partner1 to address(0); checkPenalty = true
+        // Since we have not advanced time to maturity, expect a positive penalty
+        uint256 penalty = treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), 5, true);
+        vm.stopPrank();
+
+        assertGt(penalty, 0);
+    }
+
     // New branch coverage for permissions and fee recipient
     function testSetTreasuryFeeRecipient() public {
         address newRecipient = makeAddr("treasuryFee");
