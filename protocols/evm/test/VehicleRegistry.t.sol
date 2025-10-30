@@ -75,6 +75,49 @@ contract VehicleRegistryTest is BaseTest {
         vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
     }
 
+    function testRegisterVehicle_InvalidVinLengthFails() public {
+        _ensureState(SetupState.PartnersAuthorized);
+        string memory shortVin = "VIN123"; // <10 length
+        vm.expectRevert(VehicleLib__InvalidVINLength.selector);
+        vm.prank(partner1);
+        vehicleRegistry.registerVehicle(
+            shortVin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+    }
+
+    function testRegisterVehicle_EmptyMakeFails() public {
+        _ensureState(SetupState.PartnersAuthorized);
+        vm.expectRevert(VehicleLib__InvalidMake.selector);
+        vm.prank(partner1);
+        vehicleRegistry.registerVehicle(
+            TEST_VIN, "", TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+    }
+
+    function testRegisterVehicle_EmptyModelFails() public {
+        _ensureState(SetupState.PartnersAuthorized);
+        vm.expectRevert(VehicleLib__InvalidModel.selector);
+        vm.prank(partner1);
+        vehicleRegistry.registerVehicle(
+            TEST_VIN, TEST_MAKE, "", TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+    }
+
+    function testRegisterVehicle_InvalidYearFails() public {
+        _ensureState(SetupState.PartnersAuthorized);
+        vm.expectRevert(VehicleLib__InvalidYear.selector);
+        vm.prank(partner1);
+        vehicleRegistry.registerVehicle(
+            TEST_VIN, TEST_MAKE, TEST_MODEL, 1980, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+
+        vm.expectRevert(VehicleLib__InvalidYear.selector);
+        vm.prank(partner1);
+        vehicleRegistry.registerVehicle(
+            TEST_VIN, TEST_MAKE, TEST_MODEL, 2040, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+    }
+
     // New branch coverage for registry view helpers
     function testGetAssetIdFromTokenId_OddAndEven() public {
         _ensureState(SetupState.VehicleWithTokens);

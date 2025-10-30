@@ -119,6 +119,21 @@ contract TreasuryUnitTest is BaseTest {
         vm.stopPrank();
     }
 
+    function testUpdateAssetTokenPositions_TransferPath() public {
+        // Initialize positions via listing path
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Seed a position for partner1 (mint-like)
+        vm.startPrank(address(vehicleRegistry));
+        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 10, false);
+
+        // Transfer path: from partner1 to buyer (no penalty)
+        uint256 penalty = treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, buyer, 5, true);
+        vm.stopPrank();
+
+        assertEq(penalty, 0);
+    }
+
     // New branch coverage for permissions and fee recipient
     function testSetTreasuryFeeRecipient() public {
         address newRecipient = makeAddr("treasuryFee");
