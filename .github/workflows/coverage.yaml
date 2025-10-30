@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f lcov.info
-          awk -v min_lines=75 -v min_branches=55 '
+          awk -v min_lines=80 -v min_branches=60 '
             BEGIN{FS=":"}
             /^SF:/ {file=$2; in_contract=(index(file,"contracts/")==1);}
             in_contract && /^LH:/ {lh+=$2}
