@@ -439,6 +439,38 @@ contract TreasuryIntegrationTest is BaseTest {
         assertEq(usdc.balanceOf(buyer), buyerInitialBalance + buyerShare);
     }
 
+    function testLockCollateralFor_Success() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
+        vm.stopPrank();
+
+        vm.prank(address(marketplace));
+        treasury.lockCollateralFor(partner1, scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+
+        (uint256 baseCollateral, uint256 totalCollateral, bool isLocked,,) =
+            treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertGt(baseCollateral, 0);
+        assertTrue(isLocked);
+        assertGt(totalCollateral, 0);
+    }
+
+    function testLockCollateralFor_UnauthorizedCallerFails() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        vm.expectRevert(Treasury__UnauthorizedPartner.selector);
+        vm.prank(unauthorized);
+        treasury.lockCollateralFor(partner1, scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testLockCollateralFor_NotOwnerFails() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        vm.prank(address(marketplace));
+        vm.expectRevert(Treasury__NotVehicleOwner.selector);
+        treasury.lockCollateralFor(partner2, scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
     function testTreasuryFeeRecipientWithdrawal() public {
         _ensureState(SetupState.VehicleWithListing);
         uint256 amount = 5_000e6;
@@ -459,6 +491,32 @@ contract TreasuryIntegrationTest is BaseTest {
         uint256 afterBal = usdc.balanceOf(config.treasuryFeeRecipient);
         assertEq(afterBal, before + fee);
         assertEq(treasury.getPendingWithdrawal(config.treasuryFeeRecipient), 0);
+    }
+
+    function testReleasePartialCollateral_PerfectMatchBuffers() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Use a realistic interval to avoid overflow while targeting the equality path
+        uint256 dt = 30 days;
+        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertTrue(isLocked);
+        vm.warp(lockedAt + dt);
+
+        // Compute target net = base * MIN_EARNINGS_BUFFER_BP * dt / (BP_PRECISION * YEARLY_INTERVAL)
+        (uint256 baseCollateral,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 targetNet = (baseCollateral * 1000 * dt) / (10000 * 365 days);
+        // Compute gross so that net ~= targetNet (ceil to be safe): gross = ceil(targetNet * 10000 / 9750)
+        uint256 gross = (targetNet * 10000 + 9749) / 9750;
+
+        deal(address(usdc), partner1, gross);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), gross);
+        treasury.distributeEarnings(scenario.vehicleId, gross);
+        vm.stopPrank();
+
+        // Release; with near-perfect match no shortfall/excess branches should trigger
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
     }
 
     // Release without new earnings periods should still process depreciation

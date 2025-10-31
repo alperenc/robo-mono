@@ -75,6 +75,18 @@ contract VehicleRegistryTest is BaseTest {
         vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
     }
 
+    function testGetTokenIdFromAssetId_AssetType() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        uint256 tokenId = vehicleRegistry.getTokenIdFromAssetId(scenario.vehicleId, IAssetRegistry.TokenType.Asset);
+        assertEq(tokenId, scenario.vehicleId);
+    }
+
+    function testIsRevenueTokenTrueFalse() public view {
+        assertTrue(vehicleRegistry.isRevenueToken(2));
+        assertFalse(vehicleRegistry.isRevenueToken(0));
+        assertFalse(vehicleRegistry.isRevenueToken(3));
+    }
+
     function testRegisterVehicle_InvalidVinLengthFails() public {
         _ensureState(SetupState.PartnersAuthorized);
         string memory shortVin = "VIN123"; // <10 length
