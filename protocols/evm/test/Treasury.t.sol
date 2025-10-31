@@ -150,6 +150,17 @@ contract TreasuryUnitTest is BaseTest {
         assertGt(penalty, 0);
     }
 
+    function testUpdateAssetTokenPositions_BurnNoPenalty() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        vm.startPrank(address(vehicleRegistry));
+        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 8, false);
+        uint256 penalty = treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), 3, false);
+        vm.stopPrank();
+
+        assertEq(penalty, 0);
+    }
+
     // New branch coverage for permissions and fee recipient
     function testSetTreasuryFeeRecipient() public {
         address newRecipient = makeAddr("treasuryFee");

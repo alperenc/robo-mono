@@ -200,6 +200,20 @@ contract RoboshareTokensTest is BaseTest {
         roboshareTokens.getAndIncrementTokenId();
     }
 
+    function testGetUserPositionsAndBalance() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, partner1);
+        assertGt(positions.length, 0);
+        assertEq(roboshareTokens.getPositionBalance(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testSupportsInterface() public view {
+        // ERC1155 and ERC165 should be supported, random interface should not
+        assertTrue(roboshareTokens.supportsInterface(0xd9b67a26));
+        assertTrue(roboshareTokens.supportsInterface(0x01ffc9a7));
+        assertFalse(roboshareTokens.supportsInterface(0xffffffff));
+    }
+
     function testRoleManagement() public {
         vm.startPrank(admin);
         // Admin can grant roles
