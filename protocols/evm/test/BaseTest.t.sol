@@ -153,6 +153,11 @@ contract BaseTest is Test {
             vm.stopPrank();
             currentState = SetupState.VehicleWithPurchase;
         }
+
+        if (requiredState >= SetupState.VehicleWithEarnings && currentState < SetupState.VehicleWithEarnings) {
+            setupEarningsScenario(scenario.vehicleId, 1000e6);
+            currentState = SetupState.VehicleWithEarnings;
+        }
     }
 
     function _deployContracts() internal {
