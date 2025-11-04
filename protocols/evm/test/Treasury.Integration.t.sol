@@ -186,6 +186,17 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.releaseCollateral(scenario.vehicleId);
     }
 
+    function testLockCollateral_RevertsIfSenderDoesNotOwnAsset() public {
+        _ensureState(SetupState.VehicleWithTokens); // Vehicle is owned by partner1
+
+        // Attempt to lock collateral as partner2, who is authorized but not the owner.
+        vm.startPrank(partner2);
+        usdc.approve(address(treasury), 1e9);
+        vm.expectRevert(Treasury__NotVehicleOwner.selector);
+        treasury.lockCollateral(scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        vm.stopPrank();
+    }
+
     // View Functions
 
     function testGetTreasuryStats() public {
