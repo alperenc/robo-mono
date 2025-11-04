@@ -643,4 +643,22 @@ contract TreasuryIntegrationTest is BaseTest {
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.vehicleId);
     }
+
+    function testReleasePartialCollateral_RevertsIfZeroReleaseAmount() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Distribute earnings to satisfy the performance gate
+        setupEarningsScenario(scenario.vehicleId, 1000e6);
+
+        // Warp time forward, but by an amount less than the minimum required for a release
+        // This should result in canRelease = true, but releaseAmount = 0
+        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertTrue(isLocked);
+        vm.warp(lockedAt + ProtocolLib.MIN_EVENT_INTERVAL + 1); // Barely enough time to pass the first check
+
+        // Expect the specific revert for insufficient collateral to release
+        vm.expectRevert(Treasury__InsufficientCollateral.selector);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+    }
 }
