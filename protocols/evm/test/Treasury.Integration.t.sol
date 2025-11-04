@@ -330,6 +330,42 @@ contract TreasuryIntegrationTest is BaseTest {
         vm.stopPrank();
     }
 
+    function testDistributeEarnings_RevertsIfSenderDoesNotOwnAsset() public {
+        _ensureState(SetupState.VehicleWithListing); // Vehicle is owned by partner1
+
+        // Attempt to distribute earnings as partner2, who is authorized but not the owner.
+        vm.startPrank(partner2);
+        usdc.approve(address(treasury), 1e9);
+        vm.expectRevert(Treasury__NotVehicleOwner.selector);
+        treasury.distributeEarnings(scenario.vehicleId, 1000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function testLockCollateralFor_RevertsForUnauthorizedPartner() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        // The msg.sender (marketplace) is authorized, but the `partner` parameter is not.
+        vm.prank(address(marketplace));
+        vm.expectRevert(Treasury__UnauthorizedPartner.selector);
+        treasury.lockCollateralFor(unauthorized, scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testLockCollateralFor_RevertsForNonExistentAsset() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        uint256 nonExistentAssetId = 999;
+        vm.prank(address(marketplace));
+        vm.expectRevert(Treasury__VehicleNotFound.selector);
+        treasury.lockCollateralFor(partner1, nonExistentAssetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testClaimEarnings_RevertsForNonExistentAsset() public {
+        _ensureState(SetupState.VehicleWithEarnings);
+        uint256 nonExistentAssetId = 999;
+
+        vm.prank(buyer);
+        vm.expectRevert(Treasury__VehicleNotFound.selector);
+        treasury.claimEarnings(nonExistentAssetId);
+    }
+
     function testClaimEarnings() public {
         _ensureState(SetupState.VehicleWithPurchase);
         uint256 earningsAmount = 1000 * 1e6;
