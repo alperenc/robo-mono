@@ -527,6 +527,7 @@ library CollateralLib {
      * @dev Collateral information for vehicles with time-based calculations
      */
     struct CollateralInfo {
+        uint256 initialBaseCollateral; // Initial base collateral amount (for linear depreciation)
         uint256 baseCollateral; // Base collateral amount in USDC
         uint256 earningsBuffer; // Current earnings buffer amount
         uint256 protocolBuffer; // Current protocol buffer amount
@@ -560,6 +561,7 @@ library CollateralLib {
         (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
             calculateCollateralRequirements(baseAmount, bufferTimeInterval);
 
+        info.initialBaseCollateral = baseAmount;
         info.baseCollateral = baseAmount;
         info.earningsBuffer = earningsBuffer;
         info.protocolBuffer = protocolBuffer;
@@ -613,6 +615,34 @@ library CollateralLib {
             return 0;
         }
         return block.timestamp - info.lockedAt;
+    }
+
+    /**
+     * @dev Calculate linear base collateral release amount based on initial base and elapsed time.
+     *      Depreciation is linear at 12% per year, prorated by time, and does not compound.
+     *      Buffers are not considered here; caller is responsible for gating and buffer processing.
+     */
+    function calculateCollateralRelease(CollateralInfo storage info)
+        internal
+        view
+        returns (uint256 releaseAmount, bool canRelease)
+    {
+        // Cumulative allowed release from initial base
+        uint256 elapsedSinceLock = block.timestamp - info.lockedAt;
+        uint256 cumulativeAllowed = (info.initialBaseCollateral * 1200 * elapsedSinceLock)
+            / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
+
+        // Already released from base
+        uint256 releasedSoFar = info.initialBaseCollateral - info.baseCollateral;
+        if (cumulativeAllowed <= releasedSoFar) {
+            return (0, true);
+        }
+
+        uint256 toRelease = cumulativeAllowed - releasedSoFar;
+        if (toRelease > info.baseCollateral) {
+            toRelease = info.baseCollateral;
+        }
+        return (toRelease, true);
     }
 
     /**
@@ -827,24 +857,7 @@ library EarningsLib {
         return unclaimedAmount;
     }
 
-    /**
-     * @dev Calculate collateral release amount (simple depreciation)
-     * @param collateralInfo Storage reference to collateral info
-     * @return releaseAmount Amount of collateral to release based on depreciation
-     * @return canRelease Whether enough time has passed for release
-     */
-    function calculateCollateralRelease(CollateralLib.CollateralInfo storage collateralInfo)
-        internal
-        view
-        returns (uint256 releaseAmount, bool canRelease)
-    {
-        // Calculate simple depreciation release
-        uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
-        releaseAmount = CollateralLib.calculateDepreciation(collateralInfo.baseCollateral, timeSinceLastEvent);
-        canRelease = true;
-
-        return (releaseAmount, canRelease);
-    }
+    // removed: collateral release calculation now belongs to CollateralLib and is linear
 
     /**
      * @dev Calculate earnings for positions with per-position claim tracking

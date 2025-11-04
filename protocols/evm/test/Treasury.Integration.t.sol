@@ -519,8 +519,78 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.releasePartialCollateral(scenario.vehicleId);
     }
 
-    // Release without new earnings periods should still process depreciation
-    function testReleasePartialCollateral_NoNewPeriodsProcessesDepreciation() public {
+    function testLinearRelease_OneYear() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Satisfy performance gate with an earnings distribution
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), 1_000e6);
+        treasury.distributeEarnings(scenario.vehicleId, 1_000e6);
+        vm.stopPrank();
+
+        // Read initial lockedAt and base
+        (uint256 baseBefore,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertTrue(isLocked);
+
+        // Warp one year from lock and release
+        vm.warp(lockedAt + 365 days);
+        uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+
+        (uint256 baseAfter, uint256 totalAfter,,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+
+        // Expected linear release = 12% of initial base
+        uint256 expectedRelease = (baseBefore * 1200) / 10000;
+        assertEq(baseAfter, baseBefore - expectedRelease, "Linear one-year base release mismatch");
+
+        // Pending increased by exactly expectedRelease; total decreased equally (buffers unchanged)
+        uint256 pendingAfter = treasury.getPendingWithdrawal(partner1);
+        assertEq(pendingAfter - pendingBefore, expectedRelease, "Pending increase mismatch");
+        // Since getAssetCollateralInfo doesn't expose buffers, assert total decreased by expectedRelease
+        // Re-read total before via breakdown: totalBefore = baseBefore + buffers; we can't fetch buffers, so compare deltas via pending
+        totalAfter; // silence linter (state validated by pending delta and base delta)
+    }
+
+    function testLinearRelease_CumulativeEighteenMonths() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        // First distribution to enable first release
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), 2_000e6);
+        treasury.distributeEarnings(scenario.vehicleId, 1_000e6);
+        vm.stopPrank();
+
+        (uint256 baseInitial,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertTrue(isLocked);
+
+        // First release after 1 year
+        vm.warp(lockedAt + 365 days);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+
+        // Second distribution to enable second release
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), 1_000e6);
+        treasury.distributeEarnings(scenario.vehicleId, 1_000e6);
+        vm.stopPrank();
+
+        // Second release after additional ~6 months from the last release timestamp
+        uint256 tsAfterFirst = block.timestamp;
+        vm.warp(tsAfterFirst + 182 days);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+
+        (uint256 baseAfter,,,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+
+        // Expected cumulative release over 1.5 years: 18% of initial base
+        uint256 expectedCumulative = (baseInitial * (1200 * 365 + 1200 * 182)) / (10000 * 365);
+        // After two releases, remaining base should be initial - expectedCumulative (no compounding)
+        assertEq(baseAfter, baseInitial - expectedCumulative, "Linear 18-month cumulative base release mismatch");
+    }
+
+    // Releasing without new earnings periods should revert (performance gate)
+    function testReleasePartialCollateral_NoNewPeriodsReverts() public {
         _ensureState(SetupState.VehicleWithListing);
 
         // First, initialize earnings
@@ -539,6 +609,7 @@ contract TreasuryIntegrationTest is BaseTest {
         // Capture the timestamp used by the prior release and warp from it
         uint256 tsAfterFirstRelease = block.timestamp;
         vm.warp(tsAfterFirstRelease + ProtocolLib.MIN_EVENT_INTERVAL + 1);
+        vm.expectRevert(Treasury__NoNewPeriodsToProcess.selector);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.vehicleId);
     }

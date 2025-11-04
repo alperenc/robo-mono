@@ -459,8 +459,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__TooSoonForCollateralRelease();
         }
 
-        // Only process buffers if there are new periods to process
-        if (hasNewPeriods) {
+        // Performance gate: require at least one distribution since last release
+        if (!hasNewPeriods) {
+            revert Treasury__NoNewPeriodsToProcess();
+        }
+
+        // Process buffers across new periods
+        {
             uint256 startPeriod = earningsInfo.lastProcessedPeriod;
             uint256 endPeriod = earningsInfo.currentPeriod;
 
@@ -503,8 +508,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Always emit buffer status update for transparency
         emit CollateralBuffersUpdated(assetId, collateralInfo.earningsBuffer, collateralInfo.reservedForLiquidation);
 
-        // Calculate depreciation-based collateral release amount (existing logic)
-        (uint256 releaseAmount, bool canRelease) = EarningsLib.calculateCollateralRelease(collateralInfo);
+        // Calculate linear base-only collateral release amount
+        (uint256 releaseAmount, bool canRelease) = CollateralLib.calculateCollateralRelease(collateralInfo);
 
         if (!canRelease) {
             revert Treasury__TooSoonForCollateralRelease();
