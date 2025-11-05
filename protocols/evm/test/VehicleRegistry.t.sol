@@ -75,6 +75,7 @@ contract VehicleRegistryTest is BaseTest {
         vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
     }
 
+
     function testGetTokenIdFromAssetId_AssetType() public {
         _ensureState(SetupState.VehicleWithTokens);
         uint256 tokenId = vehicleRegistry.getTokenIdFromAssetId(scenario.vehicleId, IAssetRegistry.TokenType.Asset);

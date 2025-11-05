@@ -303,4 +303,12 @@ contract RoboshareTokensTest is BaseTest {
         vm.prank(user1);
         roboshareTokens.safeTransferFrom(user1, user2, 1, 150, "");
     }
+
+    function testGetUserPositions_RevertsForNonRevenueToken() public {
+        _ensureState(SetupState.VehicleWithTokens); // Creates vehicleId (odd) and revenueTokenId (even)
+
+        // Attempt to get positions for the vehicle NFT ID, which is not a revenue token
+        vm.expectRevert("Not a revenue share token");
+        roboshareTokens.getUserPositions(scenario.vehicleId, partner1);
+    }
 }

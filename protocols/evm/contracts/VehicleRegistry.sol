@@ -260,13 +260,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert VehicleRegistry__IncorrectRevenueTokenId();
         }
 
-        uint256 vehicleId = revenueTokenId - 1;
-        VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        if (vehicle.vehicleId == 0) {
-            revert VehicleRegistry__VehicleDoesNotExist();
-        }
-
-        return vehicleId;
+        return revenueTokenId - 1;
     }
 
     /**
@@ -276,10 +270,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function getRevenueTokenIdFromVehicleId(uint256 vehicleId) public view returns (uint256) {
         if (vehicleId == 0 || vehicleId % 2 != 1 || vehicleId >= _tokenIdCounter) {
             revert VehicleRegistry__IncorrectVehicleId();
-        }
-
-        if (vehicles[vehicleId].vehicleId == 0) {
-            revert VehicleRegistry__VehicleDoesNotExist();
         }
 
         return vehicleId + 1;
