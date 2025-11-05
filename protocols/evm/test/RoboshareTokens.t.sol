@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.t.sol";
+import "../contracts/RoboshareTokens.sol";
 
 contract RoboshareTokensTest is BaseTest {
     address public minter;
@@ -308,7 +309,7 @@ contract RoboshareTokensTest is BaseTest {
         _ensureState(SetupState.VehicleWithTokens); // Creates vehicleId (odd) and revenueTokenId (even)
 
         // Attempt to get positions for the vehicle NFT ID, which is not a revenue token
-        vm.expectRevert("Not a revenue share token");
+        vm.expectRevert(RoboshareTokens__NotRevenueToken.selector);
         roboshareTokens.getUserPositions(scenario.vehicleId, partner1);
     }
 }

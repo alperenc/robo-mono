@@ -736,7 +736,7 @@ contract TreasuryIntegrationTest is BaseTest {
     function testReleasePartialCollateral_RevertsWhenDepleted() public {
         _ensureState(SetupState.VehicleWithEarnings);
 
-        (uint256 baseCollateralBefore, uint256 earningsBuffer, uint256 protocolBuffer, ) = 
+        (, uint256 earningsBuffer, uint256 protocolBuffer,) =
             calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
@@ -744,7 +744,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
         // Repeatedly release collateral over 10 years until it's fully depleted (12% per year, ~8.33 years to deplete)
         uint256 timeToWarp = lockedAt;
-        for (uint i = 0; i < 9; i++) {
+        for (uint256 i = 0; i < 9; i++) {
             timeToWarp += 365 days;
             vm.warp(timeToWarp);
 
@@ -759,9 +759,15 @@ contract TreasuryIntegrationTest is BaseTest {
         }
 
         // Verify base collateral is depleted, but buffers remain
-        (uint256 baseCollateralAfter, uint256 totalCollateralAfter,,, ) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        (uint256 baseCollateralAfter, uint256 totalCollateralAfter,,,) =
+            treasury.getAssetCollateralInfo(scenario.vehicleId);
         assertEq(baseCollateralAfter, 0, "Base collateral should be zero after 9 years");
-        assertApproxEqAbs(totalCollateralAfter, earningsBuffer + protocolBuffer, 1e6, "Total collateral should approx equal initial buffers");
+        assertApproxEqAbs(
+            totalCollateralAfter,
+            earningsBuffer + protocolBuffer,
+            1e6,
+            "Total collateral should approx equal initial buffers"
+        );
 
         // Attempt one final release in the 10th year
         setupEarningsScenario(scenario.vehicleId, 1000e6);

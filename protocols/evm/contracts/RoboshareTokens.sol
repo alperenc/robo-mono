@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./Libraries.sol";
 
+error RoboshareTokens__NotRevenueToken();
+
 /**
  * @title RoboshareTokens
  * @dev ERC1155 token contract with automatic position tracking for Roboshare protocol
@@ -168,7 +170,9 @@ contract RoboshareTokens is
         view
         returns (TokenLib.TokenPosition[] memory positions)
     {
-        require(isRevenueToken(tokenId), "Not a revenue share token");
+        if (!isRevenueToken(tokenId)) {
+            revert RoboshareTokens__NotRevenueToken();
+        }
         TokenLib.TokenInfo storage info = tokenPositions[tokenId];
         uint256 length = info.positions[holder].length;
         positions = new TokenLib.TokenPosition[](length);
