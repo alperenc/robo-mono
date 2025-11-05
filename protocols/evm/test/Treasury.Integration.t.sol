@@ -186,6 +186,17 @@ contract TreasuryIntegrationTest is BaseTest {
         treasury.releaseCollateral(scenario.vehicleId);
     }
 
+    function testLockCollateral_RevertsIfSenderDoesNotOwnAsset() public {
+        _ensureState(SetupState.VehicleWithTokens); // Vehicle is owned by partner1
+
+        // Attempt to lock collateral as partner2, who is authorized but not the owner.
+        vm.startPrank(partner2);
+        usdc.approve(address(treasury), 1e9);
+        vm.expectRevert(Treasury__NotVehicleOwner.selector);
+        treasury.lockCollateral(scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        vm.stopPrank();
+    }
+
     // View Functions
 
     function testGetTreasuryStats() public {
@@ -317,6 +328,42 @@ contract TreasuryIntegrationTest is BaseTest {
         vm.expectRevert(Treasury__NoRevenueTokensIssued.selector);
         treasury.distributeEarnings(vehicleId, 1000 * 1e6);
         vm.stopPrank();
+    }
+
+    function testDistributeEarnings_RevertsIfSenderDoesNotOwnAsset() public {
+        _ensureState(SetupState.VehicleWithListing); // Vehicle is owned by partner1
+
+        // Attempt to distribute earnings as partner2, who is authorized but not the owner.
+        vm.startPrank(partner2);
+        usdc.approve(address(treasury), 1e9);
+        vm.expectRevert(Treasury__NotVehicleOwner.selector);
+        treasury.distributeEarnings(scenario.vehicleId, 1000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function testLockCollateralFor_RevertsForUnauthorizedPartner() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        // The msg.sender (marketplace) is authorized, but the `partner` parameter is not.
+        vm.prank(address(marketplace));
+        vm.expectRevert(Treasury__UnauthorizedPartner.selector);
+        treasury.lockCollateralFor(unauthorized, scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testLockCollateralFor_RevertsForNonExistentAsset() public {
+        _ensureState(SetupState.VehicleWithTokens);
+        uint256 nonExistentAssetId = 999;
+        vm.prank(address(marketplace));
+        vm.expectRevert(Treasury__VehicleNotFound.selector);
+        treasury.lockCollateralFor(partner1, nonExistentAssetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testClaimEarnings_RevertsForNonExistentAsset() public {
+        _ensureState(SetupState.VehicleWithEarnings);
+        uint256 nonExistentAssetId = 999;
+
+        vm.prank(buyer);
+        vm.expectRevert(Treasury__VehicleNotFound.selector);
+        treasury.claimEarnings(nonExistentAssetId);
     }
 
     function testClaimEarnings() public {
@@ -640,6 +687,94 @@ contract TreasuryIntegrationTest is BaseTest {
 
         // Warp from the timestamp used in the prior release
         vm.warp(tsAfterFirstShortfallRelease + ProtocolLib.MIN_EVENT_INTERVAL + 1);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+    }
+
+    function testReleasePartialCollateral_RevertsIfTooSoon() public {
+        // 1. Set up state with a vehicle and initial earnings distribution.
+        _ensureState(SetupState.VehicleWithEarnings);
+
+        // 2. Warp time forward to allow for an initial depreciation release.
+        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertTrue(isLocked);
+        vm.warp(lockedAt + ProtocolLib.MONTHLY_INTERVAL);
+
+        // 3. Perform the first release, which updates the lastEventTimestamp.
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+
+        // 4. Distribute new earnings to pass the performance gate for the second attempt.
+        setupEarningsScenario(scenario.vehicleId, 1000e6);
+
+        // 5. Warp forward by less than the minimum interval.
+        vm.warp(block.timestamp + 1 days);
+
+        // 6. Expect the specific revert for attempting a release too soon.
+        vm.expectRevert(Treasury__TooSoonForCollateralRelease.selector);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.vehicleId);
+    }
+
+    function testDistributeEarnings_ZeroProtocolFee() public {
+        _ensureState(SetupState.VehicleWithListing);
+        uint256 tinyEarningsAmount = 10; // An amount so small the fee is 0
+        uint256 protocolFee = calculateExpectedProtocolFee(tinyEarningsAmount);
+        assertEq(protocolFee, 0, "Test assumption failed: protocol fee should be zero");
+
+        uint256 initialFeeBalance = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), tinyEarningsAmount);
+        treasury.distributeEarnings(scenario.vehicleId, tinyEarningsAmount);
+        vm.stopPrank();
+
+        uint256 finalFeeBalance = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
+        assertEq(finalFeeBalance, initialFeeBalance, "Fee recipient balance should not increase for zero fee");
+    }
+
+    function testReleasePartialCollateral_RevertsWhenDepleted() public {
+        _ensureState(SetupState.VehicleWithEarnings);
+
+        (, uint256 earningsBuffer, uint256 protocolBuffer,) =
+            calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+
+        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertTrue(isLocked);
+
+        // Repeatedly release collateral over 10 years until it's fully depleted (12% per year, ~8.33 years to deplete)
+        uint256 timeToWarp = lockedAt;
+        for (uint256 i = 0; i < 9; i++) {
+            timeToWarp += 365 days;
+            vm.warp(timeToWarp);
+
+            // Distribute earnings that meet the benchmark to avoid draining the buffer
+            (uint256 currentBase,,,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
+            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(currentBase, 365 days);
+            uint256 grossEarnings = (benchmarkEarnings * 10000) / 9750; // Gross up to account for protocol fee
+            setupEarningsScenario(scenario.vehicleId, grossEarnings + 1e6); // Add extra to ensure excess
+
+            vm.prank(partner1);
+            treasury.releasePartialCollateral(scenario.vehicleId);
+        }
+
+        // Verify base collateral is depleted, but buffers remain
+        (uint256 baseCollateralAfter, uint256 totalCollateralAfter,,,) =
+            treasury.getAssetCollateralInfo(scenario.vehicleId);
+        assertEq(baseCollateralAfter, 0, "Base collateral should be zero after 9 years");
+        assertApproxEqAbs(
+            totalCollateralAfter,
+            earningsBuffer + protocolBuffer,
+            1e6,
+            "Total collateral should approx equal initial buffers"
+        );
+
+        // Attempt one final release in the 10th year
+        setupEarningsScenario(scenario.vehicleId, 1000e6);
+        vm.warp(block.timestamp + 365 days);
+
+        // Expect revert because releaseAmount will be 0
+        vm.expectRevert(Treasury__InsufficientCollateral.selector);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.vehicleId);
     }

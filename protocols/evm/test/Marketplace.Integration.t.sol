@@ -326,4 +326,48 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), purchaseAmount);
     }
+
+    function testPurchaseTokens_RevertsForNonExistentListing() public {
+        _ensureState(SetupState.VehicleWithListing);
+        uint256 nonExistentListingId = 999;
+
+        vm.prank(buyer);
+        vm.expectRevert(Marketplace__ListingNotFound.selector);
+        marketplace.purchaseTokens(nonExistentListingId, 1);
+    }
+
+    function testPurchaseTokens_RevertsForInactiveListing() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Deactivate listing by cancelling it
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        // Attempt to purchase from the now-inactive listing
+        vm.prank(buyer);
+        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        marketplace.purchaseTokens(scenario.listingId, 1);
+    }
+
+    function testCancelListing_RevertsForNonExistentListing() public {
+        _ensureState(SetupState.VehicleWithListing);
+        uint256 nonExistentListingId = 999;
+
+        vm.prank(partner1);
+        vm.expectRevert(Marketplace__ListingNotFound.selector);
+        marketplace.cancelListing(nonExistentListingId);
+    }
+
+    function testCancelListing_RevertsForInactiveListing() public {
+        _ensureState(SetupState.VehicleWithListing);
+
+        // Deactivate listing by cancelling it
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        // Attempt to cancel the now-inactive listing again
+        vm.prank(partner1);
+        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        marketplace.cancelListing(scenario.listingId);
+    }
 }
