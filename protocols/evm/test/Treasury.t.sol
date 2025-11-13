@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import "./BaseTest.t.sol";
 
-contract TreasuryUnitTest is BaseTest {
+contract TreasuryTest is BaseTest {
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }
@@ -13,7 +13,7 @@ contract TreasuryUnitTest is BaseTest {
     function testInitialization() public view {
         // Check contract references
         assertEq(address(treasury.partnerManager()), address(partnerManager));
-        assertEq(address(treasury.assetRegistry()), address(vehicleRegistry));
+        assertEq(address(treasury.assetRegistry()), address(assetRegistry));
         assertEq(address(treasury.usdc()), address(usdc));
 
         // Check initial state
@@ -25,14 +25,14 @@ contract TreasuryUnitTest is BaseTest {
         assertTrue(treasury.hasRole(treasury.TREASURER_ROLE(), admin));
     }
 
-    function testInitializationWithZeroAddressesFails() public {
+    function testInitializationZeroAddresses() public {
         Treasury newTreasury = new Treasury();
 
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
         newTreasury.initialize(
             address(0),
             address(partnerManager),
-            address(vehicleRegistry),
+            address(assetRegistry),
             address(roboshareTokens),
             address(usdc),
             config.treasuryFeeRecipient
@@ -59,14 +59,14 @@ contract TreasuryUnitTest is BaseTest {
         assertEq(address(treasury.partnerManager()), address(newPartnerManager));
     }
 
-    function testUpdatePartnerManagerZeroAddressFails() public {
+    function testUpdatePartnerManagerZeroAddress() public {
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
         vm.startPrank(admin);
         treasury.updatePartnerManager(address(0));
         vm.stopPrank();
     }
 
-    function testUpdatePartnerManagerUnauthorizedFails() public {
+    function testUpdatePartnerManagerUnauthorized() public {
         PartnerManager newPartnerManager = new PartnerManager();
 
         vm.expectRevert();
@@ -84,6 +84,21 @@ contract TreasuryUnitTest is BaseTest {
         assertEq(address(treasury.assetRegistry()), address(newRegistry));
     }
 
+    function testUpdateAssetRegistryZeroAddress() public {
+        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.startPrank(admin);
+        treasury.updateAssetRegistry(address(0));
+        vm.stopPrank();
+    }
+
+    function testUpdateAssetRegistryUnauthorized() public {
+        VehicleRegistry newRegistry = new VehicleRegistry();
+
+        vm.expectRevert();
+        vm.prank(unauthorized);
+        treasury.updateAssetRegistry(address(newRegistry));
+    }
+
     function testUpdateUSDC() public {
         ERC20Mock newUSDC = new ERC20Mock();
 
@@ -94,111 +109,67 @@ contract TreasuryUnitTest is BaseTest {
         assertEq(address(treasury.usdc()), address(newUSDC));
     }
 
-    function testSetRoboshareTokens() public {
+    function testUpdateUSDCZeroAddress() public {
+        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.startPrank(admin);
+        treasury.updateUSDC(address(0));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCUnauthorized() public {
+        ERC20Mock newUSDC = new ERC20Mock();
+
+        vm.expectRevert();
+        vm.prank(unauthorized);
+        treasury.updateUSDC(address(newUSDC));
+    }
+
+    function testUpdateRoboshareTokens() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
         vm.startPrank(admin);
-        treasury.setRoboshareTokens(address(newRoboshareTokens));
+        treasury.updateRoboshareTokens(address(newRoboshareTokens));
         vm.stopPrank();
 
         assertEq(address(treasury.roboshareTokens()), address(newRoboshareTokens));
     }
 
-    function testSetRoboshareTokensUnauthorizedFails() public {
+    function testUpdateRoboshareTokensZeroAddress() public {
+        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.startPrank(admin);
+        treasury.updateRoboshareTokens(address(0));
+        vm.stopPrank();
+    }
+
+    function testUpdateRoboshareTokensUnauthorized() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
         vm.expectRevert();
         vm.prank(unauthorized);
-        treasury.setRoboshareTokens(address(newRoboshareTokens));
+        treasury.updateRoboshareTokens(address(newRoboshareTokens));
     }
 
-    function testSetRoboshareTokensZeroAddressFails() public {
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        vm.startPrank(admin);
-        treasury.setRoboshareTokens(address(0));
-        vm.stopPrank();
-    }
-
-    function testUpdateAssetTokenPositions_TransferPath() public {
-        // Initialize positions via listing path
-        _ensureState(SetupState.VehicleWithListing);
-
-        // Seed a position for partner1 (mint-like)
-        vm.startPrank(address(vehicleRegistry));
-        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 10, false);
-
-        // Transfer path: from partner1 to buyer (no penalty)
-        uint256 penalty = treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, buyer, 5, true);
-        vm.stopPrank();
-
-        assertEq(penalty, 0);
-    }
-
-    function testUpdateAssetTokenPositions_BurnPath() public {
-        // Ensure token tracking is initialized via listing
-        _ensureState(SetupState.VehicleWithListing);
-
-        // Seed a fresh position for partner1 (mint-like)
-        vm.startPrank(address(vehicleRegistry));
-        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 12, false);
-
-        // Burn/sale path: from partner1 to address(0); checkPenalty = true
-        // Since we have not advanced time to maturity, expect a positive penalty
-        uint256 penalty = treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), 5, true);
-        vm.stopPrank();
-
-        assertGt(penalty, 0);
-    }
-
-    function testUpdateAssetTokenPositions_BurnNoPenalty() public {
-        _ensureState(SetupState.VehicleWithListing);
-
-        vm.startPrank(address(vehicleRegistry));
-        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 8, false);
-        uint256 penalty = treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), 3, false);
-        vm.stopPrank();
-
-        assertEq(penalty, 0);
-    }
-
-    // New branch coverage for permissions and fee recipient
-    function testSetTreasuryFeeRecipient() public {
+    function testUpdateTreasuryFeeRecipient() public {
         address newRecipient = makeAddr("treasuryFee");
+
         vm.startPrank(admin);
-        treasury.setTreasuryFeeRecipient(newRecipient);
+        treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
-        // Indirectly validated via future transfers; just ensure no revert
     }
 
-    function testSetTreasuryFeeRecipientZeroAddressReverts() public {
+    function testUpdateTreasuryFeeRecipientZeroAddress() public {
         vm.startPrank(admin);
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
-        treasury.setTreasuryFeeRecipient(address(0));
+        treasury.updateTreasuryFeeRecipient(address(0));
         vm.stopPrank();
     }
 
-    function testUpdateAssetTokenPositions_UnauthorizedReverts() public {
-        _ensureState(SetupState.VehicleWithTokens);
-        vm.expectRevert(Treasury__UnauthorizedPartner.selector);
-        treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, 10, false);
-    }
+    function testUpdateTreasuryFeeRecipientUnauthorized() public {
+        address newRecipient = makeAddr("treasuryFee");
 
-    function testUpdateAssetTokenPositions_ByRegistryWithPenalty() public {
-        // Ensure token info is initialized with price via collateral lock
-        _ensureState(SetupState.VehicleWithListing);
-
-        // As asset registry, seed initial position for partner (mint into positions)
-        vm.startPrank(address(vehicleRegistry));
-        uint256 seedAmount = 20;
-        uint256 penalty0 =
-            treasury.updateAssetTokenPositions(scenario.vehicleId, address(0), partner1, seedAmount, false);
-        assertEq(penalty0, 0);
-
-        // Now remove before maturity with checkPenalty = true -> expect positive penalty
-        uint256 removeAmount = 5;
-        uint256 penalty =
-            treasury.updateAssetTokenPositions(scenario.vehicleId, partner1, address(0), removeAmount, true);
-        assertGt(penalty, 0);
+        vm.startPrank(unauthorized);
+        vm.expectRevert();
+        treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
     }
 }

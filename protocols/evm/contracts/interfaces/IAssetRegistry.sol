@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "../Libraries.sol";
+import { AssetLib, TokenLib } from "../Libraries.sol";
 
 /**
  * @title IAssetRegistry
@@ -10,35 +10,28 @@ import "../Libraries.sol";
  * Provides standardized access to asset information and token position management
  */
 interface IAssetRegistry {
-    // Generic asset information structure
-    struct AssetInfo {
-        uint256 assetId; // Unique asset identifier
-        AssetsLib.AssetStatus status; // Current asset status
-        uint256 createdAt; // Asset registration timestamp
-        uint256 updatedAt; // Last status/metadata update
-    }
-
-    // Token type enumeration for multi-token assets
-    enum TokenType {
-        Asset, // Asset ownership token (e.g., vehicle NFT)
-        Revenue // Revenue sharing token (e.g., earnings rights)
-
-    }
+    /**
+     * @dev Asset registration and token minting
+     */
+    function registerAsset(bytes calldata data) external returns (uint256 assetId);
+    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price) external returns (uint256 tokenId);
+    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price)
+        external
+        returns (uint256 assetId, uint256 tokenId);
 
     /**
      * @dev Asset existence and validation
      */
     function assetExists(uint256 assetId) external view returns (bool);
-    function getAssetInfo(uint256 assetId) external view returns (AssetInfo memory);
-    function isAssetActive(uint256 assetId) external view returns (bool);
+    function getAssetInfo(uint256 assetId) external view returns (AssetLib.AssetInfo memory);
+    function getAssetStatus(uint256 assetId) external view returns (AssetLib.AssetStatus);
 
     /**
      * @dev Token mapping and relationships
      * Each asset can have multiple token types (ownership, revenue share, etc.)
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view returns (uint256);
-    function getTokenIdFromAssetId(uint256 assetId, TokenType tokenType) external view returns (uint256);
-    function isRevenueToken(uint256 tokenId) external view returns (bool);
+    function getTokenIdFromAssetId(uint256 assetId) external view returns (uint256);
 
     /**
      * @dev Access control and permissions
@@ -51,16 +44,14 @@ interface IAssetRegistry {
      */
     function getRegistryType() external pure returns (string memory);
     function getRegistryVersion() external pure returns (uint256);
-    function getSupportedTokenTypes() external pure returns (TokenType[] memory);
 
     /**
      * @dev Events for cross-contract communication and indexing
      */
-    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetsLib.AssetStatus status);
+    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetLib.AssetStatus status);
     event AssetStatusUpdated(
-        uint256 indexed assetId, AssetsLib.AssetStatus indexed oldStatus, AssetsLib.AssetStatus indexed newStatus
+        uint256 indexed assetId, AssetLib.AssetStatus indexed oldStatus, AssetLib.AssetStatus indexed newStatus
     );
-    event AssetOwnerUpdated(uint256 indexed assetId, address indexed oldOwner, address indexed newOwner);
 
     /**
      * @dev Registry-specific errors
@@ -68,7 +59,6 @@ interface IAssetRegistry {
     error AssetRegistry__AssetNotFound(uint256 assetId);
     error AssetRegistry__AssetNotActive(uint256 assetId);
     error AssetRegistry__UnauthorizedCaller(address caller);
-    error AssetRegistry__InvalidTokenType(TokenType tokenType);
     error AssetRegistry__TokenNotFound(uint256 tokenId);
-    error AssetRegistry__InvalidAssetStatus(AssetsLib.AssetStatus status);
+    error AssetRegistry__InvalidAssetStatus(AssetLib.AssetStatus status);
 }

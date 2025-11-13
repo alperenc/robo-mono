@@ -99,6 +99,9 @@ contract DeployForTest is ScaffoldETHDeploy {
         ERC1967Proxy marketplaceProxy = new ERC1967Proxy(address(marketplaceImplementation), marketplaceInitData);
         marketplace = Marketplace(address(marketplaceProxy));
 
+        // Set the Treasury address in the VehicleRegistry
+        vehicleRegistry.setTreasury(address(treasury));
+
         return (
             marketplace,
             vehicleRegistry,

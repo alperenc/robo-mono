@@ -5,112 +5,100 @@ import "./BaseTest.t.sol";
 
 contract MarketplaceIntegrationTest is BaseTest {
     function setUp() public {
-        _ensureState(SetupState.VehicleWithTokens);
+        _ensureState(SetupState.AccountsFunded);
     }
 
-    // Lock Collateral and List Tests
+    // Create Listing Tests
 
-    function testLockCollateralAndListSuccess() public {
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    function testCreateListingSuccess() public {
+        _ensureState(SetupState.RevenueTokensMinted);
 
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), requiredCollateral);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
 
         uint256 expectedListingId = 1;
 
         vm.expectEmit(true, true, true, true, address(marketplace));
-        emit Marketplace.CollateralLockedAndListed(
-            scenario.vehicleId,
-            scenario.revenueTokenId,
+        emit Marketplace.ListingCreated(
             expectedListingId,
+            scenario.revenueTokenId,
+            scenario.assetId,
             partner1,
-            requiredCollateral,
-            PURCHASE_AMOUNT,
+            LISTING_AMOUNT,
             REVENUE_TOKEN_PRICE,
+            block.timestamp + LISTING_DURATION,
             true
         );
 
-        uint256 newListingId = marketplace.lockCollateralAndList(
-            scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, PURCHASE_AMOUNT, LISTING_DURATION, true
+        uint256 newListingId = marketplace.createListing(
+            scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
         vm.stopPrank();
 
-        assertEq(newListingId, 1);
+        assertEq(newListingId, expectedListingId);
         assertListingState(
-            newListingId, scenario.revenueTokenId, PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, partner1, true, true
+            newListingId, scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, partner1, true, true
         );
 
         assertTokenBalance(
-            address(marketplace), scenario.revenueTokenId, PURCHASE_AMOUNT, "Marketplace token balance mismatch"
+            address(marketplace), scenario.revenueTokenId, LISTING_AMOUNT, "Marketplace token balance mismatch"
         );
         assertTokenBalance(
-            partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - PURCHASE_AMOUNT, "Partner token balance mismatch"
+            partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - LISTING_AMOUNT, "Partner token balance mismatch"
         );
-
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.vehicleId);
-        assertTrue(isLocked);
-    }
-
-    function testLockCollateralAndListUnauthorizedPartner() public {
-        vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
-        vm.prank(unauthorized);
-        marketplace.lockCollateralAndList(
-            scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, PURCHASE_AMOUNT, LISTING_DURATION, true
-        );
-    }
-
-    function testLockCollateralAndListInvalidAmount() public {
-        vm.expectRevert(Marketplace__InvalidAmount.selector);
-        vm.prank(partner1);
-        marketplace.lockCollateralAndList(
-            scenario.vehicleId,
-            REVENUE_TOKEN_PRICE,
-            REVENUE_TOKEN_SUPPLY,
-            REVENUE_TOKEN_SUPPLY + 1,
-            LISTING_DURATION,
-            true
-        );
-    }
-
-    function testLockCollateralAndListInsufficientTokenBalance() public {
-        vm.prank(partner1);
-        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.revenueTokenId, 600, "");
-
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-
-        vm.startPrank(partner1);
-        usdc.approve(address(treasury), requiredCollateral);
-
-        vm.expectRevert(Marketplace__InsufficientTokenBalance.selector);
-        marketplace.lockCollateralAndList(
-            scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, PURCHASE_AMOUNT, LISTING_DURATION, true
-        );
-        vm.stopPrank();
-    }
-
-    // Create Listing Tests
-
-    function testCreateListingRequiresCollateral() public {
-        vm.expectRevert(Marketplace__CollateralNotLocked.selector);
-        vm.prank(partner1);
-        marketplace.createListing(scenario.revenueTokenId, PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
     }
 
     function testCreateListingInvalidTokenType() public {
+        _ensureState(SetupState.AssetRegistered);
+
         vm.expectRevert(Marketplace__InvalidTokenType.selector);
         vm.prank(partner1);
-        marketplace.createListing(scenario.vehicleId, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+        marketplace.createListing(scenario.assetId, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+    }
+
+    function testCreateListingInvalidAmount() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        vm.startPrank(partner1);
+        vm.expectRevert(Marketplace__InvalidAmount.selector);
+        marketplace.createListing(scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+
+        vm.expectRevert(Marketplace__InvalidAmount.selector);
+        marketplace.createListing(
+            scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY + 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+        );
+        vm.stopPrank();
+    }
+
+    function testCreateListingInvalidPrice() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        vm.prank(partner1);
+        vm.expectRevert(Marketplace__InvalidPrice.selector);
+        marketplace.createListing(scenario.revenueTokenId, LISTING_AMOUNT, 0, LISTING_DURATION, true);
+    }
+
+    function testCreateListingInsufficientTokenBalance() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        vm.startPrank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.revenueTokenId, 600, "");
+
+        vm.expectRevert(Marketplace__InsufficientTokenBalance.selector);
+        marketplace.createListing(
+            scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+        );
+        vm.stopPrank();
     }
 
     // Purchase Listing Tests
 
     function testPurchaseListingBuyerPaysFee() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
-        uint256 purchaseAmount = 100;
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(scenario.listingId, purchaseAmount);
+            marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
+        uint256 salesPenalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, PURCHASE_AMOUNT);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -119,10 +107,10 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.expectEmit(true, true, true, true, address(marketplace));
         emit Marketplace.RevenueTokensTraded(
-            scenario.revenueTokenId, partner1, buyer, purchaseAmount, scenario.listingId, totalPrice
+            scenario.revenueTokenId, partner1, buyer, PURCHASE_AMOUNT, scenario.listingId, totalPrice
         );
 
-        marketplace.purchaseTokens(scenario.listingId, purchaseAmount);
+        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
 
         BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
@@ -130,40 +118,88 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
-            int256(totalPrice), // Partner USDC change
+            int256(totalPrice) - int256(salesPenalty), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
-            int256(protocolFee), // Treasury Fee Recipient USDC change
-            0, // Treasury Contract USDC change
+            0, // Treasury Fee Recipient USDC does not change directly
+            int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
-            int256(purchaseAmount) // Buyer token change
+            int256(PURCHASE_AMOUNT) // Buyer token change
         );
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
-        assertEq(listing.amount, PURCHASE_AMOUNT - purchaseAmount);
+        assertEq(listing.amount, LISTING_AMOUNT - PURCHASE_AMOUNT);
     }
 
-    function testPurchaseListingSellerPaysFee() public {
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    function testPurchaseListingEarlySalePenalty() public {
+        _ensureState(SetupState.RevenueTokensMinted);
 
+        // 1. Transfer Asset NFT from partner1 to partner2, so partner1 is no longer the owner.
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.assetId, 1, "");
+
+        // 2. Create a new listing with seller paying the fee
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), requiredCollateral);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 newListingId = marketplace.lockCollateralAndList(
-            scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, PURCHASE_AMOUNT, LISTING_DURATION, false
+        uint256 newListingId = marketplace.createListing(
+            scenario.revenueTokenId, PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, false
         );
         vm.stopPrank();
 
-        uint256 purchaseAmount = 100;
+        // 3. Calculate expected costs, including the penalty
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(newListingId, purchaseAmount);
-        uint256 sellerReceives = totalPrice - protocolFee;
+            marketplace.calculatePurchaseCost(newListingId, PURCHASE_AMOUNT);
+
+        uint256 salesPenalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, PURCHASE_AMOUNT);
+        assertGt(salesPenalty, 0, "Sales penalty should be greater than zero");
+
+        uint256 sellerReceives = totalPrice - protocolFee - salesPenalty;
+
+        // 4. Buyer purchases the tokens
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+
+        BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+
+        marketplace.purchaseTokens(newListingId, PURCHASE_AMOUNT);
+        vm.stopPrank();
+
+        BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+
+        // 5. Assert correct distribution of funds, including the penalty
+        assertBalanceChanges(
+            beforeBalance,
+            afterBalance,
+            int256(sellerReceives), // Partner USDC change
+            -int256(expectedPayment), // Buyer USDC change
+            0, // Treasury Fee Recipient USDC does not change directly
+            int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change (receives fee + penalty)
+            0, // Partner token change (already escrowed)
+            int256(PURCHASE_AMOUNT) // Buyer token change
+        );
+    }
+
+    function testPurchaseListingSellerPaysFee() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Create a new listing with seller paying the fee
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        uint256 newListingId = marketplace.createListing(
+            scenario.revenueTokenId, PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, false
+        );
+        vm.stopPrank();
+
+        (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
+            marketplace.calculatePurchaseCost(newListingId, PURCHASE_AMOUNT);
+        uint256 salesPenalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, PURCHASE_AMOUNT);
+        uint256 sellerReceives = totalPrice - protocolFee - salesPenalty;
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
 
         BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
 
-        marketplace.purchaseTokens(newListingId, purchaseAmount);
+        marketplace.purchaseTokens(newListingId, PURCHASE_AMOUNT);
         vm.stopPrank();
 
         BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
@@ -173,36 +209,35 @@ contract MarketplaceIntegrationTest is BaseTest {
             afterBalance,
             int256(sellerReceives), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
-            int256(protocolFee), // Treasury Fee Recipient USDC change
-            0, // Treasury Contract USDC change
+            0, // Treasury Fee Recipient USDC does not change directly
+            int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
-            int256(purchaseAmount) // Buyer token change
+            int256(PURCHASE_AMOUNT) // Buyer token change
         );
     }
 
     function testPurchaseListingCompletelyExhaustsListing() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
-        uint256 totalPrice = PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
+        uint256 totalPrice = LISTING_AMOUNT * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), totalPrice + protocolFee);
-        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
+        marketplace.purchaseTokens(scenario.listingId, LISTING_AMOUNT);
         vm.stopPrank();
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertEq(listing.amount, 0);
         assertFalse(listing.isActive);
-        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), PURCHASE_AMOUNT);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), LISTING_AMOUNT);
         assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
     }
 
     function testPurchaseListingInsufficientPayment() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
-        uint256 purchaseAmount = 100;
-        uint256 totalPrice = purchaseAmount * REVENUE_TOKEN_PRICE;
+        uint256 totalPrice = PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
         uint256 requiredPayment = totalPrice + protocolFee;
 
@@ -213,12 +248,12 @@ contract MarketplaceIntegrationTest is BaseTest {
         usdc.approve(address(marketplace), requiredPayment);
 
         vm.expectRevert(); // ERC20: transfer amount exceeds balance
-        marketplace.purchaseTokens(scenario.listingId, purchaseAmount);
+        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
     }
 
     function testPurchaseListingExpired() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
         setupExpiredListing(scenario.listingId);
 
@@ -228,17 +263,17 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseListingInvalidAmount() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
         vm.expectRevert(Marketplace__InvalidAmount.selector);
         vm.prank(buyer);
-        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT + 1);
+        marketplace.purchaseTokens(scenario.listingId, LISTING_AMOUNT + 1);
     }
 
     // Cancel Listing Tests
 
     function testCancelListingSuccess() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
         uint256 partnerBalanceBefore = roboshareTokens.balanceOf(partner1, scenario.revenueTokenId);
 
@@ -251,7 +286,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertTokenBalance(
             partner1,
             scenario.revenueTokenId,
-            partnerBalanceBefore + PURCHASE_AMOUNT,
+            partnerBalanceBefore + LISTING_AMOUNT,
             "Partner token balance mismatch after cancellation"
         );
         assertTokenBalance(
@@ -260,7 +295,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testCancelListingUnauthorized() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
         vm.expectRevert(Marketplace__NotTokenOwner.selector);
         vm.prank(unauthorized);
@@ -269,53 +304,77 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // View Function Tests
 
-    function testGetVehicleListings() public {
-        _ensureState(SetupState.VehicleWithListing);
+    function testGetAssetListings() public {
+        _ensureState(SetupState.AssetWithListing);
 
-        uint256[] memory activeListings = marketplace.getVehicleListings(scenario.vehicleId);
+        uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
         assertEq(activeListings.length, 1);
         assertEq(activeListings[0], scenario.listingId);
     }
 
+    function testGetAssetListingsNoListings() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
+        assertEq(activeListings.length, 0);
+    }
+
+    function testGetAssetListingsOnlyInactive() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Cancel the listing to make it inactive
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
+        assertEq(activeListings.length, 0);
+    }
+
+    function testGetAssetListingsMixed() public {
+        _ensureState(SetupState.AssetWithListing); // Creates listing 1
+
+        // Create a second listing
+        vm.prank(partner1);
+        uint256 listingId2 =
+            marketplace.createListing(scenario.revenueTokenId, 50, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+
+        // Cancel the first listing
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
+        assertEq(activeListings.length, 1);
+        assertEq(activeListings[0], listingId2);
+    }
+
     function testCalculatePurchaseCost() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
-        uint256 purchaseAmount = 100;
         (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(scenario.listingId, purchaseAmount);
+            marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
 
-        assertEq(totalCost, purchaseAmount * REVENUE_TOKEN_PRICE);
+        assertEq(totalCost, PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE);
         assertEq(protocolFee, ProtocolLib.calculateProtocolFee(totalCost));
         assertEq(expectedPayment, totalCost + protocolFee);
     }
 
-    function testIsVehicleEligibleForListing() public {
-        assertFalse(marketplace.isVehicleEligibleForListing(scenario.vehicleId));
+    function testIsAssetEligibleForListing() public {
+        _ensureState(SetupState.AssetRegistered);
+        assertFalse(marketplace.isAssetEligibleForListing(scenario.assetId));
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY));
-        treasury.lockCollateral(scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        treasury.lockCollateral(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
 
-        assertTrue(marketplace.isVehicleEligibleForListing(scenario.vehicleId));
-    }
-
-    // Admin Function Tests
-
-    function testSetTreasuryAddress() public {
-        address newTreasury = makeAddr("newTreasury");
-
-        vm.prank(admin);
-        marketplace.setTreasuryAddress(newTreasury);
-
-        assertEq(marketplace.treasuryAddress(), newTreasury);
+        assertTrue(marketplace.isAssetEligibleForListing(scenario.assetId));
     }
 
     // Fuzz Tests
     function testFuzzPurchaseListing(uint256 purchaseAmount) public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
-        vm.assume(purchaseAmount > 0 && purchaseAmount <= PURCHASE_AMOUNT);
+        vm.assume(purchaseAmount > 0 && purchaseAmount <= LISTING_AMOUNT);
 
         (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, purchaseAmount);
 
@@ -327,8 +386,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), purchaseAmount);
     }
 
-    function testPurchaseTokens_RevertsForNonExistentListing() public {
-        _ensureState(SetupState.VehicleWithListing);
+    function testPurchaseTokensNonExistentListing() public {
+        _ensureState(SetupState.AssetWithListing);
         uint256 nonExistentListingId = 999;
 
         vm.prank(buyer);
@@ -336,8 +395,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(nonExistentListingId, 1);
     }
 
-    function testPurchaseTokens_RevertsForInactiveListing() public {
-        _ensureState(SetupState.VehicleWithListing);
+    function testPurchaseTokensInactiveListing() public {
+        _ensureState(SetupState.AssetWithListing);
 
         // Deactivate listing by cancelling it
         vm.prank(partner1);
@@ -349,8 +408,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(scenario.listingId, 1);
     }
 
-    function testCancelListing_RevertsForNonExistentListing() public {
-        _ensureState(SetupState.VehicleWithListing);
+    function testCancelListingNonExistentListing() public {
+        _ensureState(SetupState.AssetWithListing);
         uint256 nonExistentListingId = 999;
 
         vm.prank(partner1);
@@ -359,7 +418,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testCancelListing_RevertsForInactiveListing() public {
-        _ensureState(SetupState.VehicleWithListing);
+        _ensureState(SetupState.AssetWithListing);
 
         // Deactivate listing by cancelling it
         vm.prank(partner1);
@@ -369,5 +428,101 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         vm.expectRevert(Marketplace__ListingNotActive.selector);
         marketplace.cancelListing(scenario.listingId);
+    }
+
+    function testPurchaseTokensMinimumProtocolFee() public {
+        // 1. Setup with a very low price to ensure percentage-based protocol fee calculates to zero
+        uint256 lowPrice = 30; // Total price < 40 results in a percentage fee of 0
+        uint256 purchaseAmount = 1;
+        uint256 listingAmount = 10;
+
+        // Manual setup since we're using custom price
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        uint256 listingId = marketplace.createListing(
+            scenario.revenueTokenId,
+            listingAmount,
+            lowPrice,
+            LISTING_DURATION,
+            true // buyerPaysFee = true
+        );
+        vm.stopPrank();
+
+        // 2. Calculate costs - protocolFee should now be MINIMUM_PROTOCOL_FEE
+        (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
+            marketplace.calculatePurchaseCost(listingId, purchaseAmount);
+
+        assertEq(protocolFee, ProtocolLib.MINIMUM_PROTOCOL_FEE, "Protocol fee should be the minimum fee");
+        assertEq(
+            expectedPayment,
+            totalPrice + ProtocolLib.MINIMUM_PROTOCOL_FEE,
+            "Expected payment should include minimum fee"
+        );
+
+        // 3. Execute purchase
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+        BalanceSnapshot memory beforePurchase = takeBalanceSnapshot(scenario.revenueTokenId);
+        marketplace.purchaseTokens(listingId, purchaseAmount);
+        BalanceSnapshot memory afterPurchase = takeBalanceSnapshot(scenario.revenueTokenId);
+        vm.stopPrank();
+
+        // 4. Assert balances
+        // Seller receives full amount, treasury contract receives the minimum fee.
+        assertBalanceChanges(
+            beforePurchase,
+            afterPurchase,
+            int256(totalPrice), // Partner USDC change
+            -int256(expectedPayment), // Buyer USDC change
+            0, // Treasury Fee Recipient USDC change
+            int256(ProtocolLib.MINIMUM_PROTOCOL_FEE), // Treasury Contract USDC change (receives minimum fee)
+            0, // Partner token change
+            int256(purchaseAmount) // Buyer token change
+        );
+    }
+
+    function testPurchaseListingFeesExceedPriceBuyerPays() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Transfer asset so seller is not the owner and incurs a penalty
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.assetId, 1, "");
+
+        // Create a listing with a price so low that the penalty exceeds it
+        uint256 lowPrice = 1;
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        uint256 listingId = marketplace.createListing(scenario.revenueTokenId, 10, lowPrice, LISTING_DURATION, true);
+        vm.stopPrank();
+
+        // Attempt to purchase, which should fail
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), 1000); // Approve more than enough
+        vm.expectRevert(Marketplace__FeesExceedPrice.selector);
+        marketplace.purchaseTokens(listingId, 1);
+        vm.stopPrank();
+    }
+
+    function testPurchaseListingFeesExceedPriceSellerPays() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Transfer asset so seller is not the owner and incurs a penalty
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.assetId, 1, "");
+
+        // Create a listing with a price so low that the penalty exceeds it
+        uint256 lowPrice = 1;
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        uint256 listingId = marketplace.createListing(scenario.revenueTokenId, 10, lowPrice, LISTING_DURATION, false); // Seller pays
+        vm.stopPrank();
+
+        // Attempt to purchase, which should fail
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), 1000); // Approve more than enough
+        vm.expectRevert(Marketplace__FeesExceedPrice.selector);
+        marketplace.purchaseTokens(listingId, 1);
+        vm.stopPrank();
     }
 }

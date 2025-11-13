@@ -6,12 +6,13 @@ import "forge-std/console.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../contracts/Marketplace.sol";
-import "../contracts/VehicleRegistry.sol";
+import "../contracts/interfaces/IAssetRegistry.sol";
+import "../contracts/Libraries.sol";
 import "../contracts/RoboshareTokens.sol";
 import "../contracts/PartnerManager.sol";
+import "../contracts/VehicleRegistry.sol";
 import "../contracts/Treasury.sol";
-import "../contracts/Libraries.sol";
+import "../contracts/Marketplace.sol";
 import { DeployForTest } from "../script/DeployForTest.s.sol";
 
 contract BaseTest is Test {
@@ -20,27 +21,28 @@ contract BaseTest is Test {
         ContractsDeployed,
         PartnersAuthorized,
         AccountsFunded,
-        VehicleWithTokens,
-        VehicleWithListing,
-        VehicleWithPurchase,
-        VehicleWithEarnings,
-        VehicleWithPartialCollateral,
-        VehicleWithCollateral
+        AssetRegistered,
+        RevenueTokensMinted,
+        AssetWithListing,
+        AssetWithPurchase,
+        AssetWithEarnings,
+        AssetWithPartialCollateralRelease,
+        AssetWithFullCollateralRelease
     }
 
     SetupState private currentState;
 
     DeployForTest public deployer;
-    Marketplace public marketplace;
-    Marketplace public marketplaceImplementation;
-    VehicleRegistry public vehicleRegistry;
-    VehicleRegistry public vehicleImplementation;
     RoboshareTokens public roboshareTokens;
     RoboshareTokens public tokenImplementation;
     PartnerManager public partnerManager;
     PartnerManager public partnerImplementation;
     Treasury public treasury;
     Treasury public treasuryImplementation;
+    VehicleRegistry public assetRegistry;
+    VehicleRegistry public registryImplementation;
+    Marketplace public marketplace;
+    Marketplace public marketplaceImplementation;
     IERC20 public usdc;
 
     DeployForTest.NetworkConfig public config;
@@ -66,17 +68,18 @@ contract BaseTest is Test {
     // Test marketplace parameters
     uint256 constant REVENUE_TOKEN_PRICE = 100 * 10 ** 6; // $100 USDC
     uint256 constant REVENUE_TOKEN_SUPPLY = 1000;
-    uint256 constant PURCHASE_AMOUNT = 500;
+    uint256 constant LISTING_AMOUNT = 500;
     uint256 constant LISTING_DURATION = 30 days;
+    uint256 constant PURCHASE_AMOUNT = 100;
 
     // Storage for test scenario states
     struct TestScenario {
-        uint256 vehicleId;
+        uint256 assetId;
         uint256 revenueTokenId;
-        uint256 listingId;
         uint256 requiredCollateral;
-        uint256 earnings;
+        uint256 listingId;
         uint256 initialProtocolBalance;
+        uint256 earnings;
     }
 
     TestScenario public scenario;
@@ -101,48 +104,30 @@ contract BaseTest is Test {
             currentState = SetupState.AccountsFunded;
         }
 
-        if (requiredState >= SetupState.VehicleWithTokens && currentState < SetupState.VehicleWithTokens) {
-            (scenario.vehicleId, scenario.revenueTokenId) = _setupVehicleWithTokens();
-            currentState = SetupState.VehicleWithTokens;
+        if (requiredState >= SetupState.AssetRegistered && currentState < SetupState.AssetRegistered) {
+            scenario.assetId = _setupAssetRegistered();
+            currentState = SetupState.AssetRegistered;
         }
 
-        // if (requiredState == SetupState.CollateralLocked && currentState < SetupState.CollateralLocked) {
-        //     // Approve marketplace to transfer tokens on behalf of partner1
-        //     vm.prank(partner1);
-        //     roboshareTokens.setApprovalForAll(address(marketplace), true);
+        if (requiredState >= SetupState.RevenueTokensMinted && currentState < SetupState.RevenueTokensMinted) {
+            scenario.revenueTokenId = _setupRevenueTokensMinted();
+            currentState = SetupState.RevenueTokensMinted;
+        }
 
-        //     // Calculate required collateral
-        //     scenario.requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-
-        //     vm.startPrank(partner1);
-        //     // Approve USDC for collateral
-        //     usdc.approve(address(treasury), scenario.requiredCollateral);
-        //     // Lock collateral
-        //     treasury.lockCollateral(scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        //     vm.stopPrank();
-        //     currentState = SetupState.CollateralLocked;
-        // }
-
-        if (requiredState >= SetupState.VehicleWithListing && currentState < SetupState.VehicleWithListing) {
+        if (requiredState >= SetupState.AssetWithListing && currentState < SetupState.AssetWithListing) {
             // Approve marketplace to transfer tokens on behalf of partner1
             vm.prank(partner1);
             roboshareTokens.setApprovalForAll(address(marketplace), true);
 
-            // Calculate required collateral
-            scenario.requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-
-            vm.startPrank(partner1);
-            // Approve USDC for collateral
-            usdc.approve(address(treasury), scenario.requiredCollateral);
-            // Lock collateral and list tokens
-            scenario.listingId = marketplace.lockCollateralAndList(
-                scenario.vehicleId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, PURCHASE_AMOUNT, LISTING_DURATION, true
+            vm.prank(partner1);
+            // Create listing for tokens (collateral already locked)
+            scenario.listingId = marketplace.createListing(
+                scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
             );
-            vm.stopPrank();
-            currentState = SetupState.VehicleWithListing;
+            currentState = SetupState.AssetWithListing;
         }
 
-        if (requiredState >= SetupState.VehicleWithPurchase && currentState < SetupState.VehicleWithPurchase) {
+        if (requiredState >= SetupState.AssetWithPurchase && currentState < SetupState.AssetWithPurchase) {
             // Buyer approves USDC for purchase
             (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
             vm.startPrank(buyer);
@@ -151,12 +136,12 @@ contract BaseTest is Test {
             // Buyer purchases tokens
             marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
             vm.stopPrank();
-            currentState = SetupState.VehicleWithPurchase;
+            currentState = SetupState.AssetWithPurchase;
         }
 
-        if (requiredState >= SetupState.VehicleWithEarnings && currentState < SetupState.VehicleWithEarnings) {
-            setupEarningsScenario(scenario.vehicleId, 1000e6);
-            currentState = SetupState.VehicleWithEarnings;
+        if (requiredState >= SetupState.AssetWithEarnings && currentState < SetupState.AssetWithEarnings) {
+            setupEarningsScenario(scenario.assetId, 1000e6);
+            currentState = SetupState.AssetWithEarnings;
         }
     }
 
@@ -164,12 +149,12 @@ contract BaseTest is Test {
         deployer = new DeployForTest();
         (
             marketplace,
-            vehicleRegistry,
+            assetRegistry,
             roboshareTokens,
             partnerManager,
             treasury,
             marketplaceImplementation,
-            vehicleImplementation,
+            registryImplementation,
             tokenImplementation,
             partnerImplementation,
             treasuryImplementation
@@ -183,9 +168,10 @@ contract BaseTest is Test {
         // Setup roles and permissions
         vm.startPrank(admin);
         // Grant MINTER_ROLE and BURNER_ROLE to VehicleRegistry for token operations
-        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(vehicleRegistry));
-        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(vehicleRegistry));
-        // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace for Treasury operations
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(assetRegistry));
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(assetRegistry));
+        // Grant AUTHORIZED_CONTRACT_ROLE to VehicleRegistry and Marketplace for Treasury operations
+        treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(assetRegistry));
         treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(marketplace));
         // Authorize partners
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
@@ -207,18 +193,25 @@ contract BaseTest is Test {
         }
     }
 
-    function _setupVehicleWithTokens() internal returns (uint256 vehicleId, uint256 revenueTokenId) {
+    function _setupAssetRegistered() internal returns (uint256 assetId) {
         vm.prank(partner1);
-        (vehicleId, revenueTokenId) = vehicleRegistry.registerVehicleAndMintRevenueTokens(
-            TEST_VIN,
-            TEST_MAKE,
-            TEST_MODEL,
-            TEST_YEAR,
-            TEST_MANUFACTURER_ID,
-            TEST_OPTION_CODES,
-            TEST_METADATA_URI,
-            REVENUE_TOKEN_SUPPLY
+        assetId = assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            )
         );
+    }
+
+    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
+        // Calculate required collateral
+        scenario.requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+
+        vm.startPrank(partner1);
+        // Approve USDC for collateral
+        usdc.approve(address(treasury), scenario.requiredCollateral);
+
+        revenueTokenId = assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        vm.stopPrank();
     }
 
     // ========================================
@@ -247,13 +240,13 @@ contract BaseTest is Test {
     }
 
     /**
-     * @dev Assert collateral state for a vehicle
+     * @dev Assert collateral state for an asset
      */
-    function assertCollateralState(uint256 _vehicleId, uint256 expectedBase, uint256 expectedTotal, bool expectedLocked)
+    function assertCollateralState(uint256 _assetId, uint256 expectedBase, uint256 expectedTotal, bool expectedLocked)
         internal
         view
     {
-        (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(_vehicleId);
+        (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(_assetId);
         assertEq(base, expectedBase, "Base collateral mismatch");
         assertEq(total, expectedTotal, "Total collateral mismatch");
         assertEq(locked, expectedLocked, "Collateral locked state mismatch");
@@ -278,28 +271,33 @@ contract BaseTest is Test {
         assertEq(actualBalance, expectedBalance, message);
     }
 
+    function assertAssetState(uint256 _assetId, address expectedOwner, bool shouldExist) internal view {
+        if (shouldExist) {
+            // Check ownership via ERC1155 balance
+            assertEq(roboshareTokens.balanceOf(expectedOwner, _assetId), 1, "Asset owner mismatch");
+            // Also check the exists function
+            assertTrue(assetRegistry.assetExists(_assetId), "assetExists should be true");
+        } else {
+            // Check that the NFT is not owned
+            assertEq(roboshareTokens.balanceOf(expectedOwner, _assetId), 0, "Asset should not be owned");
+            // Check that the registry reports it as not existing
+            assertFalse(assetRegistry.assetExists(_assetId), "assetExists should be false");
+        }
+    }
+
     /**
-     * @dev Assert vehicle registration state
+     * @dev Assert vehicle-specific registration state
      */
-    function assertVehicleState(uint256 _vehicleId, address expectedOwner, string memory expectedVin, bool shouldExist)
+    function assertVehicleState(uint256 _assetId, address expectedOwner, string memory expectedVin, bool shouldExist)
         internal
         view
     {
+        assertAssetState(_assetId, expectedOwner, shouldExist);
+
         if (shouldExist) {
-            // Check ownership via ERC1155 balance
-            assertEq(roboshareTokens.balanceOf(expectedOwner, _vehicleId), 1, "Vehicle owner mismatch");
-
             // Check vehicle info stored in the registry
-            (string memory vin,,,,,,) = vehicleRegistry.getVehicleInfo(_vehicleId);
+            (string memory vin,,,,,,) = assetRegistry.getVehicleInfo(_assetId);
             assertEq(vin, expectedVin, "Vehicle VIN mismatch");
-
-            // Also check the exists function
-            assertTrue(vehicleRegistry.vehicleExists(_vehicleId), "vehicleExists should be true");
-        } else {
-            // Check that the NFT is not owned
-            assertEq(roboshareTokens.balanceOf(expectedOwner, _vehicleId), 0, "Vehicle should not be owned");
-            // Check that the registry reports it as not existing
-            assertFalse(vehicleRegistry.vehicleExists(_vehicleId), "vehicleExists should be false");
         }
     }
 
@@ -483,25 +481,6 @@ contract BaseTest is Test {
     // ========================================
 
     /**
-     * @dev Expect CollateralLockedAndListed event with specific parameters
-     */
-    function expectCollateralLockedAndListedEvent(
-        uint256 _vehicleId,
-        uint256 _revenueTokenId,
-        uint256 _listingId,
-        address partner,
-        uint256 collateral,
-        uint256 tokensToList,
-        uint256 pricePerToken,
-        bool buyerPaysFee
-    ) internal {
-        vm.expectEmit(true, true, true, true, address(marketplace));
-        emit Marketplace.CollateralLockedAndListed(
-            _vehicleId, _revenueTokenId, _listingId, partner, collateral, tokensToList, pricePerToken, buyerPaysFee
-        );
-    }
-
-    /**
      * @dev Expect RevenueTokensTraded event with specific parameters
      */
     function expectRevenueTokensTradedEvent(
@@ -616,45 +595,37 @@ contract BaseTest is Test {
 
         vm.startPrank(partner);
 
-        // Register vehicle
-        scenario.vehicleId =
-            vehicleRegistry.registerVehicle(vin, make, model, year, manufacturerId, optionCodes, metadataURI);
+        // Register asset and mint tokens in one go
+        (scenario.assetId, scenario.revenueTokenId) = assetRegistry.registerAssetAndMintTokens(
+            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI), tokenPrice, totalTokens
+        );
 
-        // Mint revenue tokens
-        scenario.revenueTokenId = vehicleRegistry.mintRevenueTokens(scenario.vehicleId, totalTokens);
-
-        // Lock collateral and create listing
-        uint256 requiredCollateral = treasury.getCollateralRequirement(tokenPrice, totalTokens);
-        usdc.approve(address(treasury), requiredCollateral);
+        // Approve RoboshareTokens for Marketplace listing
         roboshareTokens.setApprovalForAll(address(marketplace), true);
 
-        scenario.listingId = marketplace.lockCollateralAndList(
-            scenario.vehicleId, tokenPrice, totalTokens, tokensToList, duration, buyerPaysFee
-        );
+        scenario.listingId =
+            marketplace.createListing(scenario.revenueTokenId, tokensToList, tokenPrice, duration, buyerPaysFee);
 
         vm.stopPrank();
 
-        return (scenario.vehicleId, scenario.revenueTokenId, scenario.listingId);
+        return (scenario.assetId, scenario.revenueTokenId, scenario.listingId);
     }
 
     /**
      * @dev Setup earnings distribution scenario
      */
-    function setupEarningsScenario(uint256 _vehicleId, uint256 earningsAmount) internal {
+    function setupEarningsScenario(uint256 _assetId, uint256 earningsAmount) internal {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        treasury.distributeEarnings(_vehicleId, earningsAmount);
+        treasury.distributeEarnings(_assetId, earningsAmount);
         vm.stopPrank();
     }
 
     /**
      * @dev Create multiple test vehicles for a partner
      */
-    function createMultipleTestVehicles(address partner, uint256 count)
-        internal
-        returns (uint256[] memory vehicleIds)
-    {
-        vehicleIds = new uint256[](count);
+    function createMultipleTestVehicles(address partner, uint256 count) internal returns (uint256[] memory assetIds) {
+        assetIds = new uint256[](count);
 
         vm.startPrank(partner);
         for (uint256 i = 0; i < count; i++) {
@@ -668,12 +639,13 @@ contract BaseTest is Test {
                 string memory metadataURI
             ) = generateVehicleData(i + uint256(keccak256(abi.encodePacked(partner, block.timestamp))));
 
-            vehicleIds[i] =
-                vehicleRegistry.registerVehicle(vin, make, model, year, manufacturerId, optionCodes, metadataURI);
+            assetIds[i] = assetRegistry.registerAsset(
+                abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI)
+            );
         }
         vm.stopPrank();
 
-        return vehicleIds;
+        return assetIds;
     }
 
     /**
@@ -718,9 +690,9 @@ contract BaseTest is Test {
     }
 
     /**
-     * @dev Get listing count for a vehicle
+     * @dev Get listing count for an asset
      */
-    function getListingCount(uint256 _vehicleId) internal view returns (uint256) {
-        return marketplace.getVehicleListings(_vehicleId).length;
+    function getListingCount(uint256 _assetId) internal view returns (uint256) {
+        return marketplace.getAssetListings(_assetId).length;
     }
 }

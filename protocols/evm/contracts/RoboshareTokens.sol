@@ -6,9 +6,11 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpg
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./Libraries.sol";
+import { ProtocolLib, TokenLib } from "./Libraries.sol";
 
 error RoboshareTokens__NotRevenueToken();
+error RoboshareTokens__RevenueTokenInfoAlreadySet();
+error RoboshareTokens__InsufficientBalance();
 
 /**
  * @title RoboshareTokens
@@ -28,13 +30,14 @@ contract RoboshareTokens is
 
     uint256 private _tokenIdCounter;
 
-    // Position tracking for revenue share tokens
-    mapping(uint256 => TokenLib.TokenInfo) private tokenPositions;
+    // Stores TokenInfo structs for each token ID, which includes position tracking
+    mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
 
     // Events
-    event BatchTokensMinted(address indexed to, uint256[] ids, uint256[] amounts);
-    event TokensBurned(address indexed from, uint256 id, uint256 amount);
-    event PositionsUpdated(uint256 indexed tokenId, address indexed from, address indexed to, uint256 amount);
+    event RevenueTokenPositionsUpdated(
+        uint256 indexed revenueTokenId, address indexed from, address indexed to, uint256 amount
+    );
+    event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -52,128 +55,152 @@ contract RoboshareTokens is
         _grantRole(BURNER_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
 
-        _tokenIdCounter = 1; // Start from 1, 0 reserved for special use
+        _tokenIdCounter = 1; // Start from 1, 0 reserved.
     }
 
     /**
-     * @dev Mint tokens to specified address
-     * @param to Address to mint tokens to
-     * @param id Token ID to mint
-     * @param amount Amount of tokens to mint
-     * @param data Additional data
+     * @dev Reserves a unique pair of token IDs for a new asset.
+     * The asset ID will be an odd number, and the revenue token ID will be the next even number.
+     * Only callable by accounts with the MINTER_ROLE (i.e., an Asset Registry).
+     * @return assetId The unique ID for the new asset.
+     * @return revenueTokenId The unique ID for the asset's corresponding revenue token.
      */
-    function mint(address to, uint256 id, uint256 amount, bytes memory data) public onlyRole(MINTER_ROLE) {
-        _mint(to, id, amount, data);
+    function reserveNextTokenIdPair()
+        external
+        onlyRole(MINTER_ROLE)
+        returns (uint256 assetId, uint256 revenueTokenId)
+    {
+        assetId = _tokenIdCounter;
+        revenueTokenId = _tokenIdCounter + 1;
+        _tokenIdCounter += 2;
     }
 
     /**
-     * @dev Batch mint multiple tokens
-     * @param to Address to mint tokens to
-     * @param ids Array of token IDs
-     * @param amounts Array of amounts to mint
-     * @param data Additional data
+     * @dev Initializes the economic info for a new revenue token.
+     * Must be called by a minter (i.e., an Asset Registry) BEFORE minting the new revenue token.
+     * @param revenueTokenId The ID of the revenue token.
+     * @param supply The total supply of the revenue token.
+     * @param price The initial price per token.
      */
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
-        public
+    function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply)
+        external
         onlyRole(MINTER_ROLE)
     {
-        _mintBatch(to, ids, amounts, data);
-        emit BatchTokensMinted(to, ids, amounts);
-    }
-
-    /**
-     * @dev Burn tokens from specified address
-     * @param from Address to burn tokens from
-     * @param id Token ID to burn
-     * @param amount Amount of tokens to burn
-     */
-    function burn(address from, uint256 id, uint256 amount) public onlyRole(BURNER_ROLE) {
-        _burn(from, id, amount);
-        emit TokensBurned(from, id, amount);
-    }
-
-    /**
-     * @dev Burn multiple tokens from specified address
-     * @param from Address to burn tokens from
-     * @param ids Array of token IDs to burn
-     * @param amounts Array of amounts to burn
-     */
-    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public onlyRole(BURNER_ROLE) {
-        _burnBatch(from, ids, amounts);
-
-        for (uint256 i = 0; i < ids.length; i++) {
-            emit TokensBurned(from, ids[i], amounts[i]);
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert RoboshareTokens__NotRevenueToken();
         }
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
+        if (tokenInfo.tokenSupply != 0) {
+            revert RoboshareTokens__RevenueTokenInfoAlreadySet();
+        }
+
+        TokenLib.initializeTokenInfo(
+            tokenInfo,
+            revenueTokenId,
+            price,
+            supply,
+            ProtocolLib.MONTHLY_INTERVAL // Default holding period
+        );
+        emit RevenueTokenInfoSet(revenueTokenId, price, supply);
     }
 
     /**
-     * @dev Get next available token ID
-     */
-    function getNextTokenId() external view returns (uint256) {
-        return _tokenIdCounter;
-    }
-
-    /**
-     * @dev Increment and return next token ID
-     * Only callable by minters to ensure proper ID management
-     */
-    function getAndIncrementTokenId() external onlyRole(MINTER_ROLE) returns (uint256) {
-        uint256 currentId = _tokenIdCounter;
-        _tokenIdCounter++;
-        return currentId;
-    }
-
-    /**
-     * @dev Set URI for all token types
-     * @param newuri New URI for tokens
+     * @dev Sets the base URI for all token types. Requires DEFAULT_ADMIN_ROLE.
+     * @param newuri The new URI for tokens.
      */
     function setURI(string memory newuri) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _setURI(newuri);
     }
 
     /**
-     * @dev Get total supply tracked in positions for a token
-     * @param tokenId Token ID to get supply for
-     * @return totalSupply Total supply tracked in positions
+     * @dev Mint tokens to specified address. Requires MINTER_ROLE.
+     * @param to The address to mint tokens to.
+     * @param id The ID of the token to mint.
+     * @param amount The amount of tokens to mint.
+     * @param data Additional data to be passed to the ERC1155 hook.
      */
-    function getTokenTotalSupply(uint256 tokenId) external view returns (uint256) {
-        return tokenPositions[tokenId].totalSupply;
+    function mint(address to, uint256 id, uint256 amount, bytes memory data) public onlyRole(MINTER_ROLE) {
+        _mint(to, id, amount, data);
     }
 
     /**
-     * @dev Get user balance from position tracking (should match balanceOf)
-     * @param user User address
-     * @param tokenId Token ID
-     * @return balance User's balance from positions
+     * @dev Mints a batch of tokens. Requires MINTER_ROLE.
+     * @param to The address to mint tokens to.
+     * @param ids An array of token IDs to mint.
+     * @param amounts An array of amounts corresponding to each token ID.
+     * @param data Additional data to be passed to the ERC1155 hook.
      */
-    function getPositionBalance(address user, uint256 tokenId) external view returns (uint256 balance) {
-        return TokenLib.getBalance(tokenPositions[tokenId], user);
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
+        public
+        onlyRole(MINTER_ROLE)
+    {
+        _mintBatch(to, ids, amounts, data);
     }
 
     /**
-     * @dev Check if a token ID is a revenue share token (even numbers)
-     * @param tokenId Token ID to check
-     * @return isRevenueToken True if token is revenue share token
+     * @dev Burns tokens from a specified address. Requires BURNER_ROLE.
+     * @param from The address to burn tokens from.
+     * @param id The ID of the token to burn.
+     * @param amount The amount of tokens to burn.
      */
-    function isRevenueToken(uint256 tokenId) public pure returns (bool) {
-        return tokenId % 2 == 0;
+    function burn(address from, uint256 id, uint256 amount) public onlyRole(BURNER_ROLE) {
+        _burn(from, id, amount);
     }
 
     /**
-     * @dev Get user's token positions for earnings calculations
-     * @param tokenId Revenue share token ID
-     * @param holder Address of the token holder
-     * @return positions Array of user's positions
+     * @dev Burns a batch of tokens from a specified address. Requires BURNER_ROLE.
+     * @param from The address to burn tokens from.
+     * @param ids An array of token IDs to burn.
+     * @param amounts An array of amounts corresponding to each token ID.
      */
-    function getUserPositions(uint256 tokenId, address holder)
+    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public onlyRole(BURNER_ROLE) {
+        _burnBatch(from, ids, amounts);
+    }
+
+    /**
+     * @dev Gets the next available asset ID that would be assigned.
+     * @return The next available token ID.
+     */
+    function getNextTokenId() external view returns (uint256) {
+        return _tokenIdCounter;
+    }
+
+    /**
+     * @dev Gets the total supply tracked in positions for a specific token ID.
+     * @param revenueTokenId The ID of the token.
+     * @return The total supply tracked in positions.
+     */
+    function getRevenueTokenTotalSupply(uint256 revenueTokenId) external view returns (uint256) {
+        return _revenueTokenInfos[revenueTokenId].tokenSupply;
+    }
+
+    /**
+     * @dev Gets the price for a specific revenue token ID.
+     * @param revenueTokenId The ID of the revenue token.
+     * @return The price per token.
+     */
+    function getTokenPrice(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert RoboshareTokens__NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].tokenPrice;
+    }
+
+    /**
+     * @dev Gets a user's token positions for earnings calculations.
+     * @param revenueTokenId The revenue token ID.
+     * @param holder The address of the token holder.
+     * @return positions An array of the user's token positions.
+     */
+    function getUserPositions(uint256 revenueTokenId, address holder)
         external
         view
         returns (TokenLib.TokenPosition[] memory positions)
     {
-        if (!isRevenueToken(tokenId)) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert RoboshareTokens__NotRevenueToken();
         }
-        TokenLib.TokenInfo storage info = tokenPositions[tokenId];
+        TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
         uint256 length = info.positions[holder].length;
         positions = new TokenLib.TokenPosition[](length);
 
@@ -185,8 +212,51 @@ contract RoboshareTokens is
     }
 
     /**
-     * @dev Override _update to implement automatic position tracking
-     * Called on all mints, burns, and transfers
+     * @dev Calculates the early sale penalty for a given amount of tokens without modifying state.
+     * This function is intended to be called by the Marketplace contract before a sale.
+     * @param seller The address of the seller.
+     * @param revenueTokenId The ID of the revenue token being sold.
+     * @param amount The amount of tokens being sold.
+     * @return penaltyAmount The calculated early sale penalty.
+     */
+    function getSalesPenalty(address seller, uint256 revenueTokenId, uint256 amount)
+        external
+        view
+        returns (uint256 penaltyAmount)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) revert RoboshareTokens__NotRevenueToken();
+
+        // Check balance before proceeding
+        if (balanceOf(seller, revenueTokenId) < amount) {
+            revert RoboshareTokens__InsufficientBalance();
+        }
+
+        // If the seller is the current owner of the corresponding Asset NFT, they are exempt from the penalty.
+        // The assetId is always tokenId - 1 for revenue tokens.
+        uint256 assetId = revenueTokenId - 1;
+        if (balanceOf(seller, assetId) > 0) {
+            penaltyAmount = 0;
+        } else {
+            // Otherwise, calculate the penalty based on token positions
+            penaltyAmount = TokenLib.calculateSalesPenalty(_revenueTokenInfos[revenueTokenId], seller, amount);
+        }
+    }
+
+    /**
+     * @dev Override supportsInterface to include all inherited interfaces.
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC1155Upgradeable, ERC1155HolderUpgradeable, AccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @dev Overrides _update to implement automatic position tracking for revenue tokens.
+     * Called on all mints, burns, and transfers.
      */
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
         // Call parent implementation first
@@ -198,52 +268,38 @@ contract RoboshareTokens is
             uint256 amount = values[i];
 
             // Only track revenue share tokens (even IDs)
-            if (isRevenueToken(tokenId)) {
-                _updateTokenPositions(from, to, tokenId, amount);
-                emit PositionsUpdated(tokenId, from, to, amount);
+            if (TokenLib.isRevenueToken(tokenId)) {
+                _updateRevenueTokenPositions(tokenId, from, to, amount);
+                emit RevenueTokenPositionsUpdated(tokenId, from, to, amount);
             }
         }
     }
 
     /**
-     * @dev Internal function to update token positions using FIFO logic
-     * @param from Address transferring from (address(0) for mints)
-     * @param to Address transferring to (address(0) for burns)
-     * @param tokenId Token ID being transferred
-     * @param amount Amount being transferred
+     * @dev Required override for UUPS upgrades.
      */
-    function _updateTokenPositions(address from, address to, uint256 tokenId, uint256 amount) internal {
-        TokenLib.TokenInfo storage tokenInfo = tokenPositions[tokenId];
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
+
+    /**
+     * @dev Internal function to update token positions using FIFO logic.
+     * @param from The address transferring from (address(0) for mints).
+     * @param to The address transferring to (address(0) for burns).
+     * @param revenueTokenId The token ID being transferred.
+     * @param amount The amount being transferred.
+     */
+    function _updateRevenueTokenPositions(uint256 revenueTokenId, address from, address to, uint256 amount) internal {
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
 
         if (from == address(0)) {
             // Minting - add position to receiver
             TokenLib.addPosition(tokenInfo, to, amount);
         } else if (to == address(0)) {
             // Burning - remove position from sender
-            // Note: We don't apply penalties on burns, only on sales to other users
-            TokenLib.removePosition(tokenInfo, from, amount, false);
+            TokenLib.removePosition(tokenInfo, from, amount);
         } else {
             // Transfer between users - remove from sender, add to receiver
-            // No penalty for user-to-user transfers
-            TokenLib.removePosition(tokenInfo, from, amount, false);
+            TokenLib.removePosition(tokenInfo, from, amount);
             TokenLib.addPosition(tokenInfo, to, amount);
         }
-    }
-
-    /**
-     * @dev Required override for UUPS upgrades
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
-
-    /**
-     * @dev Override supportsInterface to include all inherited interfaces
-     */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155Upgradeable, ERC1155HolderUpgradeable, AccessControlUpgradeable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 }
