@@ -13,11 +13,11 @@ contract MarketplaceTest is BaseTest {
     function testInitialization() public view {
         // Check contract references
         assertEq(address(marketplace.roboshareTokens()), address(roboshareTokens));
-        assertEq(address(marketplace.vehicleRegistry()), address(vehicleRegistry));
+        assertEq(address(marketplace.assetRegistry()), address(assetRegistry));
         assertEq(address(marketplace.partnerManager()), address(partnerManager));
         assertEq(address(marketplace.treasury()), address(treasury));
         assertEq(address(marketplace.usdcToken()), address(usdc));
-        assertEq(marketplace.treasuryAddress(), config.treasuryFeeRecipient);
+        assertEq(marketplace.treasuryFeeRecipient(), config.treasuryFeeRecipient);
 
         // Check initial state
         assertEq(marketplace.getCurrentListingId(), 1);
@@ -27,7 +27,7 @@ contract MarketplaceTest is BaseTest {
         assertTrue(marketplace.hasRole(marketplace.UPGRADER_ROLE(), admin));
     }
 
-    function testInitializationWithZeroAddresses() public {
+    function testInitializationZeroAddresses() public {
         Marketplace newImpl = new Marketplace();
 
         vm.expectRevert(Marketplace__ZeroAddress.selector);
@@ -37,7 +37,7 @@ contract MarketplaceTest is BaseTest {
                 "initialize(address,address,address,address,address,address,address)",
                 address(0), // zero admin address
                 address(roboshareTokens),
-                address(vehicleRegistry),
+                address(assetRegistry),
                 address(partnerManager),
                 address(treasury),
                 address(usdc),
@@ -48,26 +48,26 @@ contract MarketplaceTest is BaseTest {
 
     // Admin Function Tests
 
-    function testSetTreasuryAddress() public {
+    function testSetTreasuryFeeRecipient() public {
         address newTreasury = makeAddr("newTreasury");
 
         vm.prank(admin);
-        marketplace.setTreasuryAddress(newTreasury);
+        marketplace.setTreasuryFeeRecipient(newTreasury);
 
-        assertEq(marketplace.treasuryAddress(), newTreasury);
+        assertEq(marketplace.treasuryFeeRecipient(), newTreasury);
     }
 
-    function testSetTreasuryAddressUnauthorized() public {
+    function testSetTreasuryFeeRecipientUnauthorized() public {
         address newTreasury = makeAddr("newTreasury");
 
         vm.expectRevert();
         vm.prank(unauthorized);
-        marketplace.setTreasuryAddress(newTreasury);
+        marketplace.setTreasuryFeeRecipient(newTreasury);
     }
 
-    function testSetTreasuryAddressZeroAddress() public {
+    function testSetTreasuryFeeRecipientZeroAddress() public {
         vm.expectRevert(Marketplace__ZeroAddress.selector);
         vm.prank(admin);
-        marketplace.setTreasuryAddress(address(0));
+        marketplace.setTreasuryFeeRecipient(address(0));
     }
 }

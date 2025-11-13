@@ -18,6 +18,7 @@
     "postinstall": "shx cp -n .env.example .env",
     "lint": "make lint",
     "test": "forge test",
+    "coverage": "forge coverage",
     "verify": "make verify RPC_URL=${1:-localhost}"
   },
   "dependencies": {

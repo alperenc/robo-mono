@@ -13,20 +13,19 @@ contract VehicleRegistryTest is BaseTest {
 
     function testInitialization() public view {
         // Check contract references
-        assertEq(address(vehicleRegistry.roboshareTokens()), address(roboshareTokens));
-        assertEq(address(vehicleRegistry.partnerManager()), address(partnerManager));
+        assertEq(address(assetRegistry.roboshareTokens()), address(roboshareTokens));
+        assertEq(address(assetRegistry.partnerManager()), address(partnerManager));
 
         // Check initial state
-        assertEq(vehicleRegistry.getCurrentTokenId(), 1);
-        assertFalse(vehicleRegistry.vehicleExists(1));
-        assertFalse(vehicleRegistry.vinExists(TEST_VIN));
+        assertFalse(assetRegistry.assetExists(1));
+        assertFalse(assetRegistry.vinExists(TEST_VIN));
 
         // Check admin roles
-        assertTrue(vehicleRegistry.hasRole(vehicleRegistry.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(vehicleRegistry.hasRole(vehicleRegistry.UPGRADER_ROLE(), admin));
+        assertTrue(assetRegistry.hasRole(assetRegistry.DEFAULT_ADMIN_ROLE(), admin));
+        assertTrue(assetRegistry.hasRole(assetRegistry.UPGRADER_ROLE(), admin));
     }
 
-    function testInitializationWithZeroAddressesFails() public {
+    function testInitializationZeroAddresses() public {
         VehicleRegistry newImplementation = new VehicleRegistry();
 
         // Test zero admin
@@ -49,111 +48,125 @@ contract VehicleRegistryTest is BaseTest {
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
-    // Error Case Tests
-
-    function testGetVehicleInfoForNonexistentVehicleFails() public {
-        vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
-        vehicleRegistry.getVehicleInfo(999);
+    function testSetTreasuryZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
+        assetRegistry.setTreasury(address(0));
     }
 
-    function testGetVehicleDisplayNameForNonexistentVehicleFails() public {
+    function testSetTreasuryAlreadySet() public {
+        // The treasury is already set in the BaseTest setup via _ensureState
+        _ensureState(SetupState.ContractsDeployed);
+
+        vm.prank(admin);
+        vm.expectRevert(VehicleRegistry__TreasuryAlreadySet.selector);
+        assetRegistry.setTreasury(makeAddr("anotherTreasury"));
+    }
+
+    function testGetAssetInfoNonexistent() public {
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetRegistry__AssetNotFound.selector, 999));
+        assetRegistry.getAssetInfo(999);
+    }
+
+    function testGetAssetStatusNonexistent() public {
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetRegistry__AssetNotFound.selector, 999));
+        assetRegistry.getAssetStatus(999);
+    }
+
+    // Error Case Tests
+
+    function testGetVehicleInfoNonexistentVehicle() public {
         vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
-        vehicleRegistry.getVehicleDisplayName(999);
+        assetRegistry.getVehicleInfo(999);
+    }
+
+    function testGetVehicleDisplayNameNonexistentVehicle() public {
+        vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
+        assetRegistry.getVehicleDisplayName(999);
     }
 
     function testTokenIdConversionErrorCases() public {
         vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
-        vehicleRegistry.getVehicleIdFromRevenueTokenId(1);
+        assetRegistry.getAssetIdFromTokenId(1);
 
         vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
-        vehicleRegistry.getVehicleIdFromRevenueTokenId(0);
+        assetRegistry.getAssetIdFromTokenId(0);
 
         vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
-        vehicleRegistry.getRevenueTokenIdFromVehicleId(2);
+        assetRegistry.getTokenIdFromAssetId(2);
 
         vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
-        vehicleRegistry.getRevenueTokenIdFromVehicleId(0);
+        assetRegistry.getTokenIdFromAssetId(0);
     }
 
-
-    function testGetTokenIdFromAssetId_AssetType() public {
-        _ensureState(SetupState.VehicleWithTokens);
-        uint256 tokenId = vehicleRegistry.getTokenIdFromAssetId(scenario.vehicleId, IAssetRegistry.TokenType.Asset);
-        assertEq(tokenId, scenario.vehicleId);
-    }
-
-    function testIsRevenueTokenTrueFalse() public view {
-        assertTrue(vehicleRegistry.isRevenueToken(2));
-        assertFalse(vehicleRegistry.isRevenueToken(0));
-        assertFalse(vehicleRegistry.isRevenueToken(3));
-    }
-
-    function testRegisterVehicle_InvalidVinLengthFails() public {
+    function testRegisterVehicleInvalidVINLength() public {
         _ensureState(SetupState.PartnersAuthorized);
         string memory shortVin = "VIN123"; // <10 length
         vm.expectRevert(VehicleLib__InvalidVINLength.selector);
         vm.prank(partner1);
-        vehicleRegistry.registerVehicle(
-            shortVin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        assetRegistry.registerAsset(
+            abi.encode(
+                shortVin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            )
         );
     }
 
-    function testRegisterVehicle_EmptyMakeFails() public {
+    function testRegisterVehicleEmptyMake() public {
         _ensureState(SetupState.PartnersAuthorized);
         vm.expectRevert(VehicleLib__InvalidMake.selector);
         vm.prank(partner1);
-        vehicleRegistry.registerVehicle(
-            TEST_VIN, "", TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        assetRegistry.registerAsset(
+            abi.encode(TEST_VIN, "", TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI)
         );
     }
 
-    function testRegisterVehicle_EmptyModelFails() public {
+    function testRegisterVehicleEmptyModel() public {
         _ensureState(SetupState.PartnersAuthorized);
         vm.expectRevert(VehicleLib__InvalidModel.selector);
         vm.prank(partner1);
-        vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, "", TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        assetRegistry.registerAsset(
+            abi.encode(TEST_VIN, TEST_MAKE, "", TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI)
         );
     }
 
-    function testRegisterVehicle_InvalidYearFails() public {
+    function testRegisterVehicleInvalidYear() public {
         _ensureState(SetupState.PartnersAuthorized);
         vm.expectRevert(VehicleLib__InvalidYear.selector);
         vm.prank(partner1);
-        vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, 1980, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, 1980, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            )
         );
 
         vm.expectRevert(VehicleLib__InvalidYear.selector);
         vm.prank(partner1);
-        vehicleRegistry.registerVehicle(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, 2040, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, 2040, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            )
         );
     }
 
     // New branch coverage for registry view helpers
-    function testGetAssetIdFromTokenId_OddAndEven() public {
-        _ensureState(SetupState.VehicleWithTokens);
-        // Odd token id is vehicle id
-        uint256 assetFromVehicle = vehicleRegistry.getAssetIdFromTokenId(scenario.vehicleId);
-        assertEq(assetFromVehicle, scenario.vehicleId);
+    function testGetAssetIdFromTokenId() public {
+        _ensureState(SetupState.RevenueTokensMinted);
 
-        // Even token id maps back to vehicle id
-        uint256 assetFromRevenue = vehicleRegistry.getAssetIdFromTokenId(scenario.revenueTokenId);
-        assertEq(assetFromRevenue, scenario.vehicleId);
+        uint256 assetFromRevenue = assetRegistry.getAssetIdFromTokenId(scenario.revenueTokenId);
+        assertEq(assetFromRevenue, scenario.assetId);
     }
 
-    function testIsAuthorizedForAsset_Scenarios() public {
-        _ensureState(SetupState.VehicleWithTokens);
+    function testIsAuthorizedForAssetScenarios() public {
+        _ensureState(SetupState.RevenueTokensMinted);
 
         // Unauthorized account: not a partner
-        assertFalse(vehicleRegistry.isAuthorizedForAsset(unauthorized, scenario.vehicleId));
+        assertFalse(assetRegistry.isAuthorizedForAsset(unauthorized, scenario.assetId));
 
         // Authorized partner but no ownership
-        // partner2 is authorized in BaseTest but doesn't own scenario.vehicleId
-        assertFalse(vehicleRegistry.isAuthorizedForAsset(partner2, scenario.vehicleId));
+        // partner2 is authorized in BaseTest but doesn't own scenario.assetId
+        assertFalse(assetRegistry.isAuthorizedForAsset(partner2, scenario.assetId));
 
         // Authorized and owns
-        assertTrue(vehicleRegistry.isAuthorizedForAsset(partner1, scenario.vehicleId));
+        assertTrue(assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId));
     }
 }

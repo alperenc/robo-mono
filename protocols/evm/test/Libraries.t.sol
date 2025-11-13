@@ -28,20 +28,20 @@ contract ProtocolEarningsHelper {
 }
 
 // Helper to hold and mutate AssetInfo
-contract AssetsHelper {
-    using AssetsLib for AssetsLib.AssetInfo;
+contract AssetHelper {
+    using AssetLib for AssetLib.AssetInfo;
 
-    AssetsLib.AssetInfo internal info;
+    AssetLib.AssetInfo internal info;
 
-    function init(AssetsLib.AssetStatus s) external {
+    function init(AssetLib.AssetStatus s) external {
         info.initializeAssetInfo(s);
     }
 
-    function update(AssetsLib.AssetStatus s) external {
+    function update(AssetLib.AssetStatus s) external {
         info.updateAssetStatus(s);
     }
 
-    function status() external view returns (AssetsLib.AssetStatus) {
+    function status() external view returns (AssetLib.AssetStatus) {
         return info.status;
     }
 
@@ -117,27 +117,23 @@ contract CollateralTokenEarningsHelper {
     }
 
     function initToken(uint256 tokenId, uint256 supply, uint256 price, uint256 minHold) external {
-        t.initializeTokenInfo(tokenId, supply, price, minHold);
+        t.initializeTokenInfo(tokenId, price, supply, minHold);
     }
 
     function tokenInfo() external view returns (uint256, uint256, uint256, uint256) {
-        return (t.tokenId, t.totalSupply, t.tokenPrice, t.minHoldingPeriod);
+        return (t.tokenId, t.tokenPrice, t.tokenSupply, t.minHoldingPeriod);
     }
 
     function addPos(address h, uint256 amt) external {
         t.addPosition(h, amt);
     }
 
-    function removePos(address h, uint256 amt, bool checkPenalty) external returns (uint256) {
-        return t.removePosition(h, amt, checkPenalty);
+    function removePos(address h, uint256 amt) external {
+        return t.removePosition(h, amt);
     }
 
     function tokenValue(uint256 amt) external view returns (uint256) {
         return t.calculateTokenValue(amt);
-    }
-
-    function bal(address h) external view returns (uint256) {
-        return t.getBalance(h);
     }
 
     function mature(TokenLib.TokenPosition storage p, uint256 minHold) internal view returns (bool) {
@@ -168,14 +164,14 @@ contract CollateralTokenEarningsHelper {
 
 contract LibrariesTest is Test {
     ProtocolEarningsHelper private peh;
-    AssetsHelper private ah;
+    AssetHelper private ah;
     CollateralTokenEarningsHelper private cteh;
 
     address private alice = address(0xA11CE);
 
     function setUp() public {
         peh = new ProtocolEarningsHelper();
-        ah = new AssetsHelper();
+        ah = new AssetHelper();
         cteh = new CollateralTokenEarningsHelper();
     }
 
@@ -191,57 +187,57 @@ contract LibrariesTest is Test {
     }
 
     function test_ProtocolFeeAndPenalty() public pure {
-        assertEq(ProtocolLib.calculateProtocolFee(10_000), 250); // 2.5%
+        assertEq(ProtocolLib.calculateProtocolFee(10_000), ProtocolLib.MINIMUM_PROTOCOL_FEE); // 2.5% is less than min fee
         // 10 tokens at price 100 => 5% = 50
         assertEq(ProtocolLib.calculatePenalty(10, 100), 50);
     }
 
-    // AssetsLib tests
+    // AssetLib tests
     function test_Assets_InitAndTransitions() public {
-        ah.init(AssetsLib.AssetStatus.Inactive);
-        assertEq(uint8(ah.status()), uint8(AssetsLib.AssetStatus.Inactive));
+        ah.init(AssetLib.AssetStatus.Inactive);
+        assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Inactive));
         assertFalse(ah.isOperational());
 
         // Valid transition Inactive -> Active
-        ah.update(AssetsLib.AssetStatus.Active);
+        ah.update(AssetLib.AssetStatus.Active);
         assertTrue(ah.isOperational());
 
         // Valid transition Active -> Suspended
-        ah.update(AssetsLib.AssetStatus.Suspended);
+        ah.update(AssetLib.AssetStatus.Suspended);
         assertFalse(ah.isOperational());
 
         // Invalid: Suspended -> Inactive, assert exact custom error with args
         vm.expectRevert(
             abi.encodeWithSelector(
-                AssetsLib.AssetsLib__InvalidStatusTransition.selector,
-                AssetsLib.AssetStatus.Suspended,
-                AssetsLib.AssetStatus.Inactive
+                AssetLib.AssetLib__InvalidStatusTransition.selector,
+                AssetLib.AssetStatus.Suspended,
+                AssetLib.AssetStatus.Inactive
             )
         );
-        ah.update(AssetsLib.AssetStatus.Inactive);
+        ah.update(AssetLib.AssetStatus.Inactive);
 
         // Valid: Suspended -> Active
-        ah.update(AssetsLib.AssetStatus.Active);
+        ah.update(AssetLib.AssetStatus.Active);
 
         // Valid: Active -> Archived; further transitions invalid
-        ah.update(AssetsLib.AssetStatus.Archived);
+        ah.update(AssetLib.AssetStatus.Archived);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AssetsLib.AssetsLib__InvalidStatusTransition.selector,
-                AssetsLib.AssetStatus.Archived,
-                AssetsLib.AssetStatus.Active
+                AssetLib.AssetLib__InvalidStatusTransition.selector,
+                AssetLib.AssetStatus.Archived,
+                AssetLib.AssetStatus.Active
             )
         );
-        ah.update(AssetsLib.AssetStatus.Active);
+        ah.update(AssetLib.AssetStatus.Active);
     }
 
     function test_Assets_TimeViews() public {
-        ah.init(AssetsLib.AssetStatus.Active);
+        ah.init(AssetLib.AssetStatus.Active);
         uint256 t0 = block.timestamp;
         vm.warp(t0 + 1 days);
         assertApproxEqAbs(ah.age(), 1 days, 2);
         // status update moves updatedAt
-        ah.update(AssetsLib.AssetStatus.Active);
+        ah.update(AssetLib.AssetStatus.Active);
         uint256 mid = block.timestamp;
         vm.warp(mid + 3 hours);
         assertApproxEqAbs(ah.sinceUpdate(), 3 hours, 2);
@@ -328,22 +324,14 @@ contract LibrariesTest is Test {
     }
 
     // TokenLib tests
-    function test_Token_InitAddRemoveAndValues() public {
+    function test_Token_InitializationAndValueCalculation() public {
         // min holding coerced to at least MONTHLY_INTERVAL
         cteh.initToken(1, 1000, 100e6, 1 days);
-        (uint256 tid, uint256 supply, uint256 price, uint256 minHold) = cteh.tokenInfo();
+        (uint256 tid, uint256 price, uint256 supply, uint256 minHold) = cteh.tokenInfo();
         assertEq(tid, 1);
-        assertEq(supply, 1000);
         assertEq(price, 100e6);
+        assertEq(supply, 1000);
         assertEq(minHold, ProtocolLib.MONTHLY_INTERVAL);
-
-        // add and remove positions
-        cteh.addPos(alice, 100);
-        assertEq(cteh.bal(alice), 100);
-        // removing before maturity with penalty
-        uint256 penaltyAmt = cteh.removePos(alice, 50, true);
-        assertGt(penaltyAmt, 0);
-        assertEq(cteh.bal(alice), 50);
 
         // token value
         assertEq(cteh.tokenValue(5), 5 * 100e6);

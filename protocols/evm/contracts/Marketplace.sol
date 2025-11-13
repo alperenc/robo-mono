@@ -6,9 +6,9 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/IAssetRegistry.sol";
 import "./Libraries.sol";
 import "./RoboshareTokens.sol";
-import "./VehicleRegistry.sol";
 import "./PartnerManager.sol";
 import "./Treasury.sol";
 
@@ -21,8 +21,10 @@ error Marketplace__InsufficientPayment();
 error Marketplace__InvalidTokenType();
 error Marketplace__InvalidAmount();
 error Marketplace__ListingNotActive();
-error Marketplace__CollateralNotLocked();
+error Marketplace__NoCollateralLocked();
 error Marketplace__InsufficientTokenBalance();
+error Marketplace__FeesExceedPrice();
+error Marketplace__InvalidPrice();
 
 /**
  * @dev Marketplace for buying and selling revenue share tokens
@@ -34,13 +36,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     // Core contracts
     RoboshareTokens public roboshareTokens;
-    VehicleRegistry public vehicleRegistry;
+    IAssetRegistry public assetRegistry;
     PartnerManager public partnerManager;
     Treasury public treasury;
     IERC20 public usdcToken;
 
     // Treasury pattern from original protocol
-    address public treasuryAddress;
+    address public treasuryFeeRecipient;
 
     // Listing management
     uint256 private _listingIdCounter;
@@ -58,13 +60,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     }
 
     mapping(uint256 => Listing) public listings;
-    mapping(uint256 => uint256[]) public vehicleListings; // vehicleId => listingIds[]
+    mapping(uint256 => uint256[]) public assetListings; // assetId => listingIds[]
 
     // Events
     event ListingCreated(
         uint256 indexed listingId,
         uint256 indexed tokenId,
-        uint256 indexed vehicleId,
+        uint256 indexed assetId,
         address seller,
         uint256 amount,
         uint256 pricePerToken,
@@ -73,7 +75,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     );
 
     event RevenueTokensTraded(
-        uint256 indexed revenueTokenId,
+        uint256 indexed tokenId,
         address indexed from,
         address indexed to,
         uint256 amount,
@@ -83,17 +85,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     event ListingCancelled(uint256 indexed listingId, address indexed seller);
 
-    event CollateralLockedAndListed(
-        uint256 indexed vehicleId,
-        uint256 indexed revenueTokenId,
-        uint256 indexed listingId,
-        address partner,
-        uint256 collateralAmount,
-        uint256 tokensListed,
-        uint256 pricePerToken,
-        bool buyerPaysFee
-    );
-
     event TreasuryAddressUpdated(address oldTreasury, address newTreasury);
 
     /**
@@ -102,16 +93,16 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     function initialize(
         address _admin,
         address _roboshareTokens,
-        address _vehicleRegistry,
+        address _assetRegistry,
         address _partnerManager,
         address _treasury,
         address _usdcToken,
-        address _treasuryAddress
+        address _treasuryFeeRecipient
     ) public initializer {
         if (
-            _admin == address(0) || _roboshareTokens == address(0) || _vehicleRegistry == address(0)
+            _admin == address(0) || _roboshareTokens == address(0) || _assetRegistry == address(0)
                 || _partnerManager == address(0) || _treasury == address(0) || _usdcToken == address(0)
-                || _treasuryAddress == address(0)
+                || _treasuryFeeRecipient == address(0)
         ) {
             revert Marketplace__ZeroAddress();
         }
@@ -124,11 +115,11 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         _grantRole(UPGRADER_ROLE, _admin);
 
         roboshareTokens = RoboshareTokens(_roboshareTokens);
-        vehicleRegistry = VehicleRegistry(_vehicleRegistry);
+        assetRegistry = IAssetRegistry(_assetRegistry);
         partnerManager = PartnerManager(_partnerManager);
         treasury = Treasury(_treasury);
         usdcToken = IERC20(_usdcToken);
-        treasuryAddress = _treasuryAddress;
+        treasuryFeeRecipient = _treasuryFeeRecipient;
 
         _listingIdCounter = 1;
     }
@@ -144,61 +135,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     }
 
     /**
-     * @dev Lock collateral and create listing in one transaction
-     * Prerequisites: Vehicle must be registered and revenue share tokens must already be minted
-     * @param vehicleId The ID of the vehicle (tokens should already exist)
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param totalRevenueTokens Total number of revenue share tokens (for collateral calculation)
-     * @param tokensToList Number of tokens to list for sale (must be <= partner's balance)
-     * @param listingDuration Duration for the listing in seconds
-     * @param buyerPaysFee If true, buyer pays protocol fee; if false, seller absorbs fee
-     */
-    function lockCollateralAndList(
-        uint256 vehicleId,
-        uint256 revenueTokenPrice,
-        uint256 totalRevenueTokens,
-        uint256 tokensToList,
-        uint256 listingDuration,
-        bool buyerPaysFee
-    ) external onlyAuthorizedPartner nonReentrant returns (uint256 listingId) {
-        // Validate inputs
-        if (tokensToList == 0 || tokensToList > totalRevenueTokens) {
-            revert Marketplace__InvalidAmount();
-        }
-
-        // Get revenue share token ID
-        uint256 revenueTokenId = vehicleRegistry.getRevenueTokenIdFromVehicleId(vehicleId);
-
-        // Verify partner owns enough tokens (tokens should already exist from vehicle registration)
-        uint256 partnerBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-        if (partnerBalance < tokensToList) {
-            revert Marketplace__InsufficientTokenBalance();
-        }
-
-        // Lock collateral in Treasury (requires prior USDC approval)
-        treasury.lockCollateralFor(msg.sender, vehicleId, revenueTokenPrice, totalRevenueTokens);
-
-        // Create listing for specified portion of existing tokens
-        listingId = _createListing(revenueTokenId, tokensToList, revenueTokenPrice, listingDuration, buyerPaysFee);
-
-        // Get collateral amount for event
-        (, uint256 collateralAmount,,,) = treasury.getAssetCollateralInfo(vehicleId);
-
-        emit CollateralLockedAndListed(
-            vehicleId,
-            revenueTokenId,
-            listingId,
-            msg.sender,
-            collateralAmount,
-            tokensToList,
-            revenueTokenPrice,
-            buyerPaysFee
-        );
-
-        return listingId;
-    }
-
-    /**
      * @dev Create a listing for revenue share tokens (requires collateral to be locked)
      * @param tokenId The revenue share token ID
      * @param amount Number of tokens to list
@@ -211,16 +147,32 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         nonReentrant
         returns (uint256 listingId)
     {
-        // Validate token type (must be revenue share token - even number)
-        if (tokenId % 2 != 0) {
+        // Validate token type (must be revenue share token)
+        if (!TokenLib.isRevenueToken(tokenId)) {
             revert Marketplace__InvalidTokenType();
         }
+        if (pricePerToken == 0) {
+            revert Marketplace__InvalidPrice();
+        }
 
-        // Get vehicle ID and check collateral is locked
-        uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueTokenId(tokenId);
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(vehicleId);
+        uint256 tokenSupply = roboshareTokens.getRevenueTokenTotalSupply(tokenId);
+
+        // Validate inputs
+        if (amount == 0 || amount > tokenSupply) {
+            revert Marketplace__InvalidAmount();
+        }
+
+        // Verify seller owns enough tokens
+        uint256 sellerBalance = roboshareTokens.balanceOf(msg.sender, tokenId);
+        if (sellerBalance < amount) {
+            revert Marketplace__InsufficientTokenBalance();
+        }
+
+        // Get asset ID and check collateral is locked
+        uint256 assetId = assetRegistry.getAssetIdFromTokenId(tokenId);
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         if (!isLocked) {
-            revert Marketplace__CollateralNotLocked();
+            revert Marketplace__NoCollateralLocked();
         }
 
         return _createListing(tokenId, amount, pricePerToken, duration, buyerPaysFee);
@@ -244,8 +196,8 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             revert Marketplace__NotTokenOwner();
         }
 
-        // Get vehicle ID for indexing
-        uint256 vehicleId = vehicleRegistry.getVehicleIdFromRevenueTokenId(tokenId);
+        // Get asset ID for indexing
+        uint256 assetId = assetRegistry.getAssetIdFromTokenId(tokenId);
 
         // Create listing
         listingId = _listingIdCounter++;
@@ -263,13 +215,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             buyerPaysFee: buyerPaysFee
         });
 
-        // Add to vehicle listings index
-        vehicleListings[vehicleId].push(listingId);
+        // Add to asset listings index
+        assetListings[assetId].push(listingId);
 
         // Transfer tokens to marketplace for escrow
         roboshareTokens.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
 
-        emit ListingCreated(listingId, tokenId, vehicleId, msg.sender, amount, pricePerToken, expiresAt, buyerPaysFee);
+        emit ListingCreated(listingId, tokenId, assetId, msg.sender, amount, pricePerToken, expiresAt, buyerPaysFee);
 
         return listingId;
     }
@@ -294,10 +246,28 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             revert Marketplace__InvalidAmount();
         }
 
-        // Calculate payment amounts
+        // Calculate base payment amounts
         uint256 totalPrice = amount * listing.pricePerToken;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
-        uint256 expectedPayment = listing.buyerPaysFee ? totalPrice + protocolFee : totalPrice;
+        uint256 salesPenalty = roboshareTokens.getSalesPenalty(listing.seller, listing.tokenId, amount);
+
+        uint256 expectedPayment;
+        uint256 sellerReceives;
+        uint256 totalFeesToTreasury = protocolFee + salesPenalty;
+
+        if (listing.buyerPaysFee) {
+            // Buyer pays the listed price + the protocol fee.
+            if (salesPenalty > totalPrice) revert Marketplace__FeesExceedPrice();
+            expectedPayment = totalPrice + protocolFee;
+            // Seller receives the listed price, but the sales penalty is deducted from their share.
+            sellerReceives = totalPrice - salesPenalty;
+        } else {
+            // Buyer pays only the listed price.
+            if (totalFeesToTreasury > totalPrice) revert Marketplace__FeesExceedPrice();
+            expectedPayment = totalPrice;
+            // Seller receives the listed price, but both protocol fee and sales penalty are deducted.
+            sellerReceives = totalPrice - totalFeesToTreasury;
+        }
 
         // Check buyer has sufficient USDC
         if (usdcToken.balanceOf(msg.sender) < expectedPayment) {
@@ -310,14 +280,11 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             listing.isActive = false;
         }
 
-        // Calculate seller payment based on fee arrangement
-        uint256 sellerPayment = listing.buyerPaysFee ? totalPrice : totalPrice - protocolFee;
-
         // Transfer USDC payments
-        usdcToken.transferFrom(msg.sender, listing.seller, sellerPayment);
-        if (protocolFee > 0) {
-            usdcToken.transferFrom(msg.sender, treasuryAddress, protocolFee);
-        }
+        usdcToken.transferFrom(msg.sender, listing.seller, sellerReceives);
+        // Transfer fees to the Treasury contract and notify it to record the pending withdrawal
+        usdcToken.transferFrom(msg.sender, address(treasury), totalFeesToTreasury);
+        treasury.recordPendingWithdrawal(treasuryFeeRecipient, totalFeesToTreasury);
 
         // Transfer tokens to buyer
         roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
@@ -361,10 +328,10 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     }
 
     /**
-     * @dev Get active listings for a vehicle
+     * @dev Get active listings for a asset
      */
-    function getVehicleListings(uint256 vehicleId) external view returns (uint256[] memory activeListings) {
-        uint256[] memory allListings = vehicleListings[vehicleId];
+    function getAssetListings(uint256 assetId) external view returns (uint256[] memory activeListings) {
+        uint256[] memory allListings = assetListings[assetId];
         uint256 activeCount = 0;
 
         // Count active listings
@@ -414,10 +381,10 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     }
 
     /**
-     * @dev Check if vehicle has locked collateral (required for listing)
+     * @dev Check if asset has locked collateral (required for listing)
      */
-    function isVehicleEligibleForListing(uint256 vehicleId) external view returns (bool) {
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(vehicleId);
+    function isAssetEligibleForListing(uint256 assetId) external view returns (bool) {
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         return isLocked;
     }
 
@@ -426,13 +393,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     /**
      * @dev Update treasury address for protocol fees
      */
-    function setTreasuryAddress(address newTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasuryFeeRecipient(address newTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newTreasury == address(0)) {
             revert Marketplace__ZeroAddress();
         }
 
-        address oldTreasury = treasuryAddress;
-        treasuryAddress = newTreasury;
+        address oldTreasury = treasuryFeeRecipient;
+        treasuryFeeRecipient = newTreasury;
 
         emit TreasuryAddressUpdated(oldTreasury, newTreasury);
     }

@@ -50,7 +50,6 @@ contract DeployVehicleRegistry is Script {
         console.log("Admin has UPGRADER_ROLE:", vehicleRegistry.hasRole(keccak256("UPGRADER_ROLE"), deployer));
         console.log("RoboshareTokens reference:", address(vehicleRegistry.roboshareTokens()));
         console.log("PartnerManager reference:", address(vehicleRegistry.partnerManager()));
-        console.log("Initial token counter:", vehicleRegistry.getCurrentTokenId());
 
         // Log deployment summary
         console.log("=== Deployment Summary ===");

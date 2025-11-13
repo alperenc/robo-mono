@@ -3,12 +3,12 @@ name: Contracts Coverage
 on:
   pull_request:
     paths:
-      - 'protocols/evm/**'
+      - "protocols/evm/**"
   push:
     branches:
       - main
     paths:
-      - 'protocols/evm/**'
+      - "protocols/evm/**"
 
 jobs:
   coverage:
@@ -26,7 +26,7 @@ jobs:
       - name: Run coverage
         working-directory: protocols/evm
         env:
-          FOUNDRY_DISABLE_NIGHTLY_WARNING: '1'
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
         run: |
           forge --version
           forge cleanup || true
@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f lcov.info
-          awk -v min_lines=80 -v min_branches=60 '
+          awk -v min_lines=80 -v min_branches=80 '
             BEGIN{FS=":"}
             /^SF:/ {file=$2; in_contract=(index(file,"contracts/")==1);}
             in_contract && /^LH:/ {lh+=$2}

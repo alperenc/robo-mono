@@ -6,7 +6,7 @@ error VehicleLib__InvalidVINLength();
 error VehicleLib__InvalidMake();
 error VehicleLib__InvalidModel();
 error VehicleLib__InvalidYear();
-error VehicleLib__EmptyMetadataURI();
+error VehicleLib__InvalidMetadataURI();
 
 // Collateral-specific errors
 error CollateralLib__InsufficientCollateral();
@@ -33,6 +33,9 @@ library ProtocolLib {
     uint256 internal constant MIN_EARNINGS_BUFFER_BP = 1000; // 10%
     uint256 internal constant MIN_PROTOCOL_BUFFER_BP = 500; // 5%
     uint256 internal constant PROTOCOL_FEE_BP = 250; // 2.5%
+    uint256 internal constant EARLY_SALE_PENALTY_BP = 500; // 5%
+    uint256 internal constant DEPRECIATION_RATE_BP = 1200; // 12% annually
+    uint256 internal constant MINIMUM_PROTOCOL_FEE = 1 * 10 ** 6; // 0.01 USDC (assuming 6 decimals)
 
     /**
      * @dev Validate IPFS URI format
@@ -64,7 +67,11 @@ library ProtocolLib {
      * @return Protocol fee amount
      */
     function calculateProtocolFee(uint256 amount) internal pure returns (uint256) {
-        return (amount * PROTOCOL_FEE_BP) / BP_PRECISION;
+        uint256 fee = (amount * PROTOCOL_FEE_BP) / BP_PRECISION;
+        if (amount > 0 && fee < MINIMUM_PROTOCOL_FEE) {
+            return MINIMUM_PROTOCOL_FEE;
+        }
+        return fee;
     }
 
     /**
@@ -74,7 +81,6 @@ library ProtocolLib {
      * @return Penalty amount
      */
     function calculatePenalty(uint256 amount, uint256 revenueTokenPrice) internal pure returns (uint256) {
-        uint256 EARLY_SALE_PENALTY_BP = 500; // 5%
         return (amount * revenueTokenPrice * EARLY_SALE_PENALTY_BP) / BP_PRECISION;
     }
 }
@@ -83,7 +89,7 @@ library ProtocolLib {
  * @dev Generic asset management library for protocol-wide asset operations
  * Provides common structures and functionality for all asset types
  */
-library AssetsLib {
+library AssetLib {
     // Asset status enumeration for lifecycle management
     enum AssetStatus {
         Inactive, // Asset exists but not operational
@@ -101,9 +107,7 @@ library AssetsLib {
     }
 
     // Asset lifecycle errors
-    error AssetsLib__InvalidStatusTransition(AssetStatus from, AssetStatus to);
-    error AssetsLib__AssetNotFound(uint256 assetId);
-    error AssetsLib__AssetNotActive(uint256 assetId);
+    error AssetLib__InvalidStatusTransition(AssetStatus from, AssetStatus to);
 
     /**
      * @dev Initialize asset info
@@ -126,7 +130,7 @@ library AssetsLib {
 
         // Validate status transition
         if (!isValidStatusTransition(currentStatus, newStatus)) {
-            revert AssetsLib__InvalidStatusTransition(currentStatus, newStatus);
+            revert AssetLib__InvalidStatusTransition(currentStatus, newStatus);
         }
 
         info.status = newStatus;
@@ -216,7 +220,7 @@ library VehicleLib {
      */
     struct Vehicle {
         uint256 vehicleId; // Unique vehicle identifier
-        AssetsLib.AssetInfo assetInfo; // Standard asset management
+        AssetLib.AssetInfo assetInfo; // Standard asset management
         VehicleInfo vehicleInfo; // Immutable data + IPFS metadata URI
     }
 
@@ -226,7 +230,7 @@ library VehicleLib {
     function initializeVehicle(
         Vehicle storage vehicle,
         uint256 vehicleId,
-        AssetsLib.AssetStatus initialStatus,
+        AssetLib.AssetStatus initialStatus,
         string memory vin,
         string memory make,
         string memory model,
@@ -239,7 +243,7 @@ library VehicleLib {
         vehicle.vehicleId = vehicleId;
 
         // Initialize asset info
-        AssetsLib.initializeAssetInfo(vehicle.assetInfo, initialStatus);
+        AssetLib.initializeAssetInfo(vehicle.assetInfo, initialStatus);
 
         // Initialize vehicle-specific info
         initializeVehicleInfo(
@@ -274,7 +278,7 @@ library VehicleLib {
             revert VehicleLib__InvalidYear();
         }
         if (!ProtocolLib.isValidIPFSURI(dynamicMetadataURI)) {
-            revert VehicleLib__EmptyMetadataURI();
+            revert VehicleLib__InvalidMetadataURI();
         }
 
         // Set values
@@ -292,7 +296,7 @@ library VehicleLib {
      */
     function updateDynamicMetadata(VehicleInfo storage info, string memory newMetadataURI) internal {
         if (!ProtocolLib.isValidIPFSURI(newMetadataURI)) {
-            revert VehicleLib__EmptyMetadataURI();
+            revert VehicleLib__InvalidMetadataURI();
         }
         info.dynamicMetadataURI = newMetadataURI;
     }
@@ -349,33 +353,33 @@ library TokenLib {
      */
     struct TokenInfo {
         uint256 tokenId; // ERC1155 token ID
-        uint256 totalSupply; // Total number of tokens issued
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
+        uint256 tokenSupply; // Total number of tokens issued
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
         // Track positions per user
         mapping(address => TokenPosition[]) positions;
-        // Track total balance per user (for quick lookups)
-        mapping(address => uint256) balances;
     }
+
+    error TokenLib__InsufficientTokenBalance();
 
     /**
      * @dev Initialize token info
      * @param info Storage reference to token info
      * @param tokenId ERC1155 token ID
-     * @param totalSupply Total supply of tokens
      * @param tokenPrice Price per token in USDC
+     * @param totalSupply Total supply of tokens
      * @param minHoldingPeriod Minimum holding period (defaults to MONTHLY_INTERVAL)
      */
     function initializeTokenInfo(
         TokenInfo storage info,
         uint256 tokenId,
-        uint256 totalSupply,
         uint256 tokenPrice,
+        uint256 totalSupply,
         uint256 minHoldingPeriod
     ) internal {
         info.tokenId = tokenId;
-        info.totalSupply = totalSupply;
         info.tokenPrice = tokenPrice;
+        info.tokenSupply = totalSupply;
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
         // mappings are automatically initialized
@@ -391,7 +395,6 @@ library TokenLib {
         info.positions[holder].push(
             TokenPosition({ tokenId: info.tokenId, amount: amount, acquiredAt: block.timestamp, soldAt: 0 })
         );
-        info.balances[holder] += amount;
     }
 
     /**
@@ -399,18 +402,10 @@ library TokenLib {
      * @param info Storage reference to token info
      * @param holder Address of the token holder
      * @param amount Number of tokens to remove
-     * @param checkPenalty Whether to calculate early sale penalty
-     * @return penaltyAmount Early sale penalty if applicable
      */
-    function removePosition(TokenInfo storage info, address holder, uint256 amount, bool checkPenalty)
-        internal
-        returns (uint256 penaltyAmount)
-    {
-        require(info.balances[holder] >= amount, "TokenLib: Insufficient balance");
-
+    function removePosition(TokenInfo storage info, address holder, uint256 amount) internal {
         TokenPosition[] storage positions = info.positions[holder];
         uint256 remaining = amount;
-        uint256 totalPenalty;
 
         // Start from oldest position (FIFO)
         for (uint256 i = 0; i < positions.length && remaining > 0; i++) {
@@ -418,11 +413,6 @@ library TokenLib {
 
             if (pos.amount > 0) {
                 uint256 toRemove = remaining > pos.amount ? pos.amount : remaining;
-
-                // Calculate penalty if holding period not met
-                if (checkPenalty && block.timestamp < pos.acquiredAt + info.minHoldingPeriod) {
-                    totalPenalty += ProtocolLib.calculatePenalty(toRemove, info.tokenPrice);
-                }
 
                 // If partial transfer, create new position for remaining amount
                 if (toRemove < pos.amount) {
@@ -442,11 +432,53 @@ library TokenLib {
                 pos.soldAt = block.timestamp;
 
                 remaining -= toRemove;
-                info.balances[holder] -= toRemove;
             }
         }
+    }
 
+    /**
+     * @dev Calculates the early sale penalty for a given amount of tokens without modifying state.
+     * @param info Storage reference to token info.
+     * @param holder Address of the token holder.
+     * @param amountToSell Number of tokens being sold.
+     * @return penaltyAmount The calculated early sale penalty.
+     */
+    function calculateSalesPenalty(TokenInfo storage info, address holder, uint256 amountToSell)
+        internal
+        view
+        returns (uint256 penaltyAmount)
+    {
+        if (amountToSell == 0) return 0;
+
+        TokenPosition[] storage positions = info.positions[holder];
+        uint256 remaining = amountToSell;
+        uint256 totalPenalty;
+
+        // Start from oldest position (FIFO)
+        for (uint256 i = 0; i < positions.length && remaining > 0; i++) {
+            TokenPosition storage pos = positions[i];
+
+            if (pos.amount > 0) {
+                // Only consider active positions
+                uint256 toConsider = remaining > pos.amount ? pos.amount : remaining;
+
+                // Calculate penalty if holding period not met
+                if (block.timestamp < pos.acquiredAt + info.minHoldingPeriod) {
+                    totalPenalty += ProtocolLib.calculatePenalty(toConsider, info.tokenPrice);
+                }
+                remaining -= toConsider;
+            }
+        }
         return totalPenalty;
+    }
+
+    /**
+     * @dev Checks if a token ID corresponds to a revenue share token (even numbers).
+     * @param tokenId The ID of the token to check.
+     * @return True if the token is a revenue share token, false otherwise.
+     */
+    function isRevenueToken(uint256 tokenId) internal pure returns (bool) {
+        return tokenId != 0 && tokenId % 2 == 0;
     }
 
     /**
@@ -457,16 +489,6 @@ library TokenLib {
      */
     function calculateTokenValue(TokenInfo storage info, uint256 tokenAmount) internal view returns (uint256) {
         return info.tokenPrice * tokenAmount;
-    }
-
-    /**
-     * @dev Get user's current token balance
-     * @param info Storage reference to token info
-     * @param holder Address of the token holder
-     * @return Current token balance
-     */
-    function getBalance(TokenInfo storage info, address holder) internal view returns (uint256) {
-        return info.balances[holder];
     }
 
     /**
@@ -544,20 +566,20 @@ library CollateralLib {
      * @dev Initialize collateral info for a vehicle
      * @param info Collateral info storage reference
      * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param totalRevenueTokens Total number of revenue share tokens
+     * @param tokenSupply Total number of revenue share tokens
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
      */
     function initializeCollateralInfo(
         CollateralInfo storage info,
         uint256 revenueTokenPrice,
-        uint256 totalRevenueTokens,
+        uint256 tokenSupply,
         uint256 bufferTimeInterval
     ) internal {
-        if (revenueTokenPrice == 0 || totalRevenueTokens == 0) {
+        if (revenueTokenPrice == 0 || tokenSupply == 0) {
             revert CollateralLib__InvalidCollateralAmount();
         }
 
-        uint256 baseAmount = revenueTokenPrice * totalRevenueTokens;
+        uint256 baseAmount = revenueTokenPrice * tokenSupply;
         (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
             calculateCollateralRequirements(baseAmount, bufferTimeInterval);
 
@@ -576,7 +598,7 @@ library CollateralLib {
 
     /**
      * @dev Calculate collateral requirements with separate buffer components
-     * @param baseAmount Base collateral amount (revenueTokenPrice * totalRevenueTokens)
+     * @param baseAmount Base collateral amount (revenueTokenPrice * tokenSupply)
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
      * @return earningsBuffer Earnings buffer amount
      * @return protocolBuffer Protocol buffer amount
@@ -622,11 +644,7 @@ library CollateralLib {
      *      Depreciation is linear at 12% per year, prorated by time, and does not compound.
      *      Buffers are not considered here; caller is responsible for gating and buffer processing.
      */
-    function calculateCollateralRelease(CollateralInfo storage info)
-        internal
-        view
-        returns (uint256 releaseAmount, bool canRelease)
-    {
+    function calculateCollateralRelease(CollateralInfo storage info) internal view returns (uint256 releaseAmount) {
         // Cumulative allowed release from initial base
         uint256 elapsedSinceLock = block.timestamp - info.lockedAt;
         uint256 cumulativeAllowed = (info.initialBaseCollateral * 1200 * elapsedSinceLock)
@@ -635,32 +653,31 @@ library CollateralLib {
         // Already released from base
         uint256 releasedSoFar = info.initialBaseCollateral - info.baseCollateral;
         if (cumulativeAllowed <= releasedSoFar) {
-            return (0, true);
+            return 0;
         }
 
-        uint256 toRelease = cumulativeAllowed - releasedSoFar;
-        if (toRelease > info.baseCollateral) {
-            toRelease = info.baseCollateral;
+        releaseAmount = cumulativeAllowed - releasedSoFar;
+        if (releaseAmount > info.baseCollateral) {
+            releaseAmount = info.baseCollateral;
         }
-        return (toRelease, true);
     }
 
     /**
      * @dev Get collateral breakdown for display
      * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param totalRevenueTokens Total number of revenue share tokens
+     * @param tokenSupply Total number of revenue share tokens
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
      * @return baseAmount Base collateral amount
      * @return earningsBuffer Earnings buffer amount
      * @return protocolBuffer Protocol buffer amount
      * @return totalRequired Total collateral required
      */
-    function getCollateralBreakdown(uint256 revenueTokenPrice, uint256 totalRevenueTokens, uint256 bufferTimeInterval)
+    function getCollateralBreakdown(uint256 revenueTokenPrice, uint256 tokenSupply, uint256 bufferTimeInterval)
         internal
         pure
         returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalRequired)
     {
-        baseAmount = revenueTokenPrice * totalRevenueTokens;
+        baseAmount = revenueTokenPrice * tokenSupply;
 
         // Calculate expected earnings for the specified time interval
         uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
@@ -678,9 +695,8 @@ library CollateralLib {
      * @return Depreciation amount
      */
     function calculateDepreciation(uint256 baseAmount, uint256 timeElapsed) internal pure returns (uint256) {
-        uint256 DEPRECIATION_RATE_BP = 1200; // 12% annually
-        return
-            (baseAmount * DEPRECIATION_RATE_BP * timeElapsed) / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
+        return (baseAmount * ProtocolLib.DEPRECIATION_RATE_BP * timeElapsed)
+            / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
     }
 
     /**
