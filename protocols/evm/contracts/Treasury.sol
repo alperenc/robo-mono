@@ -294,7 +294,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function distributeEarnings(uint256 assetId, uint256 amount) external onlyAuthorizedPartner nonReentrant {
         if (amount == 0) revert Treasury__InvalidEarningsAmount();
-        if (amount < ProtocolLib.MINIMUM_PROTOCOL_FEE) revert Treasury__EarningsLessThanMinimumFee();
+        if (amount < ProtocolLib.MIN_PROTOCOL_FEE) revert Treasury__EarningsLessThanMinimumFee();
 
         // Verify partner owns the asset
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
@@ -504,28 +504,15 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @param tokenSupply Total number of revenue share tokens
      * @return Total collateral requirement in USDC
      */
-    function getCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply) external pure returns (uint256) {
-        uint256 baseAmount = revenueTokenPrice * tokenSupply;
-        (,, uint256 totalCollateral) =
-            CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL);
-        return totalCollateral;
-    }
-
-    /**
-     * @dev Get collateral breakdown for display purposes
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param tokenSupply Total number of revenue share tokens
-     * @return baseAmount Base collateral amount
-     * @return earningsBuffer Earnings buffer amount
-     * @return protocolBuffer Protocol buffer amount
-     * @return totalRequired Total collateral required
-     */
-    function getCollateralBreakdown(uint256 revenueTokenPrice, uint256 tokenSupply)
+    function getTotalCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply)
         external
         pure
-        returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalRequired)
+        returns (uint256)
     {
-        return CollateralLib.getCollateralBreakdown(revenueTokenPrice, tokenSupply, ProtocolLib.QUARTERLY_INTERVAL);
+        (,,, uint256 totalCollateral) = CollateralLib.calculateCollateralRequirements(
+            revenueTokenPrice, tokenSupply, ProtocolLib.QUARTERLY_INTERVAL
+        );
+        return totalCollateral;
     }
 
     /**
