@@ -204,7 +204,7 @@ contract BaseTest is Test {
 
     function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
         // Calculate required collateral
-        scenario.requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        scenario.requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         // Approve USDC for collateral
@@ -538,9 +538,11 @@ contract BaseTest is Test {
         returns (uint256 base, uint256 earningsBuffer, uint256 protocolBuffer, uint256 total)
     {
         base = revenueTokenPrice * totalTokens;
-        uint256 expectedQuarterlyEarnings = (base * 90 days) / 365 days;
-        earningsBuffer = (expectedQuarterlyEarnings * 1000) / 10000; // 10%
-        protocolBuffer = (expectedQuarterlyEarnings * 500) / 10000; // 5%
+        uint256 expectedQuarterlyEarnings = (base * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
+        earningsBuffer =
+            (expectedQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
+        protocolBuffer =
+            (expectedQuarterlyEarnings * ProtocolLib.PROTOCOL_FEE_BP) / ProtocolLib.BP_PRECISION;
         total = base + earningsBuffer + protocolBuffer;
     }
 

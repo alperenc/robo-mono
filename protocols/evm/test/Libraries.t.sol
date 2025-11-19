@@ -18,8 +18,8 @@ contract ProtocolEarningsHelper {
         return ProtocolLib.calculatePenalty(amount, price);
     }
 
-    function calcBenchmark(uint256 principal, uint256 timeElapsed, uint256 bp) external pure returns (uint256) {
-        return EarningsLib.calculateBenchmarkEarnings(principal, timeElapsed, bp);
+    function calcEarnings(uint256 principal, uint256 timeElapsed, uint256 bp) external pure returns (uint256) {
+        return EarningsLib.calculateEarnings(principal, timeElapsed, bp);
     }
 
     function calcBenchmarkDefault(uint256 principal, uint256 timeElapsed) external pure returns (uint256) {
@@ -92,16 +92,12 @@ contract CollateralTokenEarningsHelper {
         return c.getLockDuration();
     }
 
-    function getBreakdown(uint256 price, uint256 total, uint256 interval)
+    function calcReq(uint256 tokenPrice, uint256 tokenSupply, uint256 interval)
         external
         pure
         returns (uint256, uint256, uint256, uint256)
     {
-        return CollateralLib.getCollateralBreakdown(price, total, interval);
-    }
-
-    function calcReq(uint256 base, uint256 interval) external pure returns (uint256, uint256, uint256) {
-        return CollateralLib.calculateCollateralRequirements(base, interval);
+        return CollateralLib.calculateCollateralRequirements(tokenPrice, tokenSupply, interval);
     }
 
     function depreciation(uint256 base, uint256 elapsed) external pure returns (uint256) {
@@ -113,7 +109,7 @@ contract CollateralTokenEarningsHelper {
     }
 
     function targetBuffer(uint256 base) external pure returns (uint256) {
-        return CollateralLib.getTargetEarningsBuffer(base);
+        return CollateralLib.getBenchmarkEarningsBuffer(base);
     }
 
     function initToken(uint256 tokenId, uint256 supply, uint256 price, uint256 minHold) external {
@@ -176,7 +172,7 @@ contract LibrariesTest is Test {
     }
 
     // ProtocolLib tests
-    function test_IPFSValidation() public pure {
+    function testIPFSValidation() public pure {
         // invalid: empty and just prefix
         assertFalse(ProtocolLib.isValidIPFSURI(""));
         assertFalse(ProtocolLib.isValidIPFSURI("ipfs://"));
@@ -186,14 +182,14 @@ contract LibrariesTest is Test {
         assertTrue(ProtocolLib.isValidIPFSURI("ipfs://QmHashValue"));
     }
 
-    function test_ProtocolFeeAndPenalty() public pure {
-        assertEq(ProtocolLib.calculateProtocolFee(10_000), ProtocolLib.MINIMUM_PROTOCOL_FEE); // 2.5% is less than min fee
+    function testProtocolFeeAndPenalty() public pure {
+        assertEq(ProtocolLib.calculateProtocolFee(10_000), ProtocolLib.MIN_PROTOCOL_FEE); // 2.5% is less than min fee
         // 10 tokens at price 100 => 5% = 50
         assertEq(ProtocolLib.calculatePenalty(10, 100), 50);
     }
 
     // AssetLib tests
-    function test_Assets_InitAndTransitions() public {
+    function testAssetsInitAndTransitions() public {
         ah.init(AssetLib.AssetStatus.Inactive);
         assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Inactive));
         assertFalse(ah.isOperational());
@@ -231,7 +227,7 @@ contract LibrariesTest is Test {
         ah.update(AssetLib.AssetStatus.Active);
     }
 
-    function test_Assets_TimeViews() public {
+    function testAssetsTimeViews() public {
         ah.init(AssetLib.AssetStatus.Active);
         uint256 t0 = block.timestamp;
         vm.warp(t0 + 1 days);
@@ -244,7 +240,7 @@ contract LibrariesTest is Test {
     }
 
     // CollateralLib tests
-    function test_Collateral_InitAndView() public {
+    function testCollateralInitAndView() public {
         // invalid input
         vm.expectRevert(CollateralLib__InvalidCollateralAmount.selector);
         cteh.initCollateral(0, 1000, ProtocolLib.QUARTERLY_INTERVAL);
@@ -264,20 +260,14 @@ contract LibrariesTest is Test {
         assertApproxEqAbs(cteh.lockDuration(), 7 days, 2);
     }
 
-    function test_Collateral_BreakdownAndRequirements() public pure {
+    function testCollateralRequirements() public pure {
         (uint256 baseAmt, uint256 eBuf, uint256 pBuf, uint256 tot) =
-            CollateralLib.getCollateralBreakdown(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+            CollateralLib.calculateCollateralRequirements(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
         assertEq(baseAmt, 100e9);
         assertEq(tot, baseAmt + eBuf + pBuf);
-
-        (uint256 e2, uint256 p2, uint256 t2) =
-            CollateralLib.calculateCollateralRequirements(baseAmt, ProtocolLib.QUARTERLY_INTERVAL);
-        assertEq(eBuf, e2);
-        assertEq(pBuf, p2);
-        assertEq(tot, t2 + 0); // same total
     }
 
-    function test_Collateral_DepreciationAndBuffers() public {
+    function testCollateralDepreciationAndBuffers() public {
         cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
         uint256 dep = cteh.depreciation(100e9, 30 days);
         assertGt(dep, 0);
@@ -304,7 +294,7 @@ contract LibrariesTest is Test {
         assertGe(replenished, 0);
     }
 
-    function test_Collateral_PerfectMatchBuffers() public {
+    function testCollateralPerfectMatchBuffers() public {
         cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
         uint256 dt = 30 days;
         (uint256 baseCol,,,) = cteh.collateralView();
@@ -314,17 +304,16 @@ contract LibrariesTest is Test {
         assertEq(replenished, 0);
     }
 
-    function test_Benchmark_WithHigherBP() public pure {
+    function testBenchmarkWithHigherBP() public pure {
         uint256 principal = 1000e6;
         uint256 dt = 30 days;
         uint256 defaultBench = EarningsLib.calculateBenchmarkEarnings(principal, dt);
-        uint256 higherBench =
-            EarningsLib.calculateBenchmarkEarnings(principal, dt, ProtocolLib.MIN_EARNINGS_BUFFER_BP + 500);
+        uint256 higherBench = EarningsLib.calculateEarnings(principal, dt, ProtocolLib.BENCHMARK_EARNINGS_BP + 500);
         assertGt(higherBench, defaultBench);
     }
 
     // TokenLib tests
-    function test_Token_InitializationAndValueCalculation() public {
+    function testTokenInitializationAndValueCalculation() public {
         // min holding coerced to at least MONTHLY_INTERVAL
         cteh.initToken(1, 1000, 100e6, 1 days);
         (uint256 tid, uint256 price, uint256 supply, uint256 minHold) = cteh.tokenInfo();
@@ -337,7 +326,7 @@ contract LibrariesTest is Test {
         assertEq(cteh.tokenValue(5), 5 * 100e6);
     }
 
-    function test_Token_UnclaimedForPositionsAndEarningsHelpers() public {
+    function testTokenUnclaimedForPositionsAndEarningsHelpers() public {
         cteh.initToken(7, 1000, 1e6, ProtocolLib.MONTHLY_INTERVAL);
         cteh.addPos(alice, 10);
 

@@ -363,7 +363,9 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(marketplace.isAssetEligibleForListing(scenario.assetId));
 
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY));
+        usdc.approve(
+            address(treasury), treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY)
+        );
         treasury.lockCollateral(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
 
@@ -453,11 +455,9 @@ contract MarketplaceIntegrationTest is BaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.calculatePurchaseCost(listingId, purchaseAmount);
 
-        assertEq(protocolFee, ProtocolLib.MINIMUM_PROTOCOL_FEE, "Protocol fee should be the minimum fee");
+        assertEq(protocolFee, ProtocolLib.MIN_PROTOCOL_FEE, "Protocol fee should be the minimum fee");
         assertEq(
-            expectedPayment,
-            totalPrice + ProtocolLib.MINIMUM_PROTOCOL_FEE,
-            "Expected payment should include minimum fee"
+            expectedPayment, totalPrice + ProtocolLib.MIN_PROTOCOL_FEE, "Expected payment should include minimum fee"
         );
 
         // 3. Execute purchase
@@ -476,7 +476,7 @@ contract MarketplaceIntegrationTest is BaseTest {
             int256(totalPrice), // Partner USDC change
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC change
-            int256(ProtocolLib.MINIMUM_PROTOCOL_FEE), // Treasury Contract USDC change (receives minimum fee)
+            int256(ProtocolLib.MIN_PROTOCOL_FEE), // Treasury Contract USDC change (receives minimum fee)
             0, // Partner token change
             int256(purchaseAmount) // Buyer token change
         );

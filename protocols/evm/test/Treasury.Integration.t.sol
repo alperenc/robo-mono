@@ -15,7 +15,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateral() public {
         _ensureState(SetupState.AssetRegistered);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
@@ -44,7 +44,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateralEmitsEvent() public {
         _ensureState(SetupState.AssetRegistered);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
@@ -66,7 +66,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateralAlreadyLocked() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
@@ -86,7 +86,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateralInsufficientApproval() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral - 1);
         vm.expectRevert();
@@ -98,7 +98,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testUnlockCollateral() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         treasury.releaseCollateral(scenario.assetId);
@@ -111,7 +111,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testUnlockCollateralEmitsEvent() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         vm.expectEmit(true, true, false, true);
@@ -207,7 +207,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
         _ensureState(SetupState.RevenueTokensMinted);
         (uint256 deposited1, uint256 balance1) = treasury.getTreasuryStats();
-        uint256 expectedCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 expectedCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         assertEq(deposited1, expectedCollateral);
         assertEq(balance1, expectedCollateral);
     }
@@ -225,7 +225,7 @@ contract TreasuryIntegrationTest is BaseTest {
     function testMultipleAssetCollateralLocking() public {
         _ensureState(SetupState.AssetRegistered); // First vehicle for partner1
         uint256 vehicleId1 = scenario.assetId;
-        uint256 requiredCollateral1 = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral1 = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral1);
         treasury.lockCollateral(vehicleId1, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
@@ -239,7 +239,7 @@ contract TreasuryIntegrationTest is BaseTest {
             )
         );
 
-        uint256 requiredCollateral2 = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral2 = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral2);
         treasury.lockCollateral(vehicleId2, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
@@ -477,7 +477,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateralFor() public {
         _ensureState(SetupState.AssetRegistered);
-        uint256 requiredCollateral = treasury.getCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
@@ -707,9 +707,9 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testDistributeEarningsMinimumProtocolFee() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 tinyEarningsAmount = ProtocolLib.MINIMUM_PROTOCOL_FEE; // An amount equal to the minimum fee, ensuring it's applied
+        uint256 tinyEarningsAmount = ProtocolLib.MIN_PROTOCOL_FEE; // An amount equal to the minimum fee, ensuring it's applied
         uint256 protocolFee = calculateExpectedProtocolFee(tinyEarningsAmount);
-        assertEq(protocolFee, ProtocolLib.MINIMUM_PROTOCOL_FEE, "Protocol fee should be the minimum fee");
+        assertEq(protocolFee, ProtocolLib.MIN_PROTOCOL_FEE, "Protocol fee should be the minimum fee");
 
         uint256 initialFeeBalance = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
 
@@ -721,14 +721,14 @@ contract TreasuryIntegrationTest is BaseTest {
         uint256 finalFeeBalance = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
         assertEq(
             finalFeeBalance,
-            initialFeeBalance + ProtocolLib.MINIMUM_PROTOCOL_FEE,
+            initialFeeBalance + ProtocolLib.MIN_PROTOCOL_FEE,
             "Fee recipient balance should increase by minimum fee"
         );
     }
 
     function testDistributeEarningsAmountLessThanMinimumFee() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 insufficientEarningsAmount = ProtocolLib.MINIMUM_PROTOCOL_FEE - 1;
+        uint256 insufficientEarningsAmount = ProtocolLib.MIN_PROTOCOL_FEE - 1;
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), insufficientEarningsAmount);

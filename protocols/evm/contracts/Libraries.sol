@@ -30,12 +30,11 @@ library ProtocolLib {
 
     // Protocol economic constants (basis points)
     uint256 internal constant BP_PRECISION = 10000;
-    uint256 internal constant MIN_EARNINGS_BUFFER_BP = 1000; // 10%
-    uint256 internal constant MIN_PROTOCOL_BUFFER_BP = 500; // 5%
+    uint256 internal constant BENCHMARK_EARNINGS_BP = 1000; // 10%
     uint256 internal constant PROTOCOL_FEE_BP = 250; // 2.5%
     uint256 internal constant EARLY_SALE_PENALTY_BP = 500; // 5%
     uint256 internal constant DEPRECIATION_RATE_BP = 1200; // 12% annually
-    uint256 internal constant MINIMUM_PROTOCOL_FEE = 1 * 10 ** 6; // 0.01 USDC (assuming 6 decimals)
+    uint256 internal constant MIN_PROTOCOL_FEE = 1 * 10 ** 6; // 1 USDC (assuming 6 decimals)
 
     /**
      * @dev Validate IPFS URI format
@@ -68,8 +67,8 @@ library ProtocolLib {
      */
     function calculateProtocolFee(uint256 amount) internal pure returns (uint256) {
         uint256 fee = (amount * PROTOCOL_FEE_BP) / BP_PRECISION;
-        if (amount > 0 && fee < MINIMUM_PROTOCOL_FEE) {
-            return MINIMUM_PROTOCOL_FEE;
+        if (amount > 0 && fee < MIN_PROTOCOL_FEE) {
+            return MIN_PROTOCOL_FEE;
         }
         return fee;
     }
@@ -579,9 +578,8 @@ library CollateralLib {
             revert CollateralLib__InvalidCollateralAmount();
         }
 
-        uint256 baseAmount = revenueTokenPrice * tokenSupply;
-        (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
-            calculateCollateralRequirements(baseAmount, bufferTimeInterval);
+        (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
+            calculateCollateralRequirements(revenueTokenPrice, tokenSupply, bufferTimeInterval);
 
         info.initialBaseCollateral = baseAmount;
         info.baseCollateral = baseAmount;
@@ -598,23 +596,27 @@ library CollateralLib {
 
     /**
      * @dev Calculate collateral requirements with separate buffer components
-     * @param baseAmount Base collateral amount (revenueTokenPrice * tokenSupply)
+     * @param revenueTokenPrice Price per revenue share token in USDC
+     * @param tokenSupply Total number of revenue share tokens
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
+     * @return baseAmount Base collateral amount
      * @return earningsBuffer Earnings buffer amount
      * @return protocolBuffer Protocol buffer amount
      * @return totalCollateral Total collateral requirement
      */
-    function calculateCollateralRequirements(uint256 baseAmount, uint256 bufferTimeInterval)
+    function calculateCollateralRequirements(uint256 revenueTokenPrice, uint256 tokenSupply, uint256 bufferTimeInterval)
         internal
         pure
-        returns (uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
+        returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
     {
-        // Calculate expected earnings for the specified time interval
-        uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
+        // Calculate base collateral amount
+        baseAmount = revenueTokenPrice * tokenSupply;
 
         // Calculate buffers for investor protection over the time interval
-        earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
-        protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        earningsBuffer = EarningsLib.calculateBenchmarkEarnings(baseAmount, bufferTimeInterval);
+        protocolBuffer = EarningsLib.calculateProtocolEarnings(baseAmount, bufferTimeInterval);
+
+        // Total collateral is sum of base and buffers
         totalCollateral = baseAmount + earningsBuffer + protocolBuffer;
     }
 
@@ -663,32 +665,6 @@ library CollateralLib {
     }
 
     /**
-     * @dev Get collateral breakdown for display
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param tokenSupply Total number of revenue share tokens
-     * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
-     * @return baseAmount Base collateral amount
-     * @return earningsBuffer Earnings buffer amount
-     * @return protocolBuffer Protocol buffer amount
-     * @return totalRequired Total collateral required
-     */
-    function getCollateralBreakdown(uint256 revenueTokenPrice, uint256 tokenSupply, uint256 bufferTimeInterval)
-        internal
-        pure
-        returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalRequired)
-    {
-        baseAmount = revenueTokenPrice * tokenSupply;
-
-        // Calculate expected earnings for the specified time interval
-        uint256 expectedIntervalEarnings = (baseAmount * bufferTimeInterval) / ProtocolLib.YEARLY_INTERVAL;
-
-        // Calculate time-based buffers
-        earningsBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
-        protocolBuffer = (expectedIntervalEarnings * ProtocolLib.MIN_PROTOCOL_BUFFER_BP) / ProtocolLib.BP_PRECISION;
-        totalRequired = baseAmount + earningsBuffer + protocolBuffer;
-    }
-
-    /**
      * @dev Calculate depreciation based on time elapsed
      * @param baseAmount Base collateral amount
      * @param timeElapsed Time elapsed since last event
@@ -734,10 +710,10 @@ library CollateralLib {
         else if (netEarnings > baseEarnings) {
             uint256 excessEarnings = netEarnings - baseEarnings;
 
-            // Calculate target buffer amount (what buffer should be)
-            uint256 targetEarningsBuffer = getTargetEarningsBuffer(info.baseCollateral);
+            // Calculate benchmark buffer amount (what buffer should be)
+            uint256 benchmarkEarningsBuffer = getBenchmarkEarningsBuffer(info.baseCollateral);
             uint256 bufferDeficit =
-                targetEarningsBuffer > info.earningsBuffer ? targetEarningsBuffer - info.earningsBuffer : 0;
+                benchmarkEarningsBuffer > info.earningsBuffer ? benchmarkEarningsBuffer - info.earningsBuffer : 0;
 
             uint256 replenished = 0;
             if (info.reservedForLiquidation > 0) {
@@ -766,14 +742,14 @@ library CollateralLib {
     }
 
     /**
-     * @dev Get target earnings buffer amount based on current base collateral
+     * @dev Get benchmark earnings buffer amount based on current base collateral
      * @param baseCollateral Current base collateral amount
-     * @return Target earnings buffer amount
+     * @return Benchmark earnings buffer amount
      */
-    function getTargetEarningsBuffer(uint256 baseCollateral) internal pure returns (uint256) {
-        uint256 expectedQuarterlyEarnings =
+    function getBenchmarkEarningsBuffer(uint256 baseCollateral) internal pure returns (uint256) {
+        uint256 benchmarkQuarterlyEarnings =
             (baseCollateral * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
-        return (expectedQuarterlyEarnings * ProtocolLib.MIN_EARNINGS_BUFFER_BP) / ProtocolLib.BP_PRECISION;
+        return (benchmarkQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
     }
 }
 
@@ -823,30 +799,38 @@ library EarningsLib {
     }
 
     /**
-     * @dev Calculate benchmark earnings for investor protection
-     * @param principal Base amount (revenue token price * total tokens)
+     * @dev Calculate earnings based on principal, time elapsed, and earnings rate
+     * @param principal Base amount
      * @param timeElapsed Time elapsed in seconds
      * @param earningsBP Earnings rate in basis points
-     * @return Benchmark earnings amount for investor safety
+     * @return Earnings amount
      */
-    function calculateBenchmarkEarnings(uint256 principal, uint256 timeElapsed, uint256 earningsBP)
+    function calculateEarnings(uint256 principal, uint256 timeElapsed, uint256 earningsBP)
         internal
         pure
         returns (uint256)
     {
-        uint256 effectiveRate =
-            earningsBP > ProtocolLib.MIN_EARNINGS_BUFFER_BP ? earningsBP : ProtocolLib.MIN_EARNINGS_BUFFER_BP;
-        return (principal * effectiveRate * timeElapsed) / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
+        return (principal * timeElapsed * earningsBP) / (ProtocolLib.YEARLY_INTERVAL * ProtocolLib.BP_PRECISION);
     }
 
     /**
-     * @dev Calculate benchmark earnings using default minimum rate
-     * @param principal Base amount
+     * @dev Calculate benchmark earnings for investor protection
+     * @param principal Base amount (revenue token price * total tokens)
      * @param timeElapsed Time elapsed in seconds
-     * @return Benchmark earnings amount
+     * @return Benchmark earnings amount for investor safety
+     */
+    function calculateProtocolEarnings(uint256 principal, uint256 timeElapsed) internal pure returns (uint256) {
+        return calculateEarnings(principal, timeElapsed, ProtocolLib.PROTOCOL_FEE_BP);
+    }
+
+    /**
+     * @dev Calculate benchmark earnings for investor protection
+     * @param principal Base amount (revenue token price * total tokens)
+     * @param timeElapsed Time elapsed in seconds
+     * @return Benchmark earnings amount for investor safety
      */
     function calculateBenchmarkEarnings(uint256 principal, uint256 timeElapsed) internal pure returns (uint256) {
-        return calculateBenchmarkEarnings(principal, timeElapsed, ProtocolLib.MIN_EARNINGS_BUFFER_BP);
+        return calculateEarnings(principal, timeElapsed, ProtocolLib.BENCHMARK_EARNINGS_BP);
     }
 
     /**
@@ -872,8 +856,6 @@ library EarningsLib {
 
         return unclaimedAmount;
     }
-
-    // removed: collateral release calculation now belongs to CollateralLib and is linear
 
     /**
      * @dev Calculate earnings for positions with per-position claim tracking
