@@ -25,9 +25,11 @@ contract RoboshareTokens is
     UUPSUpgradeable
 {
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+    bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
+    // Token ID counter
     uint256 private _tokenIdCounter;
 
     // Stores TokenInfo structs for each token ID, which includes position tracking
@@ -53,6 +55,7 @@ contract RoboshareTokens is
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(MINTER_ROLE, defaultAdmin);
         _grantRole(BURNER_ROLE, defaultAdmin);
+        _grantRole(URI_SETTER_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
 
         _tokenIdCounter = 1; // Start from 1, 0 reserved.
@@ -90,7 +93,7 @@ contract RoboshareTokens is
             revert RoboshareTokens__NotRevenueToken();
         }
         TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
-        if (tokenInfo.tokenSupply != 0) {
+        if (tokenInfo.tokenId != 0) {
             revert RoboshareTokens__RevenueTokenInfoAlreadySet();
         }
 
@@ -98,17 +101,16 @@ contract RoboshareTokens is
             tokenInfo,
             revenueTokenId,
             price,
-            supply,
             ProtocolLib.MONTHLY_INTERVAL // Default holding period
         );
         emit RevenueTokenInfoSet(revenueTokenId, price, supply);
     }
 
     /**
-     * @dev Sets the base URI for all token types. Requires DEFAULT_ADMIN_ROLE.
+     * @dev Sets the base URI for all token types. Requires URI_SETTER_ROLE.
      * @param newuri The new URI for tokens.
      */
-    function setURI(string memory newuri) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setURI(string memory newuri) external onlyRole(URI_SETTER_ROLE) {
         _setURI(newuri);
     }
 
@@ -119,7 +121,7 @@ contract RoboshareTokens is
      * @param amount The amount of tokens to mint.
      * @param data Additional data to be passed to the ERC1155 hook.
      */
-    function mint(address to, uint256 id, uint256 amount, bytes memory data) public onlyRole(MINTER_ROLE) {
+    function mint(address to, uint256 id, uint256 amount, bytes memory data) external onlyRole(MINTER_ROLE) {
         _mint(to, id, amount, data);
     }
 
@@ -131,7 +133,7 @@ contract RoboshareTokens is
      * @param data Additional data to be passed to the ERC1155 hook.
      */
     function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
-        public
+        external
         onlyRole(MINTER_ROLE)
     {
         _mintBatch(to, ids, amounts, data);
@@ -143,7 +145,7 @@ contract RoboshareTokens is
      * @param id The ID of the token to burn.
      * @param amount The amount of tokens to burn.
      */
-    function burn(address from, uint256 id, uint256 amount) public onlyRole(BURNER_ROLE) {
+    function burn(address from, uint256 id, uint256 amount) external onlyRole(BURNER_ROLE) {
         _burn(from, id, amount);
     }
 
@@ -153,7 +155,7 @@ contract RoboshareTokens is
      * @param ids An array of token IDs to burn.
      * @param amounts An array of amounts corresponding to each token ID.
      */
-    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) public onlyRole(BURNER_ROLE) {
+    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external onlyRole(BURNER_ROLE) {
         _burnBatch(from, ids, amounts);
     }
 
@@ -170,7 +172,10 @@ contract RoboshareTokens is
      * @param revenueTokenId The ID of the token.
      * @return The total supply tracked in positions.
      */
-    function getRevenueTokenTotalSupply(uint256 revenueTokenId) external view returns (uint256) {
+    function getRevenueTokenSupply(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert RoboshareTokens__NotRevenueToken();
+        }
         return _revenueTokenInfos[revenueTokenId].tokenSupply;
     }
 
@@ -224,7 +229,9 @@ contract RoboshareTokens is
         view
         returns (uint256 penaltyAmount)
     {
-        if (!TokenLib.isRevenueToken(revenueTokenId)) revert RoboshareTokens__NotRevenueToken();
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert RoboshareTokens__NotRevenueToken();
+        }
 
         // Check balance before proceeding
         if (balanceOf(seller, revenueTokenId) < amount) {
@@ -269,6 +276,15 @@ contract RoboshareTokens is
 
             // Only track revenue share tokens (even IDs)
             if (TokenLib.isRevenueToken(tokenId)) {
+                TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
+
+                // Update total supply
+                if (from == address(0)) {
+                    tokenInfo.tokenSupply += amount;
+                } else if (to == address(0)) {
+                    tokenInfo.tokenSupply -= amount;
+                }
+
                 _updateRevenueTokenPositions(tokenId, from, to, amount);
                 emit RevenueTokenPositionsUpdated(tokenId, from, to, amount);
             }
