@@ -34,7 +34,10 @@ contract AssetHelper {
     AssetLib.AssetInfo internal info;
 
     function init(AssetLib.AssetStatus s) external {
-        info.initializeAssetInfo(s);
+        info.initializeAssetInfo();
+        if (s != AssetLib.AssetStatus.Pending) {
+            info.updateAssetStatus(s);
+        }
     }
 
     function update(AssetLib.AssetStatus s) external {
@@ -112,8 +115,8 @@ contract CollateralTokenEarningsHelper {
         return CollateralLib.getBenchmarkEarningsBuffer(base);
     }
 
-    function initToken(uint256 tokenId, uint256 supply, uint256 price, uint256 minHold) external {
-        t.initializeTokenInfo(tokenId, price, supply, minHold);
+    function initToken(uint256 tokenId, uint256 price, uint256 minHold) external {
+        t.initializeTokenInfo(tokenId, price, minHold);
     }
 
     function tokenInfo() external view returns (uint256, uint256, uint256, uint256) {
@@ -190,11 +193,11 @@ contract LibrariesTest is Test {
 
     // AssetLib tests
     function testAssetsInitAndTransitions() public {
-        ah.init(AssetLib.AssetStatus.Inactive);
-        assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Inactive));
+        ah.init(AssetLib.AssetStatus.Pending);
+        assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Pending));
         assertFalse(ah.isOperational());
 
-        // Valid transition Inactive -> Active
+        // Valid transition Pending -> Active
         ah.update(AssetLib.AssetStatus.Active);
         assertTrue(ah.isOperational());
 
@@ -202,15 +205,13 @@ contract LibrariesTest is Test {
         ah.update(AssetLib.AssetStatus.Suspended);
         assertFalse(ah.isOperational());
 
-        // Invalid: Suspended -> Inactive, assert exact custom error with args
+        // Invalid: Suspended -> Pending, assert exact custom error with args
         vm.expectRevert(
             abi.encodeWithSelector(
-                AssetLib.AssetLib__InvalidStatusTransition.selector,
-                AssetLib.AssetStatus.Suspended,
-                AssetLib.AssetStatus.Inactive
+                AssetLib.InvalidStatusTransition.selector, AssetLib.AssetStatus.Suspended, AssetLib.AssetStatus.Pending
             )
         );
-        ah.update(AssetLib.AssetStatus.Inactive);
+        ah.update(AssetLib.AssetStatus.Pending);
 
         // Valid: Suspended -> Active
         ah.update(AssetLib.AssetStatus.Active);
@@ -219,9 +220,7 @@ contract LibrariesTest is Test {
         ah.update(AssetLib.AssetStatus.Archived);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AssetLib.AssetLib__InvalidStatusTransition.selector,
-                AssetLib.AssetStatus.Archived,
-                AssetLib.AssetStatus.Active
+                AssetLib.InvalidStatusTransition.selector, AssetLib.AssetStatus.Archived, AssetLib.AssetStatus.Active
             )
         );
         ah.update(AssetLib.AssetStatus.Active);
@@ -242,7 +241,7 @@ contract LibrariesTest is Test {
     // CollateralLib tests
     function testCollateralInitAndView() public {
         // invalid input
-        vm.expectRevert(CollateralLib__InvalidCollateralAmount.selector);
+        vm.expectRevert(CollateralLib.InvalidCollateralAmount.selector);
         cteh.initCollateral(0, 1000, ProtocolLib.QUARTERLY_INTERVAL);
 
         cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
@@ -315,11 +314,11 @@ contract LibrariesTest is Test {
     // TokenLib tests
     function testTokenInitializationAndValueCalculation() public {
         // min holding coerced to at least MONTHLY_INTERVAL
-        cteh.initToken(1, 1000, 100e6, 1 days);
+        cteh.initToken(1, 100e6, 1 days);
         (uint256 tid, uint256 price, uint256 supply, uint256 minHold) = cteh.tokenInfo();
         assertEq(tid, 1);
         assertEq(price, 100e6);
-        assertEq(supply, 1000);
+        assertEq(supply, 0);
         assertEq(minHold, ProtocolLib.MONTHLY_INTERVAL);
 
         // token value
@@ -327,7 +326,7 @@ contract LibrariesTest is Test {
     }
 
     function testTokenUnclaimedForPositionsAndEarningsHelpers() public {
-        cteh.initToken(7, 1000, 1e6, ProtocolLib.MONTHLY_INTERVAL);
+        cteh.initToken(7, 100e6, ProtocolLib.MONTHLY_INTERVAL);
         cteh.addPos(alice, 10);
 
         // Initialize earnings and set three periods

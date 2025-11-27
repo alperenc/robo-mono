@@ -8,6 +8,15 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.PartnersAuthorized);
     }
 
+    function testRetireAssetPureWithOutstandingTokens() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        // Don't burn tokens
+        vm.prank(partner1);
+        // Expect Treasury error now
+        vm.expectRevert(ITreasury.OutstandingRevenueTokens.selector);
+        assetRegistry.retireAsset(scenario.assetId);
+    }
+
     // Vehicle Registration Tests
 
     function testRegisterAsset() public {
@@ -138,7 +147,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testUpdateVehicleMetadataInvalidUri() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(VehicleLib__InvalidMetadataURI.selector);
+        vm.expectRevert(VehicleLib.InvalidMetadataURI.selector);
         vm.prank(partner1);
         assetRegistry.updateVehicleMetadata(scenario.assetId, "http://not-ipfs");
     }
@@ -194,7 +203,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testMintRevenueTokensNonexistentVehicle() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetRegistry__AssetNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         vm.prank(partner1);
         assetRegistry.mintRevenueTokens(999, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
@@ -211,49 +220,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
         vm.prank(partner1);
         assetRegistry.updateVehicleMetadata(999, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
-    }
-
-    function testMintRevenueTokensTreasuryNotSet() public {
-        vm.startPrank(admin);
-        // Deploy a new registry without setting the treasury
-        VehicleRegistry newRegistry = new VehicleRegistry();
-        newRegistry.initialize(admin, address(roboshareTokens), address(partnerManager));
-
-        // Grant minter role to the new registry
-        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(newRegistry));
-        vm.stopPrank();
-
-        // Register an asset on the new registry
-        vm.prank(partner1);
-        uint256 tempAssetId = newRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            )
-        );
-
-        // Attempt to mint tokens should fail as treasury is not set
-        vm.prank(partner1);
-        vm.expectRevert(VehicleRegistry__TreasuryNotSet.selector);
-        newRegistry.mintRevenueTokens(tempAssetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-    }
-
-    function testRegisterAssetAndMintTokensTreasuryNotSet() public {
-        vm.startPrank(admin);
-        // Deploy a new registry without setting the treasury
-        VehicleRegistry newRegistry = new VehicleRegistry();
-        newRegistry.initialize(admin, address(roboshareTokens), address(partnerManager));
-        vm.stopPrank();
-
-        // Attempt to call registerAssetAndMintTokens should fail as treasury is not set
-        vm.prank(partner1);
-        vm.expectRevert(VehicleRegistry__TreasuryNotSet.selector);
-        newRegistry.registerAssetAndMintTokens(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            REVENUE_TOKEN_PRICE,
-            REVENUE_TOKEN_SUPPLY
-        );
     }
 
     function testMintRevenueTokensNotVehicleOwner() public {
@@ -362,5 +328,77 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         (,,,,,, string memory metadataURI) = assetRegistry.getVehicleInfo(scenario.assetId);
         assertEq(metadataURI, newURI);
+    }
+    // Retirement Tests
+
+    function testRetireAssetAndBurnTokens() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        // Verify initial state
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
+        uint256 expectedCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        assertCollateralState(scenario.assetId, 100000e6, expectedCollateral, true);
+
+        // Partner retires asset
+        vm.prank(partner1);
+        vm.expectEmit(true, true, false, true);
+        emit IAssetRegistry.AssetRetired(scenario.assetId, partner1, REVENUE_TOKEN_SUPPLY, expectedCollateral);
+        assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+
+        // Verify tokens burned
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
+        assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), 0);
+
+        // Verify status updated
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+
+        // Verify collateral released
+        // Collateral should be unlocked (locked = false)
+        (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(locked);
+    }
+
+    function testRetireAssetAndBurnTokensPartialHolding() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        // Partner sells some tokens
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, buyer, scenario.revenueTokenId, 100, "");
+
+        // Partner tries to retire
+        vm.prank(partner1);
+        vm.expectRevert(VehicleRegistry__OutstandingTokensHeldByOthers.selector);
+        assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+    }
+
+    function testBurnRevenueTokens() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 burnAmount = 500;
+
+        vm.prank(partner1);
+        assetRegistry.burnRevenueTokens(scenario.assetId, burnAmount);
+
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY - burnAmount);
+        assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY - burnAmount);
+    }
+
+    function testRetireAssetPure() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        // Burn all tokens first
+        vm.prank(partner1);
+        assetRegistry.burnRevenueTokens(scenario.assetId, REVENUE_TOKEN_SUPPLY);
+
+        // Now retire
+        vm.prank(partner1);
+        assetRegistry.retireAsset(scenario.assetId);
+
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(locked);
+    }
+
+    function testRetireAssetNotOwner() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.prank(partner2);
+        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
     }
 }

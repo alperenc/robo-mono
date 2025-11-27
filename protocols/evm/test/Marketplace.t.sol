@@ -13,8 +13,8 @@ contract MarketplaceTest is BaseTest {
     function testInitialization() public view {
         // Check contract references
         assertEq(address(marketplace.roboshareTokens()), address(roboshareTokens));
-        assertEq(address(marketplace.assetRegistry()), address(assetRegistry));
         assertEq(address(marketplace.partnerManager()), address(partnerManager));
+        assertEq(address(marketplace.router()), address(router));
         assertEq(address(marketplace.treasury()), address(treasury));
         assertEq(address(marketplace.usdcToken()), address(usdc));
         assertEq(marketplace.treasuryFeeRecipient(), config.treasuryFeeRecipient);
@@ -37,8 +37,8 @@ contract MarketplaceTest is BaseTest {
                 "initialize(address,address,address,address,address,address,address)",
                 address(0), // zero admin address
                 address(roboshareTokens),
-                address(assetRegistry),
                 address(partnerManager),
+                address(router),
                 address(treasury),
                 address(usdc),
                 config.treasuryFeeRecipient

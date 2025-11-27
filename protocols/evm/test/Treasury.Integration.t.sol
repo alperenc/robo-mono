@@ -3,7 +3,10 @@ pragma solidity ^0.8.19;
 
 import "./BaseTest.t.sol";
 
-contract TreasuryIntegrationTest is BaseTest {
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import "@openzeppelin/contracts/access/IAccessControl.sol";
+
+contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
 
     function setUp() public {
@@ -50,7 +53,7 @@ contract TreasuryIntegrationTest is BaseTest {
         usdc.approve(address(treasury), requiredCollateral);
 
         vm.expectEmit(true, true, false, true);
-        emit Treasury.CollateralLocked(scenario.assetId, partner1, requiredCollateral);
+        emit ITreasury.CollateralLocked(scenario.assetId, partner1, requiredCollateral);
 
         treasury.lockCollateral(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
@@ -97,27 +100,47 @@ contract TreasuryIntegrationTest is BaseTest {
     // Collateral Unlocking Tests
 
     function testUnlockCollateral() public {
-        _ensureState(SetupState.AssetWithListing);
-        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        _ensureState(SetupState.RevenueTokensMinted);
 
-        vm.startPrank(partner1);
-        treasury.releaseCollateral(scenario.assetId);
+        // Burn tokens first
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
         vm.stopPrank();
 
-        assertCollateralState(scenario.assetId, 0, 0, false);
-        assertEq(treasury.getPendingWithdrawal(partner1), requiredCollateral);
-        assertEq(treasury.totalCollateralDeposited(), 0);
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
+        roboshareTokens.burn(address(this), revenueTokenId, supply);
+
+        vm.prank(address(router));
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
+
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(isLocked);
     }
 
     function testUnlockCollateralEmitsEvent() public {
-        _ensureState(SetupState.AssetWithListing);
-        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        _ensureState(SetupState.RevenueTokensMinted);
 
-        vm.startPrank(partner1);
-        vm.expectEmit(true, true, false, true);
-        emit Treasury.CollateralReleased(scenario.assetId, partner1, requiredCollateral);
-        treasury.releaseCollateral(scenario.assetId);
+        // Burn tokens first
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
         vm.stopPrank();
+
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
+        roboshareTokens.burn(address(this), revenueTokenId, supply);
+
+        vm.expectEmit(true, true, false, true, address(treasury));
+        emit ITreasury.CollateralReleased(scenario.assetId, partner1, scenario.requiredCollateral);
+
+        vm.prank(address(router));
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
     }
 
     function testUnlockCollateralNotLocked() public {
@@ -138,29 +161,58 @@ contract TreasuryIntegrationTest is BaseTest {
     // Withdrawal Tests
 
     function testProcessWithdrawal() public {
-        _ensureState(SetupState.AssetWithListing);
-        uint256 initialBalance = usdc.balanceOf(partner1);
-        (, uint256 collateralAmount,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        _ensureState(SetupState.RevenueTokensMinted);
 
-        vm.startPrank(partner1);
-        treasury.releaseCollateral(scenario.assetId);
-        treasury.processWithdrawal();
+        // Burn tokens first
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
         vm.stopPrank();
 
-        assertUSDCBalance(partner1, initialBalance + collateralAmount, "Partner USDC balance mismatch after withdrawal");
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
+        roboshareTokens.burn(address(this), revenueTokenId, supply);
+
+        vm.prank(address(router));
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
+
+        uint256 initialBalance = usdc.balanceOf(partner1);
+        uint256 pending = treasury.getPendingWithdrawal(partner1);
+
+        vm.prank(partner1);
+        treasury.processWithdrawal();
+
+        assertEq(usdc.balanceOf(partner1), initialBalance + pending);
         assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
     function testProcessWithdrawalEmitsEvent() public {
-        _ensureState(SetupState.AssetWithListing);
-        (, uint256 collateralAmount,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        _ensureState(SetupState.RevenueTokensMinted);
 
-        vm.startPrank(partner1);
-        treasury.releaseCollateral(scenario.assetId);
-        vm.expectEmit(true, false, false, true);
-        emit Treasury.WithdrawalProcessed(partner1, collateralAmount);
-        treasury.processWithdrawal();
+        // Burn tokens first
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
         vm.stopPrank();
+
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
+        roboshareTokens.burn(address(this), revenueTokenId, supply);
+
+        vm.prank(address(router));
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
+
+        uint256 pending = treasury.getPendingWithdrawal(partner1);
+
+        vm.expectEmit(true, true, false, true, address(treasury));
+        emit ITreasury.WithdrawalProcessed(partner1, pending);
+
+        vm.prank(partner1);
+        treasury.processWithdrawal();
     }
 
     function testProcessWithdrawalNoPendingWithdrawals() public {
@@ -251,18 +303,41 @@ contract TreasuryIntegrationTest is BaseTest {
     }
 
     function testCompleteCollateralLifecycle() public {
-        _ensureState(SetupState.AccountsFunded);
-
-        uint256 initialBalance = usdc.balanceOf(partner1);
-
         _ensureState(SetupState.RevenueTokensMinted);
 
-        vm.startPrank(partner1);
-        treasury.releaseCollateral(scenario.assetId);
-        treasury.processWithdrawal();
+        // 1. Lock Collateral (already done in setup)
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(isLocked);
+
+        // 2. Burn tokens
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
         vm.stopPrank();
 
-        assertEq(usdc.balanceOf(partner1), initialBalance);
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
+        roboshareTokens.burn(address(this), revenueTokenId, supply);
+
+        // 3. Unlock Collateral
+        vm.prank(address(router));
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
+
+        (,, isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(isLocked);
+
+        // 4. Process Withdrawal
+        uint256 initialBalance = usdc.balanceOf(partner1);
+        uint256 pending = treasury.getPendingWithdrawal(partner1);
+        assertGt(pending, 0);
+
+        vm.prank(partner1);
+        treasury.processWithdrawal();
+
+        assertEq(usdc.balanceOf(partner1), initialBalance + pending);
+        assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
     // Earnings
@@ -276,7 +351,7 @@ contract TreasuryIntegrationTest is BaseTest {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
         vm.expectEmit(true, true, false, true);
-        emit Treasury.EarningsDistributed(scenario.assetId, partner1, netEarnings, 1);
+        emit ITreasury.EarningsDistributed(scenario.assetId, partner1, netEarnings, 1);
         treasury.distributeEarnings(scenario.assetId, earningsAmount);
         vm.stopPrank();
     }
@@ -332,8 +407,8 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateralForUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        // The msg.sender (marketplace) is authorized, but the `partner` parameter is not.
-        vm.prank(address(marketplace));
+        // The msg.sender (router) is authorized, but the `unauthorized` parameter is not.
+        vm.prank(address(router));
         vm.expectRevert(Treasury__UnauthorizedPartner.selector);
         treasury.lockCollateralFor(unauthorized, scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
@@ -341,7 +416,7 @@ contract TreasuryIntegrationTest is BaseTest {
     function testLockCollateralForNonExistentAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
         uint256 nonExistentAssetId = 999;
-        vm.prank(address(marketplace));
+        vm.prank(address(router));
         vm.expectRevert(Treasury__NotAssetOwner.selector);
         treasury.lockCollateralFor(partner1, nonExistentAssetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
@@ -375,7 +450,7 @@ contract TreasuryIntegrationTest is BaseTest {
 
         vm.startPrank(buyer);
         vm.expectEmit(true, true, false, true);
-        emit Treasury.EarningsClaimed(scenario.assetId, buyer, buyerShare);
+        emit ITreasury.EarningsClaimed(scenario.assetId, buyer, buyerShare);
         treasury.claimEarnings(scenario.assetId);
         vm.stopPrank();
     }
@@ -483,7 +558,7 @@ contract TreasuryIntegrationTest is BaseTest {
         usdc.approve(address(treasury), requiredCollateral);
         vm.stopPrank();
 
-        vm.prank(address(assetRegistry));
+        vm.prank(address(router));
         treasury.lockCollateralFor(partner1, scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         (uint256 baseCollateral, uint256 totalCollateral, bool isLocked,,) =
@@ -495,16 +570,63 @@ contract TreasuryIntegrationTest is BaseTest {
 
     function testLockCollateralForUnauthorized() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(Treasury__UnauthorizedContract.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                treasury.AUTHORIZED_ROUTER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         treasury.lockCollateralFor(partner1, scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
+    function testReleaseCollateralForUnauthorized() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                treasury.AUTHORIZED_ROUTER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
+    }
+
     function testLockCollateralForNotAssetOwner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.prank(address(marketplace));
+        vm.prank(address(router));
         vm.expectRevert(Treasury__NotAssetOwner.selector);
         treasury.lockCollateralFor(partner2, scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testReleaseCollateralForCalledByRegistry() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Burn tokens first to allow retirement
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        // Give burner role to this test contract to burn tokens
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
+        vm.stopPrank();
+
+        // Transfer tokens to this contract and burn
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
+        roboshareTokens.burn(address(this), revenueTokenId, supply);
+
+        // Impersonate VehicleRegistry (which is the authorized registry for the asset)
+        vm.prank(address(router));
+        treasury.releaseCollateralFor(partner1, scenario.assetId);
+
+        // Verify collateral released (partially or fully depending on state)
+        // In RevenueTokensMinted state, collateral is locked.
+        // releaseCollateralFor releases it.
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(isLocked);
     }
 
     function testTreasuryFeeRecipientWithdrawal() public {

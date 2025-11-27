@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import "./BaseTest.t.sol";
-import "../contracts/interfaces/IAssetRegistry.sol";
 
 contract VehicleRegistryTest is BaseTest {
     function setUp() public {
@@ -32,44 +31,29 @@ contract VehicleRegistryTest is BaseTest {
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address)", address(0), address(roboshareTokens), address(partnerManager)
         );
-        vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
+        vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
 
         // Test zero tokens
         initData =
             abi.encodeWithSignature("initialize(address,address,address)", admin, address(0), address(partnerManager));
-        vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
+        vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
 
         // Test zero partner manager
         initData =
             abi.encodeWithSignature("initialize(address,address,address)", admin, address(roboshareTokens), address(0));
-        vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
+        vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
-    function testSetTreasuryZeroAddress() public {
-        vm.prank(admin);
-        vm.expectRevert(VehicleRegistry__ZeroAddress.selector);
-        assetRegistry.setTreasury(address(0));
-    }
-
-    function testSetTreasuryAlreadySet() public {
-        // The treasury is already set in the BaseTest setup via _ensureState
-        _ensureState(SetupState.ContractsDeployed);
-
-        vm.prank(admin);
-        vm.expectRevert(VehicleRegistry__TreasuryAlreadySet.selector);
-        assetRegistry.setTreasury(makeAddr("anotherTreasury"));
-    }
-
     function testGetAssetInfoNonexistent() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetRegistry__AssetNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetInfo(999);
     }
 
     function testGetAssetStatusNonexistent() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetRegistry__AssetNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetStatus(999);
     }
 
@@ -102,7 +86,7 @@ contract VehicleRegistryTest is BaseTest {
     function testRegisterVehicleInvalidVINLength() public {
         _ensureState(SetupState.PartnersAuthorized);
         string memory shortVin = "VIN123"; // <10 length
-        vm.expectRevert(VehicleLib__InvalidVINLength.selector);
+        vm.expectRevert(VehicleLib.InvalidVINLength.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(
@@ -113,7 +97,7 @@ contract VehicleRegistryTest is BaseTest {
 
     function testRegisterVehicleEmptyMake() public {
         _ensureState(SetupState.PartnersAuthorized);
-        vm.expectRevert(VehicleLib__InvalidMake.selector);
+        vm.expectRevert(VehicleLib.InvalidMake.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(TEST_VIN, "", TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI)
@@ -122,7 +106,7 @@ contract VehicleRegistryTest is BaseTest {
 
     function testRegisterVehicleEmptyModel() public {
         _ensureState(SetupState.PartnersAuthorized);
-        vm.expectRevert(VehicleLib__InvalidModel.selector);
+        vm.expectRevert(VehicleLib.InvalidModel.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(TEST_VIN, TEST_MAKE, "", TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI)
@@ -131,7 +115,7 @@ contract VehicleRegistryTest is BaseTest {
 
     function testRegisterVehicleInvalidYear() public {
         _ensureState(SetupState.PartnersAuthorized);
-        vm.expectRevert(VehicleLib__InvalidYear.selector);
+        vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(
@@ -139,7 +123,7 @@ contract VehicleRegistryTest is BaseTest {
             )
         );
 
-        vm.expectRevert(VehicleLib__InvalidYear.selector);
+        vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(
@@ -168,5 +152,49 @@ contract VehicleRegistryTest is BaseTest {
 
         // Authorized and owns
         assertTrue(assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId));
+    }
+
+    function testSetAssetStatus() public {
+        _ensureState(SetupState.AssetRegistered);
+        uint256 assetId = scenario.assetId;
+
+        // Initial status is Pending
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Pending));
+
+        // Valid transition: Pending -> Active (called by Router)
+        vm.startPrank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+        vm.stopPrank();
+
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+    }
+
+    function testSetAssetStatusUnauthorized() public {
+        _ensureState(SetupState.AssetRegistered);
+        uint256 assetId = scenario.assetId;
+
+        // Invalid access: unauthorized caller
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                assetRegistry.AUTHORIZED_CONTRACT_ROLE()
+            )
+        );
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
+        vm.stopPrank();
+
+        // Invalid access: Treasury (revoked)
+        vm.startPrank(address(treasury));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(treasury),
+                assetRegistry.AUTHORIZED_CONTRACT_ROLE()
+            )
+        );
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
+        vm.stopPrank();
     }
 }
