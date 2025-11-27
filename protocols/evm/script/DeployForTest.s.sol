@@ -8,6 +8,7 @@ import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { Treasury } from "../contracts/Treasury.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 
 contract DeployForTest is ScaffoldETHDeploy {
@@ -17,6 +18,7 @@ contract DeployForTest is ScaffoldETHDeploy {
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
     Treasury public treasury;
+    RegistryRouter public router;
 
     // Implementation contract instances
     Marketplace public marketplaceImplementation;
@@ -24,7 +26,9 @@ contract DeployForTest is ScaffoldETHDeploy {
     RoboshareTokens public tokenImplementation;
     PartnerManager public partnerImplementation;
     Treasury public treasuryImplementation;
+    RegistryRouter public routerImplementation;
 
+    // Router instance
     modifier TestDeployerRunner(address _deployer) {
         vm.startPrank(_deployer);
         _;
@@ -35,16 +39,18 @@ contract DeployForTest is ScaffoldETHDeploy {
         public
         TestDeployerRunner(_deployer)
         returns (
-            Marketplace,
-            VehicleRegistry,
             RoboshareTokens,
             PartnerManager,
+            RegistryRouter,
+            VehicleRegistry,
             Treasury,
             Marketplace,
-            VehicleRegistry,
             RoboshareTokens,
             PartnerManager,
-            Treasury
+            RegistryRouter,
+            VehicleRegistry,
+            Treasury,
+            Marketplace
         )
     {
         // Get network configuration
@@ -62,10 +68,21 @@ contract DeployForTest is ScaffoldETHDeploy {
         ERC1967Proxy partnerProxy = new ERC1967Proxy(address(partnerImplementation), partnerInitData);
         partnerManager = PartnerManager(address(partnerProxy));
 
+        // Deploy RegistryRouter
+        routerImplementation = new RegistryRouter();
+        bytes memory routerInitData =
+            abi.encodeWithSignature("initialize(address,address)", _deployer, address(roboshareTokens));
+        ERC1967Proxy routerProxy = new ERC1967Proxy(address(routerImplementation), routerInitData);
+        router = RegistryRouter(address(routerProxy));
+
         // Deploy VehicleRegistry
         vehicleImplementation = new VehicleRegistry();
         bytes memory vehicleInitData = abi.encodeWithSignature(
-            "initialize(address,address,address)", _deployer, address(roboshareTokens), address(partnerManager)
+            "initialize(address,address,address,address)",
+            _deployer,
+            address(roboshareTokens),
+            address(partnerManager),
+            address(router)
         );
         ERC1967Proxy vehicleProxy = new ERC1967Proxy(address(vehicleImplementation), vehicleInitData);
         vehicleRegistry = VehicleRegistry(address(vehicleProxy));
@@ -75,9 +92,9 @@ contract DeployForTest is ScaffoldETHDeploy {
         bytes memory treasuryInitData = abi.encodeWithSignature(
             "initialize(address,address,address,address,address,address)",
             _deployer,
-            address(partnerManager),
-            address(vehicleRegistry),
             address(roboshareTokens),
+            address(partnerManager),
+            address(router),
             config.usdcToken,
             config.treasuryFeeRecipient
         );
@@ -90,8 +107,8 @@ contract DeployForTest is ScaffoldETHDeploy {
             "initialize(address,address,address,address,address,address,address)",
             _deployer,
             address(roboshareTokens),
-            address(vehicleRegistry),
             address(partnerManager),
+            address(router),
             address(treasury),
             config.usdcToken,
             config.treasuryFeeRecipient
@@ -99,20 +116,34 @@ contract DeployForTest is ScaffoldETHDeploy {
         ERC1967Proxy marketplaceProxy = new ERC1967Proxy(address(marketplaceImplementation), marketplaceInitData);
         marketplace = Marketplace(address(marketplaceProxy));
 
-        // Set the Treasury address in the VehicleRegistry
-        vehicleRegistry.setTreasury(address(treasury));
+        // --- Configuration & Role Granting ---
+
+        // 1. Configure Router
+        router.setTreasury(address(treasury));
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), address(vehicleRegistry));
+
+        // Configure VehicleRegistry
+
+        // 2. Grant Roles
+        // Grant MINTER_ROLE to Router (for reserving token IDs)
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(router));
+
+        // Grant BURNER_ROLE to VehicleRegistry (for burning revenue tokens on retirement)
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(vehicleRegistry));
 
         return (
-            marketplace,
-            vehicleRegistry,
             roboshareTokens,
             partnerManager,
+            router,
+            vehicleRegistry,
             treasury,
-            marketplaceImplementation,
-            vehicleImplementation,
+            marketplace,
             tokenImplementation,
             partnerImplementation,
-            treasuryImplementation
+            routerImplementation,
+            vehicleImplementation,
+            treasuryImplementation,
+            marketplaceImplementation
         );
     }
 }
