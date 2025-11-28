@@ -30,7 +30,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     using VehicleLib for VehicleLib.VehicleInfo;
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
-    bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
+    bytes32 public constant ROUTER_ROLE = keccak256("ROUTER_ROLE");
 
     // Core contracts
     RoboshareTokens public roboshareTokens;
@@ -73,7 +73,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(UPGRADER_ROLE, _admin);
-        _grantRole(AUTHORIZED_CONTRACT_ROLE, _router);
+        _grantRole(ROUTER_ROLE, _router);
 
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         partnerManager = PartnerManager(_partnerManager);
@@ -355,11 +355,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     /**
      * @dev Update asset status. Only callable by Router.
      */
-    function setAssetStatus(uint256 assetId, AssetLib.AssetStatus status)
-        external
-        override
-        onlyRole(AUTHORIZED_CONTRACT_ROLE)
-    {
+    function setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) external override onlyRole(ROUTER_ROLE) {
         if (vehicles[assetId].vehicleId == 0) {
             revert AssetNotFound(assetId);
         }

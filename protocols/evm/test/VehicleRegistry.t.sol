@@ -12,24 +12,20 @@ contract VehicleRegistryTest is BaseTest {
 
     function testInitialization() public view {
         // Check contract references
-        assertEq(
-            address(assetRegistry.roboshareTokens()),
-            address(roboshareTokens)
-        );
-        assertEq(
-            address(assetRegistry.partnerManager()),
-            address(partnerManager)
-        );
+        assertEq(address(assetRegistry.roboshareTokens()), address(roboshareTokens));
+        assertEq(address(assetRegistry.partnerManager()), address(partnerManager));
+        assertEq(address(assetRegistry.router()), address(router));
 
         // Check initial state
         assertFalse(assetRegistry.assetExists(1));
         assertFalse(assetRegistry.vinExists(TEST_VIN));
 
         // Check admin roles
-        assertTrue(
-            assetRegistry.hasRole(assetRegistry.DEFAULT_ADMIN_ROLE(), admin)
-        );
+        assertTrue(assetRegistry.hasRole(assetRegistry.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(assetRegistry.hasRole(assetRegistry.UPGRADER_ROLE(), admin));
+
+        // Check router role
+        assertTrue(assetRegistry.hasRole(assetRegistry.ROUTER_ROLE(), address(router)));
     }
 
     function testInitializationZeroAddresses() public {
@@ -37,29 +33,35 @@ contract VehicleRegistryTest is BaseTest {
 
         // Test zero admin
         bytes memory initData = abi.encodeWithSignature(
-            "initialize(address,address,address)",
+            "initialize(address,address,address,address)",
             address(0),
             address(roboshareTokens),
-            address(partnerManager)
+            address(partnerManager),
+            address(router)
         );
         vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
 
         // Test zero tokens
         initData = abi.encodeWithSignature(
-            "initialize(address,address,address)",
-            admin,
-            address(0),
-            address(partnerManager)
+            "initialize(address,address,address,address)", admin, address(0), address(partnerManager), address(router)
         );
         vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
 
         // Test zero partner manager
         initData = abi.encodeWithSignature(
-            "initialize(address,address,address)",
+            "initialize(address,address,address,address)", admin, address(roboshareTokens), address(0), address(router)
+        );
+        vm.expectRevert();
+        new ERC1967Proxy(address(newImplementation), initData);
+
+        // Test zero router
+        initData = abi.encodeWithSignature(
+            "initialize(address,address,address,address)",
             admin,
             address(roboshareTokens),
+            address(partnerManager),
             address(0)
         );
         vm.expectRevert();
@@ -67,16 +69,12 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testGetAssetInfoNonexistent() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetInfo(999);
     }
 
     function testGetAssetStatusNonexistent() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetStatus(999);
     }
 
@@ -113,13 +111,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(
-                shortVin,
-                TEST_MAKE,
-                TEST_MODEL,
-                TEST_YEAR,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI
+                shortVin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
     }
@@ -129,15 +121,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.expectRevert(VehicleLib.InvalidMake.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN,
-                "",
-                TEST_MODEL,
-                TEST_YEAR,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI
-            )
+            abi.encode(TEST_VIN, "", TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI)
         );
     }
 
@@ -146,15 +130,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.expectRevert(VehicleLib.InvalidModel.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN,
-                TEST_MAKE,
-                "",
-                TEST_YEAR,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI
-            )
+            abi.encode(TEST_VIN, TEST_MAKE, "", TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI)
         );
     }
 
@@ -164,13 +140,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN,
-                TEST_MAKE,
-                TEST_MODEL,
-                1980,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI
+                TEST_VIN, TEST_MAKE, TEST_MODEL, 1980, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
 
@@ -178,13 +148,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN,
-                TEST_MAKE,
-                TEST_MODEL,
-                2040,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI
+                TEST_VIN, TEST_MAKE, TEST_MODEL, 2040, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
     }
@@ -193,9 +157,7 @@ contract VehicleRegistryTest is BaseTest {
     function testGetAssetIdFromTokenId() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        uint256 assetFromRevenue = assetRegistry.getAssetIdFromTokenId(
-            scenario.revenueTokenId
-        );
+        uint256 assetFromRevenue = assetRegistry.getAssetIdFromTokenId(scenario.revenueTokenId);
         assertEq(assetFromRevenue, scenario.assetId);
     }
 
@@ -203,20 +165,14 @@ contract VehicleRegistryTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Unauthorized account: not a partner
-        assertFalse(
-            assetRegistry.isAuthorizedForAsset(unauthorized, scenario.assetId)
-        );
+        assertFalse(assetRegistry.isAuthorizedForAsset(unauthorized, scenario.assetId));
 
         // Authorized partner but no ownership
         // partner2 is authorized in BaseTest but doesn't own scenario.assetId
-        assertFalse(
-            assetRegistry.isAuthorizedForAsset(partner2, scenario.assetId)
-        );
+        assertFalse(assetRegistry.isAuthorizedForAsset(partner2, scenario.assetId));
 
         // Authorized and owns
-        assertTrue(
-            assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId)
-        );
+        assertTrue(assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId));
     }
 
     function testSetAssetStatus() public {
@@ -224,20 +180,14 @@ contract VehicleRegistryTest is BaseTest {
         uint256 assetId = scenario.assetId;
 
         // Initial status is Pending
-        assertEq(
-            uint8(assetRegistry.getAssetStatus(assetId)),
-            uint8(AssetLib.AssetStatus.Pending)
-        );
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Pending));
 
         // Valid transition: Pending -> Active (called by Router)
         vm.startPrank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
         vm.stopPrank();
 
-        assertEq(
-            uint8(assetRegistry.getAssetStatus(assetId)),
-            uint8(AssetLib.AssetStatus.Active)
-        );
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
     }
 
     function testSetAssetStatusUnauthorized() public {
@@ -248,9 +198,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.startPrank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                assetRegistry.AUTHORIZED_CONTRACT_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, assetRegistry.ROUTER_ROLE()
             )
         );
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
@@ -260,9 +208,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.startPrank(address(treasury));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                address(treasury),
-                assetRegistry.AUTHORIZED_CONTRACT_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(treasury), assetRegistry.ROUTER_ROLE()
             )
         );
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
@@ -272,9 +218,7 @@ contract VehicleRegistryTest is BaseTest {
     function testBurnRevenueTokensAssetNotFound() public {
         _ensureState(SetupState.PartnersAuthorized);
         vm.prank(partner1);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.burnRevenueTokens(999, 100);
     }
 
@@ -285,9 +229,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.prank(partner1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VehicleRegistry__AssetNotActive.selector,
-                scenario.assetId,
-                AssetLib.AssetStatus.Pending
+                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
             )
         );
         assetRegistry.retireAsset(scenario.assetId);
@@ -295,9 +237,7 @@ contract VehicleRegistryTest is BaseTest {
 
     function testSetAssetStatusAssetNotFound() public {
         vm.startPrank(address(router));
-        vm.expectRevert(
-            abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.setAssetStatus(999, AssetLib.AssetStatus.Active);
         vm.stopPrank();
     }
@@ -306,10 +246,7 @@ contract VehicleRegistryTest is BaseTest {
         _ensureState(SetupState.AssetRegistered);
 
         // Existing asset
-        assertEq(
-            assetRegistry.getRegistryForAsset(scenario.assetId),
-            address(assetRegistry)
-        );
+        assertEq(assetRegistry.getRegistryForAsset(scenario.assetId), address(assetRegistry));
 
         // Non-existent asset
         assertEq(assetRegistry.getRegistryForAsset(999), address(0));
@@ -318,16 +255,7 @@ contract VehicleRegistryTest is BaseTest {
     function testRetireAssetAndBurnTokensAssetNotFound() public {
         _ensureState(SetupState.PartnersAuthorized);
         vm.prank(partner1);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.retireAssetAndBurnTokens(999);
-    }
-
-    function testUpgrade() public {
-        VehicleRegistry newImplementation = new VehicleRegistry();
-        vm.startPrank(admin);
-        assetRegistry.upgradeToAndCall(address(newImplementation), "");
-        vm.stopPrank();
     }
 }

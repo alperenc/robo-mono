@@ -22,11 +22,10 @@ contract MockRegistry is IAssetRegistry {
         treasuryContract = Treasury(_treasury);
     }
 
-    function registerAndMint(
-        address partner,
-        uint256 supply,
-        uint256 price
-    ) external returns (uint256 assetId, uint256 revenueTokenId) {
+    function registerAndMint(address partner, uint256 supply, uint256 price)
+        external
+        returns (uint256 assetId, uint256 revenueTokenId)
+    {
         // 1. Reserve IDs from Router (this binds the assetId to this registry in the Router)
         (assetId, revenueTokenId) = router.reserveNextTokenIdPair();
 
@@ -52,70 +51,52 @@ contract MockRegistry is IAssetRegistry {
     }
 
     // Implement required IAssetRegistry view functions
-    function assetExists(
-        uint256 assetId
-    ) external view override returns (bool) {
+    function assetExists(uint256 assetId) external view override returns (bool) {
         return assets[assetId].id != 0;
     }
 
-    function getAssetInfo(
-        uint256 assetId
-    ) external view override returns (AssetLib.AssetInfo memory) {
+    function getAssetInfo(uint256 assetId) external view override returns (AssetLib.AssetInfo memory) {
         return assets[assetId].info;
     }
 
-    function getAssetStatus(
-        uint256 assetId
-    ) external view override returns (AssetLib.AssetStatus) {
+    function getAssetStatus(uint256 assetId) external view override returns (AssetLib.AssetStatus) {
         return assets[assetId].info.status;
     }
 
-    function isAuthorizedForAsset(
-        address account,
-        uint256 assetId
-    ) external view override returns (bool) {
+    function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
         return roboshareTokens.balanceOf(account, assetId) > 0;
     }
 
-    function getAssetIdFromTokenId(
-        uint256 tokenId
-    ) external pure override returns (uint256) {
+    function getAssetIdFromTokenId(uint256 tokenId) external pure override returns (uint256) {
         return tokenId - 1;
     }
 
-    function getTokenIdFromAssetId(
-        uint256 assetId
-    ) external pure override returns (uint256) {
+    function getTokenIdFromAssetId(uint256 assetId) external pure override returns (uint256) {
         return assetId + 1;
     }
 
     // Stubs for other functions
-    function registerAsset(
-        bytes calldata
-    ) external pure override returns (uint256) {
+    function registerAsset(bytes calldata) external pure override returns (uint256) {
         return 0;
     }
 
-    function mintRevenueTokens(
-        uint256,
-        uint256,
-        uint256
-    ) external pure override returns (uint256) {
+    function mintRevenueTokens(uint256, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 
-    function registerAssetAndMintTokens(
-        bytes calldata,
-        uint256,
-        uint256
-    ) external pure override returns (uint256, uint256) {
+    function registerAssetAndMintTokens(bytes calldata, uint256, uint256)
+        external
+        pure
+        override
+        returns (uint256, uint256)
+    {
         return (0, 0);
     }
 
-    function setAssetStatus(uint256, AssetLib.AssetStatus) external override {}
-    function burnRevenueTokens(uint256, uint256) external override {}
-    function retireAsset(uint256) external override {}
-    function retireAssetAndBurnTokens(uint256) external override {}
+    function setAssetStatus(uint256, AssetLib.AssetStatus) external override { }
+    function burnRevenueTokens(uint256, uint256) external override { }
+    function retireAsset(uint256) external override { }
+    function retireAssetAndBurnTokens(uint256) external override { }
 
     function getRegistryType() external pure override returns (string memory) {
         return "MockRegistry";
@@ -125,15 +106,13 @@ contract MockRegistry is IAssetRegistry {
         return 1;
     }
 
-    function setTreasury(address) external {}
+    function setTreasury(address) external { }
 
     function treasury() external view returns (address) {
         return address(treasuryContract);
     }
 
-    function getRegistryForAsset(
-        uint256
-    ) external view override returns (address) {
+    function getRegistryForAsset(uint256) external view override returns (address) {
         return address(this);
     }
 }
@@ -148,32 +127,19 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // router is already set in BaseTest
 
         // Deploy MockRegistry
-        mockRegistry = new MockRegistry(
-            address(router),
-            address(roboshareTokens),
-            address(treasury)
-        );
+        mockRegistry = new MockRegistry(address(router), address(roboshareTokens), address(treasury));
 
         // Setup Roles
         vm.startPrank(admin);
 
         // 1. Grant AUTHORIZED_REGISTRY_ROLE to MockRegistry on Router
-        router.grantRole(
-            router.AUTHORIZED_REGISTRY_ROLE(),
-            address(mockRegistry)
-        );
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), address(mockRegistry));
 
         // 2. Grant MINTER_ROLE to MockRegistry on RoboshareTokens
-        roboshareTokens.grantRole(
-            roboshareTokens.MINTER_ROLE(),
-            address(mockRegistry)
-        );
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(mockRegistry));
 
         // 3. Grant AUTHORIZED_CONTRACT_ROLE to MockRegistry on Treasury
-        treasury.grantRole(
-            treasury.AUTHORIZED_CONTRACT_ROLE(),
-            address(mockRegistry)
-        );
+        treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(mockRegistry));
 
         vm.stopPrank();
     }
@@ -184,27 +150,17 @@ contract RegistryRouterIntegrationTest is BaseTest {
         uint256 vehicleAssetId = scenario.assetId;
 
         // Verify Router knows about VehicleRegistry
-        assertEq(
-            router.getRegistryForAsset(vehicleAssetId),
-            address(assetRegistry)
-        );
+        assertEq(router.getRegistryForAsset(vehicleAssetId), address(assetRegistry));
 
         // 2. Register a Mock Asset (Asset ID 3, Token ID 4)
         vm.startPrank(partner1);
 
         // Approve Treasury to pull collateral
-        uint256 collateral = treasury.getTotalCollateralRequirement(
-            REVENUE_TOKEN_PRICE,
-            REVENUE_TOKEN_SUPPLY
-        );
+        uint256 collateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         usdc.approve(address(treasury), collateral);
 
-        (uint256 mockAssetId, uint256 mockTokenId) = mockRegistry
-            .registerAndMint(
-                partner1,
-                REVENUE_TOKEN_SUPPLY,
-                REVENUE_TOKEN_PRICE
-            );
+        (uint256 mockAssetId, uint256 mockTokenId) =
+            mockRegistry.registerAndMint(partner1, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE);
         vm.stopPrank();
 
         // Verify IDs
@@ -212,30 +168,18 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assertEq(mockTokenId, 4);
 
         // Verify Router knows about MockRegistry
-        assertEq(
-            router.getRegistryForAsset(mockAssetId),
-            address(mockRegistry)
-        );
+        assertEq(router.getRegistryForAsset(mockAssetId), address(mockRegistry));
 
         // 3. List Mock Token on Marketplace
         // Marketplace uses Router to find registry, then registry to get asset info/status/collateral
         vm.startPrank(partner1);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(
-            mockTokenId,
-            100,
-            REVENUE_TOKEN_PRICE,
-            LISTING_DURATION,
-            true
-        );
+        uint256 listingId = marketplace.createListing(mockTokenId, 100, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
         vm.stopPrank();
 
         // 4. Purchase Mock Token
         uint256 purchaseAmount = 10;
-        (, , uint256 expectedPayment) = marketplace.calculatePurchaseCost(
-            listingId,
-            purchaseAmount
-        );
+        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, purchaseAmount);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -245,79 +189,40 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Verify ownership transfer
         assertEq(roboshareTokens.balanceOf(buyer, mockTokenId), purchaseAmount);
     }
+
     function testRegistryNotFoundErrors() public {
         uint256 nonExistentAssetId = 999;
 
         // mintRevenueTokens
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.mintRevenueTokens(nonExistentAssetId, 100, 100);
 
         // getAssetInfo
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.getAssetInfo(nonExistentAssetId);
 
         // getAssetStatus
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.getAssetStatus(nonExistentAssetId);
 
         // setAssetStatus
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.setAssetStatus(nonExistentAssetId, AssetLib.AssetStatus.Active);
 
         // burnRevenueTokens
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.burnRevenueTokens(nonExistentAssetId, 100);
 
         // retireAsset
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.retireAsset(nonExistentAssetId);
 
         // retireAssetAndBurnTokens
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.retireAssetAndBurnTokens(nonExistentAssetId);
 
         // isAuthorizedForAsset
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RegistryRouter__RegistryNotFoundForAsset.selector,
-                nonExistentAssetId
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.isAuthorizedForAsset(partner1, nonExistentAssetId);
     }
 
@@ -328,10 +233,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // 1. RegistryNotBoundToAsset
         // Grant role but don't bind asset
         vm.startPrank(admin);
-        router.grantRole(
-            router.AUTHORIZED_REGISTRY_ROLE(),
-            unauthorizedRegistry
-        );
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
         vm.stopPrank();
 
         vm.startPrank(unauthorizedRegistry);
@@ -349,16 +251,10 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Deploy a fresh router without treasury set
         RegistryRouter freshRouter = new RegistryRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(address(freshRouter), "");
-        RegistryRouter(address(proxy)).initialize(
-            admin,
-            address(roboshareTokens)
-        );
+        RegistryRouter(address(proxy)).initialize(admin, address(roboshareTokens));
 
         // Grant AUTHORIZED_REGISTRY_ROLE to partner1
-        RegistryRouter(address(proxy)).grantRole(
-            router.AUTHORIZED_REGISTRY_ROLE(),
-            partner1
-        );
+        RegistryRouter(address(proxy)).grantRole(router.AUTHORIZED_REGISTRY_ROLE(), partner1);
         vm.stopPrank();
 
         vm.startPrank(partner1);
@@ -367,12 +263,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         // Now call lock/release - should revert with TreasuryNotSet
         vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).lockCollateralFor(
-            partner1,
-            assetId,
-            100,
-            100
-        );
+        RegistryRouter(address(proxy)).lockCollateralFor(partner1, assetId, 100, 100);
 
         vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).releaseCollateralFor(partner1, assetId);
