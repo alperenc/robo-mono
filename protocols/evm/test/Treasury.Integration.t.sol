@@ -530,6 +530,14 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.releasePartialCollateral(scenario.assetId);
     }
 
+    function testReleasePartialCollateralNotOwner() public {
+        _ensureState(SetupState.AssetWithListing);
+        // partner2 is authorized but does not own scenario.assetId
+        vm.prank(partner2);
+        vm.expectRevert(Treasury__NotAssetOwner.selector);
+        treasury.releasePartialCollateral(scenario.assetId);
+    }
+
     function testCompleteEarningsLifecycle() public {
         _ensureState(SetupState.AssetWithPurchase);
         uint256 earningsAmount = 1000 * 1e6;

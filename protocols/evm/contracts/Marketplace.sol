@@ -185,17 +185,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         internal
         returns (uint256 listingId)
     {
-        // Validate amount
-        if (amount == 0) {
-            revert Marketplace__InvalidAmount();
-        }
-
-        // Verify seller owns enough tokens
-        uint256 sellerBalance = roboshareTokens.balanceOf(msg.sender, tokenId);
-        if (sellerBalance < amount) {
-            revert Marketplace__NotTokenOwner();
-        }
-
         // Get asset ID for indexing
         uint256 assetId = router.getAssetIdFromTokenId(tokenId);
 

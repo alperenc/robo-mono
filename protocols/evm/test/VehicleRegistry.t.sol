@@ -258,4 +258,34 @@ contract VehicleRegistryTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.retireAssetAndBurnTokens(999);
     }
+
+    function testRetireAssetNotOwner() public {
+        _ensureState(SetupState.AssetRegistered);
+        // partner2 is authorized but does not own scenario.assetId
+        vm.prank(partner2);
+        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        assetRegistry.retireAsset(scenario.assetId);
+    }
+
+    function testGetVehicleInfo() public {
+        _ensureState(SetupState.AssetRegistered);
+
+        (
+            string memory vin,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory metadataUri
+        ) = assetRegistry.getVehicleInfo(scenario.assetId);
+
+        assertEq(vin, TEST_VIN);
+        assertEq(make, TEST_MAKE);
+        assertEq(model, TEST_MODEL);
+        assertEq(year, TEST_YEAR);
+        assertEq(manufacturerId, TEST_MANUFACTURER_ID);
+        assertEq(optionCodes, TEST_OPTION_CODES);
+        assertEq(metadataUri, TEST_METADATA_URI);
+    }
 }
