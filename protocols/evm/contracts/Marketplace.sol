@@ -6,11 +6,11 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/IAssetRegistry.sol";
-import "./Libraries.sol";
-import "./RoboshareTokens.sol";
-import "./PartnerManager.sol";
-import "./Treasury.sol";
+import { RegistryRouter } from "./RegistryRouter.sol";
+import { ProtocolLib, TokenLib } from "./Libraries.sol";
+import { RoboshareTokens } from "./RoboshareTokens.sol";
+import { PartnerManager } from "./PartnerManager.sol";
+import { Treasury } from "./Treasury.sol";
 
 // Marketplace errors
 error Marketplace__ZeroAddress();
@@ -36,12 +36,12 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     // Core contracts
     RoboshareTokens public roboshareTokens;
-    IAssetRegistry public assetRegistry;
     PartnerManager public partnerManager;
+    RegistryRouter public router;
     Treasury public treasury;
     IERC20 public usdcToken;
 
-    // Treasury pattern from original protocol
+    // Treasury state
     address public treasuryFeeRecipient;
 
     // Listing management
@@ -93,15 +93,15 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     function initialize(
         address _admin,
         address _roboshareTokens,
-        address _assetRegistry,
         address _partnerManager,
+        address _router,
         address _treasury,
         address _usdcToken,
         address _treasuryFeeRecipient
     ) public initializer {
         if (
-            _admin == address(0) || _roboshareTokens == address(0) || _assetRegistry == address(0)
-                || _partnerManager == address(0) || _treasury == address(0) || _usdcToken == address(0)
+            _admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)
+                || _router == address(0) || _treasury == address(0) || _usdcToken == address(0)
                 || _treasuryFeeRecipient == address(0)
         ) {
             revert Marketplace__ZeroAddress();
@@ -115,8 +115,8 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         _grantRole(UPGRADER_ROLE, _admin);
 
         roboshareTokens = RoboshareTokens(_roboshareTokens);
-        assetRegistry = IAssetRegistry(_assetRegistry);
         partnerManager = PartnerManager(_partnerManager);
+        router = RegistryRouter(_router);
         treasury = Treasury(_treasury);
         usdcToken = IERC20(_usdcToken);
         treasuryFeeRecipient = _treasuryFeeRecipient;
@@ -155,7 +155,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             revert Marketplace__InvalidPrice();
         }
 
-        uint256 tokenSupply = roboshareTokens.getRevenueTokenTotalSupply(tokenId);
+        uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
 
         // Validate inputs
         if (amount == 0 || amount > tokenSupply) {
@@ -169,7 +169,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Get asset ID and check collateral is locked
-        uint256 assetId = assetRegistry.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         if (!isLocked) {
             revert Marketplace__NoCollateralLocked();
@@ -197,7 +197,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Get asset ID for indexing
-        uint256 assetId = assetRegistry.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
 
         // Create listing
         listingId = _listingIdCounter++;
@@ -257,13 +257,17 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
         if (listing.buyerPaysFee) {
             // Buyer pays the listed price + the protocol fee.
-            if (salesPenalty > totalPrice) revert Marketplace__FeesExceedPrice();
+            if (salesPenalty > totalPrice) {
+                revert Marketplace__FeesExceedPrice();
+            }
             expectedPayment = totalPrice + protocolFee;
             // Seller receives the listed price, but the sales penalty is deducted from their share.
             sellerReceives = totalPrice - salesPenalty;
         } else {
             // Buyer pays only the listed price.
-            if (totalFeesToTreasury > totalPrice) revert Marketplace__FeesExceedPrice();
+            if (totalFeesToTreasury > totalPrice) {
+                revert Marketplace__FeesExceedPrice();
+            }
             expectedPayment = totalPrice;
             // Seller receives the listed price, but both protocol fee and sales penalty are deducted.
             sellerReceives = totalPrice - totalFeesToTreasury;

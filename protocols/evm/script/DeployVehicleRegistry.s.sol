@@ -9,12 +9,14 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract DeployVehicleRegistry is Script {
     /**
      * @dev Deploy VehicleRegistry with dependency addresses as parameters
-     * Usage: forge script DeployVehicleRegistry --sig "run(address,address)" $TOKENS_ADDR $PARTNER_ADDR
+     * Usage: forge script DeployVehicleRegistry --sig "run(address,address,address,address)" $TOKENS_ADDR $PARTNER_ADDR $ROUTER_ADDR $DEPLOYER_ADDR
      */
-    function run(address roboshareTokensAddress, address partnerManagerAddress, address deployerAddress)
-        external
-        returns (address)
-    {
+    function run(
+        address roboshareTokensAddress,
+        address partnerManagerAddress,
+        address routerAddress,
+        address deployerAddress
+    ) external returns (address) {
         address deployer = deployerAddress;
 
         console.log("Deploying VehicleRegistry with deployer:", deployer);
@@ -22,10 +24,12 @@ contract DeployVehicleRegistry is Script {
         console.log("Dependencies:");
         console.log("  - RoboshareTokens:", roboshareTokensAddress);
         console.log("  - PartnerManager:", partnerManagerAddress);
+        console.log("  - Router:", routerAddress);
 
         // Validate dependency addresses
         require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
         require(partnerManagerAddress != address(0), "PartnerManager address cannot be zero");
+        require(routerAddress != address(0), "Router address cannot be zero");
 
         // Deploy implementation contract
         VehicleRegistry vehicleImplementation = new VehicleRegistry();
@@ -33,7 +37,11 @@ contract DeployVehicleRegistry is Script {
 
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSignature(
-            "initialize(address,address,address)", deployer, roboshareTokensAddress, partnerManagerAddress
+            "initialize(address,address,address,address)",
+            deployer,
+            roboshareTokensAddress,
+            partnerManagerAddress,
+            routerAddress
         );
 
         // Deploy proxy contract
@@ -50,6 +58,7 @@ contract DeployVehicleRegistry is Script {
         console.log("Admin has UPGRADER_ROLE:", vehicleRegistry.hasRole(keccak256("UPGRADER_ROLE"), deployer));
         console.log("RoboshareTokens reference:", address(vehicleRegistry.roboshareTokens()));
         console.log("PartnerManager reference:", address(vehicleRegistry.partnerManager()));
+        console.log("Router reference:", address(vehicleRegistry.router()));
 
         // Log deployment summary
         console.log("=== Deployment Summary ===");
@@ -69,7 +78,7 @@ contract DeployVehicleRegistry is Script {
     function run() external pure returns (address) {
         revert(
             "VehicleRegistry deployment requires dependency addresses. "
-            "Use: forge script DeployVehicleRegistry --sig 'run(address,address)' $TOKENS_ADDR $PARTNER_ADDR"
+            "Use: forge script DeployVehicleRegistry --sig 'run(address,address,address,address)' $TOKENS_ADDR $PARTNER_ADDR $ROUTER_ADDR $DEPLOYER_ADDR"
         );
     }
 }

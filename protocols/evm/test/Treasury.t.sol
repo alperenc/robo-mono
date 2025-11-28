@@ -13,7 +13,7 @@ contract TreasuryTest is BaseTest {
     function testInitialization() public view {
         // Check contract references
         assertEq(address(treasury.partnerManager()), address(partnerManager));
-        assertEq(address(treasury.assetRegistry()), address(assetRegistry));
+        assertEq(address(treasury.router()), address(router));
         assertEq(address(treasury.usdc()), address(usdc));
 
         // Check initial state
@@ -32,7 +32,7 @@ contract TreasuryTest is BaseTest {
         newTreasury.initialize(
             address(0),
             address(partnerManager),
-            address(assetRegistry),
+            address(router),
             address(roboshareTokens),
             address(usdc),
             config.treasuryFeeRecipient
@@ -74,29 +74,29 @@ contract TreasuryTest is BaseTest {
         treasury.updatePartnerManager(address(newPartnerManager));
     }
 
-    function testUpdateAssetRegistry() public {
+    function testUpdateRouter() public {
         VehicleRegistry newRegistry = new VehicleRegistry();
 
         vm.startPrank(admin);
-        treasury.updateAssetRegistry(address(newRegistry));
+        treasury.updateRouter(address(newRegistry));
         vm.stopPrank();
 
-        assertEq(address(treasury.assetRegistry()), address(newRegistry));
+        assertEq(address(treasury.router()), address(newRegistry));
     }
 
-    function testUpdateAssetRegistryZeroAddress() public {
+    function testUpdateRouterZeroAddress() public {
         vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
         vm.startPrank(admin);
-        treasury.updateAssetRegistry(address(0));
+        treasury.updateRouter(address(0));
         vm.stopPrank();
     }
 
-    function testUpdateAssetRegistryUnauthorized() public {
+    function testUpdateRouterUnauthorized() public {
         VehicleRegistry newRegistry = new VehicleRegistry();
 
         vm.expectRevert();
         vm.prank(unauthorized);
-        treasury.updateAssetRegistry(address(newRegistry));
+        treasury.updateRouter(address(newRegistry));
     }
 
     function testUpdateUSDC() public {

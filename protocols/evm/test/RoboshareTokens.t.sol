@@ -21,6 +21,7 @@ contract RoboshareTokensTest is BaseTest {
         assertTrue(roboshareTokens.hasRole(roboshareTokens.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.BURNER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.URI_SETTER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
 
         // Check token counter starts at 1
@@ -305,9 +306,10 @@ contract RoboshareTokensTest is BaseTest {
         vm.prank(minter);
         roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
 
-        vm.prank(minter);
+        vm.startPrank(minter);
         vm.expectRevert(RoboshareTokens__RevenueTokenInfoAlreadySet.selector);
         roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
+        vm.stopPrank();
     }
 
     function testGetTokenPriceNotRevenueToken() public {

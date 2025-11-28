@@ -1,19 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// Vehicle-specific errors
-error VehicleLib__InvalidVINLength();
-error VehicleLib__InvalidMake();
-error VehicleLib__InvalidModel();
-error VehicleLib__InvalidYear();
-error VehicleLib__InvalidMetadataURI();
-
-// Collateral-specific errors
-error CollateralLib__InsufficientCollateral();
-error CollateralLib__InvalidCollateralAmount();
-error CollateralLib__CollateralAlreadyLocked();
-error CollateralLib__NoCollateralLocked();
-
 /**
  * @dev Protocol utilities and constants
  */
@@ -89,9 +76,13 @@ library ProtocolLib {
  * Provides common structures and functionality for all asset types
  */
 library AssetLib {
+    // Errors
+    error InvalidAssetStatus(AssetStatus status);
+    error InvalidStatusTransition(AssetStatus from, AssetStatus to);
+
     // Asset status enumeration for lifecycle management
     enum AssetStatus {
-        Inactive, // Asset exists but not operational
+        Pending, // Asset exists but not operational
         Active, // Asset is operational and earning
         Suspended, // Temporarily halted operations
         Archived // Permanently retired
@@ -105,16 +96,12 @@ library AssetLib {
         uint256 updatedAt; // Last status/metadata update
     }
 
-    // Asset lifecycle errors
-    error AssetLib__InvalidStatusTransition(AssetStatus from, AssetStatus to);
-
     /**
      * @dev Initialize asset info
      * @param info Storage reference to asset info
-     * @param initialStatus Initial status (typically Inactive or Active)
      */
-    function initializeAssetInfo(AssetInfo storage info, AssetStatus initialStatus) internal {
-        info.status = initialStatus;
+    function initializeAssetInfo(AssetInfo storage info) internal {
+        info.status = AssetStatus.Pending;
         info.createdAt = block.timestamp;
         info.updatedAt = block.timestamp;
     }
@@ -129,7 +116,7 @@ library AssetLib {
 
         // Validate status transition
         if (!isValidStatusTransition(currentStatus, newStatus)) {
-            revert AssetLib__InvalidStatusTransition(currentStatus, newStatus);
+            revert InvalidStatusTransition(currentStatus, newStatus);
         }
 
         info.status = newStatus;
@@ -143,11 +130,19 @@ library AssetLib {
      * @return Whether the transition is allowed
      */
     function isValidStatusTransition(AssetStatus from, AssetStatus to) internal pure returns (bool) {
+        if (!isValidAssetStatus(to)) {
+            revert InvalidAssetStatus(to);
+        }
+
+        if (!isValidAssetStatus(from)) {
+            revert InvalidAssetStatus(from);
+        }
+
         // Allow same status (no-op)
         if (from == to) return true;
 
         // Define valid transitions
-        if (from == AssetStatus.Inactive) {
+        if (from == AssetStatus.Pending) {
             return to == AssetStatus.Active;
         }
 
@@ -165,6 +160,10 @@ library AssetLib {
         }
 
         return false;
+    }
+
+    function isValidAssetStatus(AssetStatus status) internal pure returns (bool) {
+        return status >= AssetStatus.Pending && status <= AssetStatus.Archived;
     }
 
     /**
@@ -200,6 +199,13 @@ library AssetLib {
  * Hybrid storage: immutable data on-chain, dynamic data on IPFS
  */
 library VehicleLib {
+    // Errors
+    error InvalidVINLength();
+    error InvalidMake();
+    error InvalidModel();
+    error InvalidYear();
+    error InvalidMetadataURI();
+
     /**
      * @dev Immutable vehicle information stored on-chain
      * Set once during registration, never changes
@@ -229,7 +235,6 @@ library VehicleLib {
     function initializeVehicle(
         Vehicle storage vehicle,
         uint256 vehicleId,
-        AssetLib.AssetStatus initialStatus,
         string memory vin,
         string memory make,
         string memory model,
@@ -242,7 +247,7 @@ library VehicleLib {
         vehicle.vehicleId = vehicleId;
 
         // Initialize asset info
-        AssetLib.initializeAssetInfo(vehicle.assetInfo, initialStatus);
+        AssetLib.initializeAssetInfo(vehicle.assetInfo);
 
         // Initialize vehicle-specific info
         initializeVehicleInfo(
@@ -265,19 +270,19 @@ library VehicleLib {
     ) internal {
         // Validation
         if (bytes(vin).length < 10 || bytes(vin).length > 17) {
-            revert VehicleLib__InvalidVINLength();
+            revert InvalidVINLength();
         }
         if (bytes(make).length == 0) {
-            revert VehicleLib__InvalidMake();
+            revert InvalidMake();
         }
         if (bytes(model).length == 0) {
-            revert VehicleLib__InvalidModel();
+            revert InvalidModel();
         }
         if (year < 1990 || year > 2030) {
-            revert VehicleLib__InvalidYear();
+            revert InvalidYear();
         }
         if (!ProtocolLib.isValidIPFSURI(dynamicMetadataURI)) {
-            revert VehicleLib__InvalidMetadataURI();
+            revert InvalidMetadataURI();
         }
 
         // Set values
@@ -295,7 +300,7 @@ library VehicleLib {
      */
     function updateDynamicMetadata(VehicleInfo storage info, string memory newMetadataURI) internal {
         if (!ProtocolLib.isValidIPFSURI(newMetadataURI)) {
-            revert VehicleLib__InvalidMetadataURI();
+            revert InvalidMetadataURI();
         }
         info.dynamicMetadataURI = newMetadataURI;
     }
@@ -366,19 +371,14 @@ library TokenLib {
      * @param info Storage reference to token info
      * @param tokenId ERC1155 token ID
      * @param tokenPrice Price per token in USDC
-     * @param totalSupply Total supply of tokens
      * @param minHoldingPeriod Minimum holding period (defaults to MONTHLY_INTERVAL)
      */
-    function initializeTokenInfo(
-        TokenInfo storage info,
-        uint256 tokenId,
-        uint256 tokenPrice,
-        uint256 totalSupply,
-        uint256 minHoldingPeriod
-    ) internal {
+    function initializeTokenInfo(TokenInfo storage info, uint256 tokenId, uint256 tokenPrice, uint256 minHoldingPeriod)
+        internal
+    {
         info.tokenId = tokenId;
         info.tokenPrice = tokenPrice;
-        info.tokenSupply = totalSupply;
+        info.tokenSupply = 0; // Initialize to 0, will be updated by minting/burning
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
         // mappings are automatically initialized
@@ -544,6 +544,12 @@ library TokenLib {
 library CollateralLib {
     using ProtocolLib for uint256;
 
+    // Errors
+    error InsufficientCollateral();
+    error InvalidCollateralAmount();
+    error CollateralAlreadyLocked();
+    error NoCollateralLocked();
+
     /**
      * @dev Collateral information for vehicles with time-based calculations
      */
@@ -575,7 +581,7 @@ library CollateralLib {
         uint256 bufferTimeInterval
     ) internal {
         if (revenueTokenPrice == 0 || tokenSupply == 0) {
-            revert CollateralLib__InvalidCollateralAmount();
+            revert InvalidCollateralAmount();
         }
 
         (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =

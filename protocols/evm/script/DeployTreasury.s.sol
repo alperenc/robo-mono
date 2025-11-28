@@ -9,11 +9,11 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract DeployTreasury is Script {
     /**
      * @dev Deploy Treasury with dependency addresses as parameters
-     * Usage: forge script DeployTreasury --sig "run(address,address,address,address,address)" $PARTNER_MANAGER_ADDR $VEHICLE_REGISTRY_ADDR $ROBOSHARE_TOKENS_ADDR $USDC_ADDR $ADMIN_ADDR
+     * Usage: forge script DeployTreasury --sig "run(address,address,address,address,address)" $PARTNER_MANAGER_ADDR $ROUTER_ADDR $ROBOSHARE_TOKENS_ADDR $USDC_ADDR $ADMIN_ADDR
      */
     function run(
         address partnerManagerAddress,
-        address vehicleRegistryAddress,
+        address routerAddress,
         address roboshareTokensAddress,
         address usdcAddress,
         address adminAddress
@@ -24,14 +24,14 @@ contract DeployTreasury is Script {
         console.log("Deployer balance:", deployer.balance);
         console.log("Dependencies:");
         console.log("  - PartnerManager:", partnerManagerAddress);
-        console.log("  - VehicleRegistry:", vehicleRegistryAddress);
+        console.log("  - Router:", routerAddress);
         console.log("  - RoboshareTokens:", roboshareTokensAddress);
         console.log("  - USDC:", usdcAddress);
         console.log("  - Admin:", adminAddress);
 
         // Validate dependency addresses
         require(partnerManagerAddress != address(0), "PartnerManager address cannot be zero");
-        require(vehicleRegistryAddress != address(0), "VehicleRegistry address cannot be zero");
+        require(routerAddress != address(0), "Router address cannot be zero");
         require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
         require(usdcAddress != address(0), "USDC address cannot be zero");
         require(adminAddress != address(0), "Admin address cannot be zero");
@@ -42,12 +42,13 @@ contract DeployTreasury is Script {
 
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address)",
+            "initialize(address,address,address,address,address,address)",
             adminAddress,
             partnerManagerAddress,
-            vehicleRegistryAddress,
+            routerAddress,
             roboshareTokensAddress,
-            usdcAddress
+            usdcAddress,
+            deployer // treasuryFeeRecipient (using admin/deployer for now)
         );
 
         // Deploy proxy contract
@@ -62,7 +63,7 @@ contract DeployTreasury is Script {
         console.log("Admin has UPGRADER_ROLE:", treasury.hasRole(keccak256("UPGRADER_ROLE"), adminAddress));
         console.log("Admin has TREASURER_ROLE:", treasury.hasRole(keccak256("TREASURER_ROLE"), adminAddress));
         console.log("PartnerManager reference:", address(treasury.partnerManager()));
-        console.log("AssetRegistry reference:", address(treasury.assetRegistry()));
+        console.log("Router reference:", address(treasury.router()));
         console.log("RoboshareTokens reference:", address(treasury.roboshareTokens()));
         console.log("USDC reference:", address(treasury.usdc()));
         console.log("Total collateral deposited:", treasury.totalCollateralDeposited());
@@ -86,7 +87,7 @@ contract DeployTreasury is Script {
     function run() external pure returns (address) {
         revert(
             "Treasury deployment requires dependency addresses. "
-            "Use: forge script DeployTreasury --sig 'run(address,address,address,address,address)' $PARTNER_MANAGER $VEHICLE_REGISTRY $ROBOSHARE_TOKENS $USDC $ADMIN"
+            "Use: forge script DeployTreasury --sig 'run(address,address,address,address,address)' $PARTNER_MANAGER $ROUTER $ROBOSHARE_TOKENS $USDC $ADMIN"
         );
     }
 }

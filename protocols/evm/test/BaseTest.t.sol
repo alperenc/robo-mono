@@ -7,9 +7,11 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../contracts/interfaces/IAssetRegistry.sol";
+import "../contracts/interfaces/ITreasury.sol";
 import "../contracts/Libraries.sol";
 import "../contracts/RoboshareTokens.sol";
 import "../contracts/PartnerManager.sol";
+import "../contracts/RegistryRouter.sol";
 import "../contracts/VehicleRegistry.sol";
 import "../contracts/Treasury.sol";
 import "../contracts/Marketplace.sol";
@@ -39,6 +41,8 @@ contract BaseTest is Test {
     PartnerManager public partnerImplementation;
     Treasury public treasury;
     Treasury public treasuryImplementation;
+    RegistryRouter public router;
+    RegistryRouter public routerImplementation;
     VehicleRegistry public assetRegistry;
     VehicleRegistry public registryImplementation;
     Marketplace public marketplace;
@@ -148,16 +152,18 @@ contract BaseTest is Test {
     function _deployContracts() internal {
         deployer = new DeployForTest();
         (
-            marketplace,
-            assetRegistry,
             roboshareTokens,
             partnerManager,
+            router,
+            assetRegistry,
             treasury,
-            marketplaceImplementation,
-            registryImplementation,
+            marketplace,
             tokenImplementation,
             partnerImplementation,
-            treasuryImplementation
+            routerImplementation,
+            registryImplementation,
+            treasuryImplementation,
+            marketplaceImplementation
         ) = deployer.run(admin);
 
         config = deployer.getActiveNetworkConfig();
@@ -170,8 +176,9 @@ contract BaseTest is Test {
         // Grant MINTER_ROLE and BURNER_ROLE to VehicleRegistry for token operations
         roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(assetRegistry));
         roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(assetRegistry));
-        // Grant AUTHORIZED_CONTRACT_ROLE to VehicleRegistry and Marketplace for Treasury operations
-        treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(assetRegistry));
+        // Grant MINTER_ROLE to Router for reserveNextTokenIdPair
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(router));
+        // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace for Treasury operations
         treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(marketplace));
         // Authorize partners
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
@@ -539,10 +546,8 @@ contract BaseTest is Test {
     {
         base = revenueTokenPrice * totalTokens;
         uint256 expectedQuarterlyEarnings = (base * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
-        earningsBuffer =
-            (expectedQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
-        protocolBuffer =
-            (expectedQuarterlyEarnings * ProtocolLib.PROTOCOL_FEE_BP) / ProtocolLib.BP_PRECISION;
+        earningsBuffer = (expectedQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
+        protocolBuffer = (expectedQuarterlyEarnings * ProtocolLib.PROTOCOL_FEE_BP) / ProtocolLib.BP_PRECISION;
         total = base + earningsBuffer + protocolBuffer;
     }
 

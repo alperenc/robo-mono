@@ -13,7 +13,7 @@ contract DeployMarketplace is Script {
      */
     function run(
         address roboshareTokensAddress,
-        address assetRegistryAddress,
+        address routerAddress,
         address partnerManagerAddress,
         address treasuryAddress,
         address usdcTokenAddress,
@@ -26,7 +26,7 @@ contract DeployMarketplace is Script {
         console.log("Deployer balance:", deployer.balance);
         console.log("Dependencies:");
         console.log("  - RoboshareTokens:", roboshareTokensAddress);
-        console.log("  - AssetRegistry:", assetRegistryAddress);
+        console.log("  - Router:", routerAddress);
         console.log("  - PartnerManager:", partnerManagerAddress);
         console.log("  - Treasury:", treasuryAddress);
         console.log("  - USDC Token:", usdcTokenAddress);
@@ -34,7 +34,7 @@ contract DeployMarketplace is Script {
 
         // Validate dependency addresses
         require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
-        require(assetRegistryAddress != address(0), "IAssetRegistry address cannot be zero");
+        require(routerAddress != address(0), "Router address cannot be zero");
         require(partnerManagerAddress != address(0), "PartnerManager address cannot be zero");
         require(treasuryAddress != address(0), "Treasury address cannot be zero");
         require(usdcTokenAddress != address(0), "USDC Token address cannot be zero");
@@ -49,8 +49,8 @@ contract DeployMarketplace is Script {
             "initialize(address,address,address,address,address,address,address)",
             deployer, // admin
             roboshareTokensAddress, // roboshareTokens
-            assetRegistryAddress, // assetRegistry
             partnerManagerAddress, // partnerManager
+            routerAddress, // router
             treasuryAddress, // treasury
             usdcTokenAddress, // usdcToken
             treasuryFeeAddress // treasuryAddress (for fees)
@@ -67,7 +67,7 @@ contract DeployMarketplace is Script {
         console.log("Admin has DEFAULT_ADMIN_ROLE:", marketplace.hasRole(marketplace.DEFAULT_ADMIN_ROLE(), deployer));
         console.log("Admin has UPGRADER_ROLE:", marketplace.hasRole(keccak256("UPGRADER_ROLE"), deployer));
         console.log("RoboshareTokens reference:", address(marketplace.roboshareTokens()));
-        console.log("IAssetRegistry reference:", address(marketplace.assetRegistry()));
+        console.log("Router reference:", address(marketplace.router()));
         console.log("PartnerManager reference:", address(marketplace.partnerManager()));
         console.log("Treasury reference:", address(marketplace.treasury()));
         console.log("USDC Token reference:", address(marketplace.usdcToken()));

@@ -8,13 +8,14 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
+import { ITreasury } from "./interfaces/ITreasury.sol";
 import { ProtocolLib, TokenLib, CollateralLib, EarningsLib } from "./Libraries.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
+import { RegistryRouter } from "./RegistryRouter.sol";
 
 // Treasury errors
 error Treasury__UnauthorizedPartner();
-error Treasury__UnauthorizedContract();
 error Treasury__NoCollateralLocked();
 error Treasury__CollateralAlreadyLocked();
 error Treasury__IncorrectCollateralAmount();
@@ -33,11 +34,13 @@ error Treasury__NoPriorEarningsDistribution();
 error Treasury__NoNewPeriodsToProcess();
 error Treasury__InsufficientTokenBalance();
 error Treasury__EarningsLessThanMinimumFee();
+error Treasury__AssetNotActive();
+error Treasury__NotRouter();
 
 /**
  * @dev Treasury contract for USDC-based collateral management and earnings distribution.
  */
-contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
+contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, ITreasury {
     using CollateralLib for CollateralLib.CollateralInfo;
     using TokenLib for TokenLib.TokenInfo;
     using EarningsLib for EarningsLib.EarningsInfo;
@@ -46,11 +49,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
     bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
+    bytes32 public constant AUTHORIZED_ROUTER_ROLE = keccak256("AUTHORIZED_ROUTER_ROLE");
 
     // Core contracts
     PartnerManager public partnerManager;
-    IAssetRegistry public assetRegistry;
     RoboshareTokens public roboshareTokens;
+    RegistryRouter public router;
     IERC20 public usdc;
 
     // Storage mappings
@@ -63,18 +67,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     uint256 public totalEarningsDeposited;
     address public treasuryFeeRecipient;
 
-    // Events
-    event CollateralLocked(uint256 indexed assetId, address indexed partner, uint256 amount);
-    event CollateralReleased(uint256 indexed assetId, address indexed partner, uint256 amount);
-    event ShortfallReserved(uint256 indexed assetId, uint256 amount);
-    event BufferReplenished(uint256 indexed assetId, uint256 amount, uint256 fromReserved);
-    event CollateralBuffersUpdated(
-        uint256 indexed assetId, uint256 newEarningsBuffer, uint256 newReservedForLiquidation
-    );
-    event EarningsDistributed(uint256 indexed assetId, address indexed partner, uint256 amount, uint256 period);
-    event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
-    event WithdrawalProcessed(address indexed recipient, uint256 amount);
-
     /**
      * @dev Modifier to restrict access to authorized partners
      */
@@ -86,29 +78,19 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Modifier to restrict access to authorized contracts
-     */
-    modifier onlyAuthorizedContract() {
-        if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender)) {
-            revert Treasury__UnauthorizedContract();
-        }
-        _;
-    }
-
-    /**
      * @dev Initialize Treasury with core contract references
      */
     function initialize(
         address _admin,
-        address _partnerManager,
-        address _assetRegistry,
         address _roboshareTokens,
+        address _partnerManager,
+        address _router,
         address _usdc,
         address _treasuryFeeRecipient
     ) public initializer {
         if (
-            _admin == address(0) || _partnerManager == address(0) || _assetRegistry == address(0)
-                || _roboshareTokens == address(0) || _usdc == address(0) || _treasuryFeeRecipient == address(0)
+            _admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)
+                || _router == address(0) || _usdc == address(0) || _treasuryFeeRecipient == address(0)
         ) {
             revert Treasury__ZeroAddressNotAllowed();
         }
@@ -120,12 +102,28 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(UPGRADER_ROLE, _admin);
         _grantRole(TREASURER_ROLE, _admin);
+        _grantRole(AUTHORIZED_ROUTER_ROLE, _router);
 
-        partnerManager = PartnerManager(_partnerManager);
-        assetRegistry = IAssetRegistry(_assetRegistry);
         roboshareTokens = RoboshareTokens(_roboshareTokens);
+        partnerManager = PartnerManager(_partnerManager);
+        router = RegistryRouter(_router);
         usdc = IERC20(_usdc);
         treasuryFeeRecipient = _treasuryFeeRecipient;
+    }
+
+    /**
+     * @dev Updates the router contract address.
+     * Only callable by an admin.
+     * @param _newRouter The address of the new router contract.
+     */
+    function updateRouter(address _newRouter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_newRouter == address(0)) {
+            revert Treasury__ZeroAddressNotAllowed();
+        }
+        _revokeRole(AUTHORIZED_ROUTER_ROLE, address(router));
+        router = RegistryRouter(_newRouter);
+        _grantRole(AUTHORIZED_ROUTER_ROLE, _newRouter);
+        emit RouterUpdated(_newRouter);
     }
 
     // Collateral Locking Functions
@@ -185,7 +183,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function lockCollateralFor(address partner, uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply)
         external
-        onlyAuthorizedContract
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
         nonReentrant
     {
         // Verify partner is authorized
@@ -242,6 +240,39 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__NoCollateralLocked();
         }
 
+        _releaseCollateral(assetId, msg.sender);
+    }
+
+    /**
+     * @dev Release collateral for a retired asset (called by registry)
+     * @param partner The partner address receiving the collateral
+     * @param assetId The ID of the asset being retired
+     */
+    function releaseCollateralFor(address partner, uint256 assetId)
+        external
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        nonReentrant
+        returns (uint256 releasedCollateral)
+    {
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
+
+        if (collateralInfo.isLocked) {
+            releasedCollateral = collateralInfo.totalCollateral;
+            _releaseCollateral(assetId, partner);
+        }
+    }
+
+    function _releaseCollateral(uint256 assetId, address recipient) internal {
+        // Ensure no outstanding revenue tokens
+        // Registry is responsible for burning tokens before calling retirement
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        if (totalSupply > 0) {
+            revert OutstandingRevenueTokens();
+        }
+
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         uint256 collateralAmount = collateralInfo.totalCollateral;
 
         // Unlock the collateral
@@ -251,10 +282,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         collateralInfo.totalCollateral = 0;
 
         // Add to pending withdrawals
-        pendingWithdrawals[msg.sender] += collateralAmount;
+        pendingWithdrawals[recipient] += collateralAmount;
         totalCollateralDeposited -= collateralAmount;
 
-        emit CollateralReleased(assetId, msg.sender, collateralAmount);
+        emit CollateralReleased(assetId, recipient, collateralAmount);
     }
 
     /**
@@ -279,7 +310,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @param recipient The address to credit with a pending withdrawal
      * @param amount The amount to credit
      */
-    function recordPendingWithdrawal(address recipient, uint256 amount) external onlyAuthorizedContract {
+    function recordPendingWithdrawal(address recipient, uint256 amount) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
         if (amount > 0) {
             pendingWithdrawals[recipient] += amount;
         }
@@ -294,15 +325,17 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function distributeEarnings(uint256 assetId, uint256 amount) external onlyAuthorizedPartner nonReentrant {
         if (amount == 0) revert Treasury__InvalidEarningsAmount();
-        if (amount < ProtocolLib.MIN_PROTOCOL_FEE) revert Treasury__EarningsLessThanMinimumFee();
+        if (amount < ProtocolLib.MIN_PROTOCOL_FEE) {
+            revert Treasury__EarningsLessThanMinimumFee();
+        }
 
         // Verify partner owns the asset
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
             revert Treasury__NotAssetOwner();
         }
 
-        uint256 revenueTokenId = assetRegistry.getTokenIdFromAssetId(assetId);
-        uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenTotalSupply(revenueTokenId);
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         if (tokenTotalSupply == 0) {
             revert Treasury__NoRevenueTokensIssued();
         }
@@ -351,12 +384,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function claimEarnings(uint256 assetId) external nonReentrant {
         // Verify asset exists
-        if (!assetRegistry.assetExists(assetId)) {
+        if (!router.assetExists(assetId)) {
             revert Treasury__AssetNotFound();
         }
 
         // Check token ownership (source of truth)
-        uint256 revenueTokenId = assetRegistry.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
         uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
         if (tokenBalance == 0) {
             revert Treasury__InsufficientTokenBalance();
@@ -564,17 +597,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__ZeroAddressNotAllowed();
         }
         partnerManager = PartnerManager(_partnerManager);
-    }
-
-    /**
-     * @dev Update asset registry reference
-     * @param _assetRegistry New asset registry address
-     */
-    function updateAssetRegistry(address _assetRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_assetRegistry == address(0)) {
-            revert Treasury__ZeroAddressNotAllowed();
-        }
-        assetRegistry = IAssetRegistry(_assetRegistry);
     }
 
     /**
