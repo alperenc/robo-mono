@@ -291,6 +291,9 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Updates status and triggers settlement via Router.
      */
     function retireAsset(uint256 assetId) external override onlyAuthorizedPartner {
+        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
+            revert VehicleRegistry__NotVehicleOwner();
+        }
         _retireAsset(assetId, msg.sender, 0);
     }
 
@@ -333,10 +336,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Verifies ownership and status, updates status to Archived, and triggers collateral release via Router.
      */
     function _retireAsset(uint256 assetId, address partner, uint256 burnedTokens) internal {
-        // Verify ownership (already done in wrapper or here)
-        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
-            revert VehicleRegistry__NotVehicleOwner();
-        }
+        // Verify asset is active
 
         // Verify asset is active
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
