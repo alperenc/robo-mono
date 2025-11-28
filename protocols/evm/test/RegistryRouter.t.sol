@@ -66,6 +66,15 @@ contract RegistryRouterTest is BaseTest {
         assertEq(router.treasury(), newTreasury);
     }
 
+    function testSetTreasuryZeroAddress() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__ZeroAddress.selector));
+        router.setTreasury(address(0));
+        vm.stopPrank();
+
+        assertEq(router.treasury(), address(treasury));
+    }
+
     function testSetTreasuryUnauthorized() public {
         address newTreasury = makeAddr("newTreasury");
 
