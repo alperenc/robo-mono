@@ -25,7 +25,9 @@ contract RegistryRouterTest is BaseTest {
         router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry);
         vm.stopPrank();
 
-        assertTrue(router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry));
+        assertTrue(
+            router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry)
+        );
     }
 
     function testAuthorizeRegistryUnauthorized() public {
@@ -37,7 +39,9 @@ contract RegistryRouterTest is BaseTest {
         vm.startPrank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, registryManagerRole
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                registryManagerRole
             )
         );
         router.grantRole(authorizedRegistryRole, newRegistry);
@@ -49,10 +53,14 @@ contract RegistryRouterTest is BaseTest {
 
         vm.startPrank(admin);
         router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry);
-        assertTrue(router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry));
+        assertTrue(
+            router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry)
+        );
 
         router.revokeRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry);
-        assertFalse(router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry));
+        assertFalse(
+            router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry)
+        );
         vm.stopPrank();
     }
 
@@ -72,7 +80,9 @@ contract RegistryRouterTest is BaseTest {
         vm.startPrank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, router.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                router.DEFAULT_ADMIN_ROLE()
             )
         );
         router.setTreasury(newTreasury);
@@ -117,7 +127,8 @@ contract RegistryRouterTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(newRegistry);
-        (uint256 assetId, uint256 revenueTokenId) = router.reserveNextTokenIdPair();
+        (uint256 assetId, uint256 revenueTokenId) = router
+            .reserveNextTokenIdPair();
         vm.stopPrank();
 
         assertGt(assetId, 0);
@@ -130,7 +141,13 @@ contract RegistryRouterTest is BaseTest {
         vm.prank(partner1);
         uint256 assetId = assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+                TEST_VIN,
+                TEST_MAKE,
+                TEST_MODEL,
+                TEST_YEAR,
+                TEST_MANUFACTURER_ID,
+                TEST_OPTION_CODES,
+                TEST_METADATA_URI
             )
         );
 
@@ -143,7 +160,13 @@ contract RegistryRouterTest is BaseTest {
         vm.prank(partner1);
         uint256 assetId = assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+                TEST_VIN,
+                TEST_MAKE,
+                TEST_MODEL,
+                TEST_YEAR,
+                TEST_MANUFACTURER_ID,
+                TEST_OPTION_CODES,
+                TEST_METADATA_URI
             )
         );
 
@@ -157,5 +180,42 @@ contract RegistryRouterTest is BaseTest {
 
         vm.expectRevert(RegistryRouter__DirectCallNotAllowed.selector);
         router.registerAssetAndMintTokens(bytes(""), 100, 100);
+    }
+    function testInitializationZeroAddresses() public {
+        RegistryRouter newImplementation = new RegistryRouter();
+
+        // Test zero admin
+        bytes memory initData = abi.encodeWithSignature(
+            "initialize(address,address)",
+            address(0),
+            address(roboshareTokens)
+        );
+        vm.expectRevert(RegistryRouter__ZeroAddress.selector);
+        new ERC1967Proxy(address(newImplementation), initData);
+
+        // Test zero tokens
+        initData = abi.encodeWithSignature(
+            "initialize(address,address)",
+            admin,
+            address(0)
+        );
+        vm.expectRevert(RegistryRouter__ZeroAddress.selector);
+        new ERC1967Proxy(address(newImplementation), initData);
+    }
+
+    function testTokenIdConversionErrorCases() public {
+        // Test getAssetIdFromTokenId with non-revenue token (e.g. asset ID itself)
+        // Asset ID 1 is not a revenue token
+        vm.expectRevert(
+            abi.encodeWithSelector(RegistryRouter__TokenNotFound.selector, 1)
+        );
+        router.getAssetIdFromTokenId(1);
+
+        // Test getTokenIdFromAssetId with revenue token ID
+        // Revenue Token ID 2 is not an asset ID
+        vm.expectRevert(
+            abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 2)
+        );
+        router.getTokenIdFromAssetId(2);
     }
 }
