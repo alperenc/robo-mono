@@ -38,7 +38,9 @@ interface ITreasury {
         external
         returns (uint256 liquidationAmount, uint256 settlementPerToken);
 
-    function claimSettlement(uint256 assetId) external returns (uint256 claimedAmount);
+    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+        external
+        returns (uint256 claimedAmount);
 
     function isAssetSolvent(uint256 assetId) external view returns (bool);
 

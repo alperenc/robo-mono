@@ -912,4 +912,89 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
     }
+
+    // Settlement Tests
+
+    function testInitiateSettlementWithTopUp() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 topUpAmount = 1000e6;
+
+        // Partner approves top-up
+        deal(address(usdc), partner1, topUpAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), topUpAmount);
+        vm.stopPrank();
+
+        // Router calls treasury
+        vm.prank(address(router));
+        (uint256 settlementAmount, uint256 settlementPerToken) =
+            treasury.initiateSettlement(partner1, scenario.assetId, topUpAmount);
+
+        // Verify Collateral Cleared
+        (uint256 base,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(isLocked);
+        assertEq(base, 0);
+
+        // Verify Settlement Amount logic
+        // Should be InvestorClaimable + TopUp
+        // InvestorClaimable = Base + EarningsBuffer + Reserved
+        // Protocol Buffer is excluded
+        assertGt(settlementAmount, topUpAmount);
+        assertEq(settlementPerToken, settlementAmount / REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testExecuteLiquidation() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        vm.prank(address(router));
+        (uint256 liquidationAmount, uint256 settlementPerToken) = treasury.executeLiquidation(scenario.assetId);
+
+        (uint256 base,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(isLocked);
+        assertEq(base, 0);
+
+        assertGt(liquidationAmount, 0);
+        assertEq(settlementPerToken, liquidationAmount / REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testSettlementProtocolBufferSeparation() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Get initial state
+        (,, uint256 protocolBuffer,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 initialFeePending = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
+
+        // Settle
+        vm.prank(address(router));
+        (uint256 settlementAmount,) = treasury.executeLiquidation(scenario.assetId);
+
+        // Verify Fee Recipient got the buffer
+        uint256 finalFeePending = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
+        assertEq(finalFeePending, initialFeePending + protocolBuffer);
+
+        // Verify Settlement Pool does not include buffer (roughly)
+        // Settlement = TotalCollateral - ProtocolBuffer
+        // We can't easily get totalCollateral before without calling view, but we know calculation
+        assertGt(settlementAmount, 0);
+    }
+
+    function testClaimSettlement() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Settle first
+        vm.prank(address(router));
+        (uint256 settlementAmount, uint256 settlementPerToken) = treasury.executeLiquidation(scenario.assetId);
+
+        // Partner owns all tokens
+        uint256 initialBalance = usdc.balanceOf(partner1);
+
+        vm.prank(partner1);
+        uint256 claimed = assetRegistry.claimSettlement(scenario.assetId);
+
+        assertEq(claimed, settlementAmount);
+        // Due to integer division in perToken, claimed might be slightly less than total pool if dust exists
+        // But here we own 100% supply so we should get supply * perToken
+        assertEq(claimed, REVENUE_TOKEN_SUPPLY * settlementPerToken);
+        assertEq(usdc.balanceOf(partner1), initialBalance + claimed);
+    }
 }

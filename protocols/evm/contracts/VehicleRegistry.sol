@@ -349,6 +349,40 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     /**
+     * @dev Claim settlement funds.
+     * Burns all revenue tokens held by caller and transfers settlement payout from Treasury.
+     */
+    function claimSettlement(uint256 assetId) external override returns (uint256 claimedAmount) {
+        if (vehicles[assetId].vehicleId == 0) {
+            revert AssetNotFound(assetId);
+        }
+
+        AssetLib.AssetInfo storage info = vehicles[assetId].assetInfo;
+
+        // Verify asset is settled
+        if (info.status != AssetLib.AssetStatus.Retired && info.status != AssetLib.AssetStatus.Expired) {
+            revert VehicleRegistry__AssetNotActive(assetId, info.status);
+        }
+
+        uint256 revenueTokenId = assetId + 1;
+        uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
+
+        if (balance == 0) {
+            // Revert with generic error or just return 0?
+            // Standard is to revert if nothing to claim usually
+            revert("No tokens to claim");
+        }
+
+        // Burn tokens
+        roboshareTokens.burn(msg.sender, revenueTokenId, balance);
+
+        // Process Claim via Router -> Treasury
+        claimedAmount = router.processSettlementClaim(msg.sender, assetId, balance);
+
+        emit SettlementClaimed(assetId, msg.sender, balance, claimedAmount);
+    }
+
+    /**
      * @dev Retire an asset.
      * Requires 0 revenue token supply.
      * Updates status and triggers settlement via Router.

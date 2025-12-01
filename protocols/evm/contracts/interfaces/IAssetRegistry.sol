@@ -30,6 +30,8 @@ interface IAssetRegistry {
 
     function liquidateAsset(uint256 assetId) external;
 
+    function claimSettlement(uint256 assetId) external returns (uint256 claimedAmount);
+
     function burnRevenueTokens(uint256 assetId, uint256 amount) external;
 
     function retireAssetAndBurnTokens(uint256 assetId) external;
@@ -89,6 +91,8 @@ interface IAssetRegistry {
     );
 
     event AssetExpired(uint256 indexed assetId, uint256 liquidationAmount, uint256 settlementPerToken);
+
+    event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount, uint256 payout);
 
     /**
      * @dev Shared Errors

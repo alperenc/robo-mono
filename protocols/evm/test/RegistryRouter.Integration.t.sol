@@ -108,6 +108,10 @@ contract MockRegistry is IAssetRegistry {
         assets[assetId].info.status = AssetLib.AssetStatus.Expired;
     }
 
+    function claimSettlement(uint256) external pure override returns (uint256) {
+        return 0;
+    }
+
     function getRegistryType() external pure override returns (string memory) {
         return "MockRegistry";
     }

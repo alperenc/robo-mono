@@ -649,33 +649,33 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Claim settlement funds by burning tokens
+     * @dev Process settlement claim (called by Registry via Router)
+     * Transfers USDC for burned tokens
      */
-    function claimSettlement(uint256 assetId) external override nonReentrant returns (uint256 claimedAmount) {
+    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+        external
+        override
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        returns (uint256 claimedAmount)
+    {
         AssetSettlement storage settlement = assetSettlements[assetId];
         if (!settlement.isSettled) {
             revert Treasury__AssetNotActive();
         }
 
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
-        uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-        
-        if (balance == 0) {
-            revert Treasury__InsufficientTokenBalance();
+        if (amount == 0) {
+            return 0;
         }
 
-        // Burn tokens
-        roboshareTokens.burn(msg.sender, revenueTokenId, balance);
-
         // Calculate claim
-        claimedAmount = balance * settlement.settlementPerToken;
+        claimedAmount = amount * settlement.settlementPerToken;
 
         // Transfer USDC
         if (claimedAmount > 0) {
-            usdc.safeTransfer(msg.sender, claimedAmount);
+            usdc.safeTransfer(recipient, claimedAmount);
         }
 
-        emit SettlementClaimed(assetId, msg.sender, claimedAmount);
+        emit SettlementClaimed(assetId, recipient, claimedAmount);
     }
 
     // View Functions
