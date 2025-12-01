@@ -100,7 +100,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 year,
         uint256 manufacturerId,
         string memory optionCodes,
-        string memory dynamicMetadataURI
+        string memory dynamicMetadataURI,
+        uint256 maturityDate
     ) internal returns (uint256 vehicleId, uint256 revenueTokenId) {
         if (vinExists[vin]) revert VehicleRegistry__VehicleAlreadyExists();
 
@@ -110,7 +111,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Initialize vehicle data using new VehicleLib structure
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         VehicleLib.initializeVehicle(
-            vehicle, vehicleId, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
+            vehicle, vehicleId, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI, maturityDate
         );
 
         // Mark VIN as used
@@ -170,10 +171,12 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             uint256 year,
             uint256 manufacturerId,
             string memory optionCodes,
-            string memory dynamicMetadataURI
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+            string memory dynamicMetadataURI,
+            uint256 maturityDate
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string, uint256));
 
-        (assetId,) = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        (assetId,) =
+            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI, maturityDate);
 
         roboshareTokens.mint(msg.sender, assetId, 1, ""); // Mint 1 vehicle NFT to partner
 
@@ -230,11 +233,12 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             uint256 year,
             uint256 manufacturerId,
             string memory optionCodes,
-            string memory dynamicMetadataURI
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+            string memory dynamicMetadataURI,
+            uint256 maturityDate
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string, uint256));
 
         (assetId, revenueTokenId) =
-            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI, maturityDate);
 
         // Initialize revenue token info in RoboshareTokens
         roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
@@ -283,6 +287,65 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Burn tokens
         roboshareTokens.burn(msg.sender, revenueTokenId, amount);
+    }
+
+    /**
+     * @dev Voluntarily settle and retire an asset.
+     * Partner can optionally top up the settlement pool to offer a higher payout.
+     * Updates status to Retired and triggers settlement via Router.
+     */
+    function settleAsset(uint256 assetId, uint256 topUpAmount) external override onlyAuthorizedPartner {
+        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
+            revert VehicleRegistry__NotVehicleOwner();
+        }
+
+        // Verify asset is active
+        if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
+            revert VehicleRegistry__AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
+        }
+
+        // Update Status
+        _setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
+
+        // Trigger Treasury Settlement via Router
+        (uint256 settlementAmount, uint256 settlementPerToken) =
+            router.initiateSettlement(msg.sender, assetId, topUpAmount);
+
+        emit AssetSettled(assetId, msg.sender, settlementAmount, settlementPerToken);
+    }
+
+    /**
+     * @dev Force liquidation of an asset.
+     * Publicly callable if asset is expired or insolvent.
+     * Updates status to Expired and triggers liquidation via Router.
+     */
+    function liquidateAsset(uint256 assetId) external override {
+        if (vehicles[assetId].vehicleId == 0) {
+            revert AssetNotFound(assetId);
+        }
+
+        AssetLib.AssetInfo storage info = vehicles[assetId].assetInfo;
+
+        // Check if asset is already settled/retired
+        if (info.status == AssetLib.AssetStatus.Retired || info.status == AssetLib.AssetStatus.Expired) {
+            revert VehicleRegistry__AssetNotActive(assetId, info.status);
+        }
+
+        // Check liquidation conditions: Maturity OR Insolvency
+        bool isMatured = block.timestamp >= info.maturityDate;
+        bool isSolvent = router.isAssetSolvent(assetId);
+
+        if (!isMatured && isSolvent) {
+            revert("Asset not eligible for liquidation");
+        }
+
+        // Update Status
+        _setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
+
+        // Trigger Treasury Liquidation via Router
+        (uint256 liquidationAmount, uint256 settlementPerToken) = router.executeLiquidation(assetId);
+
+        emit AssetExpired(assetId, liquidationAmount, settlementPerToken);
     }
 
     /**
