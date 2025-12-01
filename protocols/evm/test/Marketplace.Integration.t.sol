@@ -525,4 +525,36 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(listingId, 1);
         vm.stopPrank();
     }
+
+    // Settlement Integration Tests
+
+    function testCreateListingRevertsWhenSettled() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Settle asset
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        marketplace.createListing(
+            scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+        );
+        vm.stopPrank();
+    }
+
+    function testPurchaseRevertsWhenSettled() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Settle asset
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), 1e9);
+        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
+        vm.stopPrank();
+    }
 }
