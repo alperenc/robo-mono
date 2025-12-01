@@ -98,6 +98,16 @@ contract MockRegistry is IAssetRegistry {
     function retireAsset(uint256) external override { }
     function retireAssetAndBurnTokens(uint256) external override { }
 
+    function settleAsset(uint256 assetId, uint256 topUpAmount) external override {
+        // Mock implementation: just set status to Retired
+        assets[assetId].info.status = AssetLib.AssetStatus.Retired;
+    }
+
+    function liquidateAsset(uint256 assetId) external override {
+        // Mock implementation: just set status to Expired
+        assets[assetId].info.status = AssetLib.AssetStatus.Expired;
+    }
+
     function getRegistryType() external pure override returns (string memory) {
         return "MockRegistry";
     }
