@@ -981,20 +981,29 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testClaimSettlement() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        // Settle first
-        vm.prank(address(router));
-        (uint256 settlementAmount, uint256 settlementPerToken) = treasury.executeLiquidation(scenario.assetId);
+        // Simulate asset being liquidated via VehicleRegistry to ensure status is updated
+        // We need to warp to maturity for liquidation to be valid.
+        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
+        vm.warp(info.maturityDate + 1);
+
+        vm.prank(unauthorized); // Anyone can call liquidateAsset
+        assetRegistry.liquidateAsset(scenario.assetId);
 
         // Partner owns all tokens
         uint256 initialBalance = usdc.balanceOf(partner1);
+        
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId); // Check if still locked, settlement clears this.
+        assertFalse(isLocked);
+
+        (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) = treasury.assetSettlements(scenario.assetId);
+        uint256 settlementAmount = totalSettlementPool; // This is the total pool available for the asset
 
         vm.prank(partner1);
         uint256 claimed = assetRegistry.claimSettlement(scenario.assetId);
 
-        assertEq(claimed, settlementAmount);
-        // Due to integer division in perToken, claimed might be slightly less than total pool if dust exists
-        // But here we own 100% supply so we should get supply * perToken
-        assertEq(claimed, REVENUE_TOKEN_SUPPLY * settlementPerToken);
-        assertEq(usdc.balanceOf(partner1), initialBalance + claimed);
+        assertEq(claimed, REVENUE_TOKEN_SUPPLY * settlementPerToken, "Claimed amount mismatch");
+        assertEq(usdc.balanceOf(partner1), initialBalance + claimed, "Partner1 USDC balance mismatch");
     }
 }
