@@ -170,6 +170,12 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
         // Get asset ID and check collateral is locked
         uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+
+        // Check asset status is Active
+        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
+            revert Marketplace__ListingNotActive();
+        }
+
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         if (!isLocked) {
             revert Marketplace__NoCollateralLocked();
@@ -225,6 +231,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         if (listing.listingId == 0) {
             revert Marketplace__ListingNotFound();
         }
+
+        // Check asset status
+        uint256 assetId = router.getAssetIdFromTokenId(listing.tokenId);
+        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
+            revert Marketplace__ListingNotActive();
+        }
+
         if (!listing.isActive) {
             revert Marketplace__ListingNotActive();
         }
