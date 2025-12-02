@@ -438,9 +438,16 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         usdc.approve(address(treasury), topUpAmount);
 
+        // Calculate expected settlement amounts
+        (uint256 base, uint256 earningsBuffer,,) =
+            calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 investorPool = base + earningsBuffer;
+        uint256 expectedSettlementAmount = investorPool + topUpAmount;
+        uint256 expectedPerToken = expectedSettlementAmount / REVENUE_TOKEN_SUPPLY;
+
         vm.prank(partner1);
-        vm.expectEmit(true, true, false, false);
-        emit IAssetRegistry.AssetSettled(scenario.assetId, partner1, 0, 0); // Amounts ignored
+        vm.expectEmit(true, true, false, true);
+        emit IAssetRegistry.AssetSettled(scenario.assetId, partner1, expectedSettlementAmount, expectedPerToken);
         assetRegistry.settleAsset(scenario.assetId, topUpAmount);
 
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
@@ -455,8 +462,14 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Warp to maturity
         vm.warp(info.maturityDate + 1);
 
-        vm.expectEmit(true, true, false, false);
-        emit IAssetRegistry.AssetExpired(scenario.assetId, 0, 0); // Amounts ignored
+        // Calculate expected liquidation amounts (Investor Pool = Base + Earnings Buffer)
+        (uint256 base, uint256 earningsBuffer,,) =
+            calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 expectedLiquidationAmount = base + earningsBuffer;
+        uint256 expectedPerToken = expectedLiquidationAmount / REVENUE_TOKEN_SUPPLY;
+
+        vm.expectEmit(true, true, false, true);
+        emit IAssetRegistry.AssetExpired(scenario.assetId, expectedLiquidationAmount, expectedPerToken);
 
         assetRegistry.liquidateAsset(scenario.assetId);
 
