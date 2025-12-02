@@ -448,16 +448,16 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testLiquidateAssetMaturity() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         // Get maturity date (we set it to now + 365 days in tests)
         AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
-        
+
         // Warp to maturity
         vm.warp(info.maturityDate + 1);
 
         vm.expectEmit(true, true, false, false);
         emit IAssetRegistry.AssetExpired(scenario.assetId, 0, 0); // Amounts ignored
-        
+
         assetRegistry.liquidateAsset(scenario.assetId);
 
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Expired));
@@ -465,9 +465,118 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testLiquidateAssetNotEligible() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        
+
         // Try to liquidate before maturity and while solvent
         vm.expectRevert("Asset not eligible for liquidation");
         assetRegistry.liquidateAsset(scenario.assetId);
+    }
+
+    // New Tests for Settlement and Liquidation Branches
+
+    function testSettleAssetNotOwner() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.prank(partner2); // partner2 is authorized but not owner
+        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+    }
+
+    function testSettleAssetNotActive() public {
+        _ensureState(SetupState.AssetRegistered); // Status is Pending
+        vm.prank(partner1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
+            )
+        );
+        assetRegistry.settleAsset(scenario.assetId, 0);
+    }
+
+    function testLiquidateAssetNotFound() public {
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.liquidateAsset(999);
+    }
+
+    function testLiquidateAssetAlreadySettled() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Settle the asset first
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        // Try to liquidate an already settled asset
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Retired
+            )
+        );
+        assetRegistry.liquidateAsset(scenario.assetId);
+    }
+
+    function testClaimSettlementNotFound() public {
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        vm.prank(partner1);
+        assetRegistry.claimSettlement(999);
+    }
+
+    function testClaimSettlementNotSettled() public {
+        _ensureState(SetupState.RevenueTokensMinted); // Asset is Active, not Retired or Expired
+        vm.prank(partner1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Active
+            )
+        );
+        assetRegistry.claimSettlement(scenario.assetId);
+    }
+
+    function testClaimSettlementNoTokens() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Liquidate the asset to make it eligible for claiming
+        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
+        vm.warp(info.maturityDate + 1);
+        assetRegistry.liquidateAsset(scenario.assetId);
+
+        // Try to claim settlement as an address with no tokens for this asset
+        vm.prank(unauthorized);
+        vm.expectRevert("No tokens to claim");
+        assetRegistry.claimSettlement(scenario.assetId);
+    }
+
+    // Branch Coverage Improvement Tests
+
+    function testRetireAssetAndBurnTokensZeroSupply() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Burn all tokens first using the public burn function
+        vm.prank(partner1);
+        assetRegistry.burnRevenueTokens(scenario.assetId, REVENUE_TOKEN_SUPPLY);
+
+        // Now call retireAssetAndBurnTokens with 0 supply
+        // This exercises the `if (totalSupply > 0)` else branch
+        vm.prank(partner1);
+        assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+    }
+
+    function testIsAuthorizedForAssetNoBalance() public {
+        _ensureState(SetupState.AssetRegistered); // Partner1 owns asset
+
+        // Partner2 is authorized (via SetupState) but does not own the asset
+        assertTrue(partnerManager.isAuthorizedPartner(partner2));
+        assertFalse(assetRegistry.isAuthorizedForAsset(partner2, scenario.assetId));
+    }
+
+    function testGetTokenIdFromAssetIdEdgeCases() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Test assetId == 0
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        assetRegistry.getTokenIdFromAssetId(0);
+
+        // Test assetId >= nextTokenId
+        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        assetRegistry.getTokenIdFromAssetId(999999);
     }
 }
