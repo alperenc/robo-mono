@@ -991,13 +991,14 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Partner owns all tokens
         uint256 initialBalance = usdc.balanceOf(partner1);
-        
+
         uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId); // Check if still locked, settlement clears this.
         assertFalse(isLocked);
 
-        (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) = treasury.assetSettlements(scenario.assetId);
+        (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) =
+            treasury.assetSettlements(scenario.assetId);
         uint256 settlementAmount = totalSettlementPool; // This is the total pool available for the asset
 
         vm.prank(partner1);

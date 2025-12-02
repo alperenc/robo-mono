@@ -541,7 +541,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Check asset solvency
      */
     function isAssetSolvent(uint256 assetId) external view override returns (bool) {
-        return CollateralLib.isSolvent(assetCollateral[assetId]);
+        // An asset is solvent if it hasn't been settled AND is not currently under financial distress
+        return !assetSettlements[assetId].isSettled && CollateralLib.isSolvent(assetCollateral[assetId]);
     }
 
     /**
@@ -564,10 +565,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         settlementAmount = _settleAsset(assetId, topUpAmount);
-        
+
         uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        
+
         if (totalSupply > 0) {
             settlement.settlementPerToken = settlementAmount / totalSupply;
         } else {
@@ -580,7 +581,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         settlement.isSettled = true;
         settlement.totalSettlementPool = settlementAmount;
-        
+
         return (settlementAmount, settlement.settlementPerToken);
     }
 
@@ -621,7 +622,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function _settleAsset(uint256 assetId, uint256 additionalAmount) internal returns (uint256 investorPool) {
         CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
-        
+
         // Extract Protocol Buffer to Fee Recipient
         if (info.protocolBuffer > 0) {
             pendingWithdrawals[treasuryFeeRecipient] += info.protocolBuffer;
@@ -637,13 +638,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         info.protocolBuffer = 0;
         info.reservedForLiquidation = 0;
         info.totalCollateral = 0;
-        
+
         // Total deposits tracking update:
         // We reduce totalCollateralDeposited by the amount that was "collateral"
         // The funds are now "settlement pool" or "fees"
         // This variable was tracking locked collateral.
         if (totalCollateralDeposited >= info.totalCollateral) {
-             totalCollateralDeposited -= info.totalCollateral;
+            totalCollateralDeposited -= info.totalCollateral;
         }
         // We don't track settlement pool in totalCollateralDeposited.
     }

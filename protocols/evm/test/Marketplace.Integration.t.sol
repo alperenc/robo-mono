@@ -538,9 +538,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(partner1);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
         vm.expectRevert(Marketplace__ListingNotActive.selector);
-        marketplace.createListing(
-            scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
+        marketplace.createListing(scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
         vm.stopPrank();
     }
 

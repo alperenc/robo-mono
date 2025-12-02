@@ -338,19 +338,13 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         // Assuming assetId 1 is already handled by assetRegistry
         // Revert when calling through Router for non-existent registry
-        vm.expectRevert(
-            abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.settleAsset(nonExistentAssetId, 0);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.liquidateAsset(nonExistentAssetId);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.claimSettlement(nonExistentAssetId);
 
         // Test non-existent asset when calling processSettlementClaim/initiateSettlement/executeLiquidation
@@ -364,11 +358,18 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Initially solvent
         assertTrue(router.isAssetSolvent(scenario.assetId));
 
-        // Trigger liquidation to make it insolvent (simulated)
-        vm.prank(unauthorized); // Anyone can call liquidateAsset
-        assetRegistry.liquidateAsset(scenario.assetId); // This will set status to Expired and make Treasury non-solvent
+        // Get maturity date
+        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
 
-        // After liquidation (Treasury should reflect insolvency)
+        // Warp to after maturity date to enable liquidation
+        vm.warp(info.maturityDate + 1);
+
+        // Trigger liquidation to make it Expired
+        vm.prank(unauthorized); // Anyone can call liquidateAsset
+        assetRegistry.liquidateAsset(scenario.assetId);
+
+        // After liquidation, Treasury should reflect non-solvency due to settlement (even if solvent before)
+        // The assetSettlements in Treasury marks it as settled, so isAssetSolvent should reflect that.
         assertFalse(router.isAssetSolvent(scenario.assetId));
     }
 }

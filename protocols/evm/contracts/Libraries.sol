@@ -88,6 +88,7 @@ library AssetLib {
         Archived, // Permanently retired
         Expired, // Reached maturity without owner retirement
         Retired // Retired with settlement (Voluntary or Forced)
+
     }
 
     // Generic asset information structure
