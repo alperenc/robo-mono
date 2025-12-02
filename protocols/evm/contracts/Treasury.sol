@@ -529,6 +529,156 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         emit CollateralReleased(assetId, msg.sender, releaseAmount);
     }
 
+    struct AssetSettlement {
+        bool isSettled;
+        uint256 settlementPerToken;
+        uint256 totalSettlementPool;
+    }
+
+    mapping(uint256 => AssetSettlement) public assetSettlements;
+
+    /**
+     * @dev Check asset solvency
+     */
+    function isAssetSolvent(uint256 assetId) external view override returns (bool) {
+        // An asset is solvent if it hasn't been settled AND is not currently under financial distress
+        return !assetSettlements[assetId].isSettled && CollateralLib.isSolvent(assetCollateral[assetId]);
+    }
+
+    /**
+     * @dev Initiate voluntary settlement
+     */
+    function initiateSettlement(address partner, uint256 assetId, uint256 topUpAmount)
+        external
+        override
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        returns (uint256 settlementAmount, uint256 settlementPerToken)
+    {
+        AssetSettlement storage settlement = assetSettlements[assetId];
+        if (settlement.isSettled) {
+            revert Treasury__AssetNotActive();
+        }
+
+        // Transfer top-up if any
+        if (topUpAmount > 0) {
+            usdc.safeTransferFrom(partner, address(this), topUpAmount);
+        }
+
+        settlementAmount = _settleAsset(assetId, topUpAmount);
+
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        if (totalSupply > 0) {
+            settlement.settlementPerToken = settlementAmount / totalSupply;
+        } else {
+            // If no supply, settlement per token is 0, and amount is returned to partner via withdraw?
+            // Actually if supply is 0, partner owns it all conceptually but they are burnt?
+            // Registry enforces supply logic usually. But if supply 0, no one to claim.
+            // We just store it.
+            settlement.settlementPerToken = 0;
+        }
+
+        settlement.isSettled = true;
+        settlement.totalSettlementPool = settlementAmount;
+
+        return (settlementAmount, settlement.settlementPerToken);
+    }
+
+    /**
+     * @dev Execute forced liquidation
+     */
+    function executeLiquidation(uint256 assetId)
+        external
+        override
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        returns (uint256 liquidationAmount, uint256 settlementPerToken)
+    {
+        AssetSettlement storage settlement = assetSettlements[assetId];
+        if (settlement.isSettled) {
+            revert Treasury__AssetNotActive();
+        }
+
+        liquidationAmount = _settleAsset(assetId, 0);
+
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+
+        if (totalSupply > 0) {
+            settlement.settlementPerToken = liquidationAmount / totalSupply;
+        } else {
+            settlement.settlementPerToken = 0;
+        }
+
+        settlement.isSettled = true;
+        settlement.totalSettlementPool = liquidationAmount;
+
+        return (liquidationAmount, settlement.settlementPerToken);
+    }
+
+    /**
+     * @dev Internal settlement logic
+     * Moves protocol buffer to fees, clears collateral, returns investor pool amount
+     */
+    function _settleAsset(uint256 assetId, uint256 additionalAmount) internal returns (uint256 investorPool) {
+        CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
+
+        // Extract Protocol Buffer to Fee Recipient
+        if (info.protocolBuffer > 0) {
+            pendingWithdrawals[treasuryFeeRecipient] += info.protocolBuffer;
+        }
+
+        // Calculate Investor Pool (Base + Earnings + Reserved + Additional)
+        investorPool = CollateralLib.getInvestorClaimableCollateral(info) + additionalAmount;
+
+        // Clear Collateral Info (Release lock conceptually, though funds stay in contract)
+        info.isLocked = false;
+        info.baseCollateral = 0;
+        info.earningsBuffer = 0;
+        info.protocolBuffer = 0;
+        info.reservedForLiquidation = 0;
+        info.totalCollateral = 0;
+
+        // Total deposits tracking update:
+        // We reduce totalCollateralDeposited by the amount that was "collateral"
+        // The funds are now "settlement pool" or "fees"
+        // This variable was tracking locked collateral.
+        if (totalCollateralDeposited >= info.totalCollateral) {
+            totalCollateralDeposited -= info.totalCollateral;
+        }
+        // We don't track settlement pool in totalCollateralDeposited.
+    }
+
+    /**
+     * @dev Process settlement claim (called by Registry via Router)
+     * Transfers USDC for burned tokens
+     */
+    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+        external
+        override
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        returns (uint256 claimedAmount)
+    {
+        AssetSettlement storage settlement = assetSettlements[assetId];
+        if (!settlement.isSettled) {
+            revert Treasury__AssetNotActive();
+        }
+
+        if (amount == 0) {
+            return 0;
+        }
+
+        // Calculate claim
+        claimedAmount = amount * settlement.settlementPerToken;
+
+        // Transfer USDC
+        if (claimedAmount > 0) {
+            usdc.safeTransfer(recipient, claimedAmount);
+        }
+
+        emit SettlementClaimed(assetId, recipient, claimedAmount);
+    }
+
     // View Functions
 
     /**

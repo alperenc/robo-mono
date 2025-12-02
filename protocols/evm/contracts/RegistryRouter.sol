@@ -166,6 +166,103 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         IAssetRegistry(registry).setAssetStatus(assetId, status);
     }
 
+    /**
+     * @dev Forward settlement initialization from Registry to Treasury.
+     * Callable only by authorized registries.
+     */
+    function initiateSettlement(address partner, uint256 assetId, uint256 topUpAmount)
+        external
+        onlyRole(AUTHORIZED_REGISTRY_ROLE)
+        returns (uint256 settlementAmount, uint256 settlementPerToken)
+    {
+        // Verify this registry owns the asset
+        if (assetIdToRegistry[assetId] != msg.sender) {
+            revert RegistryRouter__RegistryNotBoundToAsset();
+        }
+
+        if (treasury == address(0)) {
+            revert RegistryRouter__TreasuryNotSet();
+        }
+
+        return ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
+    }
+
+    /**
+     * @dev Forward liquidation execution from Registry to Treasury.
+     * Callable only by authorized registries.
+     */
+    function executeLiquidation(uint256 assetId)
+        external
+        onlyRole(AUTHORIZED_REGISTRY_ROLE)
+        returns (uint256 liquidationAmount, uint256 settlementPerToken)
+    {
+        // Verify this registry owns the asset
+        if (assetIdToRegistry[assetId] != msg.sender) {
+            revert RegistryRouter__RegistryNotBoundToAsset();
+        }
+
+        if (treasury == address(0)) {
+            revert RegistryRouter__TreasuryNotSet();
+        }
+
+        return ITreasury(treasury).executeLiquidation(assetId);
+    }
+
+    /**
+     * @dev Check asset solvency via Treasury.
+     */
+    /**
+     * @dev Forward settlement claim processing from Registry to Treasury.
+     * Callable only by authorized registries.
+     */
+    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+        external
+        onlyRole(AUTHORIZED_REGISTRY_ROLE)
+        returns (uint256 claimedAmount)
+    {
+        // Verify this registry owns the asset
+        if (assetIdToRegistry[assetId] != msg.sender) {
+            revert RegistryRouter__RegistryNotBoundToAsset();
+        }
+
+        if (treasury == address(0)) {
+            revert RegistryRouter__TreasuryNotSet();
+        }
+
+        return ITreasury(treasury).processSettlementClaim(recipient, assetId, amount);
+    }
+
+    function isAssetSolvent(uint256 assetId) external view returns (bool) {
+        if (treasury == address(0)) {
+            revert RegistryRouter__TreasuryNotSet();
+        }
+        return ITreasury(treasury).isAssetSolvent(assetId);
+    }
+
+    function settleAsset(uint256 assetId, uint256 topUpAmount) external override {
+        address registry = assetIdToRegistry[assetId];
+        if (registry == address(0)) {
+            revert RegistryRouter__RegistryNotFoundForAsset(assetId);
+        }
+        IAssetRegistry(registry).settleAsset(assetId, topUpAmount);
+    }
+
+    function liquidateAsset(uint256 assetId) external override {
+        address registry = assetIdToRegistry[assetId];
+        if (registry == address(0)) {
+            revert RegistryRouter__RegistryNotFoundForAsset(assetId);
+        }
+        IAssetRegistry(registry).liquidateAsset(assetId);
+    }
+
+    function claimSettlement(uint256 assetId) external override returns (uint256) {
+        address registry = assetIdToRegistry[assetId];
+        if (registry == address(0)) {
+            revert RegistryRouter__RegistryNotFoundForAsset(assetId);
+        }
+        return IAssetRegistry(registry).claimSettlement(assetId);
+    }
+
     function burnRevenueTokens(uint256 assetId, uint256 amount) external override {
         address registry = assetIdToRegistry[assetId];
         if (registry == address(0)) {

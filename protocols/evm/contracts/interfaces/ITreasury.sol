@@ -18,6 +18,7 @@ interface ITreasury {
     );
     event EarningsDistributed(uint256 indexed assetId, address indexed partner, uint256 amount, uint256 period);
     event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
+    event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
     event RouterUpdated(address indexed newRouter);
 
     function releaseCollateralFor(address partner, uint256 assetId) external returns (uint256 releasedCollateral);
@@ -28,6 +29,20 @@ interface ITreasury {
         external;
 
     function releaseCollateral(uint256 assetId) external;
+
+    function initiateSettlement(address partner, uint256 assetId, uint256 topUpAmount)
+        external
+        returns (uint256 settlementAmount, uint256 settlementPerToken);
+
+    function executeLiquidation(uint256 assetId)
+        external
+        returns (uint256 liquidationAmount, uint256 settlementPerToken);
+
+    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+        external
+        returns (uint256 claimedAmount);
+
+    function isAssetSolvent(uint256 assetId) external view returns (bool);
 
     function distributeEarnings(uint256 assetId, uint256 amount) external;
 

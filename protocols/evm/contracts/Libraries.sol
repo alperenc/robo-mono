@@ -85,7 +85,9 @@ library AssetLib {
         Pending, // Asset exists but not operational
         Active, // Asset is operational and earning
         Suspended, // Temporarily halted operations
-        Archived // Permanently retired
+        Archived, // Permanently retired
+        Expired, // Reached maturity without owner retirement
+        Retired // Retired with settlement (Voluntary or Forced)
 
     }
 
@@ -94,16 +96,19 @@ library AssetLib {
         AssetStatus status; // Current asset status
         uint256 createdAt; // Asset registration timestamp
         uint256 updatedAt; // Last status/metadata update
+        uint256 maturityDate; // Date by which asset must be retired
     }
 
     /**
      * @dev Initialize asset info
      * @param info Storage reference to asset info
+     * @param maturityDate Asset maturity timestamp
      */
-    function initializeAssetInfo(AssetInfo storage info) internal {
+    function initializeAssetInfo(AssetInfo storage info, uint256 maturityDate) internal {
         info.status = AssetStatus.Pending;
         info.createdAt = block.timestamp;
         info.updatedAt = block.timestamp;
+        info.maturityDate = maturityDate;
     }
 
     /**
@@ -143,19 +148,25 @@ library AssetLib {
 
         // Define valid transitions
         if (from == AssetStatus.Pending) {
-            return to == AssetStatus.Active;
+            return to == AssetStatus.Active || to == AssetStatus.Expired;
         }
 
         if (from == AssetStatus.Active) {
-            return to == AssetStatus.Suspended || to == AssetStatus.Archived;
+            return to == AssetStatus.Suspended || to == AssetStatus.Archived || to == AssetStatus.Expired
+                || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Suspended) {
-            return to == AssetStatus.Active || to == AssetStatus.Archived;
+            return to == AssetStatus.Active || to == AssetStatus.Archived || to == AssetStatus.Expired
+                || to == AssetStatus.Retired;
         }
 
-        // Archived is final state
-        if (from == AssetStatus.Archived) {
+        if (from == AssetStatus.Expired) {
+            return to == AssetStatus.Retired || to == AssetStatus.Archived;
+        }
+
+        // Archived and Retired are final states (mostly)
+        if (from == AssetStatus.Archived || from == AssetStatus.Retired) {
             return false;
         }
 
@@ -163,7 +174,7 @@ library AssetLib {
     }
 
     function isValidAssetStatus(AssetStatus status) internal pure returns (bool) {
-        return status >= AssetStatus.Pending && status <= AssetStatus.Archived;
+        return status >= AssetStatus.Pending && status <= AssetStatus.Retired;
     }
 
     /**
@@ -241,13 +252,14 @@ library VehicleLib {
         uint256 year,
         uint256 manufacturerId,
         string memory optionCodes,
-        string memory dynamicMetadataURI
+        string memory dynamicMetadataURI,
+        uint256 maturityDate
     ) internal {
         // Set vehicle ID
         vehicle.vehicleId = vehicleId;
 
         // Initialize asset info
-        AssetLib.initializeAssetInfo(vehicle.assetInfo);
+        AssetLib.initializeAssetInfo(vehicle.assetInfo, maturityDate);
 
         // Initialize vehicle-specific info
         initializeVehicleInfo(
@@ -756,6 +768,25 @@ library CollateralLib {
         uint256 benchmarkQuarterlyEarnings =
             (baseCollateral * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
         return (benchmarkQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
+    }
+
+    /**
+     * @dev Check if asset collateral is solvent
+     * @param info Storage reference to collateral info
+     * @return True if solvent (no reserved funds needed for liquidation)
+     */
+    function isSolvent(CollateralInfo storage info) internal view returns (bool) {
+        return info.reservedForLiquidation == 0;
+    }
+
+    /**
+     * @dev Get total collateral claimable by investors (excluding protocol buffer)
+     * @param info Storage reference to collateral info
+     * @return Total claimable amount in USDC
+     */
+    function getInvestorClaimableCollateral(CollateralInfo storage info) internal view returns (uint256) {
+        // Claimable = Base + EarningsBuffer + ReservedForLiquidation (which is part of earnings buffer moved)
+        return info.baseCollateral + info.earningsBuffer + info.reservedForLiquidation;
     }
 }
 

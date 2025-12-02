@@ -26,6 +26,12 @@ interface IAssetRegistry {
      */
     function retireAsset(uint256 assetId) external;
 
+    function settleAsset(uint256 assetId, uint256 topUpAmount) external;
+
+    function liquidateAsset(uint256 assetId) external;
+
+    function claimSettlement(uint256 assetId) external returns (uint256 claimedAmount);
+
     function burnRevenueTokens(uint256 assetId, uint256 amount) external;
 
     function retireAssetAndBurnTokens(uint256 assetId) external;
@@ -79,6 +85,14 @@ interface IAssetRegistry {
     event AssetRetired(
         uint256 indexed assetId, address indexed partner, uint256 burnedTokens, uint256 releasedCollateral
     );
+
+    event AssetSettled(
+        uint256 indexed assetId, address indexed partner, uint256 settlementAmount, uint256 settlementPerToken
+    );
+
+    event AssetExpired(uint256 indexed assetId, uint256 liquidationAmount, uint256 settlementPerToken);
+
+    event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount, uint256 payout);
 
     /**
      * @dev Shared Errors

@@ -33,8 +33,8 @@ contract AssetHelper {
 
     AssetLib.AssetInfo internal info;
 
-    function init(AssetLib.AssetStatus s) external {
-        info.initializeAssetInfo();
+    function init(AssetLib.AssetStatus s, uint256 maturityDate) external {
+        info.initializeAssetInfo(maturityDate);
         if (s != AssetLib.AssetStatus.Pending) {
             info.updateAssetStatus(s);
         }
@@ -193,7 +193,8 @@ contract LibrariesTest is Test {
 
     // AssetLib tests
     function testAssetsInitAndTransitions() public {
-        ah.init(AssetLib.AssetStatus.Pending);
+        uint256 testMaturityDate = block.timestamp + 365 days; // 1 year from now for testing
+        ah.init(AssetLib.AssetStatus.Pending, testMaturityDate);
         assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Pending));
         assertFalse(ah.isOperational());
 
@@ -227,7 +228,8 @@ contract LibrariesTest is Test {
     }
 
     function testAssetsTimeViews() public {
-        ah.init(AssetLib.AssetStatus.Active);
+        uint256 testMaturityDate = block.timestamp + 365 days; // 1 year from now for testing
+        ah.init(AssetLib.AssetStatus.Active, testMaturityDate);
         uint256 t0 = block.timestamp;
         vm.warp(t0 + 1 days);
         assertApproxEqAbs(ah.age(), 1 days, 2);
