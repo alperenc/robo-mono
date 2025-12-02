@@ -441,7 +441,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         // Update Status using internal helper
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Archived);
+        _setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
 
         // Trigger Treasury Settlement via Router
         uint256 releasedCollateral = router.releaseCollateralFor(partner, assetId);

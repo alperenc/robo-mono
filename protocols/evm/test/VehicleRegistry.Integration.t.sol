@@ -374,7 +374,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), 0);
 
         // Verify status updated
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
 
         // Verify collateral released
         // Collateral should be unlocked (locked = false)
@@ -415,7 +415,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.retireAsset(scenario.assetId);
 
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
         (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
         assertFalse(locked);
     }
@@ -570,7 +570,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
 
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
     }
 
     function testIsAuthorizedForAssetNoBalance() public {
