@@ -19,7 +19,6 @@ error VehicleRegistry__OutstandingTokensHeldByOthers();
 error VehicleRegistry__NotVehicleOwner();
 error VehicleRegistry__IncorrectVehicleId();
 error VehicleRegistry__IncorrectRevenueTokenId();
-error VehicleRegistry__AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
 
 /**
  * @dev Vehicle registration and management with IPFS metadata integration
@@ -301,7 +300,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Verify asset is active
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
-            revert VehicleRegistry__AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
+            revert IAssetRegistry.AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
         // Update Status
@@ -328,7 +327,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Check if asset is already settled/retired
         if (info.status == AssetLib.AssetStatus.Retired || info.status == AssetLib.AssetStatus.Expired) {
-            revert VehicleRegistry__AssetNotActive(assetId, info.status);
+            revert IAssetRegistry.AssetAlreadySettled(assetId, info.status);
         }
 
         // Check liquidation conditions: Maturity OR Insolvency
@@ -336,7 +335,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         bool isSolvent = router.isAssetSolvent(assetId);
 
         if (!isMatured && isSolvent) {
-            revert("Asset not eligible for liquidation");
+            revert IAssetRegistry.AssetNotEligibleForLiquidation(assetId);
         }
 
         // Update Status
@@ -361,16 +360,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Verify asset is settled
         if (info.status != AssetLib.AssetStatus.Retired && info.status != AssetLib.AssetStatus.Expired) {
-            revert VehicleRegistry__AssetNotActive(assetId, info.status);
+            revert IAssetRegistry.AssetNotSettled(assetId, info.status);
         }
 
         uint256 revenueTokenId = assetId + 1;
         uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
 
         if (balance == 0) {
-            // Revert with generic error or just return 0?
-            // Standard is to revert if nothing to claim usually
-            revert("No tokens to claim");
+            revert IAssetRegistry.InsufficientTokenAmount(revenueTokenId, 1, balance);
         }
 
         // Burn tokens
@@ -434,10 +431,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function _retireAsset(uint256 assetId, address partner, uint256 burnedTokens) internal {
         // Verify asset is active
-
-        // Verify asset is active
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
-            revert VehicleRegistry__AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
+            revert IAssetRegistry.AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
         // Update Status using internal helper

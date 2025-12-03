@@ -35,6 +35,7 @@ error Treasury__NoNewPeriodsToProcess();
 error Treasury__InsufficientTokenBalance();
 error Treasury__EarningsLessThanMinimumFee();
 error Treasury__AssetNotActive();
+error Treasury__AssetAlreadySettled(); // New error
 error Treasury__NotRouter();
 
 /**
@@ -60,6 +61,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     // Storage mappings
     mapping(uint256 => CollateralLib.CollateralInfo) public assetCollateral; // Collateral storage - assetId => CollateralInfo
     mapping(uint256 => EarningsLib.EarningsInfo) public assetEarnings; // Earnings tracking - assetId => EarningsInfo
+    mapping(uint256 => CollateralLib.AssetSettlement) public assetSettlements; // Settlement info - assetId => AssetSettlement
     mapping(address => uint256) public pendingWithdrawals;
 
     // Treasury state
@@ -529,13 +531,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         emit CollateralReleased(assetId, msg.sender, releaseAmount);
     }
 
-    struct AssetSettlement {
-        bool isSettled;
-        uint256 settlementPerToken;
-        uint256 totalSettlementPool;
-    }
 
-    mapping(uint256 => AssetSettlement) public assetSettlements;
 
     /**
      * @dev Check asset solvency
@@ -554,7 +550,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 settlementAmount, uint256 settlementPerToken)
     {
-        AssetSettlement storage settlement = assetSettlements[assetId];
+        CollateralLib.AssetSettlement storage settlement = assetSettlements[assetId];
         if (settlement.isSettled) {
             revert Treasury__AssetNotActive();
         }
@@ -571,12 +567,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         if (totalSupply > 0) {
             settlement.settlementPerToken = settlementAmount / totalSupply;
-        } else {
-            // If no supply, settlement per token is 0, and amount is returned to partner via withdraw?
-            // Actually if supply is 0, partner owns it all conceptually but they are burnt?
-            // Registry enforces supply logic usually. But if supply 0, no one to claim.
-            // We just store it.
-            settlement.settlementPerToken = 0;
         }
 
         settlement.isSettled = true;
@@ -594,7 +584,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 liquidationAmount, uint256 settlementPerToken)
     {
-        AssetSettlement storage settlement = assetSettlements[assetId];
+        CollateralLib.AssetSettlement storage settlement = assetSettlements[assetId];
         if (settlement.isSettled) {
             revert Treasury__AssetNotActive();
         }
@@ -606,8 +596,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         if (totalSupply > 0) {
             settlement.settlementPerToken = liquidationAmount / totalSupply;
-        } else {
-            settlement.settlementPerToken = 0;
         }
 
         settlement.isSettled = true;
@@ -659,9 +647,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 claimedAmount)
     {
-        AssetSettlement storage settlement = assetSettlements[assetId];
+        CollateralLib.AssetSettlement storage settlement = assetSettlements[assetId];
         if (!settlement.isSettled) {
-            revert Treasury__AssetNotActive();
+            revert IAssetRegistry.AssetNotSettled(assetId, router.getAssetStatus(assetId));
         }
 
         if (amount == 0) {

@@ -577,6 +577,15 @@ library CollateralLib {
     }
 
     /**
+     * @dev Settlement information for retired/expired assets
+     */
+    struct AssetSettlement {
+        bool isSettled;
+        uint256 settlementPerToken;
+        uint256 totalSettlementPool;
+    }
+
+    /**
      * @dev Initialize collateral info for a vehicle
      * @param info Collateral info storage reference
      * @param revenueTokenPrice Price per revenue share token in USDC
