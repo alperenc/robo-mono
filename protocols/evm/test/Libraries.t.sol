@@ -217,11 +217,11 @@ contract LibrariesTest is Test {
         // Valid: Suspended -> Active
         ah.update(AssetLib.AssetStatus.Active);
 
-        // Valid: Active -> Archived; further transitions invalid
-        ah.update(AssetLib.AssetStatus.Archived);
+        // Valid: Active -> Retired; further transitions invalid
+        ah.update(AssetLib.AssetStatus.Retired);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AssetLib.InvalidStatusTransition.selector, AssetLib.AssetStatus.Archived, AssetLib.AssetStatus.Active
+                AssetLib.InvalidStatusTransition.selector, AssetLib.AssetStatus.Retired, AssetLib.AssetStatus.Active
             )
         );
         ah.update(AssetLib.AssetStatus.Active);

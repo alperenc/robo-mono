@@ -229,7 +229,7 @@ contract VehicleRegistryTest is BaseTest {
         vm.prank(partner1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
+                IAssetRegistry.AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
             )
         );
         assetRegistry.retireAsset(scenario.assetId);

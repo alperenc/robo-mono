@@ -85,7 +85,6 @@ library AssetLib {
         Pending, // Asset exists but not operational
         Active, // Asset is operational and earning
         Suspended, // Temporarily halted operations
-        Archived, // Permanently retired
         Expired, // Reached maturity without owner retirement
         Retired // Retired with settlement (Voluntary or Forced)
 
@@ -152,21 +151,19 @@ library AssetLib {
         }
 
         if (from == AssetStatus.Active) {
-            return to == AssetStatus.Suspended || to == AssetStatus.Archived || to == AssetStatus.Expired
-                || to == AssetStatus.Retired;
+            return to == AssetStatus.Suspended || to == AssetStatus.Expired || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Suspended) {
-            return to == AssetStatus.Active || to == AssetStatus.Archived || to == AssetStatus.Expired
-                || to == AssetStatus.Retired;
+            return to == AssetStatus.Active || to == AssetStatus.Expired || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Expired) {
-            return to == AssetStatus.Retired || to == AssetStatus.Archived;
+            return to == AssetStatus.Retired;
         }
 
-        // Archived and Retired are final states (mostly)
-        if (from == AssetStatus.Archived || from == AssetStatus.Retired) {
+        // Retired is final state
+        if (from == AssetStatus.Retired) {
             return false;
         }
 
@@ -580,6 +577,15 @@ library CollateralLib {
     }
 
     /**
+     * @dev Settlement information for retired/expired assets
+     */
+    struct AssetSettlement {
+        bool isSettled;
+        uint256 settlementPerToken;
+        uint256 totalSettlementPool;
+    }
+
+    /**
      * @dev Initialize collateral info for a vehicle
      * @param info Collateral info storage reference
      * @param revenueTokenPrice Price per revenue share token in USDC
@@ -773,10 +779,10 @@ library CollateralLib {
     /**
      * @dev Check if asset collateral is solvent
      * @param info Storage reference to collateral info
-     * @return True if solvent (no reserved funds needed for liquidation)
+     * @return True if solvent (has buffer remaining OR no deficit)
      */
     function isSolvent(CollateralInfo storage info) internal view returns (bool) {
-        return info.reservedForLiquidation == 0;
+        return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
     }
 
     /**

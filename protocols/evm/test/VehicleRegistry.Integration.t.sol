@@ -374,7 +374,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), 0);
 
         // Verify status updated
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
 
         // Verify collateral released
         // Collateral should be unlocked (locked = false)
@@ -415,7 +415,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.retireAsset(scenario.assetId);
 
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
         (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
         assertFalse(locked);
     }
@@ -480,10 +480,11 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Try to liquidate before maturity and while solvent
-        vm.expectRevert("Asset not eligible for liquidation");
+        vm.expectRevert(
+            abi.encodeWithSelector(IAssetRegistry.AssetNotEligibleForLiquidation.selector, scenario.assetId)
+        );
         assetRegistry.liquidateAsset(scenario.assetId);
     }
-
     // New Tests for Settlement and Liquidation Branches
 
     function testSettleAssetNotOwner() public {
@@ -498,7 +499,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
+                IAssetRegistry.AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
             )
         );
         assetRegistry.settleAsset(scenario.assetId, 0);
@@ -519,7 +520,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Try to liquidate an already settled asset
         vm.expectRevert(
             abi.encodeWithSelector(
-                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Retired
+                IAssetRegistry.AssetAlreadySettled.selector, scenario.assetId, AssetLib.AssetStatus.Retired
             )
         );
         assetRegistry.liquidateAsset(scenario.assetId);
@@ -536,7 +537,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                VehicleRegistry__AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Active
+                IAssetRegistry.AssetNotSettled.selector, scenario.assetId, AssetLib.AssetStatus.Active
             )
         );
         assetRegistry.claimSettlement(scenario.assetId);
@@ -551,8 +552,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.liquidateAsset(scenario.assetId);
 
         // Try to claim settlement as an address with no tokens for this asset
+
         vm.prank(unauthorized);
-        vm.expectRevert("No tokens to claim");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAssetRegistry.InsufficientTokenBalance.selector, scenario.revenueTokenId, 1, 0)
+        );
+
         assetRegistry.claimSettlement(scenario.assetId);
     }
 
@@ -570,7 +576,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
 
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Archived));
+        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
     }
 
     function testIsAuthorizedForAssetNoBalance() public {
