@@ -367,7 +367,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
 
         if (balance == 0) {
-            revert IAssetRegistry.InsufficientTokenAmount(revenueTokenId, 1, balance);
+            revert IAssetRegistry.InsufficientTokenBalance(revenueTokenId, 1, balance);
         }
 
         // Burn tokens

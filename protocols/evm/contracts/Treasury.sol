@@ -274,20 +274,31 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert OutstandingRevenueTokens();
         }
 
-        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
-        uint256 collateralAmount = collateralInfo.totalCollateral;
-
-        // Unlock the collateral
-        collateralInfo.isLocked = false;
-        collateralInfo.lockedAt = 0;
-        collateralInfo.baseCollateral = 0;
-        collateralInfo.totalCollateral = 0;
+        uint256 collateralAmount = _clearCollateral(assetId);
 
         // Add to pending withdrawals
         pendingWithdrawals[recipient] += collateralAmount;
-        totalCollateralDeposited -= collateralAmount;
 
         emit CollateralReleased(assetId, recipient, collateralAmount);
+    }
+
+    /**
+     * @dev Internal helper to clear collateral state and update global tracking
+     */
+    function _clearCollateral(uint256 assetId) internal returns (uint256 totalReleased) {
+        CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
+        totalReleased = info.totalCollateral;
+
+        info.isLocked = false;
+        info.baseCollateral = 0;
+        info.earningsBuffer = 0;
+        info.protocolBuffer = 0;
+        info.reservedForLiquidation = 0;
+        info.totalCollateral = 0;
+
+        if (totalCollateralDeposited >= totalReleased) {
+            totalCollateralDeposited -= totalReleased;
+        }
     }
 
     /**
@@ -531,8 +542,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         emit CollateralReleased(assetId, msg.sender, releaseAmount);
     }
 
-
-
     /**
      * @dev Check asset solvency
      */
@@ -611,30 +620,20 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     function _settleAsset(uint256 assetId, uint256 additionalAmount) internal returns (uint256 investorPool) {
         CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
 
+        // Snapshot values before clearing
+        uint256 protocolBuffer = info.protocolBuffer;
+        uint256 claimable = CollateralLib.getInvestorClaimableCollateral(info);
+
+        // Clear collateral state
+        _clearCollateral(assetId);
+
         // Extract Protocol Buffer to Fee Recipient
-        if (info.protocolBuffer > 0) {
-            pendingWithdrawals[treasuryFeeRecipient] += info.protocolBuffer;
+        if (protocolBuffer > 0) {
+            pendingWithdrawals[treasuryFeeRecipient] += protocolBuffer;
         }
 
         // Calculate Investor Pool (Base + Earnings + Reserved + Additional)
-        investorPool = CollateralLib.getInvestorClaimableCollateral(info) + additionalAmount;
-
-        // Clear Collateral Info (Release lock conceptually, though funds stay in contract)
-        info.isLocked = false;
-        info.baseCollateral = 0;
-        info.earningsBuffer = 0;
-        info.protocolBuffer = 0;
-        info.reservedForLiquidation = 0;
-        info.totalCollateral = 0;
-
-        // Total deposits tracking update:
-        // We reduce totalCollateralDeposited by the amount that was "collateral"
-        // The funds are now "settlement pool" or "fees"
-        // This variable was tracking locked collateral.
-        if (totalCollateralDeposited >= info.totalCollateral) {
-            totalCollateralDeposited -= info.totalCollateral;
-        }
-        // We don't track settlement pool in totalCollateralDeposited.
+        investorPool = claimable + additionalAmount;
     }
 
     /**

@@ -103,5 +103,5 @@ interface IAssetRegistry {
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetAlreadySettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetNotEligibleForLiquidation(uint256 assetId);
-    error InsufficientTokenAmount(uint256 tokenId, uint256 required, uint256 available);
+    error InsufficientTokenBalance(uint256 tokenId, uint256 required, uint256 available);
 }

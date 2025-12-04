@@ -476,17 +476,15 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Expired));
     }
 
-        function testLiquidateAssetNotEligible() public {
-            _ensureState(SetupState.RevenueTokensMinted);
-            
-            // Try to liquidate before maturity and while solvent
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    IAssetRegistry.AssetNotEligibleForLiquidation.selector, scenario.assetId
-                )
-            );
-            assetRegistry.liquidateAsset(scenario.assetId);
-        }
+    function testLiquidateAssetNotEligible() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Try to liquidate before maturity and while solvent
+        vm.expectRevert(
+            abi.encodeWithSelector(IAssetRegistry.AssetNotEligibleForLiquidation.selector, scenario.assetId)
+        );
+        assetRegistry.liquidateAsset(scenario.assetId);
+    }
     // New Tests for Settlement and Liquidation Branches
 
     function testSettleAssetNotOwner() public {
@@ -554,12 +552,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.liquidateAsset(scenario.assetId);
 
         // Try to claim settlement as an address with no tokens for this asset
+
         vm.prank(unauthorized);
+
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAssetRegistry.InsufficientTokenAmount.selector, scenario.revenueTokenId, 1, 0
-            )
+            abi.encodeWithSelector(IAssetRegistry.InsufficientTokenBalance.selector, scenario.revenueTokenId, 1, 0)
         );
+
         assetRegistry.claimSettlement(scenario.assetId);
     }
 

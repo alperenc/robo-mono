@@ -19,6 +19,9 @@ function parseLcov(filePath) {
     let currentFile = null;
 
     lines.forEach(line => {
+        line = line.trim();
+        if (line === '') return;
+
         if (line.startsWith('SF:')) {
             currentFile = line.substring(3);
             files[currentFile] = {
@@ -33,13 +36,13 @@ function parseLcov(filePath) {
                 files[currentFile].functions.details.push({ name, hit: false });
             } else if (line.startsWith('FNDA:')) {
                 const parts = line.split(',');
-                const count = parseInt(parts[0]);
+                const count = parseInt(parts[0].split(':')[1]);
                 const name = parts[1];
                 const func = files[currentFile].functions.details.find(f => f.name === name);
                 if (func && count > 0) func.hit = true;
             } else if (line.startsWith('BRDA:')) {
                 const parts = line.split(',');
-                const lineNum = parseInt(parts[1]);
+                const lineNum = parseInt(parts[0].split(':')[1]);
                 const taken = parts[3] !== '-' && parseInt(parts[3]) > 0;
                 files[currentFile].branches.details.push({ line: lineNum, taken });
             }
