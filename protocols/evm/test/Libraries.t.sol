@@ -159,6 +159,10 @@ contract CollateralTokenEarningsHelper {
     function unclaimedForPositions(address holder, uint256 last) external view returns (uint256) {
         return t.calculateUnclaimedEarningsForPositions(holder, e, last);
     }
+
+    function calcRelease() external view returns (uint256) {
+        return CollateralLib.calculateCollateralRelease(c);
+    }
 }
 
 contract LibrariesTest is Test {
@@ -348,5 +352,36 @@ contract LibrariesTest is Test {
 
         // positions-based unclaimed (same as balance since single active position)
         assertEq(cteh.unclaimedForPositions(alice, 0), 50e6);
+    }
+
+    function testRemovePositionInsufficientBalance() public {
+        cteh.initToken(1, 100e6, ProtocolLib.MONTHLY_INTERVAL);
+        cteh.addPos(alice, 10);
+        vm.expectRevert(TokenLib.TokenLib__InsufficientTokenBalance.selector);
+        cteh.removePos(alice, 11);
+    }
+
+    function testCollateralInitAlreadyLocked() public {
+        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.lockNow();
+        vm.expectRevert(CollateralLib.CollateralAlreadyInitialized.selector);
+        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+    }
+
+    function testCollateralReleaseNoneDue() public {
+        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.lockNow();
+        // No time passed, release should be 0
+        assertEq(cteh.calcRelease(), 0);
+    }
+
+    function testUnclaimedEarningsZeroOrUpToDate() public {
+        cteh.initEarnings();
+        // Zero balance
+        assertEq(cteh.unclaimed(0, 0), 0);
+
+        // Up to date
+        cteh.setPeriod(1, 10e6, block.timestamp, 100e6);
+        assertEq(cteh.unclaimed(10, 1), 0);
     }
 }

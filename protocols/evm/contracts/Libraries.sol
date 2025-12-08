@@ -355,10 +355,20 @@ library TokenLib {
      * @dev Individual token position
      */
     struct TokenPosition {
+        uint256 uid; // Unique position ID (Queue Index)
         uint256 tokenId; // ERC1155 token ID
         uint256 amount; // Number of tokens in this position
         uint256 acquiredAt; // Timestamp when position was acquired
         uint256 soldAt; // Timestamp when position was sold (0 if still held)
+    }
+
+    /**
+     * @dev Mapping-based Queue for positions
+     */
+    struct PositionQueue {
+        uint128 head;
+        uint128 tail;
+        mapping(uint256 => TokenPosition) items;
     }
 
     /**
@@ -369,8 +379,8 @@ library TokenLib {
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
         uint256 tokenSupply; // Total number of tokens issued
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
-        // Track positions per user
-        mapping(address => TokenPosition[]) positions;
+        // Track positions per user using Queue
+        mapping(address => PositionQueue) positions;
     }
 
     error TokenLib__InsufficientTokenBalance();
@@ -394,58 +404,55 @@ library TokenLib {
     }
 
     /**
-     * @dev Add a new position for a token holder
+     * @dev Add a new position for a token holder (Push to Tail)
      * @param info Storage reference to token info
      * @param holder Address of the token holder
      * @param amount Number of tokens in the position
      */
     function addPosition(TokenInfo storage info, address holder, uint256 amount) internal {
-        info.positions[holder].push(
-            TokenPosition({ tokenId: info.tokenId, amount: amount, acquiredAt: block.timestamp, soldAt: 0 })
-        );
+        PositionQueue storage queue = info.positions[holder];
+        uint256 id = queue.tail;
+
+        queue.items[id] =
+            TokenPosition({ uid: id, tokenId: info.tokenId, amount: amount, acquiredAt: block.timestamp, soldAt: 0 });
+        queue.tail++;
     }
 
     /**
-     * @dev Remove positions when tokens are transferred/sold
+     * @dev Remove positions when tokens are transferred/sold (Consume from Head)
      * @param info Storage reference to token info
      * @param holder Address of the token holder
      * @param amount Number of tokens to remove
      */
     function removePosition(TokenInfo storage info, address holder, uint256 amount) internal {
-        TokenPosition[] storage positions = info.positions[holder];
+        PositionQueue storage queue = info.positions[holder];
         uint256 remaining = amount;
 
-        // Start from oldest position (FIFO)
-        for (uint256 i = 0; i < positions.length && remaining > 0; i++) {
-            TokenPosition storage pos = positions[i];
+        // Start from oldest position (FIFO) - Head to Tail
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenPosition storage pos = queue.items[i];
 
             if (pos.amount > 0) {
                 uint256 toRemove = remaining > pos.amount ? pos.amount : remaining;
 
-                // If partial transfer, create new position for remaining amount
-                if (toRemove < pos.amount) {
-                    uint256 remainingAmount = pos.amount - toRemove;
-                    info.positions[holder].push(
-                        TokenPosition({
-                            tokenId: pos.tokenId,
-                            amount: remainingAmount,
-                            acquiredAt: pos.acquiredAt,
-                            soldAt: 0
-                        })
-                    );
+                // In-place update
+                pos.amount -= toRemove;
+                if (pos.amount == 0) {
+                    pos.soldAt = block.timestamp;
                 }
-
-                // Mark original position as sold
-                pos.amount = 0;
-                pos.soldAt = block.timestamp;
 
                 remaining -= toRemove;
             }
+        }
+
+        if (remaining > 0) {
+            revert TokenLib__InsufficientTokenBalance();
         }
     }
 
     /**
      * @dev Calculates the early sale penalty for a given amount of tokens without modifying state.
+     * This function is intended to be called by the Marketplace contract before a sale.
      * @param info Storage reference to token info.
      * @param holder Address of the token holder.
      * @param amountToSell Number of tokens being sold.
@@ -458,13 +465,13 @@ library TokenLib {
     {
         if (amountToSell == 0) return 0;
 
-        TokenPosition[] storage positions = info.positions[holder];
+        PositionQueue storage queue = info.positions[holder];
         uint256 remaining = amountToSell;
         uint256 totalPenalty;
 
         // Start from oldest position (FIFO)
-        for (uint256 i = 0; i < positions.length && remaining > 0; i++) {
-            TokenPosition storage pos = positions[i];
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenPosition storage pos = queue.items[i];
 
             if (pos.amount > 0) {
                 // Only consider active positions
@@ -523,10 +530,10 @@ library TokenLib {
         EarningsLib.EarningsInfo storage earningsInfo,
         uint256 lastClaimedPeriod
     ) internal view returns (uint256 unclaimedAmount) {
-        TokenPosition[] storage positions = info.positions[holder];
+        PositionQueue storage queue = info.positions[holder];
 
-        for (uint256 i = 0; i < positions.length; i++) {
-            TokenPosition storage position = positions[i];
+        for (uint256 i = queue.head; i < queue.tail; i++) {
+            TokenPosition storage position = queue.items[i];
             if (position.amount > 0) {
                 // Active position
                 // Calculate earnings for this position across unclaimed periods
@@ -558,6 +565,7 @@ library CollateralLib {
     error InvalidCollateralAmount();
     error CollateralAlreadyLocked();
     error NoCollateralLocked();
+    error CollateralAlreadyInitialized();
 
     /**
      * @dev Collateral information for vehicles with time-based calculations
@@ -598,6 +606,9 @@ library CollateralLib {
         uint256 tokenSupply,
         uint256 bufferTimeInterval
     ) internal {
+        if (info.isLocked) {
+            revert CollateralAlreadyInitialized();
+        }
         if (revenueTokenPrice == 0 || tokenSupply == 0) {
             revert InvalidCollateralAmount();
         }
@@ -673,8 +684,7 @@ library CollateralLib {
     function calculateCollateralRelease(CollateralInfo storage info) internal view returns (uint256 releaseAmount) {
         // Cumulative allowed release from initial base
         uint256 elapsedSinceLock = block.timestamp - info.lockedAt;
-        uint256 cumulativeAllowed = (info.initialBaseCollateral * 1200 * elapsedSinceLock)
-            / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
+        uint256 cumulativeAllowed = calculateDepreciation(info.initialBaseCollateral, elapsedSinceLock);
 
         // Already released from base
         uint256 releasedSoFar = info.initialBaseCollateral - info.baseCollateral;
@@ -824,7 +834,7 @@ library EarningsLib {
         bool isInitialized; // Whether earnings tracking is initialized
         mapping(uint256 => EarningsPeriod) periods; // period => earnings data
         // Track last claimed period for each individual position
-        mapping(address => mapping(uint256 => mapping(uint256 => uint256))) positionsLastClaimedPeriod; // holder => tokenId => positionIndex => lastClaimedPeriod
+        mapping(address => mapping(uint256 => mapping(uint256 => uint256))) positionsLastClaimedPeriod; // holder => tokenId => positionId => lastClaimedPeriod
     }
 
     /**
@@ -915,7 +925,8 @@ library EarningsLib {
         for (uint256 i = 0; i < positions.length; i++) {
             TokenLib.TokenPosition memory position = positions[i];
             if (position.amount > 0) {
-                uint256 lastClaimedPeriod = earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][i];
+                uint256 lastClaimedPeriod =
+                    earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][position.uid];
                 uint256 endPeriod = position.soldAt > 0
                     ? getPeriodAtTimestamp(earningsInfo, position.soldAt)
                     : earningsInfo.currentPeriod;
@@ -948,7 +959,7 @@ library EarningsLib {
     ) internal {
         for (uint256 i = 0; i < positions.length; i++) {
             TokenLib.TokenPosition memory position = positions[i];
-            earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][i] = earningsInfo.currentPeriod;
+            earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][position.uid] = earningsInfo.currentPeriod;
         }
     }
 

@@ -206,11 +206,13 @@ contract RoboshareTokens is
             revert RoboshareTokens__NotRevenueToken();
         }
         TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
-        uint256 length = info.positions[holder].length;
-        positions = new TokenLib.TokenPosition[](length);
+        TokenLib.PositionQueue storage queue = info.positions[holder];
 
-        for (uint256 i = 0; i < length; i++) {
-            positions[i] = info.positions[holder][i];
+        uint256 size = queue.tail - queue.head;
+        positions = new TokenLib.TokenPosition[](size);
+
+        for (uint256 i = 0; i < size; i++) {
+            positions[i] = queue.items[queue.head + i];
         }
 
         return positions;
