@@ -463,9 +463,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.warp(info.maturityDate + 1);
 
         // Calculate expected liquidation amounts (Investor Pool = Base + Earnings Buffer)
-        (uint256 base, uint256 earningsBuffer,,) =
-            calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        uint256 expectedLiquidationAmount = base + earningsBuffer;
+        (uint256 base,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+
+        // In the new logic, if matured, earningsBuffer is separated from investorPool.
+        // In executeLiquidation, the partnerRefund (earningsBuffer) is ignored/lost if it exists.
+        // So investors only get Base + Reserved.
+        uint256 expectedLiquidationAmount = base;
         uint256 expectedPerToken = expectedLiquidationAmount / REVENUE_TOKEN_SUPPLY;
 
         vm.expectEmit(true, true, false, true);

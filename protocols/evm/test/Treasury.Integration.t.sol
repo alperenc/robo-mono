@@ -997,14 +997,66 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId); // Check if still locked, settlement clears this.
         assertFalse(isLocked);
 
-        (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) =
-            treasury.assetSettlements(scenario.assetId);
-        uint256 settlementAmount = totalSettlementPool; // This is the total pool available for the asset
+        (, uint256 settlementPerToken,) = treasury.assetSettlements(scenario.assetId);
 
         vm.prank(partner1);
         uint256 claimed = assetRegistry.claimSettlement(scenario.assetId);
 
-        assertEq(claimed, REVENUE_TOKEN_SUPPLY * settlementPerToken, "Claimed amount mismatch");
+        assertEq(claimed, totalSupply * settlementPerToken, "Claimed amount mismatch");
         assertEq(usdc.balanceOf(partner1), initialBalance + claimed, "Partner1 USDC balance mismatch");
+    }
+
+    function testSettlementAfterMaturityReturnsBufferToPartner() public {
+        // 1. Register asset with maturity date
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.startPrank(partner1);
+        uint256 assetId = assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN,
+                TEST_MAKE,
+                TEST_MODEL,
+                TEST_YEAR,
+                TEST_MANUFACTURER_ID,
+                TEST_OPTION_CODES,
+                TEST_METADATA_URI,
+                maturityDate
+            )
+        );
+
+        // 2. Lock collateral and mint revenue tokens
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        usdc.approve(address(treasury), requiredCollateral);
+
+        // This calls lockCollateral via Router
+        assetRegistry.mintRevenueTokens(assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        vm.stopPrank();
+
+        // Verify collateral is locked
+        (, uint256 totalCollateral, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
+        assertTrue(isLocked);
+        assertEq(totalCollateral, requiredCollateral);
+
+        // 3. Warp past maturity
+        vm.warp(maturityDate + 1);
+
+        // 4. Settle asset
+        vm.startPrank(partner1);
+        assetRegistry.settleAsset(assetId, 0);
+        vm.stopPrank();
+
+        // 5. Check results
+        // Calculate expected values
+        (, uint256 earningsBuffer, uint256 protocolBuffer,) = CollateralLib.calculateCollateralRequirements(
+            REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, ProtocolLib.QUARTERLY_INTERVAL
+        );
+
+        // Expected behavior: earningsBuffer AND protocolBuffer should be in partner's pending withdrawals
+        uint256 pending = treasury.getPendingWithdrawal(partner1);
+        assertEq(pending, earningsBuffer + protocolBuffer, "Partner should receive earnings AND protocol buffer");
+
+        // Treasury fee recipient should NOT receive protocol buffer
+        uint256 feeRecipientPending = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
+        assertEq(feeRecipientPending, 0, "Fee recipient should not receive protocol buffer on maturity settlement");
     }
 }
