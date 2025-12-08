@@ -98,7 +98,7 @@ contract MockRegistry is IAssetRegistry {
     function retireAsset(uint256) external override { }
     function retireAssetAndBurnTokens(uint256) external override { }
 
-    function settleAsset(uint256 assetId, uint256 topUpAmount) external override {
+    function settleAsset(uint256 assetId, uint256 /* topUpAmount */ ) external override {
         // Mock implementation: just set status to Retired
         assets[assetId].info.status = AssetLib.AssetStatus.Retired;
     }
@@ -334,7 +334,6 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
     function testSettlementAndLiquidationErrors() public {
         uint256 nonExistentAssetId = 999;
-        uint256 assetId = 1; // An existing asset
 
         // Assuming assetId 1 is already handled by assetRegistry
         // Revert when calling through Router for non-existent registry

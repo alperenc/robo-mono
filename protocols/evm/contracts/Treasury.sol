@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
-import { ProtocolLib, TokenLib, CollateralLib, EarningsLib } from "./Libraries.sol";
+import { ProtocolLib, TokenLib, CollateralLib, EarningsLib, AssetLib } from "./Libraries.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { RegistryRouter } from "./RegistryRouter.sol";
@@ -569,7 +569,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             usdc.safeTransferFrom(partner, address(this), topUpAmount);
         }
 
-        settlementAmount = _settleAsset(assetId, topUpAmount);
+        // Settle asset (Voluntary)
+        uint256 partnerRefund;
+        (settlementAmount, partnerRefund) = _settleAsset(assetId, topUpAmount, false);
+
+        if (partnerRefund > 0) {
+            pendingWithdrawals[partner] += partnerRefund;
+        }
 
         uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
@@ -598,7 +604,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert Treasury__AssetNotActive();
         }
 
-        liquidationAmount = _settleAsset(assetId, 0);
+        // Settle asset (Liquidation)
+        (liquidationAmount,) = _settleAsset(assetId, 0, true);
 
         uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
@@ -617,23 +624,47 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Internal settlement logic
      * Moves protocol buffer to fees, clears collateral, returns investor pool amount
      */
-    function _settleAsset(uint256 assetId, uint256 additionalAmount) internal returns (uint256 investorPool) {
+    function _settleAsset(uint256 assetId, uint256 additionalAmount, bool isLiquidation)
+        internal
+        returns (uint256 investorPool, uint256 partnerRefund)
+    {
         CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
 
         // Snapshot values before clearing
         uint256 protocolBuffer = info.protocolBuffer;
+        uint256 earningsBuffer = info.earningsBuffer;
+        uint256 reservedForLiquidation = info.reservedForLiquidation;
+        uint256 baseCollateral = info.baseCollateral;
         uint256 claimable = CollateralLib.getInvestorClaimableCollateral(info);
 
         // Clear collateral state
         _clearCollateral(assetId);
 
-        // Extract Protocol Buffer to Fee Recipient
-        if (protocolBuffer > 0) {
-            pendingWithdrawals[treasuryFeeRecipient] += protocolBuffer;
-        }
+        // Check for maturity
+        AssetLib.AssetInfo memory assetInfo = router.getAssetInfo(assetId);
+        bool isMatured = block.timestamp >= assetInfo.maturityDate;
 
-        // Calculate Investor Pool (Base + Earnings + Reserved + Additional)
-        investorPool = claimable + additionalAmount;
+        if (!isLiquidation && isMatured) {
+            // Voluntary settlement after maturity: Refund earnings AND protocol buffer to partner
+            partnerRefund = earningsBuffer + protocolBuffer;
+            // Investor pool gets base + reserved (earnings buffer excluded)
+            investorPool = baseCollateral + reservedForLiquidation + additionalAmount;
+        } else {
+            // Liquidation OR Not Matured: Protocol Buffer goes to Treasury
+            if (protocolBuffer > 0) {
+                pendingWithdrawals[treasuryFeeRecipient] += protocolBuffer;
+            }
+
+            if (isMatured) {
+                // Liquidation after maturity: Partner refund (earnings buffer) is calculated but likely ignored by caller
+                partnerRefund = earningsBuffer;
+                investorPool = baseCollateral + reservedForLiquidation + additionalAmount;
+            } else {
+                // Standard settlement / Liquidation before maturity
+                investorPool = claimable + additionalAmount;
+                partnerRefund = 0;
+            }
+        }
     }
 
     /**
