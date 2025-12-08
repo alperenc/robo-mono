@@ -113,13 +113,14 @@ contract Deploy is ScaffoldETHDeploy {
 
         // 1. Configure Router
         router.setTreasury(address(treasury));
-        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), address(vehicleRegistry));
-
-        // Configure VehicleRegistry
 
         // 2. Grant Roles
-        // Grant MINTER_ROLE to Router (for reserving token IDs)
+        // Grant AUTHORIZED_REGISTRY_ROLE to VehicleRegistry
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), address(vehicleRegistry));
+
+        // Grant MINTER_ROLE to Router (for reserving token IDs) and to VehicleRegistry (for minting revenue tokens on registration)
         roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(router));
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(vehicleRegistry));
 
         // Grant BURNER_ROLE to VehicleRegistry (for burning revenue tokens on retirement)
         roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(vehicleRegistry));
