@@ -1,24 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import "./DeployHelpers.s.sol";
 import "../contracts/VehicleRegistry.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployVehicleRegistry is Script {
+contract DeployVehicleRegistry is ScaffoldETHDeploy {
     /**
-     * @dev Deploy VehicleRegistry with dependency addresses as parameters
-     * Usage: forge script DeployVehicleRegistry --sig "run(address,address,address,address)" $TOKENS_ADDR $PARTNER_ADDR $ROUTER_ADDR $DEPLOYER_ADDR
+     * @dev Deploy VehicleRegistry with dependency addresses
+     * Usage: yarn deploy --contract VehicleRegistry --network <network> --args <roboshareTokens>,<partnerManager>,<router>
      */
-    function run(
-        address roboshareTokensAddress,
-        address partnerManagerAddress,
-        address routerAddress,
-        address deployerAddress
-    ) external returns (address) {
-        address deployer = deployerAddress;
-
+    function run(address roboshareTokensAddress, address partnerManagerAddress, address routerAddress)
+        external
+        ScaffoldEthDeployerRunner
+        returns (address)
+    {
         console.log("Deploying VehicleRegistry with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
         console.log("Dependencies:");
@@ -72,13 +68,12 @@ contract DeployVehicleRegistry is Script {
     }
 
     /**
-     * @dev Default run function for backwards compatibility
-     * This will fail with a clear error message if called without parameters
+     * @dev Default run function - reverts with usage info
      */
     function run() external pure returns (address) {
         revert(
             "VehicleRegistry deployment requires dependency addresses. "
-            "Use: forge script DeployVehicleRegistry --sig 'run(address,address,address,address)' $TOKENS_ADDR $PARTNER_ADDR $ROUTER_ADDR $DEPLOYER_ADDR"
+            "Use: yarn deploy --contract VehicleRegistry --network <network> --args <roboshareTokens>,<partnerManager>,<router>"
         );
     }
 }

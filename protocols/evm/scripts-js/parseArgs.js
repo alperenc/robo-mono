@@ -9,6 +9,32 @@ import { selectOrCreateKeystore } from "./selectOrCreateKeystore.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 config();
 
+// Contract signatures for dependency injection
+const CONTRACT_SIGNATURES = {
+  // No dependencies - default run()
+  PartnerManager: { sig: null, params: [] },
+  RoboshareTokens: { sig: null, params: [] },
+  // 1 dependency
+  RegistryRouter: {
+    sig: "run(address)",
+    params: ["roboshareTokens"],
+  },
+  // 3 dependencies
+  VehicleRegistry: {
+    sig: "run(address,address,address)",
+    params: ["roboshareTokens", "partnerManager", "router"],
+  },
+  Treasury: {
+    sig: "run(address,address,address)",
+    params: ["roboshareTokens", "partnerManager", "router"],
+  },
+  // 4 dependencies
+  Marketplace: {
+    sig: "run(address,address,address,address)",
+    params: ["roboshareTokens", "partnerManager", "router", "treasury"],
+  },
+};
+
 // Get all arguments after the script name
 const args = process.argv.slice(2);
 
@@ -20,6 +46,7 @@ let network = "localhost";
 let keystoreArg = null;
 let contractName = null;
 let proxyAddress = null;
+let sigArgs = []; // For dependency addresses via --args
 
 // Show help message if --help is provided
 if (args.includes("--help") || args.includes("-h")) {
@@ -35,7 +62,6 @@ Options:
 Examples:
   yarn upgrade --contract VehicleRegistry --proxy-address 0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d
   yarn upgrade --contract Treasury --proxy-address 0x123... --network sepolia
-  yarn upgrade --contract VehicleRegistry --proxy-address 0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d --network sepolia
     `);
   } else {
     console.log(`
@@ -44,14 +70,22 @@ Options:
   --file <filename>     Specify the deployment script file (default: Deploy.s.sol)
   --contract <name>     Deploy a specific contract (uses Deploy<ContractName>.s.sol)
   --network <network>   Specify the network (default: localhost)
+  --args <addresses>    Comma-separated dependency addresses (no spaces)
   --keystore <name>     Specify the keystore account to use (bypasses selection prompt)
   --help, -h           Show this help message
+
+Contracts and their dependencies:
+  PartnerManager     - No dependencies
+  RoboshareTokens    - No dependencies
+  RegistryRouter     - 1 dependency:   roboshareTokens
+  VehicleRegistry    - 3 dependencies: roboshareTokens,partnerManager,router
+  Treasury           - 3 dependencies: roboshareTokens,partnerManager,router
+  Marketplace        - 4 dependencies: roboshareTokens,partnerManager,router,treasury
+
 Examples:
-  yarn deploy --contract Marketplace --network sepolia
-  yarn deploy --contract Treasury --network sepolia  
-  yarn deploy --file DeployYourContract.s.sol --network sepolia
-  yarn deploy --network sepolia --keystore my-account
-  yarn deploy
+  yarn deploy --contract PartnerManager --network sepolia
+  yarn deploy --contract Treasury --network sepolia --args 0xTokens,0xPartner,0xRouter
+  yarn deploy --contract Marketplace --network sepolia --args 0xTokens,0xPartner,0xRouter,0xTreasury
     `);
   }
   process.exit(0);
@@ -73,6 +107,10 @@ for (let i = 0; i < args.length; i++) {
     i++; // Skip next arg since we used it
   } else if (args[i] === "--proxy-address" && args[i + 1]) {
     proxyAddress = args[i + 1];
+    i++; // Skip next arg since we used it
+  } else if (args[i] === "--args" && args[i + 1]) {
+    // Parse comma-separated addresses
+    sigArgs = args[i + 1].split(",").map((a) => a.trim());
     i++; // Skip next arg since we used it
   }
 }
@@ -104,6 +142,24 @@ if (command === "upgrade") {
 } else if (command === "deploy" && contractName) {
   // Handle contract-specific deployments
   fileName = `Deploy${contractName}.s.sol`;
+
+  // Validate dependencies if contract has them
+  const contractConfig = CONTRACT_SIGNATURES[contractName];
+  if (contractConfig && contractConfig.sig) {
+    const expectedCount = contractConfig.params.length;
+    if (sigArgs.length !== expectedCount) {
+      console.log(
+        `\n❌ Error: ${contractName} requires ${expectedCount} dependency address(es)`
+      );
+      console.log(`   Dependencies: ${contractConfig.params.join(", ")}`);
+      console.log(
+        `\nUsage: yarn deploy --contract ${contractName} --network <network> --args ${contractConfig.params
+          .map((p) => `<${p}>`)
+          .join(",")}`
+      );
+      process.exit(1);
+    }
+  }
 }
 
 // Function to check if a keystore exists
@@ -139,44 +195,12 @@ try {
   process.exit(1);
 }
 
-if (
-  process.env.LOCALHOST_KEYSTORE_ACCOUNT !== "scaffold-eth-default" &&
-  network === "localhost"
-) {
-  console.log(`
-⚠️ Warning: Using ${process.env.LOCALHOST_KEYSTORE_ACCOUNT} keystore account on localhost.
+// Determine which keystore to use
+let selectedKeystore =
+  process.env.ETH_KEYSTORE_ACCOUNT || "scaffold-eth-default";
 
-You can either:
-1. Enter the password for ${process.env.LOCALHOST_KEYSTORE_ACCOUNT} account
-   OR
-2. Set the localhost keystore account in your .env and re-run the command to skip password prompt:
-   LOCALHOST_KEYSTORE_ACCOUNT='scaffold-eth-default'
-`);
-}
-
-let selectedKeystore = process.env.LOCALHOST_KEYSTORE_ACCOUNT;
-if (network !== "localhost") {
-  if (keystoreArg) {
-    // Use the keystore provided via command line argument
-    if (!validateKeystore(keystoreArg)) {
-      console.log(`\n❌ Error: Keystore '${keystoreArg}' not found!`);
-      console.log(
-        `Please check that the keystore exists in ~/.foundry/keystores/`
-      );
-      process.exit(1);
-    }
-    selectedKeystore = keystoreArg;
-    console.log(`\n🔑 Using keystore: ${selectedKeystore}`);
-  } else {
-    try {
-      selectedKeystore = await selectOrCreateKeystore();
-    } catch (error) {
-      console.error("\n❌ Error selecting keystore:", error);
-      process.exit(1);
-    }
-  }
-} else if (keystoreArg) {
-  // Allow overriding the localhost keystore with --keystore flag
+// Handle --keystore flag override
+if (keystoreArg) {
   if (!validateKeystore(keystoreArg)) {
     console.log(`\n❌ Error: Keystore '${keystoreArg}' not found!`);
     console.log(
@@ -185,8 +209,29 @@ if (network !== "localhost") {
     process.exit(1);
   }
   selectedKeystore = keystoreArg;
+  console.log(`\n🔑 Using keystore: ${selectedKeystore}`);
+} else if (
+  network !== "localhost" &&
+  selectedKeystore === "scaffold-eth-default"
+) {
+  // For non-localhost networks, prompt for keystore selection if using default
+  try {
+    selectedKeystore = await selectOrCreateKeystore();
+  } catch (error) {
+    console.error("\n❌ Error selecting keystore:", error);
+    process.exit(1);
+  }
+} else if (selectedKeystore !== "scaffold-eth-default") {
+  // Using a custom keystore from .env
+  if (!validateKeystore(selectedKeystore)) {
+    console.log(`\n❌ Error: Keystore '${selectedKeystore}' not found!`);
+    console.log(
+      `Please check that the keystore exists in ~/.foundry/keystores/`
+    );
+    process.exit(1);
+  }
   console.log(
-    `\n🔑 Using keystore: ${selectedKeystore} for localhost deployment`
+    `\n🔑 Using keystore from ETH_KEYSTORE_ACCOUNT: ${selectedKeystore}`
   );
 }
 
@@ -207,12 +252,22 @@ The default account (scaffold-eth-default) can only be used for localhost deploy
   process.exit(0);
 }
 
+// Build the --sig argument if contract has dependencies
+let sigArg = "";
+if (command === "deploy" && contractName) {
+  const contractConfig = CONTRACT_SIGNATURES[contractName];
+  if (contractConfig && contractConfig.sig && sigArgs.length > 0) {
+    sigArg = `--sig "${contractConfig.sig}" ${sigArgs.join(" ")}`;
+  }
+}
+
 // Set environment variables for the make command
 if (command === "upgrade") {
   process.env.DEPLOY_SCRIPT = `script/${fileName}`;
   process.env.PROXY_ADDRESS = proxyAddress;
   process.env.RPC_URL = network;
   process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;
+  process.env.SCRIPT_SIG_ARGS = "";
 
   const result = spawnSync("make", ["deploy-and-generate-abis"], {
     stdio: "inherit",
@@ -225,6 +280,7 @@ if (command === "upgrade") {
   process.env.DEPLOY_SCRIPT = `script/${fileName}`;
   process.env.RPC_URL = network;
   process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;
+  process.env.SCRIPT_SIG_ARGS = sigArg;
 
   const result = spawnSync("make", ["deploy-and-generate-abis"], {
     stdio: "inherit",

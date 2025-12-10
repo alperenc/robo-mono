@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import { console } from "forge-std/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -13,101 +14,111 @@ import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 
 contract Deploy is ScaffoldETHDeploy {
     // Contract instances
-    RoboshareTokens public roboshareTokens;
-    PartnerManager public partnerManager;
-    RegistryRouter public router;
-    VehicleRegistry public vehicleRegistry;
-    Treasury public treasury;
-    Marketplace public marketplace;
-
-    // Implementation contract instances
-    RoboshareTokens public tokenImplementation;
-    PartnerManager public partnerImplementation;
-    RegistryRouter public routerImplementation;
-    VehicleRegistry public vehicleImplementation;
-    Treasury public treasuryImplementation;
-    Marketplace public marketplaceImplementation;
 
     function run()
         external
         ScaffoldEthDeployerRunner
         returns (
-            RoboshareTokens,
-            PartnerManager,
-            RegistryRouter,
-            VehicleRegistry,
-            Treasury,
-            Marketplace,
-            RoboshareTokens,
-            PartnerManager,
-            RegistryRouter,
-            VehicleRegistry,
-            Treasury,
-            Marketplace
+            RoboshareTokens roboshareTokens,
+            PartnerManager partnerManager,
+            RegistryRouter router,
+            VehicleRegistry vehicleRegistry,
+            Treasury treasury,
+            Marketplace marketplace
         )
     {
         // Get network configuration
         NetworkConfig memory config = getActiveNetworkConfig();
 
+        // For local Anvil, deploy mock USDC if not set
+        if (config.usdcToken == address(0)) {
+            MockUSDC mockUsdc = new MockUSDC();
+            config.usdcToken = address(mockUsdc);
+            console.log("Mock USDC (6 decimals) deployed at:", address(mockUsdc));
+
+            // Mint initial supply to deployer for testing
+            mockUsdc.mint(deployer, 1_000_000 * 1e6); // 1M USDC
+        }
+
+        // Use deployer as treasuryFeeRecipient fallback for local testing
+        if (config.treasuryFeeRecipient == address(0)) {
+            config.treasuryFeeRecipient = deployer;
+            console.log("Using deployer as treasuryFeeRecipient:", deployer);
+        }
+
+        // Update active config
+        activeNetworkConfig = config;
+
         // Deploy RoboshareTokens
-        tokenImplementation = new RoboshareTokens();
-        bytes memory tokenInitData = abi.encodeWithSignature("initialize(address)", deployer);
-        ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImplementation), tokenInitData);
-        roboshareTokens = RoboshareTokens(address(tokenProxy));
+        {
+            RoboshareTokens tokenImplementation = new RoboshareTokens();
+            bytes memory tokenInitData = abi.encodeWithSignature("initialize(address)", deployer);
+            ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImplementation), tokenInitData);
+            roboshareTokens = RoboshareTokens(address(tokenProxy));
+        }
 
         // Deploy PartnerManager
-        partnerImplementation = new PartnerManager();
-        bytes memory partnerInitData = abi.encodeWithSignature("initialize(address)", deployer);
-        ERC1967Proxy partnerProxy = new ERC1967Proxy(address(partnerImplementation), partnerInitData);
-        partnerManager = PartnerManager(address(partnerProxy));
+        {
+            PartnerManager partnerImplementation = new PartnerManager();
+            bytes memory partnerInitData = abi.encodeWithSignature("initialize(address)", deployer);
+            ERC1967Proxy partnerProxy = new ERC1967Proxy(address(partnerImplementation), partnerInitData);
+            partnerManager = PartnerManager(address(partnerProxy));
+        }
 
         // Deploy RegistryRouter
-        routerImplementation = new RegistryRouter();
-        bytes memory routerInitData =
-            abi.encodeWithSignature("initialize(address,address)", deployer, address(roboshareTokens));
-        ERC1967Proxy routerProxy = new ERC1967Proxy(address(routerImplementation), routerInitData);
-        router = RegistryRouter(address(routerProxy));
+        {
+            RegistryRouter routerImplementation = new RegistryRouter();
+            bytes memory routerInitData =
+                abi.encodeWithSignature("initialize(address,address)", deployer, address(roboshareTokens));
+            ERC1967Proxy routerProxy = new ERC1967Proxy(address(routerImplementation), routerInitData);
+            router = RegistryRouter(address(routerProxy));
+        }
 
         // Deploy VehicleRegistry
-        vehicleImplementation = new VehicleRegistry();
-        bytes memory vehicleInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address)",
-            deployer,
-            address(roboshareTokens),
-            address(partnerManager),
-            address(router)
-        );
-        ERC1967Proxy vehicleProxy = new ERC1967Proxy(address(vehicleImplementation), vehicleInitData);
-        vehicleRegistry = VehicleRegistry(address(vehicleProxy));
+        {
+            VehicleRegistry vehicleImplementation = new VehicleRegistry();
+            bytes memory vehicleInitData = abi.encodeWithSignature(
+                "initialize(address,address,address,address)",
+                deployer,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router)
+            );
+            ERC1967Proxy vehicleProxy = new ERC1967Proxy(address(vehicleImplementation), vehicleInitData);
+            vehicleRegistry = VehicleRegistry(address(vehicleProxy));
+        }
 
         // Deploy Treasury
-        treasuryImplementation = new Treasury();
-        bytes memory treasuryInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address,address)",
-            deployer,
-            address(roboshareTokens),
-            address(partnerManager),
-            address(router),
-            config.usdcToken,
-            config.treasuryFeeRecipient
-        );
-        ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
-        treasury = Treasury(address(treasuryProxy));
+        {
+            Treasury treasuryImplementation = new Treasury();
+            bytes memory treasuryInitData = abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                deployer,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                config.usdcToken,
+                config.treasuryFeeRecipient
+            );
+            ERC1967Proxy treasuryProxy = new ERC1967Proxy(address(treasuryImplementation), treasuryInitData);
+            treasury = Treasury(address(treasuryProxy));
+        }
 
         // Deploy Marketplace
-        marketplaceImplementation = new Marketplace();
-        bytes memory marketplaceInitData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address,address,address)",
-            deployer,
-            address(roboshareTokens),
-            address(partnerManager),
-            address(router),
-            address(treasury),
-            config.usdcToken,
-            config.treasuryFeeRecipient
-        );
-        ERC1967Proxy marketplaceProxy = new ERC1967Proxy(address(marketplaceImplementation), marketplaceInitData);
-        marketplace = Marketplace(address(marketplaceProxy));
+        {
+            Marketplace marketplaceImplementation = new Marketplace();
+            bytes memory marketplaceInitData = abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                deployer,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                address(treasury),
+                config.usdcToken
+            );
+            ERC1967Proxy marketplaceProxy = new ERC1967Proxy(address(marketplaceImplementation), marketplaceInitData);
+            marketplace = Marketplace(address(marketplaceProxy));
+        }
 
         // --- Configuration & Role Granting ---
 
@@ -125,19 +136,22 @@ contract Deploy is ScaffoldETHDeploy {
         // Grant BURNER_ROLE to VehicleRegistry (for burning revenue tokens on retirement)
         roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(vehicleRegistry));
 
-        return (
-            roboshareTokens,
-            partnerManager,
-            router,
-            vehicleRegistry,
-            treasury,
-            marketplace,
-            tokenImplementation,
-            partnerImplementation,
-            routerImplementation,
-            vehicleImplementation,
-            treasuryImplementation,
-            marketplaceImplementation
-        );
+        // Save deployments for frontend generation
+        saveDeployment("RoboshareTokens", address(roboshareTokens));
+        saveDeployment("PartnerManager", address(partnerManager));
+        saveDeployment("RegistryRouter", address(router));
+        saveDeployment("VehicleRegistry", address(vehicleRegistry));
+        saveDeployment("Treasury", address(treasury));
+        saveDeployment("Marketplace", address(marketplace));
+        if (config.usdcToken != address(0)) {
+            // If it's a mock (deployed by us or reused), save it.
+            // Note: If using external USDC on testnet, we might not want to overwrite "ERC20Mock" entry,
+            // but for local dev this helps if we want "USDC" or "ERC20Mock" in frontend.
+            // Let's safe "ERC20Mock" if it was deployed in this script (checked via code size or assumption).
+            // For now, simpler to just save it if it's local.
+            if (getActiveNetworkConfig().usdcToken != address(0) && isLocalNetwork()) {
+                saveDeployment("ERC20Mock", config.usdcToken);
+            }
+        }
     }
 }

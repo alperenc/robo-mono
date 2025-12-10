@@ -108,6 +108,8 @@ function mapDeploymentScriptToContract(deploymentScriptName) {
     DeployPartnerManager: "PartnerManager",
     DeployVehicleRegistry: "VehicleRegistry",
     DeployTreasury: "Treasury",
+    DeployRegistryRouter: "RegistryRouter",
+    DeployMarketplace: "Marketplace",
   };
   return mapping[deploymentScriptName];
 }
@@ -281,10 +283,28 @@ function main() {
 
   // Update contract keys based on deployments if they exist
   Object.entries(allGeneratedContracts).forEach(([chainId, contracts]) => {
+    // Create a reverse mapping for this chain: Name -> Address
+    const nameToAddress = {};
+    if (deployments[chainId]) {
+      Object.entries(deployments[chainId]).forEach(([addr, name]) => {
+        nameToAddress[name] = addr;
+      });
+    }
+
     Object.entries(contracts).forEach(([contractName, contractData]) => {
+      // 1. Check if we should rename the contract (e.g. if broadcast had different address)
+      // This part (original logic) is shaky if addresses don't match.
+      // Instead, we should check if we have a DEPLOYED address for this CONTRACT NAME.
+
+      if (nameToAddress[contractName]) {
+        // FOUND IT! This contract name has a specific deployment address (the Proxy).
+        // Overwrite the address derived from broadcast (which was likely Implementation).
+        contractData.address = nameToAddress[contractName];
+      }
+
+      // Existing logic for renaming based on address match (kept for backward compat or other use cases?):
       const deployedName = deployments[chainId]?.[contractData.address];
-      if (deployedName) {
-        // If we have a deployment name, use it instead of the contract name
+      if (deployedName && deployedName !== contractName) {
         allGeneratedContracts[chainId][deployedName] = contractData;
         delete allGeneratedContracts[chainId][contractName];
       }

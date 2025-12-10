@@ -375,9 +375,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         earningsInfo.currentPeriod++;
 
         earningsInfo.periods[earningsInfo.currentPeriod] = EarningsLib.EarningsPeriod({
-            earningsPerToken: earningsPerToken,
-            timestamp: block.timestamp,
-            totalEarnings: netEarnings
+            earningsPerToken: earningsPerToken, timestamp: block.timestamp, totalEarnings: netEarnings
         });
 
         // Update treasury totals (total amount deposited, including protocol fees)

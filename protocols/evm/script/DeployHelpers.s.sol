@@ -65,6 +65,10 @@ contract ScaffoldETHDeploy is Script {
         exportDeployments();
     }
 
+    function saveDeployment(string memory name, address addr) public {
+        deployments.push(Deployment(name, addr));
+    }
+
     function _startBroadcast() internal returns (address) {
         vm.startBroadcast();
         (, address _deployer,) = vm.readCallers();
@@ -98,15 +102,18 @@ contract ScaffoldETHDeploy is Script {
             vm.serializeString(jsonWrite, vm.toString(deployments[i].addr), deployments[i].name);
         }
 
-        string memory chainName;
-
-        try this.getChain() returns (Chain memory chain) {
-            chainName = chain.name;
-        } catch {
-            chainName = findChainName();
-        }
+        string memory chainName = _getChainName();
         jsonWrite = vm.serializeString(jsonWrite, "networkName", chainName);
         vm.writeJson(jsonWrite, path);
+    }
+
+    function _getChainName() internal returns (string memory) {
+        try vm.rpcUrl("mainnet") returns (string memory) {
+            Chain memory chain = getChain(block.chainid);
+            return chain.name;
+        } catch {
+            return findChainName();
+        }
     }
 
     function getChain() public returns (Chain memory) {
@@ -150,55 +157,68 @@ contract ScaffoldETHDeploy is Script {
 
     // Network Configuration Methods
 
-    function getMainnetConfig() public pure returns (NetworkConfig memory) {
+    function getMainnetConfig() public view returns (NetworkConfig memory) {
+        address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
+        require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for mainnet");
         NetworkConfig memory mainnetConfig = NetworkConfig({
-            usdcToken: 0xa0B86a33e6A6c5e4F5b8F8f4A1a7F4c5a6c9B7d8, // Mainnet USDC
-            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-         });
+            usdcToken: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, // Mainnet USDC (corrected address)
+            treasuryFeeRecipient: treasuryRecipient
+        });
         return mainnetConfig;
     }
 
-    function getSepoliaConfig() public pure returns (NetworkConfig memory) {
+    function getSepoliaConfig() public view returns (NetworkConfig memory) {
+        address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
+        require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for sepolia");
         NetworkConfig memory sepoliaConfig = NetworkConfig({
             usdcToken: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238, // Sepolia USDC
-            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-         });
+            treasuryFeeRecipient: treasuryRecipient
+        });
         return sepoliaConfig;
     }
 
-    function getPolygonConfig() public pure returns (NetworkConfig memory) {
+    function getPolygonConfig() public view returns (NetworkConfig memory) {
+        address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
+        require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for polygon");
         NetworkConfig memory polygonConfig = NetworkConfig({
-            usdcToken: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174, // Polygon USDC
-            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-         });
+            usdcToken: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359, // Polygon USDC (native, corrected)
+            treasuryFeeRecipient: treasuryRecipient
+        });
         return polygonConfig;
     }
 
-    function getArbitrumConfig() public pure returns (NetworkConfig memory) {
+    function getArbitrumConfig() public view returns (NetworkConfig memory) {
+        address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
+        require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for arbitrum");
         NetworkConfig memory arbitrumConfig = NetworkConfig({
             usdcToken: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831, // Arbitrum USDC
-            treasuryFeeRecipient: 0x1234567890123456789012345678901234567890 // Replace with actual treasury
-         });
+            treasuryFeeRecipient: treasuryRecipient
+        });
         return arbitrumConfig;
     }
 
-    function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
-        if (activeNetworkConfig.usdcToken != address(0)) {
-            return activeNetworkConfig;
-        }
+    function getOrCreateAnvilConfig() public view returns (NetworkConfig memory) {
+        // For Anvil/localhost, use address(0) as placeholder unless USDC_ADDRESS is set
+        // Deploy scripts will use deployer as fallback for treasuryFeeRecipient
 
-        // Deploy mock USDC for local testing
-        vm.startBroadcast();
-        ERC20Mock mockUsdc = new ERC20Mock();
-        // Mint initial supply to deployer for testing
-        mockUsdc.mint(msg.sender, INITIAL_USDC_SUPPLY);
-        vm.stopBroadcast();
-
+        address usdc = address(0);
+        try vm.envAddress("USDC_ADDRESS") returns (address _usdc) {
+            usdc = _usdc;
+        } catch { }
         NetworkConfig memory anvilConfig = NetworkConfig({
-            usdcToken: address(mockUsdc),
-            treasuryFeeRecipient: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 // Anvil default deployer
-         });
+            usdcToken: usdc, // Will be used if set, otherwise deployed by scripts
+            treasuryFeeRecipient: address(0) // Will use deployer as fallback
+        });
         return anvilConfig;
+    }
+
+    /// @notice Read TREASURY_FEE_RECIPIENT from environment variable
+    function _getTreasuryFeeRecipientFromEnv() internal view returns (address) {
+        try vm.envAddress("TREASURY_FEE_RECIPIENT") returns (address recipient) {
+            return recipient;
+        } catch {
+            return address(0);
+        }
     }
 
     // Helper functions for network management

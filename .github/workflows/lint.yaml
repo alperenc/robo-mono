@@ -41,6 +41,9 @@ jobs:
       - name: Check contract compilation
         run: yarn compile
 
+      - name: Run EVM lint (Solidity + JS)
+        run: yarn evm:lint
+
       - name: Run nextjs lint
         run: yarn workspace web lint --max-warnings=0
 

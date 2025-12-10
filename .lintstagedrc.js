@@ -1,21 +1,24 @@
 const path = require("path");
 
-const buildNextEslintCommand = (filenames) =>
-  `yarn next:lint --fix --file ${filenames
-    .map((f) => path.relative(path.join("packages", "nextjs"), f))
+const buildWebEslintCommand = (filenames) =>
+  `yarn web:lint --fix --file ${filenames
+    .map((f) => path.relative(path.join("web"), f))
     .join(" --file ")}`;
 
-const checkTypesNextCommand = () => "yarn next:check-types";
+const checkTypesWebCommand = () => "yarn web:check-types";
 
-const buildHardhatEslintCommand = (filenames) =>
-  `yarn hardhat:lint-staged --fix ${filenames
-    .map((f) => path.relative(path.join("packages", "hardhat"), f))
-    .join(" ")}`;
+// const buildEvmEslintCommand = (filenames) =>
+//   `yarn evm:lint --fix ${filenames
+//     .map((f) => path.relative(path.join("protocols", "evm"), f))
+//     .join(" ")}`;
 
 module.exports = {
-  "packages/nextjs/**/*.{ts,tsx}": [
-    buildNextEslintCommand,
-    checkTypesNextCommand,
+  "web/**/*.{ts,tsx}": [
+    buildWebEslintCommand,
+    checkTypesWebCommand,
   ],
-  "packages/hardhat/**/*.{ts,tsx}": [buildHardhatEslintCommand],
+  "protocols/evm/**/*.{js,ts,sol}": [
+    "yarn workspace evm format",
+    "yarn workspace evm lint",
+  ],
 };

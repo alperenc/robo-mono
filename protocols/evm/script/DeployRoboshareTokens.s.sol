@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import "./DeployHelpers.s.sol";
 import "../contracts/RoboshareTokens.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployRoboshareTokens is Script {
-    function run(address deployerAddress) external returns (address) {
-        address deployer = deployerAddress;
-
+contract DeployRoboshareTokens is ScaffoldETHDeploy {
+    /**
+     * @dev Deploy RoboshareTokens - no external dependencies required
+     * Usage: yarn deploy --contract RoboshareTokens --network <network>
+     */
+    function run() external ScaffoldEthDeployerRunner returns (address) {
         console.log("Deploying RoboshareTokens with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
 

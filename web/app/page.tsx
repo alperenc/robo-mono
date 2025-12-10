@@ -29,7 +29,8 @@ const Home: NextPage = () => {
             </code>
           </p>
           <p className="text-center text-lg">
-            Interact with Roboshare smart contracts: RoboshareTokens, PartnerManager, VehicleRegistry, and Treasury in{" "}
+            Interact with Roboshare smart contracts: RoboshareTokens, PartnerManager, VehicleRegistry, Marketplace, and
+            Treasury in{" "}
             <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
               protocols/evm/contracts
             </code>
