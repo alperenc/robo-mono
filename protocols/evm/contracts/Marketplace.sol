@@ -41,9 +41,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     Treasury public treasury;
     IERC20 public usdcToken;
 
-    // Treasury state
-    address public treasuryFeeRecipient;
-
     // Listing management
     uint256 private _listingIdCounter;
 
@@ -85,8 +82,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     event ListingCancelled(uint256 indexed listingId, address indexed seller);
 
-    event TreasuryAddressUpdated(address oldTreasury, address newTreasury);
-
     /**
      * @dev Initialize the marketplace
      */
@@ -96,13 +91,11 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         address _partnerManager,
         address _router,
         address _treasury,
-        address _usdcToken,
-        address _treasuryFeeRecipient
+        address _usdcToken
     ) public initializer {
         if (
             _admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)
                 || _router == address(0) || _treasury == address(0) || _usdcToken == address(0)
-                || _treasuryFeeRecipient == address(0)
         ) {
             revert Marketplace__ZeroAddress();
         }
@@ -119,7 +112,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         router = RegistryRouter(_router);
         treasury = Treasury(_treasury);
         usdcToken = IERC20(_usdcToken);
-        treasuryFeeRecipient = _treasuryFeeRecipient;
 
         _listingIdCounter = 1;
     }
@@ -290,7 +282,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         usdcToken.transferFrom(msg.sender, listing.seller, sellerReceives);
         // Transfer fees to the Treasury contract and notify it to record the pending withdrawal
         usdcToken.transferFrom(msg.sender, address(treasury), totalFeesToTreasury);
-        treasury.recordPendingWithdrawal(treasuryFeeRecipient, totalFeesToTreasury);
+        treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), totalFeesToTreasury);
 
         // Transfer tokens to buyer
         roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
@@ -392,22 +384,6 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     function isAssetEligibleForListing(uint256 assetId) external view returns (bool) {
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         return isLocked;
-    }
-
-    // Admin Functions
-
-    /**
-     * @dev Update treasury address for protocol fees
-     */
-    function setTreasuryFeeRecipient(address newTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (newTreasury == address(0)) {
-            revert Marketplace__ZeroAddress();
-        }
-
-        address oldTreasury = treasuryFeeRecipient;
-        treasuryFeeRecipient = newTreasury;
-
-        emit TreasuryAddressUpdated(oldTreasury, newTreasury);
     }
 
     // UUPS Upgrade authorization
