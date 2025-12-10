@@ -36,17 +36,11 @@ contract BaseTest is Test {
 
     DeployForTest public deployer;
     RoboshareTokens public roboshareTokens;
-    RoboshareTokens public tokenImplementation;
     PartnerManager public partnerManager;
-    PartnerManager public partnerImplementation;
     Treasury public treasury;
-    Treasury public treasuryImplementation;
     RegistryRouter public router;
-    RegistryRouter public routerImplementation;
     VehicleRegistry public assetRegistry;
-    VehicleRegistry public registryImplementation;
     Marketplace public marketplace;
-    Marketplace public marketplaceImplementation;
     IERC20 public usdc;
 
     DeployForTest.NetworkConfig public config;
@@ -151,20 +145,7 @@ contract BaseTest is Test {
 
     function _deployContracts() internal {
         deployer = new DeployForTest();
-        (
-            roboshareTokens,
-            partnerManager,
-            router,
-            assetRegistry,
-            treasury,
-            marketplace,
-            tokenImplementation,
-            partnerImplementation,
-            routerImplementation,
-            registryImplementation,
-            treasuryImplementation,
-            marketplaceImplementation
-        ) = deployer.run(admin);
+        (roboshareTokens, partnerManager, router, assetRegistry, treasury, marketplace) = deployer.run(admin);
 
         config = deployer.getActiveNetworkConfig();
         usdc = IERC20(config.usdcToken);
