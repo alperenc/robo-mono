@@ -6,8 +6,365 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
 const deployedContracts = {
   31337: {
+    ERC20Mock: {
+      address: "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35",
+      abi: [
+        {
+          type: "constructor",
+          inputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "allowance",
+          inputs: [
+            {
+              name: "owner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "spender",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "approve",
+          inputs: [
+            {
+              name: "spender",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "balanceOf",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "burn",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "decimals",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint8",
+              internalType: "uint8",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "mint",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "name",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "symbol",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalSupply",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "transfer",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "transferFrom",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "Approval",
+          inputs: [
+            {
+              name: "owner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "spender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Transfer",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "ERC20InsufficientAllowance",
+          inputs: [
+            {
+              name: "spender",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "allowance",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "needed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC20InsufficientBalance",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "balance",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "needed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC20InvalidApprover",
+          inputs: [
+            {
+              name: "approver",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC20InvalidReceiver",
+          inputs: [
+            {
+              name: "receiver",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC20InvalidSender",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC20InvalidSpender",
+          inputs: [
+            {
+              name: "spender",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1765371257089.json",
+      deploymentScript: "Deploy.s.sol",
+    },
     RoboshareTokens: {
-      address: "0x7f65d50b2915d5b2ca6cbb879cd5fe940fd44b86",
+      address: "0xb19b36b1456E65E3A6D514D3F715f204BD59f431",
       abi: [
         {
           type: "constructor",
@@ -75,6 +432,19 @@ const deployedContracts = {
               name: "",
               type: "string",
               internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "URI_SETTER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
             },
           ],
           stateMutability: "view",
@@ -175,7 +545,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getAndIncrementTokenId",
+          name: "getNextTokenId",
           inputs: [],
           outputs: [
             {
@@ -184,12 +554,18 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          stateMutability: "nonpayable",
+          stateMutability: "view",
         },
         {
           type: "function",
-          name: "getNextTokenId",
-          inputs: [],
+          name: "getRevenueTokenSupply",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           outputs: [
             {
               name: "",
@@ -214,6 +590,105 @@ const deployedContracts = {
               name: "",
               type: "bytes32",
               internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getSalesPenalty",
+          inputs: [
+            {
+              name: "seller",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "penaltyAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getTokenPrice",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getUserPositions",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "positions",
+              type: "tuple[]",
+              internalType: "struct TokenLib.TokenPosition[]",
+              components: [
+                {
+                  name: "uid",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "tokenId",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "amount",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "acquiredAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "soldAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
             },
           ],
           stateMutability: "view",
@@ -464,6 +939,24 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "reserveNextTokenIdPair",
+          inputs: [],
+          outputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "revokeRole",
           inputs: [
             {
@@ -566,6 +1059,29 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "setRevenueTokenInfo",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "price",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "setURI",
           inputs: [
             {
@@ -660,31 +1176,6 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "BatchTokensMinted",
-          inputs: [
-            {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "ids",
-              type: "uint256[]",
-              indexed: false,
-              internalType: "uint256[]",
-            },
-            {
-              name: "amounts",
-              type: "uint256[]",
-              indexed: false,
-              internalType: "uint256[]",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
           name: "Initialized",
           inputs: [
             {
@@ -692,6 +1183,62 @@ const deployedContracts = {
               type: "uint64",
               indexed: false,
               internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RevenueTokenInfoSet",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "price",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RevenueTokenPositionsUpdated",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
           ],
           anonymous: false,
@@ -767,31 +1314,6 @@ const deployedContracts = {
               type: "address",
               indexed: true,
               internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "TokensBurned",
-          inputs: [
-            {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "id",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
             },
           ],
           anonymous: false,
@@ -1069,6 +1591,26 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "RoboshareTokens__InsufficientBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RoboshareTokens__NotRevenueToken",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RoboshareTokens__RevenueTokenInfoAlreadySet",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "TokenLib__InsufficientTokenBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "UUPSUnauthorizedCallContext",
           inputs: [],
         },
@@ -1085,11 +1627,84 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757356925.json",
+      deploymentFile: "run-1765371257089.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    ERC1967Proxy: {
+      address: "0xb19b36b1456e65e3a6d514d3f715f204bd59f431",
+      abi: [
+        {
+          type: "constructor",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "fallback",
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1765371257089.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
-      address: "0x9ea2f17f8e53d15c6828c2d99651b1ffe9b16e0e",
+      address: "0xe1Aa25618fA0c7A1CFDab5d6B456af611873b629",
       abi: [
         {
           type: "constructor",
@@ -1722,15 +2337,46 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757356925.json",
+      deploymentFile: "run-1765371257089.json",
       deploymentScript: "Deploy.s.sol",
     },
-    VehicleRegistry: {
-      address: "0x2a264f26859166c5bf3868a54593ee716aebc848",
+    RegistryRouter: {
+      address: "0x0C8E79F3534B00D9a3D4a856B665Bf4eBC22f2ba",
       abi: [
+        {
+          type: "constructor",
+          inputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "AUTHORIZED_REGISTRY_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
         {
           type: "function",
           name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "REGISTRY_ADMIN_ROLE",
           inputs: [],
           outputs: [
             {
@@ -1769,7 +2415,230 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getCurrentTokenId",
+          name: "assetExists",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "assetIdToRegistry",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "bindAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "burnRevenueTokens",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "claimSettlement",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "executeLiquidation",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "liquidationAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getAssetIdFromTokenId",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getAssetInfo",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              internalType: "struct AssetLib.AssetInfo",
+              components: [
+                {
+                  name: "status",
+                  type: "uint8",
+                  internalType: "enum AssetLib.AssetStatus",
+                },
+                {
+                  name: "createdAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "updatedAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "maturityDate",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getAssetStatus",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRegistryForAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRegistryType",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getRegistryVersion",
           inputs: [],
           outputs: [
             {
@@ -1778,26 +2647,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRevenueShareTokenIdFromVehicleId",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
+          stateMutability: "pure",
         },
         {
           type: "function",
@@ -1820,6 +2670,1326 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "getTokenIdFromAssetId",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "initialize",
+          inputs: [
+            {
+              name: "_admin",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "initiateSettlement",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "topUpAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "settlementAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "isAssetSolvent",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "isAuthorizedForAsset",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "liquidateAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "lockCollateralFor",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "mintRevenueTokens",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "price",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "processSettlementClaim",
+          inputs: [
+            {
+              name: "recipient",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "claimedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "proxiableUUID",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "registerAsset",
+          inputs: [
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "registerAssetAndMintTokens",
+          inputs: [
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "releaseCollateralFor",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "releasedCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "reserveNextTokenIdPair",
+          inputs: [],
+          outputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "retireAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "retireAssetAndBurnTokens",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "roboshareTokens",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RoboshareTokens",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "setAssetStatus",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "setTreasury",
+          inputs: [
+            {
+              name: "_treasury",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "settleAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "topUpAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "treasury",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          inputs: [
+            {
+              name: "newImplementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "AssetBoundToRegistry",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "registry",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetExpired",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "liquidationAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetRegistered",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "owner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "status",
+              type: "uint8",
+              indexed: false,
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetRetired",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "burnedTokens",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "releasedCollateral",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetSettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "settlementAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetStatusUpdated",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "oldStatus",
+              type: "uint8",
+              indexed: true,
+              internalType: "enum AssetLib.AssetStatus",
+            },
+            {
+              name: "newStatus",
+              type: "uint8",
+              indexed: true,
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Initialized",
+          inputs: [
+            {
+              name: "version",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleAdminChanged",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "previousAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "newAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "SettlementClaimed",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "payout",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetAlreadySettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotActive",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotEligibleForLiquidation",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotFound",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotSettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientTokenBalance",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "required",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "available",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotAuthorized",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RegistryRouter__DirectCallNotAllowed",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RegistryRouter__RegistryNotBoundToAsset",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RegistryRouter__RegistryNotFoundForAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "RegistryRouter__TokenNotFound",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "RegistryRouter__TreasuryNotSet",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RegistryRouter__ZeroAddress",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnauthorizedCallContext",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnsupportedProxiableUUID",
+          inputs: [
+            {
+              name: "slot",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1765371257089.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    VehicleRegistry: {
+      address: "0xf7Cd8fa9b94DB2Aa972023b379c7f72c65E4De9D",
+      abi: [
+        {
+          type: "function",
+          name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "ROUTER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADE_INTERFACE_VERSION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "assetExists",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "burnRevenueTokens",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "claimSettlement",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "claimedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getAssetIdFromTokenId",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getAssetInfo",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              internalType: "struct AssetLib.AssetInfo",
+              components: [
+                {
+                  name: "status",
+                  type: "uint8",
+                  internalType: "enum AssetLib.AssetStatus",
+                },
+                {
+                  name: "createdAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "updatedAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "maturityDate",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getAssetStatus",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRegistryForAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRegistryType",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getRegistryVersion",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getTokenIdFromAssetId",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "getVehicleDisplayName",
           inputs: [
             {
@@ -1833,25 +4003,6 @@ const deployedContracts = {
               name: "",
               type: "string",
               internalType: "string",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getVehicleIdFromRevenueShareTokenId",
-          inputs: [
-            {
-              name: "revenueShareTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
             },
           ],
           stateMutability: "view",
@@ -1966,28 +4117,75 @@ const deployedContracts = {
               type: "address",
               internalType: "address",
             },
+            {
+              name: "_router",
+              type: "address",
+              internalType: "address",
+            },
           ],
           outputs: [],
           stateMutability: "nonpayable",
         },
         {
           type: "function",
-          name: "mintRevenueShareTokens",
+          name: "isAuthorizedForAsset",
           inputs: [
             {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
+              name: "account",
+              type: "address",
+              internalType: "address",
             },
             {
-              name: "totalSupply",
+              name: "assetId",
               type: "uint256",
               internalType: "uint256",
             },
           ],
           outputs: [
             {
-              name: "revenueShareTokenId",
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "liquidateAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "mintRevenueTokens",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "price",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "revenueTokenId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2022,47 +4220,17 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "registerVehicle",
+          name: "registerAsset",
           inputs: [
             {
-              name: "vin",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "make",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "model",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "year",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "manufacturerId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "optionCodes",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "dynamicMetadataURI",
-              type: "string",
-              internalType: "string",
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
             },
           ],
           outputs: [
             {
-              name: "vehicleId",
+              name: "assetId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2071,57 +4239,32 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "registerVehicleAndMintRevenueShareTokens",
+          name: "registerAssetAndMintTokens",
           inputs: [
             {
-              name: "vin",
-              type: "string",
-              internalType: "string",
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
             },
             {
-              name: "make",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "model",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "year",
+              name: "price",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "manufacturerId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "optionCodes",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "dynamicMetadataURI",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "revenueShareSupply",
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
           ],
           outputs: [
             {
-              name: "vehicleId",
+              name: "assetId",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "revenueShareTokenId",
+              name: "revenueTokenId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2141,6 +4284,32 @@ const deployedContracts = {
               name: "callerConfirmation",
               type: "address",
               internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "retireAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "retireAssetAndBurnTokens",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           outputs: [],
@@ -2176,6 +4345,55 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "router",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RegistryRouter",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "setAssetStatus",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "settleAsset",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "topUpAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -2234,25 +4452,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "vehicleExists",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "vehicles",
           inputs: [
             {
@@ -2268,14 +4467,31 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "isActive",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "createdAt",
-              type: "uint256",
-              internalType: "uint256",
+              name: "assetInfo",
+              type: "tuple",
+              internalType: "struct AssetLib.AssetInfo",
+              components: [
+                {
+                  name: "status",
+                  type: "uint8",
+                  internalType: "enum AssetLib.AssetStatus",
+                },
+                {
+                  name: "createdAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "updatedAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "maturityDate",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
             },
             {
               name: "vehicleInfo",
@@ -2343,6 +4559,143 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "AssetExpired",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "liquidationAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetRegistered",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "owner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "status",
+              type: "uint8",
+              indexed: false,
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetRetired",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "burnedTokens",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "releasedCollateral",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetSettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "settlementAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "AssetStatusUpdated",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "oldStatus",
+              type: "uint8",
+              indexed: true,
+              internalType: "enum AssetLib.AssetStatus",
+            },
+            {
+              name: "newStatus",
+              type: "uint8",
+              indexed: true,
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "Initialized",
           inputs: [
             {
@@ -2356,7 +4709,7 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "RevenueShareTokensMinted",
+          name: "RevenueTokensMinted",
           inputs: [
             {
               name: "vehicleId",
@@ -2365,7 +4718,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "revenueShareTokenId",
+              name: "revenueTokenId",
               type: "uint256",
               indexed: true,
               internalType: "uint256",
@@ -2462,6 +4815,37 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "SettlementClaimed",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "payout",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "Upgraded",
           inputs: [
             {
@@ -2469,43 +4853,6 @@ const deployedContracts = {
               type: "address",
               indexed: true,
               internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "VehicleAndRevenueShareTokensMinted",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareTokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "vehicleOwner",
-              type: "address",
-              indexed: false,
-              internalType: "address",
-            },
-            {
-              name: "revenueShareSupply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
             },
           ],
           anonymous: false,
@@ -2551,11 +4898,36 @@ const deployedContracts = {
               indexed: false,
               internalType: "string",
             },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "VehicleRegisteredAndRevenueTokensMinted",
+          inputs: [
             {
-              name: "owner",
+              name: "vehicleId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
               type: "address",
               indexed: true,
               internalType: "address",
+            },
+            {
+              name: "totalSupply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
           ],
           anonymous: false,
@@ -2594,6 +4966,76 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "AssetAlreadySettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotActive",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotEligibleForLiquidation",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotFound",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotSettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "ERC1967InvalidImplementation",
           inputs: [
             {
@@ -2615,7 +5057,85 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InsufficientTokenBalance",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "required",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "available",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "InvalidAssetStatus",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidMake",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidMetadataURI",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidModel",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidStatusTransition",
+          inputs: [
+            {
+              name: "from",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+            {
+              name: "to",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "InvalidVINLength",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidYear",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotAuthorized",
           inputs: [],
         },
         {
@@ -2646,37 +5166,27 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "VehicleLib__EmptyMetadataURI",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleLib__InvalidMake",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleLib__InvalidModel",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleLib__InvalidVINLength",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleLib__InvalidYear",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleRegistry__IncorrectRevenueShareTokenId",
+          name: "VehicleRegistry__IncorrectRevenueTokenId",
           inputs: [],
         },
         {
           type: "error",
           name: "VehicleRegistry__IncorrectVehicleId",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__NotVehicleOwner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__OutstandingTokensHeldByOthers",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "VehicleRegistry__RevenueTokensAlreadyMinted",
           inputs: [],
         },
         {
@@ -2696,12 +5206,38 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757512456.json",
-      deploymentScript: "UpgradeVehicleRegistry.s.sol",
+      deploymentFile: "run-1765371257089.json",
+      deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
-      address: "0xc84678cbf0ce9cc53a1cb54c92eafe7ce0350e0a",
+      address: "0x82Dc47734901ee7d4f4232f398752cB9Dd5dACcC",
       abi: [
+        {
+          type: "function",
+          name: "AUTHORIZED_CONTRACT_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "AUTHORIZED_ROUTER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
         {
           type: "function",
           name: "DEFAULT_ADMIN_ROLE",
@@ -2756,22 +5292,22 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getCollateralBreakdown",
+          name: "assetCollateral",
           inputs: [
             {
-              name: "revenueTokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalRevenueTokens",
+              name: "",
               type: "uint256",
               internalType: "uint256",
             },
           ],
           outputs: [
             {
-              name: "baseAmount",
+              name: "initialBaseCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "baseCollateral",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2786,36 +5322,219 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "totalRequired",
+              name: "totalCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isLocked",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "lockedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "lastEventTimestamp",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "reservedForLiquidation",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "liquidationThreshold",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "createdAt",
               type: "uint256",
               internalType: "uint256",
             },
           ],
-          stateMutability: "pure",
+          stateMutability: "view",
         },
         {
           type: "function",
-          name: "getCollateralRequirement",
+          name: "assetEarnings",
           inputs: [
-            {
-              name: "revenueTokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalRevenueTokens",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
             {
               name: "",
               type: "uint256",
               internalType: "uint256",
             },
           ],
-          stateMutability: "pure",
+          outputs: [
+            {
+              name: "totalEarnings",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalEarningsPerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentPeriod",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "lastEventTimestamp",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "lastProcessedPeriod",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "cumulativeBenchmarkEarnings",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "cumulativeExcessEarnings",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isInitialized",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "assetSettlements",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "isSettled",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalSettlementPool",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "claimEarnings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "distributeEarnings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "executeLiquidation",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "liquidationAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getAssetCollateralInfo",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "baseCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isLocked",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "lockedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "lockDuration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
         },
         {
           type: "function",
@@ -2857,6 +5576,30 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "getTotalCollateralRequirement",
+          inputs: [
+            {
+              name: "revenueTokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "tokenSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
           name: "getTreasuryStats",
           inputs: [],
           outputs: [
@@ -2867,45 +5610,6 @@ const deployedContracts = {
             },
             {
               name: "treasuryBalance",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getVehicleCollateralInfo",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "baseCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isLocked",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "lockedAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "lockDuration",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2964,17 +5668,27 @@ const deployedContracts = {
               internalType: "address",
             },
             {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+            {
               name: "_partnerManager",
               type: "address",
               internalType: "address",
             },
             {
-              name: "_vehicleRegistry",
+              name: "_router",
               type: "address",
               internalType: "address",
             },
             {
               name: "_usdc",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_treasuryFeeRecipient",
               type: "address",
               internalType: "address",
             },
@@ -2984,10 +5698,63 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "initiateSettlement",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "topUpAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "settlementAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "settlementPerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "isAssetSolvent",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "lockCollateral",
           inputs: [
             {
-              name: "vehicleId",
+              name: "assetId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2997,7 +5764,35 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "totalRevenueTokens",
+              name: "tokenSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "lockCollateralFor",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueTokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "tokenSupply",
               type: "uint256",
               internalType: "uint256",
             },
@@ -3039,6 +5834,35 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "processSettlementClaim",
+          inputs: [
+            {
+              name: "recipient",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "claimedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "processWithdrawal",
           inputs: [],
           outputs: [],
@@ -3056,6 +5880,74 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "recordPendingWithdrawal",
+          inputs: [
+            {
+              name: "recipient",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "releaseCollateral",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "releaseCollateralFor",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "releasedCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "releasePartialCollateral",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -3095,6 +5987,32 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "roboshareTokens",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RoboshareTokens",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "router",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RegistryRouter",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "supportsInterface",
           inputs: [
             {
@@ -3127,16 +6045,29 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "unlockCollateral",
-          inputs: [
+          name: "totalEarningsDeposited",
+          inputs: [],
+          outputs: [
             {
-              name: "vehicleId",
+              name: "",
               type: "uint256",
               internalType: "uint256",
             },
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "treasuryFeeRecipient",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
         },
         {
           type: "function",
@@ -3153,10 +6084,10 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "updateUSDC",
+          name: "updateRoboshareTokens",
           inputs: [
             {
-              name: "_usdc",
+              name: "_roboshareTokens",
               type: "address",
               internalType: "address",
             },
@@ -3166,10 +6097,36 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "updateVehicleRegistry",
+          name: "updateRouter",
           inputs: [
             {
-              name: "_vehicleRegistry",
+              name: "_newRouter",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateTreasuryFeeRecipient",
+          inputs: [
+            {
+              name: "_treasuryFeeRecipient",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateUSDC",
+          inputs: [
+            {
+              name: "_usdc",
               type: "address",
               internalType: "address",
             },
@@ -3209,68 +6166,61 @@ const deployedContracts = {
           stateMutability: "view",
         },
         {
-          type: "function",
-          name: "vehicleCollateral",
+          type: "event",
+          name: "BufferReplenished",
           inputs: [
             {
-              name: "",
+              name: "assetId",
               type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "fromReserved",
+              type: "uint256",
+              indexed: false,
               internalType: "uint256",
             },
           ],
-          outputs: [
-            {
-              name: "baseCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isLocked",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "lockedAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "lastEventTimestamp",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "createdAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
+          anonymous: false,
         },
         {
-          type: "function",
-          name: "vehicleRegistry",
-          inputs: [],
-          outputs: [
+          type: "event",
+          name: "CollateralBuffersUpdated",
+          inputs: [
             {
-              name: "",
-              type: "address",
-              internalType: "contract VehicleRegistry",
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "newEarningsBuffer",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "newReservedForLiquidation",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
           ],
-          stateMutability: "view",
+          anonymous: false,
         },
         {
           type: "event",
           name: "CollateralLocked",
           inputs: [
             {
-              name: "vehicleId",
+              name: "assetId",
               type: "uint256",
               indexed: true,
               internalType: "uint256",
@@ -3292,10 +6242,60 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "CollateralUnlocked",
+          name: "CollateralReleased",
           inputs: [
             {
-              name: "vehicleId",
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "recipient",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "EarningsClaimed",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "EarningsDistributed",
+          inputs: [
+            {
+              name: "assetId",
               type: "uint256",
               indexed: true,
               internalType: "uint256",
@@ -3308,6 +6308,12 @@ const deployedContracts = {
             },
             {
               name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "period",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -3399,6 +6405,63 @@ const deployedContracts = {
               type: "address",
               indexed: true,
               internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RouterUpdated",
+          inputs: [
+            {
+              name: "newRouter",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "SettlementClaimed",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "ShortfallReserved",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
           ],
           anonymous: false,
@@ -3469,8 +6532,1111 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "CollateralLib__InvalidCollateralAmount",
+          name: "AssetNotSettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "CollateralAlreadyInitialized",
           inputs: [],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidCollateralAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "OutstandingRevenueTokens",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ReentrancyGuardReentrantCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SafeERC20FailedOperation",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "Treasury__AssetNotActive",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__AssetNotFound",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__CollateralAlreadyLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__EarningsLessThanMinimumFee",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__InsufficientCollateral",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__InsufficientTokenBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__InvalidEarningsAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoCollateralLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoEarningsToClaim",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoNewPeriodsToProcess",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoPendingWithdrawals",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoPriorEarningsDistribution",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NoRevenueTokensIssued",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__NotAssetOwner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__TooSoonForCollateralRelease",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__UnauthorizedPartner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Treasury__ZeroAddressNotAllowed",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnauthorizedCallContext",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "UUPSUnsupportedProxiableUUID",
+          inputs: [
+            {
+              name: "slot",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+      ],
+      inheritedFunctions: {},
+      deploymentFile: "run-1765371257089.json",
+      deploymentScript: "Deploy.s.sol",
+    },
+    Marketplace: {
+      address: "0x82C6D3ed4cD33d8EC1E51d0B5Cc1d822Eaa0c3dC",
+      abi: [
+        {
+          type: "function",
+          name: "DEFAULT_ADMIN_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADER_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "UPGRADE_INTERFACE_VERSION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "assetListings",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "calculatePurchaseCost",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "totalCost",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "expectedPayment",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "cancelListing",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "createListing",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "duration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "buyerPaysFee",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getAssetListings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "activeListings",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getCurrentListingId",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getListing",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              internalType: "struct Marketplace.Listing",
+              components: [
+                {
+                  name: "listingId",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "tokenId",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "amount",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "pricePerToken",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "seller",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "expiresAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "isActive",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "createdAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "buyerPaysFee",
+                  type: "bool",
+                  internalType: "bool",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRoleAdmin",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "grantRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "hasRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "initialize",
+          inputs: [
+            {
+              name: "_admin",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_partnerManager",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_router",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_treasury",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_usdcToken",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "isAssetEligibleForListing",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "listings",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "seller",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "expiresAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "isActive",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "createdAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "buyerPaysFee",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "onERC1155BatchReceived",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "onERC1155Received",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "partnerManager",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract PartnerManager",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "proxiableUUID",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "purchaseTokens",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "renounceRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "callerConfirmation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "revokeRole",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "roboshareTokens",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RoboshareTokens",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "router",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract RegistryRouter",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "supportsInterface",
+          inputs: [
+            {
+              name: "interfaceId",
+              type: "bytes4",
+              internalType: "bytes4",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "treasury",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract Treasury",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          inputs: [
+            {
+              name: "newImplementation",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "usdcToken",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract IERC20",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "Initialized",
+          inputs: [
+            {
+              name: "version",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "ListingCancelled",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "seller",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "ListingCreated",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "tokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "seller",
+              type: "address",
+              indexed: false,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "expiresAt",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "buyerPaysFee",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RevenueTokensTraded",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "from",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "totalPrice",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleAdminChanged",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "previousAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "newAdminRole",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleGranted",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoleRevoked",
+          inputs: [
+            {
+              name: "role",
+              type: "bytes32",
+              indexed: true,
+              internalType: "bytes32",
+            },
+            {
+              name: "account",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Upgraded",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AccessControlBadConfirmation",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "AccessControlUnauthorizedAccount",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "neededRole",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
         },
         {
           type: "error",
@@ -3500,53 +7666,72 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "Marketplace__FeesExceedPrice",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__InsufficientPayment",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__InsufficientTokenBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__InvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__InvalidPrice",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__InvalidTokenType",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__ListingExpired",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__ListingNotActive",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__ListingNotFound",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__NoCollateralLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__NotTokenOwner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "Marketplace__ZeroAddress",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "NotInitializing",
           inputs: [],
         },
         {
           type: "error",
           name: "ReentrancyGuardReentrantCall",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "SafeERC20FailedOperation",
-          inputs: [
-            {
-              name: "token",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "Treasury__CollateralAlreadyLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__InsufficientCollateral",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoCollateralLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__UnauthorizedPartner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__VehicleNotFound",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__ZeroAddressNotAllowed",
           inputs: [],
         },
         {
@@ -3567,7 +7752,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1757356925.json",
+      deploymentFile: "run-1765371257089.json",
       deploymentScript: "Deploy.s.sol",
     },
   },
