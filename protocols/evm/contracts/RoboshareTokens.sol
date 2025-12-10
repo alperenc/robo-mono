@@ -68,11 +68,7 @@ contract RoboshareTokens is
      * @return assetId The unique ID for the new asset.
      * @return revenueTokenId The unique ID for the asset's corresponding revenue token.
      */
-    function reserveNextTokenIdPair()
-        external
-        onlyRole(MINTER_ROLE)
-        returns (uint256 assetId, uint256 revenueTokenId)
-    {
+    function reserveNextTokenIdPair() external onlyRole(MINTER_ROLE) returns (uint256 assetId, uint256 revenueTokenId) {
         assetId = _tokenIdCounter;
         revenueTokenId = _tokenIdCounter + 1;
         _tokenIdCounter += 2;
@@ -85,10 +81,7 @@ contract RoboshareTokens is
      * @param supply The total supply of the revenue token.
      * @param price The initial price per token.
      */
-    function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply)
-        external
-        onlyRole(MINTER_ROLE)
-    {
+    function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply) external onlyRole(MINTER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert RoboshareTokens__NotRevenueToken();
         }
