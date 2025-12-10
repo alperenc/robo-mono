@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import "./DeployHelpers.s.sol";
 import "../contracts/PartnerManager.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployPartnerManager is Script {
-    function run(address deployerAddress) external returns (address) {
-        address deployer = deployerAddress;
-
+contract DeployPartnerManager is ScaffoldETHDeploy {
+    /**
+     * @dev Deploy PartnerManager - no external dependencies required
+     * Usage: yarn deploy --contract PartnerManager --network <network>
+     */
+    function run() external ScaffoldEthDeployerRunner returns (address) {
         console.log("Deploying PartnerManager with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
 

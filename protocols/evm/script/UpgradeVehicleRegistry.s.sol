@@ -39,6 +39,7 @@ contract UpgradeVehicleRegistry is ScaffoldETHDeploy {
     }
 
     function help() external pure {
-        console.log("Use: forge script UpgradeVehicleRegistry --sig 'run(address)' $PROXY_ADDRESS");
+        console.log("Usage: yarn upgrade --contract VehicleRegistry --proxy-address <addr>");
+        console.log("Post-upgrade: Configure via admin functions");
     }
 }

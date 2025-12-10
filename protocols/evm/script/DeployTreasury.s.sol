@@ -1,40 +1,53 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import "./DeployHelpers.s.sol";
 import "../contracts/Treasury.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC20Mock } from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
-contract DeployTreasury is Script {
+contract DeployTreasury is ScaffoldETHDeploy {
     /**
-     * @dev Deploy Treasury with dependency addresses as parameters
-     * Usage: forge script DeployTreasury --sig "run(address,address,address,address,address)" $PARTNER_MANAGER_ADDR $ROUTER_ADDR $ROBOSHARE_TOKENS_ADDR $USDC_ADDR $ADMIN_ADDR
+     * @dev Deploy Treasury with dependency addresses
+     * Usage: yarn deploy --contract Treasury --network <network> --args <roboshareTokens>,<partnerManager>,<router>
+     * Note: USDC and treasuryFeeRecipient are read from network config
      */
-    function run(
-        address partnerManagerAddress,
-        address routerAddress,
-        address roboshareTokensAddress,
-        address usdcAddress,
-        address adminAddress
-    ) external returns (address) {
-        address deployer = adminAddress; // Use admin as deployer for logging consistency
+    function run(address roboshareTokensAddress, address partnerManagerAddress, address routerAddress)
+        external
+        ScaffoldEthDeployerRunner
+        returns (address)
+    {
+        // Get USDC and treasuryFeeRecipient from network config
+        NetworkConfig memory config = getActiveNetworkConfig();
+
+        // For local Anvil/testing, deploy mock USDC if not set
+        if (config.usdcToken == address(0)) {
+            ERC20Mock mockUsdc = new ERC20Mock();
+            config.usdcToken = address(mockUsdc);
+            console.log("Mock USDC deployed at:", address(mockUsdc));
+        }
+
+        // Use deployer as treasuryFeeRecipient fallback for local testing
+        if (config.treasuryFeeRecipient == address(0)) {
+            config.treasuryFeeRecipient = deployer;
+            console.log("Using deployer as treasuryFeeRecipient:", deployer);
+        }
 
         console.log("Deploying Treasury with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
         console.log("Dependencies:");
+        console.log("  - RoboshareTokens:", roboshareTokensAddress);
         console.log("  - PartnerManager:", partnerManagerAddress);
         console.log("  - Router:", routerAddress);
-        console.log("  - RoboshareTokens:", roboshareTokensAddress);
-        console.log("  - USDC:", usdcAddress);
-        console.log("  - Admin:", adminAddress);
+        console.log("  - USDC (from config):", config.usdcToken);
+        console.log("  - TreasuryFeeRecipient (from config):", config.treasuryFeeRecipient);
 
         // Validate dependency addresses
+        require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
         require(partnerManagerAddress != address(0), "PartnerManager address cannot be zero");
         require(routerAddress != address(0), "Router address cannot be zero");
-        require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
-        require(usdcAddress != address(0), "USDC address cannot be zero");
-        require(adminAddress != address(0), "Admin address cannot be zero");
+        require(config.usdcToken != address(0), "USDC address cannot be zero");
+        require(config.treasuryFeeRecipient != address(0), "TreasuryFeeRecipient address cannot be zero");
 
         // Deploy implementation contract
         Treasury treasuryImplementation = new Treasury();
@@ -43,12 +56,12 @@ contract DeployTreasury is Script {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address,address,address)",
-            adminAddress,
+            deployer, // admin
+            roboshareTokensAddress,
             partnerManagerAddress,
             routerAddress,
-            roboshareTokensAddress,
-            usdcAddress,
-            deployer // treasuryFeeRecipient (using admin/deployer for now)
+            config.usdcToken,
+            config.treasuryFeeRecipient
         );
 
         // Deploy proxy contract
@@ -59,35 +72,33 @@ contract DeployTreasury is Script {
         Treasury treasury = Treasury(address(proxy));
 
         // Verify initialization
-        console.log("Admin has DEFAULT_ADMIN_ROLE:", treasury.hasRole(treasury.DEFAULT_ADMIN_ROLE(), adminAddress));
-        console.log("Admin has UPGRADER_ROLE:", treasury.hasRole(keccak256("UPGRADER_ROLE"), adminAddress));
-        console.log("Admin has TREASURER_ROLE:", treasury.hasRole(keccak256("TREASURER_ROLE"), adminAddress));
+        console.log("Admin has DEFAULT_ADMIN_ROLE:", treasury.hasRole(treasury.DEFAULT_ADMIN_ROLE(), deployer));
+        console.log("Admin has UPGRADER_ROLE:", treasury.hasRole(keccak256("UPGRADER_ROLE"), deployer));
+        console.log("Admin has TREASURER_ROLE:", treasury.hasRole(keccak256("TREASURER_ROLE"), deployer));
+        console.log("RoboshareTokens reference:", address(treasury.roboshareTokens()));
         console.log("PartnerManager reference:", address(treasury.partnerManager()));
         console.log("Router reference:", address(treasury.router()));
-        console.log("RoboshareTokens reference:", address(treasury.roboshareTokens()));
         console.log("USDC reference:", address(treasury.usdc()));
-        console.log("Total collateral deposited:", treasury.totalCollateralDeposited());
+        console.log("TreasuryFeeRecipient:", treasury.treasuryFeeRecipient());
 
         // Log deployment summary
         console.log("=== Treasury Deployment Summary ===");
         console.log("Implementation:", address(treasuryImplementation));
         console.log("Proxy (main contract):", address(proxy));
-        console.log("Admin:", adminAddress);
+        console.log("Admin:", deployer);
         console.log("Dependencies verified and connected");
-        console.log("USDC-based collateral management ready");
-        console.log("=====================================");
+        console.log("===================================");
 
         return address(proxy);
     }
 
     /**
-     * @dev Default run function for backwards compatibility
-     * This will fail with a clear error message if called without parameters
+     * @dev Default run function - reverts with usage info
      */
     function run() external pure returns (address) {
         revert(
             "Treasury deployment requires dependency addresses. "
-            "Use: forge script DeployTreasury --sig 'run(address,address,address,address,address)' $PARTNER_MANAGER $ROUTER $ROBOSHARE_TOKENS $USDC $ADMIN"
+            "Use: yarn deploy --contract Treasury --network <network> --args <roboshareTokens>,<partnerManager>,<router>"
         );
     }
 }
