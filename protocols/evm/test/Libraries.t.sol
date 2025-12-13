@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "../contracts/Libraries.sol";
+import { Test } from "forge-std/Test.sol";
+import { ProtocolLib, AssetLib, CollateralLib, EarningsLib, TokenLib } from "../contracts/Libraries.sol";
 
 // Helper to expose ProtocolLib/EarningsLib pure functions
 contract ProtocolEarningsHelper {
@@ -357,7 +357,7 @@ contract LibrariesTest is Test {
     function testRemovePositionInsufficientBalance() public {
         cteh.initToken(1, 100e6, ProtocolLib.MONTHLY_INTERVAL);
         cteh.addPos(alice, 10);
-        vm.expectRevert(TokenLib.TokenLib__InsufficientTokenBalance.selector);
+        vm.expectRevert(TokenLib.InsufficientTokenBalance.selector);
         cteh.removePos(alice, 11);
     }
 

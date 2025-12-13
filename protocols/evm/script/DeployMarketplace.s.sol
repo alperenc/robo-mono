@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/Marketplace.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ERC20Mock } from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import { console } from "forge-std/console.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { Marketplace } from "../contracts/Marketplace.sol";
 
 contract DeployMarketplace is ScaffoldETHDeploy {
     /**
@@ -17,13 +18,13 @@ contract DeployMarketplace is ScaffoldETHDeploy {
         address partnerManagerAddress,
         address routerAddress,
         address treasuryAddress
-    ) external ScaffoldEthDeployerRunner returns (address) {
+    ) external scaffoldEthDeployerRunner returns (address) {
         // Get USDC from network config
         NetworkConfig memory config = getActiveNetworkConfig();
 
         // For local Anvil/testing, deploy mock USDC if not set
         if (config.usdcToken == address(0)) {
-            ERC20Mock mockUsdc = new ERC20Mock();
+            MockUSDC mockUsdc = new MockUSDC();
             config.usdcToken = address(mockUsdc);
             console.log("Mock USDC deployed at:", address(mockUsdc));
         }
@@ -73,7 +74,7 @@ contract DeployMarketplace is ScaffoldETHDeploy {
         console.log("PartnerManager reference:", address(marketplace.partnerManager()));
         console.log("Router reference:", address(marketplace.router()));
         console.log("Treasury reference:", address(marketplace.treasury()));
-        console.log("USDC Token reference:", address(marketplace.usdcToken()));
+        console.log("USDC Token reference:", address(marketplace.usdc()));
         console.log("Initial listing counter:", marketplace.getCurrentListingId());
 
         // Log deployment summary

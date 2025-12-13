@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 /**
  * @dev Protocol utilities and constants
  */
@@ -336,7 +338,8 @@ library VehicleLib {
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            buffer[digits] = bytes1(uint8(48 + uint8(value % 10)));
             value /= 10;
         }
         return string(buffer);
@@ -348,8 +351,6 @@ library VehicleLib {
  * Handles ERC1155 token positions, transfers, and holding periods
  */
 library TokenLib {
-    using ProtocolLib for uint256;
-
     /**
      * @dev Individual token position
      */
@@ -382,7 +383,7 @@ library TokenLib {
         mapping(address => PositionQueue) positions;
     }
 
-    error TokenLib__InsufficientTokenBalance();
+    error InsufficientTokenBalance();
 
     /**
      * @dev Initialize token info
@@ -445,7 +446,7 @@ library TokenLib {
         }
 
         if (remaining > 0) {
-            revert TokenLib__InsufficientTokenBalance();
+            revert InsufficientTokenBalance();
         }
     }
 
@@ -557,7 +558,8 @@ library TokenLib {
  * @dev Collateral management library for USDC-based collateral operations
  */
 library CollateralLib {
-    using ProtocolLib for uint256;
+    using SafeCast for uint256;
+    using SafeCast for int256;
 
     // Errors
     error InsufficientCollateral();
@@ -737,7 +739,7 @@ library CollateralLib {
             info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
 
             // Return negative value to indicate shortfall
-            return (-int256(shortfallAmount), 0);
+            return (-shortfallAmount.toInt256(), 0);
         }
         // Handle excess earnings (when netEarnings > baseEarnings)
         else if (netEarnings > baseEarnings) {
@@ -767,7 +769,7 @@ library CollateralLib {
             }
 
             // Return remaining excess earnings and replenishment amount
-            return (int256(excessEarnings), replenished);
+            return (excessEarnings.toInt256(), replenished);
         }
 
         // Perfect match: netEarnings == baseEarnings

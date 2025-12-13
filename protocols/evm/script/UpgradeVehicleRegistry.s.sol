@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/VehicleRegistry.sol";
+import { console } from "forge-std/console.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
 contract UpgradeVehicleRegistry is ScaffoldETHDeploy {
     /**
      * @dev Upgrade VehicleRegistry implementation
      * Usage: forge script UpgradeVehicleRegistry --sig "run(address)" $PROXY_ADDRESS
      */
-    function run() external ScaffoldEthDeployerRunner {
+    function run() external scaffoldEthDeployerRunner {
         // Get proxy address from environment variable (set by parseArgs.js)
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
         require(proxyAddress != address(0), "Proxy address cannot be zero");

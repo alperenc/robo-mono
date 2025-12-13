@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import {
+    ERC1155HolderUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ProtocolLib, TokenLib } from "./Libraries.sol";
-
-error RoboshareTokens__NotRevenueToken();
-error RoboshareTokens__RevenueTokenInfoAlreadySet();
-error RoboshareTokens__InsufficientBalance();
 
 /**
  * @title RoboshareTokens
@@ -34,6 +32,11 @@ contract RoboshareTokens is
 
     // Stores TokenInfo structs for each token ID, which includes position tracking
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
+
+    // Errors
+    error NotRevenueToken();
+    error RevenueTokenInfoAlreadySet();
+    error InsufficientBalance();
 
     // Events
     event RevenueTokenPositionsUpdated(
@@ -83,11 +86,11 @@ contract RoboshareTokens is
      */
     function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply) external onlyRole(MINTER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert RoboshareTokens__NotRevenueToken();
+            revert NotRevenueToken();
         }
         TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
         if (tokenInfo.tokenId != 0) {
-            revert RoboshareTokens__RevenueTokenInfoAlreadySet();
+            revert RevenueTokenInfoAlreadySet();
         }
 
         TokenLib.initializeTokenInfo(
@@ -167,7 +170,7 @@ contract RoboshareTokens is
      */
     function getRevenueTokenSupply(uint256 revenueTokenId) external view returns (uint256) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert RoboshareTokens__NotRevenueToken();
+            revert NotRevenueToken();
         }
         return _revenueTokenInfos[revenueTokenId].tokenSupply;
     }
@@ -179,7 +182,7 @@ contract RoboshareTokens is
      */
     function getTokenPrice(uint256 revenueTokenId) external view returns (uint256) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert RoboshareTokens__NotRevenueToken();
+            revert NotRevenueToken();
         }
         return _revenueTokenInfos[revenueTokenId].tokenPrice;
     }
@@ -196,7 +199,7 @@ contract RoboshareTokens is
         returns (TokenLib.TokenPosition[] memory positions)
     {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert RoboshareTokens__NotRevenueToken();
+            revert NotRevenueToken();
         }
         TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
         TokenLib.PositionQueue storage queue = info.positions[holder];
@@ -225,12 +228,12 @@ contract RoboshareTokens is
         returns (uint256 penaltyAmount)
     {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert RoboshareTokens__NotRevenueToken();
+            revert NotRevenueToken();
         }
 
         // Check balance before proceeding
         if (balanceOf(seller, revenueTokenId) < amount) {
-            revert RoboshareTokens__InsufficientBalance();
+            revert InsufficientBalance();
         }
 
         // If the seller is the current owner of the corresponding Asset NFT, they are exempt from the penalty.

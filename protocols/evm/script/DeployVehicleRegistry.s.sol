@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/VehicleRegistry.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { console } from "forge-std/console.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
 contract DeployVehicleRegistry is ScaffoldETHDeploy {
     /**
@@ -12,7 +13,7 @@ contract DeployVehicleRegistry is ScaffoldETHDeploy {
      */
     function run(address roboshareTokensAddress, address partnerManagerAddress, address routerAddress)
         external
-        ScaffoldEthDeployerRunner
+        scaffoldEthDeployerRunner
         returns (address)
     {
         console.log("Deploying VehicleRegistry with deployer:", deployer);

@@ -1,30 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { RegistryRouter } from "./RegistryRouter.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ProtocolLib, TokenLib, AssetLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
+import { RegistryRouter } from "./RegistryRouter.sol";
 import { Treasury } from "./Treasury.sol";
-
-// Marketplace errors
-error Marketplace__ZeroAddress();
-error Marketplace__ListingNotFound();
-error Marketplace__NotTokenOwner();
-error Marketplace__ListingExpired();
-error Marketplace__InsufficientPayment();
-error Marketplace__InvalidTokenType();
-error Marketplace__InvalidAmount();
-error Marketplace__ListingNotActive();
-error Marketplace__NoCollateralLocked();
-error Marketplace__InsufficientTokenBalance();
-error Marketplace__FeesExceedPrice();
-error Marketplace__InvalidPrice();
 
 /**
  * @dev Marketplace for buying and selling revenue share tokens
@@ -32,6 +19,8 @@ error Marketplace__InvalidPrice();
  * Integrates with Treasury to ensure collateral is locked before listing
  */
 contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
+    using SafeERC20 for IERC20;
+
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     // Core contracts
@@ -39,7 +28,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     PartnerManager public partnerManager;
     RegistryRouter public router;
     Treasury public treasury;
-    IERC20 public usdcToken;
+    IERC20 public usdc;
 
     // Listing management
     uint256 private _listingIdCounter;
@@ -58,6 +47,20 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => uint256[]) public assetListings; // assetId => listingIds[]
+
+    // Errors
+    error ZeroAddress();
+    error InvalidTokenType();
+    error InvalidPrice();
+    error InvalidAmount();
+    error InsufficientTokenBalance();
+    error ListingNotActive();
+    error NoCollateralLocked();
+    error ListingNotFound();
+    error ListingExpired();
+    error FeesExceedPrice();
+    error InsufficientPayment();
+    error NotTokenOwner();
 
     // Events
     event ListingCreated(
@@ -82,6 +85,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
     event ListingCancelled(uint256 indexed listingId, address indexed seller);
 
+    // Admin Events
+    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
+    event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
+    event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
+    event RouterUpdated(address indexed oldAddress, address indexed newAddress);
+    event TreasuryUpdated(address indexed oldAddress, address indexed newAddress);
+
     /**
      * @dev Initialize the marketplace
      */
@@ -91,13 +101,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         address _partnerManager,
         address _router,
         address _treasury,
-        address _usdcToken
+        address _usdc
     ) public initializer {
         if (
             _admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)
-                || _router == address(0) || _treasury == address(0) || _usdcToken == address(0)
+                || _router == address(0) || _treasury == address(0) || _usdc == address(0)
         ) {
-            revert Marketplace__ZeroAddress();
+            revert ZeroAddress();
         }
 
         __AccessControl_init();
@@ -111,7 +121,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         partnerManager = PartnerManager(_partnerManager);
         router = RegistryRouter(_router);
         treasury = Treasury(_treasury);
-        usdcToken = IERC20(_usdcToken);
+        usdc = IERC20(_usdc);
 
         _listingIdCounter = 1;
     }
@@ -120,10 +130,14 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
      * @dev Modifier to ensure only authorized partners can call functions
      */
     modifier onlyAuthorizedPartner() {
-        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.PartnerManager__NotAuthorized();
-        }
+        _onlyAuthorizedPartner();
         _;
+    }
+
+    function _onlyAuthorizedPartner() internal view {
+        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
+            revert PartnerManager.NotAuthorized();
+        }
     }
 
     /**
@@ -141,23 +155,23 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     {
         // Validate token type (must be revenue share token)
         if (!TokenLib.isRevenueToken(tokenId)) {
-            revert Marketplace__InvalidTokenType();
+            revert InvalidTokenType();
         }
         if (pricePerToken == 0) {
-            revert Marketplace__InvalidPrice();
+            revert InvalidPrice();
         }
 
         uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
 
         // Validate inputs
         if (amount == 0 || amount > tokenSupply) {
-            revert Marketplace__InvalidAmount();
+            revert InvalidAmount();
         }
 
         // Verify seller owns enough tokens
         uint256 sellerBalance = roboshareTokens.balanceOf(msg.sender, tokenId);
         if (sellerBalance < amount) {
-            revert Marketplace__InsufficientTokenBalance();
+            revert InsufficientTokenBalance();
         }
 
         // Get asset ID and check collateral is locked
@@ -165,12 +179,12 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
         // Check asset status is Active
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert Marketplace__ListingNotActive();
+            revert ListingNotActive();
         }
 
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         if (!isLocked) {
-            revert Marketplace__NoCollateralLocked();
+            revert NoCollateralLocked();
         }
 
         return _createListing(tokenId, amount, pricePerToken, duration, buyerPaysFee);
@@ -221,23 +235,23 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
         // Validate listing exists and is active
         if (listing.listingId == 0) {
-            revert Marketplace__ListingNotFound();
+            revert ListingNotFound();
         }
 
         // Check asset status
         uint256 assetId = router.getAssetIdFromTokenId(listing.tokenId);
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert Marketplace__ListingNotActive();
+            revert ListingNotActive();
         }
 
         if (!listing.isActive) {
-            revert Marketplace__ListingNotActive();
+            revert ListingNotActive();
         }
         if (block.timestamp > listing.expiresAt) {
-            revert Marketplace__ListingExpired();
+            revert ListingExpired();
         }
         if (amount == 0 || amount > listing.amount) {
-            revert Marketplace__InvalidAmount();
+            revert InvalidAmount();
         }
 
         // Calculate base payment amounts
@@ -252,7 +266,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         if (listing.buyerPaysFee) {
             // Buyer pays the listed price + the protocol fee.
             if (salesPenalty > totalPrice) {
-                revert Marketplace__FeesExceedPrice();
+                revert FeesExceedPrice();
             }
             expectedPayment = totalPrice + protocolFee;
             // Seller receives the listed price, but the sales penalty is deducted from their share.
@@ -260,7 +274,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         } else {
             // Buyer pays only the listed price.
             if (totalFeesToTreasury > totalPrice) {
-                revert Marketplace__FeesExceedPrice();
+                revert FeesExceedPrice();
             }
             expectedPayment = totalPrice;
             // Seller receives the listed price, but both protocol fee and sales penalty are deducted.
@@ -268,8 +282,8 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Check buyer has sufficient USDC
-        if (usdcToken.balanceOf(msg.sender) < expectedPayment) {
-            revert Marketplace__InsufficientPayment();
+        if (usdc.balanceOf(msg.sender) < expectedPayment) {
+            revert InsufficientPayment();
         }
 
         // Update listing
@@ -279,9 +293,9 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         }
 
         // Transfer USDC payments
-        usdcToken.transferFrom(msg.sender, listing.seller, sellerReceives);
+        usdc.safeTransferFrom(msg.sender, listing.seller, sellerReceives);
         // Transfer fees to the Treasury contract and notify it to record the pending withdrawal
-        usdcToken.transferFrom(msg.sender, address(treasury), totalFeesToTreasury);
+        usdc.safeTransferFrom(msg.sender, address(treasury), totalFeesToTreasury);
         treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), totalFeesToTreasury);
 
         // Transfer tokens to buyer
@@ -298,13 +312,13 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
 
         // Validate listing exists and caller is seller
         if (listing.listingId == 0) {
-            revert Marketplace__ListingNotFound();
+            revert ListingNotFound();
         }
         if (listing.seller != msg.sender) {
-            revert Marketplace__NotTokenOwner();
+            revert NotTokenOwner();
         }
         if (!listing.isActive) {
-            revert Marketplace__ListingNotActive();
+            revert ListingNotActive();
         }
 
         // Mark as inactive
@@ -384,6 +398,74 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     function isAssetEligibleForListing(uint256 assetId) external view returns (bool) {
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
         return isLocked;
+    }
+
+    // Admin Functions
+
+    /**
+     * @dev Update partner manager reference
+     * @param _partnerManager New partner manager address
+     */
+    function updatePartnerManager(address _partnerManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_partnerManager == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(partnerManager);
+        partnerManager = PartnerManager(_partnerManager);
+        emit PartnerManagerUpdated(oldAddress, _partnerManager);
+    }
+
+    /**
+     * @dev Update USDC token reference
+     * @param _usdc New USDC token address
+     */
+    function updateUSDC(address _usdc) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_usdc == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(usdc);
+        usdc = IERC20(_usdc);
+        emit UsdcUpdated(oldAddress, _usdc);
+    }
+
+    /**
+     * @dev Update RoboshareTokens contract reference (for upgrades)
+     * @param _roboshareTokens New RoboshareTokens contract address
+     */
+    function updateRoboshareTokens(address _roboshareTokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_roboshareTokens == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(roboshareTokens);
+        roboshareTokens = RoboshareTokens(_roboshareTokens);
+        emit RoboshareTokensUpdated(oldAddress, _roboshareTokens);
+    }
+
+    /**
+     * @dev Updates the router contract address.
+     * Only callable by an admin.
+     * @param _newRouter The address of the new router contract.
+     */
+    function updateRouter(address _newRouter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_newRouter == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(router);
+        router = RegistryRouter(_newRouter);
+        emit RouterUpdated(oldAddress, _newRouter);
+    }
+
+    /**
+     * @dev Update Treasury contract reference (for upgrades)
+     * @param _treasury New Treasury contract address
+     */
+    function updateTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_treasury == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(treasury);
+        treasury = Treasury(_treasury);
+        emit TreasuryUpdated(oldAddress, _treasury);
     }
 
     // UUPS Upgrade authorization

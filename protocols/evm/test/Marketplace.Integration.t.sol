@@ -1,9 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { ProtocolLib } from "../contracts/Libraries.sol";
+import { Marketplace } from "../contracts/Marketplace.sol";
 
 contract MarketplaceIntegrationTest is BaseTest {
+    event ListingCreated(
+        uint256 indexed listingId,
+        uint256 indexed tokenId,
+        uint256 indexed assetId,
+        address seller,
+        uint256 amount,
+        uint256 pricePerToken,
+        uint256 expiresAt,
+        bool buyerPaysFee
+    );
+
+    event RevenueTokensTraded(
+        uint256 indexed tokenId,
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint256 listingId,
+        uint256 totalPrice
+    );
+
     function setUp() public {
         _ensureState(SetupState.AccountsFunded);
     }
@@ -19,7 +41,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 expectedListingId = 1;
 
         vm.expectEmit(true, true, true, true, address(marketplace));
-        emit Marketplace.ListingCreated(
+        emit ListingCreated(
             expectedListingId,
             scenario.revenueTokenId,
             scenario.assetId,
@@ -51,7 +73,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testCreateListingInvalidTokenType() public {
         _ensureState(SetupState.AssetRegistered);
 
-        vm.expectRevert(Marketplace__InvalidTokenType.selector);
+        vm.expectRevert(Marketplace.InvalidTokenType.selector);
         vm.prank(partner1);
         marketplace.createListing(scenario.assetId, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
     }
@@ -60,10 +82,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         vm.startPrank(partner1);
-        vm.expectRevert(Marketplace__InvalidAmount.selector);
+        vm.expectRevert(Marketplace.InvalidAmount.selector);
         marketplace.createListing(scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
 
-        vm.expectRevert(Marketplace__InvalidAmount.selector);
+        vm.expectRevert(Marketplace.InvalidAmount.selector);
         marketplace.createListing(
             scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY + 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
@@ -74,7 +96,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         vm.prank(partner1);
-        vm.expectRevert(Marketplace__InvalidPrice.selector);
+        vm.expectRevert(Marketplace.InvalidPrice.selector);
         marketplace.createListing(scenario.revenueTokenId, LISTING_AMOUNT, 0, LISTING_DURATION, true);
     }
 
@@ -84,7 +106,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(partner1);
         roboshareTokens.safeTransferFrom(partner1, partner2, scenario.revenueTokenId, 600, "");
 
-        vm.expectRevert(Marketplace__InsufficientTokenBalance.selector);
+        vm.expectRevert(Marketplace.InsufficientTokenBalance.selector);
         marketplace.createListing(
             scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
@@ -106,7 +128,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
 
         vm.expectEmit(true, true, true, true, address(marketplace));
-        emit Marketplace.RevenueTokensTraded(
+        emit RevenueTokensTraded(
             scenario.revenueTokenId, partner1, buyer, PURCHASE_AMOUNT, scenario.listingId, totalPrice
         );
 
@@ -118,11 +140,15 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(totalPrice) - int256(salesPenalty), // Partner USDC change
+            // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC does not change directly
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(PURCHASE_AMOUNT) // Buyer token change
         );
 
@@ -169,11 +195,15 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(sellerReceives), // Partner USDC change
+            // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC does not change directly
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change (receives fee + penalty)
             0, // Partner token change (already escrowed)
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(PURCHASE_AMOUNT) // Buyer token change
         );
     }
@@ -207,11 +237,15 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(sellerReceives), // Partner USDC change
+            // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC does not change directly
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change
             0, // Partner token change (already escrowed)
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(PURCHASE_AMOUNT) // Buyer token change
         );
     }
@@ -257,7 +291,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         setupExpiredListing(scenario.listingId);
 
-        vm.expectRevert(Marketplace__ListingExpired.selector);
+        vm.expectRevert(Marketplace.ListingExpired.selector);
         vm.prank(buyer);
         marketplace.purchaseTokens(scenario.listingId, 100);
     }
@@ -265,7 +299,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testPurchaseListingInvalidAmount() public {
         _ensureState(SetupState.AssetWithListing);
 
-        vm.expectRevert(Marketplace__InvalidAmount.selector);
+        vm.expectRevert(Marketplace.InvalidAmount.selector);
         vm.prank(buyer);
         marketplace.purchaseTokens(scenario.listingId, LISTING_AMOUNT + 1);
     }
@@ -297,7 +331,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testCancelListingUnauthorized() public {
         _ensureState(SetupState.AssetWithListing);
 
-        vm.expectRevert(Marketplace__NotTokenOwner.selector);
+        vm.expectRevert(Marketplace.NotTokenOwner.selector);
         vm.prank(unauthorized);
         marketplace.cancelListing(scenario.listingId);
     }
@@ -393,7 +427,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 nonExistentListingId = 999;
 
         vm.prank(buyer);
-        vm.expectRevert(Marketplace__ListingNotFound.selector);
+        vm.expectRevert(Marketplace.ListingNotFound.selector);
         marketplace.purchaseTokens(nonExistentListingId, 1);
     }
 
@@ -406,7 +440,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Attempt to purchase from the now-inactive listing
         vm.prank(buyer);
-        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, 1);
     }
 
@@ -415,7 +449,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 nonExistentListingId = 999;
 
         vm.prank(partner1);
-        vm.expectRevert(Marketplace__ListingNotFound.selector);
+        vm.expectRevert(Marketplace.ListingNotFound.selector);
         marketplace.cancelListing(nonExistentListingId);
     }
 
@@ -428,7 +462,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Attempt to cancel the now-inactive listing again
         vm.prank(partner1);
-        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.cancelListing(scenario.listingId);
     }
 
@@ -473,11 +507,14 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertBalanceChanges(
             beforePurchase,
             afterPurchase,
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(totalPrice), // Partner USDC change
+            // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC change
             int256(ProtocolLib.MIN_PROTOCOL_FEE), // Treasury Contract USDC change (receives minimum fee)
             0, // Partner token change
+            // forge-lint: disable-next-line(unsafe-typecast)
             int256(purchaseAmount) // Buyer token change
         );
     }
@@ -499,7 +536,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Attempt to purchase, which should fail
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), 1000); // Approve more than enough
-        vm.expectRevert(Marketplace__FeesExceedPrice.selector);
+        vm.expectRevert(Marketplace.FeesExceedPrice.selector);
         marketplace.purchaseTokens(listingId, 1);
         vm.stopPrank();
     }
@@ -521,7 +558,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Attempt to purchase, which should fail
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), 1000); // Approve more than enough
-        vm.expectRevert(Marketplace__FeesExceedPrice.selector);
+        vm.expectRevert(Marketplace.FeesExceedPrice.selector);
         marketplace.purchaseTokens(listingId, 1);
         vm.stopPrank();
     }
@@ -537,7 +574,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.startPrank(partner1);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.createListing(scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
         vm.stopPrank();
     }
@@ -551,7 +588,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), 1e9);
-        vm.expectRevert(Marketplace__ListingNotActive.selector);
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
     }

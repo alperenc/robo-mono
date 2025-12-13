@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/RegistryRouter.sol";
+import { console } from "forge-std/console.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 
 contract UpgradeRegistryRouter is ScaffoldETHDeploy {
     /**
      * @dev Upgrade RegistryRouter implementation
      * Usage: yarn upgrade --contract RegistryRouter --proxy-address <addr>
      */
-    function run() external ScaffoldEthDeployerRunner {
+    function run() external scaffoldEthDeployerRunner {
         // Get proxy address from environment variable (set by parseArgs.js)
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
 

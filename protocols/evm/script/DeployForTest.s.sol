@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { console } from "forge-std/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
-import { Marketplace } from "../contracts/Marketplace.sol";
-import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
-import { Treasury } from "../contracts/Treasury.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
-import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
+import { Treasury } from "../contracts/Treasury.sol";
+import { Marketplace } from "../contracts/Marketplace.sol";
 
 contract DeployForTest is ScaffoldETHDeploy {
-    // Router instance
-    modifier TestDeployerRunner(address _deployer) {
+    modifier testDeployerRunner(address _deployer) {
         vm.startPrank(_deployer);
         _;
         vm.stopPrank();
@@ -22,7 +20,7 @@ contract DeployForTest is ScaffoldETHDeploy {
 
     function run(address _deployer)
         public
-        TestDeployerRunner(_deployer)
+        testDeployerRunner(_deployer)
         returns (
             RoboshareTokens roboshareTokens,
             PartnerManager partnerManager,
@@ -115,11 +113,11 @@ contract DeployForTest is ScaffoldETHDeploy {
 
         // 1. Configure Router
         router.setTreasury(address(treasury));
-        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), address(vehicleRegistry));
-
-        // Configure VehicleRegistry
 
         // 2. Grant Roles
+        // Grant AUTHORIZED_REGISTRY_ROLE to VehicleRegistry
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), address(vehicleRegistry));
+
         // Grant MINTER_ROLE to Router (for reserving token IDs)
         roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(router));
 

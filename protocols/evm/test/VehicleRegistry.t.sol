@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { AssetLib, VehicleLib } from "../contracts/Libraries.sol";
+import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
+import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
 contract VehicleRegistryTest is BaseTest {
     function setUp() public {
@@ -81,26 +86,26 @@ contract VehicleRegistryTest is BaseTest {
     // Error Case Tests
 
     function testGetVehicleInfoNonexistentVehicle() public {
-        vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
+        vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         assetRegistry.getVehicleInfo(999);
     }
 
     function testGetVehicleDisplayNameNonexistentVehicle() public {
-        vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
+        vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         assetRegistry.getVehicleDisplayName(999);
     }
 
     function testTokenIdConversionErrorCases() public {
-        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(1);
 
-        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(0);
 
-        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(2);
 
-        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(0);
     }
 
@@ -263,7 +268,7 @@ contract VehicleRegistryTest is BaseTest {
         _ensureState(SetupState.AssetRegistered);
         // partner2 is authorized but does not own scenario.assetId
         vm.prank(partner2);
-        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
         assetRegistry.retireAsset(scenario.assetId);
     }
 
@@ -287,5 +292,79 @@ contract VehicleRegistryTest is BaseTest {
         assertEq(manufacturerId, TEST_MANUFACTURER_ID);
         assertEq(optionCodes, TEST_OPTION_CODES);
         assertEq(metadataUri, TEST_METADATA_URI);
+    }
+
+    // ============ Admin Function Tests ============
+
+    function testUpdateRoboshareTokens() public {
+        address newTokens = makeAddr("newRoboshareTokens");
+        address oldTokens = address(assetRegistry.roboshareTokens());
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit VehicleRegistry.RoboshareTokensUpdated(oldTokens, newTokens);
+        assetRegistry.updateRoboshareTokens(newTokens);
+
+        assertEq(address(assetRegistry.roboshareTokens()), newTokens);
+    }
+
+    function testUpdateRoboshareTokensZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
+        assetRegistry.updateRoboshareTokens(address(0));
+    }
+
+    function testUpdateRoboshareTokensUnauthorized() public {
+        address newTokens = makeAddr("newRoboshareTokens");
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                assetRegistry.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        assetRegistry.updateRoboshareTokens(newTokens);
+        vm.stopPrank();
+    }
+
+    function testUpdatePartnerManager() public {
+        address newPM = makeAddr("newPartnerManager");
+        address oldPM = address(assetRegistry.partnerManager());
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit VehicleRegistry.PartnerManagerUpdated(oldPM, newPM);
+        assetRegistry.updatePartnerManager(newPM);
+
+        assertEq(address(assetRegistry.partnerManager()), newPM);
+    }
+
+    function testUpdatePartnerManagerZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
+        assetRegistry.updatePartnerManager(address(0));
+    }
+
+    function testUpdateRouter() public {
+        address newRouter = makeAddr("newRouter");
+        address oldRouter = address(assetRegistry.router());
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit VehicleRegistry.RouterUpdated(oldRouter, newRouter);
+        assetRegistry.updateRouter(newRouter);
+
+        assertEq(address(assetRegistry.router()), newRouter);
+        // Verify role update
+        assertTrue(assetRegistry.hasRole(assetRegistry.ROUTER_ROLE(), newRouter));
+        assertFalse(assetRegistry.hasRole(assetRegistry.ROUTER_ROLE(), oldRouter));
+    }
+
+    function testUpdateRouterZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
+        assetRegistry.updateRouter(address(0));
     }
 }

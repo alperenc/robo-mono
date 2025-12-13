@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
-import "../contracts/RegistryRouter.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
+import { AssetLib } from "../contracts/Libraries.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 
 contract RegistryRouterTest is BaseTest {
     RegistryRouter public newRouter;
@@ -68,7 +72,7 @@ contract RegistryRouterTest is BaseTest {
 
     function testSetTreasuryZeroAddress() public {
         vm.startPrank(admin);
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__ZeroAddress.selector));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.ZeroAddress.selector));
         router.setTreasury(address(0));
         vm.stopPrank();
 
@@ -161,10 +165,10 @@ contract RegistryRouterTest is BaseTest {
     }
 
     function testDirectCallNotAllowed() public {
-        vm.expectRevert(RegistryRouter__DirectCallNotAllowed.selector);
+        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.registerAsset(bytes(""));
 
-        vm.expectRevert(RegistryRouter__DirectCallNotAllowed.selector);
+        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.registerAssetAndMintTokens(bytes(""), 100, 100);
     }
 
@@ -174,24 +178,57 @@ contract RegistryRouterTest is BaseTest {
         // Test zero admin
         bytes memory initData =
             abi.encodeWithSignature("initialize(address,address)", address(0), address(roboshareTokens));
-        vm.expectRevert(RegistryRouter__ZeroAddress.selector);
+        vm.expectRevert(RegistryRouter.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
 
         // Test zero tokens
         initData = abi.encodeWithSignature("initialize(address,address)", admin, address(0));
-        vm.expectRevert(RegistryRouter__ZeroAddress.selector);
+        vm.expectRevert(RegistryRouter.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
     function testTokenIdConversionErrorCases() public {
         // Test getAssetIdFromTokenId with non-revenue token (e.g. asset ID itself)
         // Asset ID 1 is not a revenue token
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__TokenNotFound.selector, 1));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.TokenNotFound.selector, 1));
         router.getAssetIdFromTokenId(1);
 
         // Test getTokenIdFromAssetId with revenue token ID
         // Revenue Token ID 2 is not an asset ID
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 2));
         router.getTokenIdFromAssetId(2);
+    }
+
+    // ============ Admin Function Tests ============
+
+    function testUpdateRoboshareTokens() public {
+        address newTokens = makeAddr("newRoboshareTokens");
+        address oldTokens = address(router.roboshareTokens());
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit RegistryRouter.RoboshareTokensUpdated(oldTokens, newTokens);
+        router.updateRoboshareTokens(newTokens);
+
+        assertEq(address(router.roboshareTokens()), newTokens);
+    }
+
+    function testUpdateRoboshareTokensZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(RegistryRouter.ZeroAddress.selector);
+        router.updateRoboshareTokens(address(0));
+    }
+
+    function testUpdateRoboshareTokensUnauthorized() public {
+        address newTokens = makeAddr("newRoboshareTokens");
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, router.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        router.updateRoboshareTokens(newTokens);
+        vm.stopPrank();
     }
 }

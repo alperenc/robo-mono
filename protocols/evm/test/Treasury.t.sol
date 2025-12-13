@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
+import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
+import { Treasury } from "../contracts/Treasury.sol";
 
 contract TreasuryTest is BaseTest {
     function setUp() public {
@@ -28,7 +33,7 @@ contract TreasuryTest is BaseTest {
     function testInitializationZeroAddresses() public {
         Treasury newTreasury = new Treasury();
 
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.expectRevert(Treasury.ZeroAddress.selector);
         newTreasury.initialize(
             address(0),
             address(partnerManager),
@@ -60,7 +65,7 @@ contract TreasuryTest is BaseTest {
     }
 
     function testUpdatePartnerManagerZeroAddress() public {
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.expectRevert(Treasury.ZeroAddress.selector);
         vm.startPrank(admin);
         treasury.updatePartnerManager(address(0));
         vm.stopPrank();
@@ -75,53 +80,53 @@ contract TreasuryTest is BaseTest {
     }
 
     function testUpdateRouter() public {
-        VehicleRegistry newRegistry = new VehicleRegistry();
+        RegistryRouter newRouter = new RegistryRouter();
 
         vm.startPrank(admin);
-        treasury.updateRouter(address(newRegistry));
+        treasury.updateRouter(address(newRouter));
         vm.stopPrank();
 
-        assertEq(address(treasury.router()), address(newRegistry));
+        assertEq(address(treasury.router()), address(newRouter));
     }
 
     function testUpdateRouterZeroAddress() public {
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.expectRevert(Treasury.ZeroAddress.selector);
         vm.startPrank(admin);
         treasury.updateRouter(address(0));
         vm.stopPrank();
     }
 
     function testUpdateRouterUnauthorized() public {
-        VehicleRegistry newRegistry = new VehicleRegistry();
+        RegistryRouter newRouter = new RegistryRouter();
 
         vm.expectRevert();
         vm.prank(unauthorized);
-        treasury.updateRouter(address(newRegistry));
+        treasury.updateRouter(address(newRouter));
     }
 
     function testUpdateUSDC() public {
-        ERC20Mock newUSDC = new ERC20Mock();
+        MockUSDC newUsdc = new MockUSDC();
 
         vm.startPrank(admin);
-        treasury.updateUSDC(address(newUSDC));
+        treasury.updateUSDC(address(newUsdc));
         vm.stopPrank();
 
-        assertEq(address(treasury.usdc()), address(newUSDC));
+        assertEq(address(treasury.usdc()), address(newUsdc));
     }
 
     function testUpdateUSDCZeroAddress() public {
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.expectRevert(Treasury.ZeroAddress.selector);
         vm.startPrank(admin);
         treasury.updateUSDC(address(0));
         vm.stopPrank();
     }
 
     function testUpdateUSDCUnauthorized() public {
-        ERC20Mock newUSDC = new ERC20Mock();
+        MockUSDC newUsdc = new MockUSDC();
 
         vm.expectRevert();
         vm.prank(unauthorized);
-        treasury.updateUSDC(address(newUSDC));
+        treasury.updateUSDC(address(newUsdc));
     }
 
     function testUpdateRoboshareTokens() public {
@@ -135,7 +140,7 @@ contract TreasuryTest is BaseTest {
     }
 
     function testUpdateRoboshareTokensZeroAddress() public {
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.expectRevert(Treasury.ZeroAddress.selector);
         vm.startPrank(admin);
         treasury.updateRoboshareTokens(address(0));
         vm.stopPrank();
@@ -159,7 +164,7 @@ contract TreasuryTest is BaseTest {
 
     function testUpdateTreasuryFeeRecipientZeroAddress() public {
         vm.startPrank(admin);
-        vm.expectRevert(Treasury__ZeroAddressNotAllowed.selector);
+        vm.expectRevert(Treasury.ZeroAddress.selector);
         treasury.updateTreasuryFeeRecipient(address(0));
         vm.stopPrank();
     }

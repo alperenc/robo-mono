@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/Treasury.sol";
+import { console } from "forge-std/console.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { Treasury } from "../contracts/Treasury.sol";
 
 contract UpgradeTreasury is ScaffoldETHDeploy {
     /**
      * @dev Upgrade Treasury implementation with delegation architecture
      * Usage: yarn upgrade --contract Treasury --proxy-address <addr>
      */
-    function run() external ScaffoldEthDeployerRunner {
+    function run() external scaffoldEthDeployerRunner {
         // Get proxy address from environment variable (set by parseArgs.js)
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
 
