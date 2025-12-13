@@ -6,7 +6,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
 const deployedContracts = {
   31337: {
-    ERC20Mock: {
+    MockUSDC: {
       address: "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35",
       abi: [
         {
@@ -360,11 +360,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
-      address: "0xb19b36b1456E65E3A6D514D3F715f204BD59f431",
+      address: "0x8ce361602B935680E8DeC218b820ff5056BeB7af",
       abi: [
         {
           type: "constructor",
@@ -1581,6 +1581,16 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InsufficientBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientTokenBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
           inputs: [],
         },
@@ -1591,22 +1601,12 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "RoboshareTokens__InsufficientBalance",
+          name: "NotRevenueToken",
           inputs: [],
         },
         {
           type: "error",
-          name: "RoboshareTokens__NotRevenueToken",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "RoboshareTokens__RevenueTokenInfoAlreadySet",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "TokenLib__InsufficientTokenBalance",
+          name: "RevenueTokenInfoAlreadySet",
           inputs: [],
         },
         {
@@ -1627,11 +1627,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
-      address: "0xb19b36b1456e65e3a6d514d3f715f204bd59f431",
+      address: "0x8ce361602b935680e8dec218b820ff5056beb7af",
       abi: [
         {
           type: "constructor",
@@ -1700,11 +1700,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
-      address: "0xe1Aa25618fA0c7A1CFDab5d6B456af611873b629",
+      address: "0xe1DA8919f262Ee86f9BE05059C9280142CF23f48",
       abi: [
         {
           type: "constructor",
@@ -2270,6 +2270,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "AlreadyAuthorized",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ERC1967InvalidImplementation",
           inputs: [
             {
@@ -2286,6 +2291,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "EmptyName",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "FailedCall",
           inputs: [],
         },
@@ -2296,27 +2306,12 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "NotAuthorized",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "NotInitializing",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "PartnerManager__AlreadyAuthorized",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "PartnerManager__EmptyName",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "PartnerManager__NotAuthorized",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "PartnerManager__ZeroAddress",
           inputs: [],
         },
         {
@@ -2335,13 +2330,18 @@ const deployedContracts = {
             },
           ],
         },
+        {
+          type: "error",
+          name: "ZeroAddress",
+          inputs: [],
+        },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
-      address: "0x0C8E79F3534B00D9a3D4a856B665Bf4eBC22f2ba",
+      address: "0xeD1DB453C3156Ff3155a97AD217b3087D5Dc5f6E",
       abi: [
         {
           type: "constructor",
@@ -3189,6 +3189,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "updateRoboshareTokens",
+          inputs: [
+            {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "upgradeToAndCall",
           inputs: [
             {
@@ -3370,6 +3383,25 @@ const deployedContracts = {
               type: "uint64",
               indexed: false,
               internalType: "uint64",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoboshareTokensUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
           ],
           anonymous: false,
@@ -3597,6 +3629,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "DirectCallNotAllowed",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ERC1967InvalidImplementation",
           inputs: [
             {
@@ -3644,7 +3681,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "NotAuthorized",
+          name: "NotAssetOwner",
           inputs: [],
         },
         {
@@ -3654,17 +3691,12 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "RegistryRouter__DirectCallNotAllowed",
+          name: "RegistryNotBoundToAsset",
           inputs: [],
         },
         {
           type: "error",
-          name: "RegistryRouter__RegistryNotBoundToAsset",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "RegistryRouter__RegistryNotFoundForAsset",
+          name: "RegistryNotFoundForAsset",
           inputs: [
             {
               name: "assetId",
@@ -3675,7 +3707,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "RegistryRouter__TokenNotFound",
+          name: "TokenNotFound",
           inputs: [
             {
               name: "tokenId",
@@ -3686,12 +3718,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "RegistryRouter__TreasuryNotSet",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "RegistryRouter__ZeroAddress",
+          name: "TreasuryNotSet",
           inputs: [],
         },
         {
@@ -3710,13 +3737,18 @@ const deployedContracts = {
             },
           ],
         },
+        {
+          type: "error",
+          name: "ZeroAddress",
+          inputs: [],
+        },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
-      address: "0xf7Cd8fa9b94DB2Aa972023b379c7f72c65E4De9D",
+      address: "0x12975173B87F7595EE45dFFb2Ab812ECE596Bf84",
       abi: [
         {
           type: "function",
@@ -4416,6 +4448,45 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "updatePartnerManager",
+          inputs: [
+            {
+              name: "_partnerManager",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateRoboshareTokens",
+          inputs: [
+            {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateRouter",
+          inputs: [
+            {
+              name: "_router",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "updateVehicleMetadata",
           inputs: [
             {
@@ -4709,6 +4780,25 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "PartnerManagerUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "RevenueTokensMinted",
           inputs: [
             {
@@ -4734,6 +4824,25 @@ const deployedContracts = {
               type: "uint256",
               indexed: false,
               internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoboshareTokensUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
           ],
           anonymous: false,
@@ -4806,6 +4915,25 @@ const deployedContracts = {
             },
             {
               name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RouterUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
               type: "address",
               indexed: true,
               internalType: "address",
@@ -5057,6 +5185,16 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "IncorrectRevenueTokenId",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "IncorrectVehicleId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InsufficientTokenBalance",
           inputs: [
             {
@@ -5135,6 +5273,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "NotAssetOwner",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "NotAuthorized",
           inputs: [],
         },
@@ -5145,7 +5288,12 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "PartnerManager__NotAuthorized",
+          name: "OutstandingTokensHeldByOthers",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "RevenueTokensAlreadyMinted",
           inputs: [],
         },
         {
@@ -5166,51 +5314,26 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "VehicleRegistry__IncorrectRevenueTokenId",
+          name: "VehicleAlreadyExists",
           inputs: [],
         },
         {
           type: "error",
-          name: "VehicleRegistry__IncorrectVehicleId",
+          name: "VehicleDoesNotExist",
           inputs: [],
         },
         {
           type: "error",
-          name: "VehicleRegistry__NotVehicleOwner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleRegistry__OutstandingTokensHeldByOthers",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleRegistry__RevenueTokensAlreadyMinted",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleRegistry__VehicleAlreadyExists",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleRegistry__VehicleDoesNotExist",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "VehicleRegistry__ZeroAddress",
+          name: "ZeroAddress",
           inputs: [],
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
-      address: "0x82Dc47734901ee7d4f4232f398752cB9Dd5dACcC",
+      address: "0x196dBCBb54b8ec4958c959D8949EBFE87aC2Aaaf",
       abi: [
         {
           type: "function",
@@ -6336,6 +6459,44 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "PartnerManagerUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoboshareTokensUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "RoleAdminChanged",
           inputs: [
             {
@@ -6468,10 +6629,48 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "TreasuryFeeRecipientUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "Upgraded",
           inputs: [
             {
               name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "UsdcUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
               type: "address",
               indexed: true,
               internalType: "address",
@@ -6532,6 +6731,27 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "AssetAlreadySettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotFound",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "AssetNotSettled",
           inputs: [
             {
@@ -6553,6 +6773,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "CollateralAlreadyLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ERC1967InvalidImplementation",
           inputs: [
             {
@@ -6569,7 +6794,27 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "EarningsLessThanMinimumFee",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "FailedCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "IncorrectCollateralAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientCollateral",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientTokenBalance",
           inputs: [],
         },
         {
@@ -6579,12 +6824,62 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidEarningsAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
           inputs: [],
         },
         {
           type: "error",
+          name: "NoCollateralLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoEarningsToClaim",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoEarningsToDistribute",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoNewPeriodsToProcess",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoPendingWithdrawals",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoPriorEarningsDistribution",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoRevenueTokensIssued",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotAssetOwner",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "NotInitializing",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotRouter",
           inputs: [],
         },
         {
@@ -6599,6 +6894,28 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "SafeCastOverflowedIntToUint",
+          inputs: [
+            {
+              name: "value",
+              type: "int256",
+              internalType: "int256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SafeCastOverflowedUintToInt",
+          inputs: [
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "SafeERC20FailedOperation",
           inputs: [
             {
@@ -6610,87 +6927,12 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "Treasury__AssetNotActive",
+          name: "TooSoonForCollateralRelease",
           inputs: [],
         },
         {
           type: "error",
-          name: "Treasury__AssetNotFound",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__CollateralAlreadyLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__EarningsLessThanMinimumFee",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__InsufficientCollateral",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__InsufficientTokenBalance",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__InvalidEarningsAmount",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoCollateralLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoEarningsToClaim",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoNewPeriodsToProcess",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoPendingWithdrawals",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoPriorEarningsDistribution",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NoRevenueTokensIssued",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__NotAssetOwner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__TooSoonForCollateralRelease",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__UnauthorizedPartner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Treasury__ZeroAddressNotAllowed",
+          name: "TransferFailed",
           inputs: [],
         },
         {
@@ -6709,13 +6951,23 @@ const deployedContracts = {
             },
           ],
         },
+        {
+          type: "error",
+          name: "UnauthorizedPartner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ZeroAddress",
+          inputs: [],
+        },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
-      address: "0x82C6D3ed4cD33d8EC1E51d0B5Cc1d822Eaa0c3dC",
+      address: "0x05B4CB126885fb10464fdD12666FEb25E2563B76",
       abi: [
         {
           type: "function",
@@ -7055,7 +7307,7 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "_usdcToken",
+              name: "_usdc",
               type: "address",
               internalType: "address",
             },
@@ -7359,6 +7611,71 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "updatePartnerManager",
+          inputs: [
+            {
+              name: "_partnerManager",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateRoboshareTokens",
+          inputs: [
+            {
+              name: "_roboshareTokens",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateRouter",
+          inputs: [
+            {
+              name: "_newRouter",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateTreasury",
+          inputs: [
+            {
+              name: "_treasury",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "updateUSDC",
+          inputs: [
+            {
+              name: "_usdc",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "upgradeToAndCall",
           inputs: [
             {
@@ -7377,7 +7694,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "usdcToken",
+          name: "usdc",
           inputs: [],
           outputs: [
             {
@@ -7477,6 +7794,25 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "PartnerManagerUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "RevenueTokensTraded",
           inputs: [
             {
@@ -7514,6 +7850,25 @@ const deployedContracts = {
               type: "uint256",
               indexed: false,
               internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RoboshareTokensUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
           ],
           anonymous: false,
@@ -7595,10 +7950,67 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "RouterUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TreasuryUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "Upgraded",
           inputs: [
             {
               name: "implementation",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "UsdcUpdated",
+          inputs: [
+            {
+              name: "oldAddress",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newAddress",
               type: "address",
               indexed: true,
               internalType: "address",
@@ -7661,67 +8073,57 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "FeesExceedPrice",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientPayment",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientTokenBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
           inputs: [],
         },
         {
           type: "error",
-          name: "Marketplace__FeesExceedPrice",
+          name: "InvalidPrice",
           inputs: [],
         },
         {
           type: "error",
-          name: "Marketplace__InsufficientPayment",
+          name: "InvalidTokenType",
           inputs: [],
         },
         {
           type: "error",
-          name: "Marketplace__InsufficientTokenBalance",
+          name: "ListingExpired",
           inputs: [],
         },
         {
           type: "error",
-          name: "Marketplace__InvalidAmount",
+          name: "ListingNotActive",
           inputs: [],
         },
         {
           type: "error",
-          name: "Marketplace__InvalidPrice",
+          name: "ListingNotFound",
           inputs: [],
         },
         {
           type: "error",
-          name: "Marketplace__InvalidTokenType",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Marketplace__ListingExpired",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Marketplace__ListingNotActive",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Marketplace__ListingNotFound",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Marketplace__NoCollateralLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Marketplace__NotTokenOwner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "Marketplace__ZeroAddress",
+          name: "NoCollateralLocked",
           inputs: [],
         },
         {
@@ -7731,8 +8133,24 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "NotTokenOwner",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ReentrancyGuardReentrantCall",
           inputs: [],
+        },
+        {
+          type: "error",
+          name: "SafeERC20FailedOperation",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
         },
         {
           type: "error",
@@ -7750,9 +8168,14 @@ const deployedContracts = {
             },
           ],
         },
+        {
+          type: "error",
+          name: "ZeroAddress",
+          inputs: [],
+        },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765371257089.json",
+      deploymentFile: "run-1765643919231.json",
       deploymentScript: "Deploy.s.sol",
     },
   },
