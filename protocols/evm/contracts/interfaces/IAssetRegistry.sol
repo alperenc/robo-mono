@@ -11,12 +11,37 @@ import { AssetLib } from "../Libraries.sol";
  */
 interface IAssetRegistry {
     /**
+     * @dev Events for cross-contract communication and indexing
+     */
+    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetLib.AssetStatus status);
+    event AssetStatusUpdated(
+        uint256 indexed assetId, AssetLib.AssetStatus indexed oldStatus, AssetLib.AssetStatus indexed newStatus
+    );
+    event AssetRetired(
+        uint256 indexed assetId, address indexed partner, uint256 burnedTokens, uint256 releasedCollateral
+    );
+    event AssetSettled(
+        uint256 indexed assetId, address indexed partner, uint256 settlementAmount, uint256 settlementPerToken
+    );
+    event AssetExpired(uint256 indexed assetId, uint256 liquidationAmount, uint256 settlementPerToken);
+    event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount, uint256 payout);
+
+    /**
+     * @dev Shared Errors
+     */
+    error AssetNotFound(uint256 assetId);
+    error NotAssetOwner();
+    error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error AssetNotEligibleForLiquidation(uint256 assetId);
+    error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error AssetAlreadySettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error InsufficientTokenBalance(uint256 tokenId, uint256 required, uint256 available);
+
+    /**
      * @dev Asset registration and token minting
      */
     function registerAsset(bytes calldata data) external returns (uint256 assetId);
-
     function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price) external returns (uint256 tokenId);
-
     function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price)
         external
         returns (uint256 assetId, uint256 tokenId);
@@ -25,15 +50,10 @@ interface IAssetRegistry {
      * @dev Asset Lifecycle
      */
     function retireAsset(uint256 assetId) external;
-
     function settleAsset(uint256 assetId, uint256 topUpAmount) external;
-
     function liquidateAsset(uint256 assetId) external;
-
     function claimSettlement(uint256 assetId) external returns (uint256 claimedAmount);
-
     function burnRevenueTokens(uint256 assetId, uint256 amount) external;
-
     function retireAssetAndBurnTokens(uint256 assetId) external;
 
     /**
@@ -45,9 +65,7 @@ interface IAssetRegistry {
      * @dev Asset existence and validation
      */
     function assetExists(uint256 assetId) external view returns (bool);
-
     function getAssetInfo(uint256 assetId) external view returns (AssetLib.AssetInfo memory);
-
     function getAssetStatus(uint256 assetId) external view returns (AssetLib.AssetStatus);
 
     /**
@@ -55,14 +73,12 @@ interface IAssetRegistry {
      * Each asset can have multiple token types (ownership, revenue share, etc.)
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view returns (uint256);
-
     function getTokenIdFromAssetId(uint256 assetId) external view returns (uint256);
 
     /**
      * @dev Access control and permissions
      */
     function isAuthorizedForAsset(address account, uint256 assetId) external view returns (bool);
-
     function getRegistryForAsset(uint256 assetId) external view returns (address);
 
     /**
@@ -70,38 +86,5 @@ interface IAssetRegistry {
      * Allows introspection and feature discovery
      */
     function getRegistryType() external pure returns (string memory);
-
     function getRegistryVersion() external pure returns (uint256);
-
-    /**
-     * @dev Events for cross-contract communication and indexing
-     */
-    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetLib.AssetStatus status);
-
-    event AssetStatusUpdated(
-        uint256 indexed assetId, AssetLib.AssetStatus indexed oldStatus, AssetLib.AssetStatus indexed newStatus
-    );
-
-    event AssetRetired(
-        uint256 indexed assetId, address indexed partner, uint256 burnedTokens, uint256 releasedCollateral
-    );
-
-    event AssetSettled(
-        uint256 indexed assetId, address indexed partner, uint256 settlementAmount, uint256 settlementPerToken
-    );
-
-    event AssetExpired(uint256 indexed assetId, uint256 liquidationAmount, uint256 settlementPerToken);
-
-    event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount, uint256 payout);
-
-    /**
-     * @dev Shared Errors
-     */
-    error AssetNotFound(uint256 assetId);
-    error NotAuthorized();
-    error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
-    error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
-    error AssetAlreadySettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
-    error AssetNotEligibleForLiquidation(uint256 assetId);
-    error InsufficientTokenBalance(uint256 tokenId, uint256 required, uint256 available);
 }

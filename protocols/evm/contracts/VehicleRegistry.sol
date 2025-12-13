@@ -1,24 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { TokenLib, AssetLib, VehicleLib } from "./Libraries.sol";
-import { RegistryRouter } from "./RegistryRouter.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
-
-// Vehicle Registry errors
-error VehicleRegistry__ZeroAddress();
-error VehicleRegistry__VehicleAlreadyExists();
-error VehicleRegistry__VehicleDoesNotExist();
-error VehicleRegistry__RevenueTokensAlreadyMinted();
-error VehicleRegistry__OutstandingTokensHeldByOthers();
-error VehicleRegistry__NotVehicleOwner();
-error VehicleRegistry__IncorrectVehicleId();
-error VehicleRegistry__IncorrectRevenueTokenId();
+import { RegistryRouter } from "./RegistryRouter.sol";
 
 /**
  * @dev Vehicle registration and management with IPFS metadata integration
@@ -40,6 +30,15 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     mapping(uint256 => VehicleLib.Vehicle) public vehicles;
     mapping(string => bool) public vinExists; // VIN uniqueness tracking
 
+    // Errors
+    error ZeroAddress();
+    error VehicleAlreadyExists();
+    error VehicleDoesNotExist();
+    error RevenueTokensAlreadyMinted();
+    error OutstandingTokensHeldByOthers();
+    error IncorrectVehicleId();
+    error IncorrectRevenueTokenId();
+
     // Events
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
 
@@ -52,6 +51,9 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     );
 
     event VehicleMetadataUpdated(uint256 indexed vehicleId, string newMetadataURI);
+    event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
+    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
+    event RouterUpdated(address indexed oldAddress, address indexed newAddress);
 
     /**
      * @dev Initialize contract with references to core contracts
@@ -64,7 +66,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             _admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)
                 || _router == address(0)
         ) {
-            revert VehicleRegistry__ZeroAddress();
+            revert ZeroAddress();
         }
 
         __AccessControl_init();
@@ -83,10 +85,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Modifier to ensure only authorized partners can call functions
      */
     modifier onlyAuthorizedPartner() {
-        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.PartnerManager__NotAuthorized();
-        }
+        _onlyAuthorizedPartner();
         _;
+    }
+
+    function _onlyAuthorizedPartner() internal view {
+        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
+            revert PartnerManager.NotAuthorized();
+        }
     }
 
     /**
@@ -102,7 +108,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         string memory dynamicMetadataURI,
         uint256 maturityDate
     ) internal returns (uint256 vehicleId, uint256 revenueTokenId) {
-        if (vinExists[vin]) revert VehicleRegistry__VehicleAlreadyExists();
+        if (vinExists[vin]) revert VehicleAlreadyExists();
 
         // Get a unique pair of IDs from the Router (which calls RoboshareTokens)
         (vehicleId, revenueTokenId) = router.reserveNextTokenIdPair();
@@ -140,7 +146,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     {
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         if (vehicle.vehicleId == 0) {
-            revert VehicleRegistry__VehicleDoesNotExist();
+            revert VehicleDoesNotExist();
         }
 
         VehicleLib.VehicleInfo storage info = vehicle.vehicleInfo;
@@ -154,7 +160,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function getVehicleDisplayName(uint256 vehicleId) external view returns (string memory) {
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         if (vehicle.vehicleId == 0) {
-            revert VehicleRegistry__VehicleDoesNotExist();
+            revert VehicleDoesNotExist();
         }
 
         return VehicleLib.getDisplayName(vehicle.vehicleInfo);
@@ -193,13 +199,13 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotFound(assetId);
         }
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert VehicleRegistry__NotVehicleOwner();
+            revert NotAssetOwner();
         }
 
         revenueTokenId = assetId + 1; // Revenue token ID is one more than vehicle NFT ID
 
         if (roboshareTokens.getRevenueTokenSupply(revenueTokenId) > 0) {
-            revert VehicleRegistry__RevenueTokensAlreadyMinted();
+            revert RevenueTokensAlreadyMinted();
         }
 
         // Initialize revenue token info in RoboshareTokens
@@ -265,7 +271,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function updateVehicleMetadata(uint256 vehicleId, string memory newMetadataURI) external onlyAuthorizedPartner {
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         if (vehicle.vehicleId == 0) {
-            revert VehicleRegistry__VehicleDoesNotExist();
+            revert VehicleDoesNotExist();
         }
 
         VehicleLib.updateDynamicMetadata(vehicle.vehicleInfo, newMetadataURI);
@@ -295,12 +301,12 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function settleAsset(uint256 assetId, uint256 topUpAmount) external override onlyAuthorizedPartner {
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert VehicleRegistry__NotVehicleOwner();
+            revert NotAssetOwner();
         }
 
         // Verify asset is active
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
-            revert IAssetRegistry.AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
+            revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
         // Update Status
@@ -327,7 +333,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Check if asset is already settled/retired
         if (info.status == AssetLib.AssetStatus.Retired || info.status == AssetLib.AssetStatus.Expired) {
-            revert IAssetRegistry.AssetAlreadySettled(assetId, info.status);
+            revert AssetAlreadySettled(assetId, info.status);
         }
 
         // Check liquidation conditions: Maturity OR Insolvency
@@ -335,7 +341,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         bool isSolvent = router.isAssetSolvent(assetId);
 
         if (!isMatured && isSolvent) {
-            revert IAssetRegistry.AssetNotEligibleForLiquidation(assetId);
+            revert AssetNotEligibleForLiquidation(assetId);
         }
 
         // Update Status
@@ -360,14 +366,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Verify asset is settled
         if (info.status != AssetLib.AssetStatus.Retired && info.status != AssetLib.AssetStatus.Expired) {
-            revert IAssetRegistry.AssetNotSettled(assetId, info.status);
+            revert AssetNotSettled(assetId, info.status);
         }
 
         uint256 revenueTokenId = assetId + 1;
         uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
 
         if (balance == 0) {
-            revert IAssetRegistry.InsufficientTokenBalance(revenueTokenId, 1, balance);
+            revert InsufficientTokenBalance(revenueTokenId, 1, balance);
         }
 
         // Burn tokens
@@ -386,7 +392,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function retireAsset(uint256 assetId) external override onlyAuthorizedPartner {
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert VehicleRegistry__NotVehicleOwner();
+            revert NotAssetOwner();
         }
         _retireAsset(assetId, msg.sender, 0);
     }
@@ -403,7 +409,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Verify ownership
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert VehicleRegistry__NotVehicleOwner();
+            revert NotAssetOwner();
         }
 
         uint256 revenueTokenId = assetId + 1;
@@ -413,7 +419,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (totalSupply > 0) {
             uint256 partnerBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
             if (partnerBalance < totalSupply) {
-                revert VehicleRegistry__OutstandingTokensHeldByOthers();
+                revert OutstandingTokensHeldByOthers();
             }
 
             // Use existing burnRevenueTokens function
@@ -432,7 +438,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function _retireAsset(uint256 assetId, address partner, uint256 burnedTokens) internal {
         // Verify asset is active
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
-            revert IAssetRegistry.AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
+            revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
         // Update Status using internal helper
@@ -499,7 +505,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
         if (!TokenLib.isRevenueToken(tokenId) || tokenId > roboshareTokens.getNextTokenId()) {
-            revert VehicleRegistry__IncorrectRevenueTokenId();
+            revert IncorrectRevenueTokenId();
         }
 
         return tokenId - 1; // Vehicle NFT has ID one less than revenue token ID
@@ -510,7 +516,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getTokenIdFromAssetId(uint256 assetId) external view override returns (uint256) {
         if (TokenLib.isRevenueToken(assetId) || assetId == 0 || assetId >= roboshareTokens.getNextTokenId()) {
-            revert VehicleRegistry__IncorrectVehicleId();
+            revert IncorrectVehicleId();
         }
 
         return assetId + 1; // Revenue token ID is one more than vehicle NFT ID
@@ -548,6 +554,47 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getRegistryVersion() external pure override returns (uint256) {
         return 1;
+    }
+
+    /**
+     * @dev Update RoboshareTokens contract reference
+     * @param _roboshareTokens New RoboshareTokens contract address
+     */
+    function updateRoboshareTokens(address _roboshareTokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_roboshareTokens == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(roboshareTokens);
+        roboshareTokens = RoboshareTokens(_roboshareTokens);
+        emit RoboshareTokensUpdated(oldAddress, _roboshareTokens);
+    }
+
+    /**
+     * @dev Update PartnerManager contract reference
+     * @param _partnerManager New PartnerManager contract address
+     */
+    function updatePartnerManager(address _partnerManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_partnerManager == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(partnerManager);
+        partnerManager = PartnerManager(_partnerManager);
+        emit PartnerManagerUpdated(oldAddress, _partnerManager);
+    }
+
+    /**
+     * @dev Update RegistryRouter contract reference
+     * @param _router New RegistryRouter contract address
+     */
+    function updateRouter(address _router) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_router == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldAddress = address(router);
+        _revokeRole(ROUTER_ROLE, oldAddress);
+        router = RegistryRouter(_router);
+        _grantRole(ROUTER_ROLE, _router);
+        emit RouterUpdated(oldAddress, _router);
     }
 
     // UUPS Upgrade authorization

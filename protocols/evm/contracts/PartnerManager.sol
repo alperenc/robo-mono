@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title PartnerManager
@@ -20,16 +20,16 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
     mapping(address => uint256) private _partnerRegistrationTime;
     address[] private _allPartners;
 
+    // Errors
+    error ZeroAddress();
+    error AlreadyAuthorized();
+    error EmptyName();
+    error NotAuthorized();
+
     // Events
     event PartnerAuthorized(address indexed partner, string name);
     event PartnerRevoked(address indexed partner);
     event PartnerNameUpdated(address indexed partner, string newName);
-
-    // Errors
-    error PartnerManager__AlreadyAuthorized();
-    error PartnerManager__NotAuthorized();
-    error PartnerManager__EmptyName();
-    error PartnerManager__ZeroAddress();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -51,9 +51,11 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * @param name Name of the partner organization
      */
     function authorizePartner(address partner, string calldata name) external onlyRole(PARTNER_ADMIN_ROLE) {
-        if (partner == address(0)) revert PartnerManager__ZeroAddress();
-        if (bytes(name).length == 0) revert PartnerManager__EmptyName();
-        if (_authorizedPartners[partner]) revert PartnerManager__AlreadyAuthorized();
+        if (partner == address(0)) revert ZeroAddress();
+        if (bytes(name).length == 0) revert EmptyName();
+        if (_authorizedPartners[partner]) {
+            revert AlreadyAuthorized();
+        }
 
         _authorizedPartners[partner] = true;
         _partnerNames[partner] = name;
@@ -68,7 +70,9 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * @param partner Address of the partner to revoke
      */
     function revokePartner(address partner) external onlyRole(PARTNER_ADMIN_ROLE) {
-        if (!_authorizedPartners[partner]) revert PartnerManager__NotAuthorized();
+        if (!_authorizedPartners[partner]) {
+            revert NotAuthorized();
+        }
 
         _authorizedPartners[partner] = false;
         delete _partnerNames[partner];
@@ -92,8 +96,10 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * @param newName New name for the partner
      */
     function updatePartnerName(address partner, string calldata newName) external onlyRole(PARTNER_ADMIN_ROLE) {
-        if (!_authorizedPartners[partner]) revert PartnerManager__NotAuthorized();
-        if (bytes(newName).length == 0) revert PartnerManager__EmptyName();
+        if (!_authorizedPartners[partner]) {
+            revert NotAuthorized();
+        }
+        if (bytes(newName).length == 0) revert EmptyName();
 
         _partnerNames[partner] = newName;
         emit PartnerNameUpdated(partner, newName);
@@ -161,8 +167,14 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * @dev Modifier to check if caller is authorized partner
      */
     modifier onlyAuthorizedPartner() {
-        if (!_authorizedPartners[msg.sender]) revert PartnerManager__NotAuthorized();
+        _onlyAuthorizedPartner();
         _;
+    }
+
+    function _onlyAuthorizedPartner() internal view {
+        if (!_authorizedPartners[msg.sender]) {
+            revert NotAuthorized();
+        }
     }
 
     /**
