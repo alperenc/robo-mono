@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { AssetLib, VehicleLib } from "../contracts/Libraries.sol";
+import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
+import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
+import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
 contract VehicleRegistryIntegrationTest is BaseTest {
     function setUp() public {
@@ -168,7 +173,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRegisterAssetUnauthorizedPartner() public {
         uint256 maturityDate = block.timestamp + 365 days;
-        vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(unauthorized);
         assetRegistry.registerAsset(
             abi.encode(
@@ -186,14 +191,14 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testMintRevenueTokensUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(unauthorized);
         assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
     function testUpdateMetadataUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(unauthorized);
         assetRegistry.updateVehicleMetadata(scenario.assetId, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
     }
@@ -212,7 +217,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             string memory metadataURI
         ) = generateVehicleData(3);
         uint256 maturityDate = block.timestamp + 365 days;
-        vm.expectRevert(VehicleRegistry__VehicleAlreadyExists.selector);
+        vm.expectRevert(VehicleRegistry.VehicleAlreadyExists.selector);
         vm.prank(partner2);
         assetRegistry.registerAsset(
             abi.encode(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI, maturityDate)
@@ -229,31 +234,31 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         vm.prank(partner1);
-        vm.expectRevert(VehicleRegistry__RevenueTokensAlreadyMinted.selector);
+        vm.expectRevert(VehicleRegistry.RevenueTokensAlreadyMinted.selector);
         assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
     function testUpdateMetadataNonexistentVehicle() public {
-        vm.expectRevert(VehicleRegistry__VehicleDoesNotExist.selector);
+        vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         vm.prank(partner1);
         assetRegistry.updateVehicleMetadata(999, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
     }
 
-    function testMintRevenueTokensNotVehicleOwner() public {
+    function testMintRevenueTokensNotAssetOwner() public {
         _ensureState(SetupState.AssetRegistered); // Asset is registered by partner1
 
         // partner2 is authorized but does not own the asset
         vm.prank(partner2);
-        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
         assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
     function testTokenIdConversionNonexistentVehicle() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(100);
 
-        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(101);
     }
 
@@ -261,15 +266,15 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.PartnersAuthorized);
 
         // Test revenueTokenId == 0
-        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(0);
 
         // Test revenueTokenId % 2 != 0 (odd revenue token ID)
-        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(1); // 1 is an odd ID
 
         // Test revenueTokenId >= _tokenIdCounter (non-existent revenue token ID)
-        vm.expectRevert(VehicleRegistry__IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(999999);
 
         // Test vehicles[vehicleId].vehicleId == 0 (corresponding vehicle NFT doesn't exist)
@@ -390,7 +395,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Partner tries to retire
         vm.prank(partner1);
-        vm.expectRevert(VehicleRegistry__OutstandingTokensHeldByOthers.selector);
+        vm.expectRevert(VehicleRegistry.OutstandingTokensHeldByOthers.selector);
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
     }
 
@@ -423,7 +428,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testRetireAssetNotOwner() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.prank(partner2);
-        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
     }
 
@@ -493,7 +498,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testSettleAssetNotOwner() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.prank(partner2); // partner2 is authorized but not owner
-        vm.expectRevert(VehicleRegistry__NotVehicleOwner.selector);
+        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
         assetRegistry.settleAsset(scenario.assetId, 0);
     }
 
@@ -594,11 +599,11 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Test assetId == 0
-        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(0);
 
         // Test assetId >= nextTokenId
-        vm.expectRevert(VehicleRegistry__IncorrectVehicleId.selector);
+        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(999999);
     }
 }

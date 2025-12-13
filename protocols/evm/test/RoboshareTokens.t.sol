@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
-import "../contracts/RoboshareTokens.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { TokenLib } from "../contracts/Libraries.sol";
+import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 
 contract RoboshareTokensTest is BaseTest {
     address public minter;
@@ -284,7 +287,7 @@ contract RoboshareTokensTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted); // Creates assetId (odd) and revenueTokenId (even)
 
         // Attempt to get positions for the vehicle NFT ID, which is not a revenue token
-        vm.expectRevert(RoboshareTokens__NotRevenueToken.selector);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getUserPositions(scenario.assetId, partner1);
     }
 
@@ -294,7 +297,7 @@ contract RoboshareTokensTest is BaseTest {
         uint256 supply = 1000;
 
         vm.prank(minter);
-        vm.expectRevert(RoboshareTokens__NotRevenueToken.selector);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.setRevenueTokenInfo(assetId, price, supply);
     }
 
@@ -307,7 +310,7 @@ contract RoboshareTokensTest is BaseTest {
         roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
 
         vm.startPrank(minter);
-        vm.expectRevert(RoboshareTokens__RevenueTokenInfoAlreadySet.selector);
+        vm.expectRevert(RoboshareTokens.RevenueTokenInfoAlreadySet.selector);
         roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
         vm.stopPrank();
     }
@@ -315,13 +318,13 @@ contract RoboshareTokensTest is BaseTest {
     function testGetTokenPriceNotRevenueToken() public {
         uint256 assetId = 101; // An odd number, not a revenue token
 
-        vm.expectRevert(RoboshareTokens__NotRevenueToken.selector);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getTokenPrice(assetId);
     }
 
     function testGetSalesPenaltyNotRevenueToken() public {
         uint256 assetId = 101; // An odd number, not a revenue token
-        vm.expectRevert(RoboshareTokens__NotRevenueToken.selector);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getSalesPenalty(user1, assetId, 100);
     }
 
@@ -330,7 +333,7 @@ contract RoboshareTokensTest is BaseTest {
 
         // Attempt to get penalty for an amount greater than balance
         uint256 excessAmount = REVENUE_TOKEN_SUPPLY + 1;
-        vm.expectRevert(RoboshareTokens__InsufficientBalance.selector);
+        vm.expectRevert(RoboshareTokens.InsufficientBalance.selector);
         roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, excessAmount);
     }
 }

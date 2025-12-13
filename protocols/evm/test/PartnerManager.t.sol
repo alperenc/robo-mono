@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
-import "../contracts/PartnerManager.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
 
 contract PartnerManagerTest is BaseTest {
     address public partnerAdmin = makeAddr("partnerAdmin");
@@ -136,37 +136,37 @@ contract PartnerManagerTest is BaseTest {
     // Error Cases
 
     function testAuthorizeZeroAddressFails() public {
-        vm.expectRevert(PartnerManager.PartnerManager__ZeroAddress.selector);
+        vm.expectRevert(PartnerManager.ZeroAddress.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(address(0), NEW_PARTNER_NAME);
     }
 
     function testAuthorizeEmptyNameFails() public {
-        vm.expectRevert(PartnerManager.PartnerManager__EmptyName.selector);
+        vm.expectRevert(PartnerManager.EmptyName.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(partner3, "");
     }
 
     function testAuthorizeAlreadyAuthorizedFails() public {
-        vm.expectRevert(PartnerManager.PartnerManager__AlreadyAuthorized.selector);
+        vm.expectRevert(PartnerManager.AlreadyAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
     }
 
     function testRevokeNotAuthorizedFails() public {
-        vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.revokePartner(partner3);
     }
 
     function testUpdateNameNotAuthorizedFails() public {
-        vm.expectRevert(PartnerManager.PartnerManager__NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.updatePartnerName(partner3, "New Name");
     }
 
     function testUpdateEmptyNameFails() public {
-        vm.expectRevert(PartnerManager.PartnerManager__EmptyName.selector);
+        vm.expectRevert(PartnerManager.EmptyName.selector);
         vm.prank(partnerAdmin);
         partnerManager.updatePartnerName(partner1, "");
     }

@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseTest.t.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { BaseTest } from "./BaseTest.t.sol";
+import { AssetLib } from "../contracts/Libraries.sol";
+import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
+import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
+import { Treasury } from "../contracts/Treasury.sol";
 
 // Simple Mock Registry to simulate a second asset type (e.g., "MachineRegistry")
 contract MockRegistry is IAssetRegistry {
@@ -214,35 +220,35 @@ contract RegistryRouterIntegrationTest is BaseTest {
         uint256 nonExistentAssetId = 999;
 
         // mintRevenueTokens
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.mintRevenueTokens(nonExistentAssetId, 100, 100);
 
         // getAssetInfo
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.getAssetInfo(nonExistentAssetId);
 
         // getAssetStatus
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.getAssetStatus(nonExistentAssetId);
 
         // setAssetStatus
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.setAssetStatus(nonExistentAssetId, AssetLib.AssetStatus.Active);
 
         // burnRevenueTokens
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.burnRevenueTokens(nonExistentAssetId, 100);
 
         // retireAsset
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.retireAsset(nonExistentAssetId);
 
         // retireAssetAndBurnTokens
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.retireAssetAndBurnTokens(nonExistentAssetId);
 
         // isAuthorizedForAsset
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.isAuthorizedForAsset(partner1, nonExistentAssetId);
     }
 
@@ -257,19 +263,19 @@ contract RegistryRouterIntegrationTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(unauthorizedRegistry);
-        vm.expectRevert(RegistryRouter__RegistryNotBoundToAsset.selector);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.lockCollateralFor(partner1, assetId, 100, 100);
 
-        vm.expectRevert(RegistryRouter__RegistryNotBoundToAsset.selector);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.releaseCollateralFor(partner1, assetId);
 
-        vm.expectRevert(RegistryRouter__RegistryNotBoundToAsset.selector);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.initiateSettlement(partner1, assetId, 100);
 
-        vm.expectRevert(RegistryRouter__RegistryNotBoundToAsset.selector);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.executeLiquidation(assetId);
 
-        vm.expectRevert(RegistryRouter__RegistryNotBoundToAsset.selector);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.processSettlementClaim(partner1, assetId, 100);
 
         vm.stopPrank();
@@ -292,22 +298,22 @@ contract RegistryRouterIntegrationTest is BaseTest {
         RegistryRouter(address(proxy)).bindAsset(assetId);
 
         // Now call lock/release - should revert with TreasuryNotSet
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).lockCollateralFor(partner1, assetId, 100, 100);
 
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).releaseCollateralFor(partner1, assetId);
 
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).initiateSettlement(partner1, assetId, 100);
 
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).executeLiquidation(assetId);
 
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).processSettlementClaim(partner1, assetId, 100);
 
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).isAssetSolvent(assetId);
 
         vm.stopPrank();
@@ -327,13 +333,13 @@ contract RegistryRouterIntegrationTest is BaseTest {
         vm.startPrank(partner1);
         RegistryRouter(address(proxy)).bindAsset(assetId);
 
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).isAssetSolvent(assetId);
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).initiateSettlement(partner1, assetId, 100);
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).executeLiquidation(assetId);
-        vm.expectRevert(RegistryRouter__TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
         RegistryRouter(address(proxy)).processSettlementClaim(partner1, assetId, 100);
         vm.stopPrank();
     }
@@ -343,17 +349,17 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         // Assuming assetId 1 is already handled by assetRegistry
         // Revert when calling through Router for non-existent registry
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.settleAsset(nonExistentAssetId, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.liquidateAsset(nonExistentAssetId);
 
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter__RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.claimSettlement(nonExistentAssetId);
 
         // Test non-existent asset when calling processSettlementClaim/initiateSettlement/executeLiquidation
-        // These are handled by RegistryRouter__RegistryNotBoundToAsset, TreasuryNotSet, etc.
+        // These are handled by RegistryRouter.RegistryNotBoundToAsset, TreasuryNotSet, etc.
         // Already covered in testCollateralOperationsErrors and testTreasuryNotSetErrors
     }
 
