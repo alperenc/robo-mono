@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/PartnerManager.sol";
+import { console } from "forge-std/console.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
 
 contract UpgradePartnerManager is ScaffoldETHDeploy {
     /**
      * @dev Upgrade PartnerManager implementation
      * Usage: yarn upgrade --contract PartnerManager --proxy-address <addr>
      */
-    function run() external ScaffoldEthDeployerRunner {
+    function run() external scaffoldEthDeployerRunner {
         // Get proxy address from environment variable (set by parseArgs.js)
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
 

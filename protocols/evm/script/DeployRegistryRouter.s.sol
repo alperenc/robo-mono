@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/RegistryRouter.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { console } from "forge-std/console.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 
 contract DeployRegistryRouter is ScaffoldETHDeploy {
     /**
      * @dev Deploy RegistryRouter with dependency address
      * Usage: yarn deploy --contract RegistryRouter --network <network> --args <roboshareTokensAddress>
      */
-    function run(address roboshareTokensAddress) external ScaffoldEthDeployerRunner returns (address) {
+    function run(address roboshareTokensAddress) external scaffoldEthDeployerRunner returns (address) {
         console.log("Deploying RegistryRouter with deployer:", deployer);
         console.log("Dependencies:");
         console.log("  - RoboshareTokens:", roboshareTokensAddress);

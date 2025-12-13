@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/RoboshareTokens.sol";
+import { console } from "forge-std/console.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 
 contract UpgradeRoboshareTokens is ScaffoldETHDeploy {
     /**
      * @dev Upgrade RoboshareTokens implementation
      * Usage: yarn upgrade --contract RoboshareTokens --proxy-address <addr>
      */
-    function run() external ScaffoldEthDeployerRunner {
+    function run() external scaffoldEthDeployerRunner {
         // Get proxy address from environment variable (set by parseArgs.js)
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import { console } from "forge-std/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
@@ -10,14 +11,11 @@ import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 import { Treasury } from "../contracts/Treasury.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
-import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 
 contract Deploy is ScaffoldETHDeploy {
-    // Contract instances
-
     function run()
         external
-        ScaffoldEthDeployerRunner
+        scaffoldEthDeployerRunner
         returns (
             RoboshareTokens roboshareTokens,
             PartnerManager partnerManager,
@@ -144,13 +142,9 @@ contract Deploy is ScaffoldETHDeploy {
         saveDeployment("Treasury", address(treasury));
         saveDeployment("Marketplace", address(marketplace));
         if (config.usdcToken != address(0)) {
-            // If it's a mock (deployed by us or reused), save it.
-            // Note: If using external USDC on testnet, we might not want to overwrite "ERC20Mock" entry,
-            // but for local dev this helps if we want "USDC" or "ERC20Mock" in frontend.
-            // Let's safe "ERC20Mock" if it was deployed in this script (checked via code size or assumption).
-            // For now, simpler to just save it if it's local.
+            // If local network, save the mock USDC deployment
             if (getActiveNetworkConfig().usdcToken != address(0) && isLocalNetwork()) {
-                saveDeployment("ERC20Mock", config.usdcToken);
+                saveDeployment("MockUSDC", config.usdcToken);
             }
         }
     }

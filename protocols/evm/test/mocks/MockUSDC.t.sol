@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { MockUSDC } from "../../contracts/mocks/MockUSDC.sol";
 
 contract MockUSDCTest is Test {
@@ -13,7 +13,7 @@ contract MockUSDCTest is Test {
         usdc = new MockUSDC();
     }
 
-    function testMetadata() public {
+    function testMetadata() public view {
         assertEq(usdc.name(), "USD Coin");
         assertEq(usdc.symbol(), "USDC");
         assertEq(usdc.decimals(), 6);

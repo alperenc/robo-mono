@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./DeployHelpers.s.sol";
-import "../contracts/Treasury.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ERC20Mock } from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import { console } from "forge-std/console.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
+import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
+import { Treasury } from "../contracts/Treasury.sol";
 
 contract DeployTreasury is ScaffoldETHDeploy {
     /**
@@ -14,7 +15,7 @@ contract DeployTreasury is ScaffoldETHDeploy {
      */
     function run(address roboshareTokensAddress, address partnerManagerAddress, address routerAddress)
         external
-        ScaffoldEthDeployerRunner
+        scaffoldEthDeployerRunner
         returns (address)
     {
         // Get USDC and treasuryFeeRecipient from network config
@@ -22,7 +23,7 @@ contract DeployTreasury is ScaffoldETHDeploy {
 
         // For local Anvil/testing, deploy mock USDC if not set
         if (config.usdcToken == address(0)) {
-            ERC20Mock mockUsdc = new ERC20Mock();
+            MockUSDC mockUsdc = new MockUSDC();
             config.usdcToken = address(mockUsdc);
             console.log("Mock USDC deployed at:", address(mockUsdc));
         }

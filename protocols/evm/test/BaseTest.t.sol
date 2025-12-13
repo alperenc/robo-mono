@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../contracts/interfaces/IAssetRegistry.sol";
-import "../contracts/interfaces/ITreasury.sol";
-import "../contracts/Libraries.sol";
-import "../contracts/RoboshareTokens.sol";
-import "../contracts/PartnerManager.sol";
-import "../contracts/RegistryRouter.sol";
-import "../contracts/VehicleRegistry.sol";
-import "../contracts/Treasury.sol";
-import "../contracts/Marketplace.sol";
+import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
+import { ProtocolLib } from "../contracts/Libraries.sol";
+import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
+import { RegistryRouter } from "../contracts/RegistryRouter.sol";
+import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
+import { Treasury } from "../contracts/Treasury.sol";
+import { Marketplace } from "../contracts/Marketplace.sol";
 import { DeployForTest } from "../script/DeployForTest.s.sol";
 
 contract BaseTest is Test {
@@ -170,10 +166,10 @@ contract BaseTest is Test {
     function _fundInitialAccounts() private {
         // Fund accounts with USDC for testing
         if (deployer.isLocalNetwork()) {
-            ERC20Mock mockUSDC = ERC20Mock(address(usdc));
-            mockUSDC.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
-            mockUSDC.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
-            mockUSDC.mint(buyer, 1000000 * 10 ** 6); // 1M USDC
+            MockUSDC mockUsdc = MockUSDC(address(usdc));
+            mockUsdc.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
+            mockUsdc.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
+            mockUsdc.mint(buyer, 1000000 * 10 ** 6); // 1M USDC
         } else {
             deal(address(usdc), partner1, 1000000 * 10 ** 6); // 1M USDC
             deal(address(usdc), partner2, 1000000 * 10 ** 6); // 1M USDC
@@ -254,7 +250,7 @@ contract BaseTest is Test {
     /**
      * @dev Assert USDC balance for an address
      */
-    function assertUSDCBalance(address account, uint256 expectedBalance, string memory message) internal view {
+    function assertUsdcBalance(address account, uint256 expectedBalance, string memory message) internal view {
         uint256 actualBalance = usdc.balanceOf(account);
         assertEq(actualBalance, expectedBalance, message);
     }
@@ -296,7 +292,7 @@ contract BaseTest is Test {
     /**
      * @dev Generate random VIN for testing
      */
-    function generateVIN(uint256 seed) internal pure returns (string memory) {
+    function generateVin(uint256 seed) internal pure returns (string memory) {
         string[10] memory vinPrefixes = [
             "1HGCM82633A",
             "2FMDK3GC1D",
@@ -334,7 +330,7 @@ contract BaseTest is Test {
         string[5] memory makes = ["Toyota", "Honda", "Ford", "BMW", "Tesla"];
         string[5] memory models = ["Camry", "Civic", "F-150", "X3", "Model 3"];
 
-        vin = generateVIN(seed);
+        vin = generateVin(seed);
         make = makes[seed % 5];
         model = models[(seed + 1) % 5];
         year = 2020 + (seed % 5); // 2020-2024
@@ -495,6 +491,7 @@ contract BaseTest is Test {
         if (currentBalance >= neededAmount / 2) {
             // Transfer away most funds, keeping less than half needed
             vm.prank(account);
+            // forge-lint: disable-next-line(erc20-unchecked-transfer)
             usdc.transfer(makeAddr("drain"), currentBalance - (neededAmount / 3));
         }
     }
@@ -546,12 +543,12 @@ contract BaseTest is Test {
     /**
      * @dev Calculate expected earnings for a given period
      */
-    function calculateExpectedEarnings(uint256 principal, uint256 timeElapsed, uint256 earningsRateBP)
+    function calculateExpectedEarnings(uint256 principal, uint256 timeElapsed, uint256 earningsRateBp)
         internal
         pure
         returns (uint256)
     {
-        return (principal * earningsRateBP * timeElapsed) / (10000 * 365 days);
+        return (principal * earningsRateBp * timeElapsed) / (10000 * 365 days);
     }
 
     // ========================================
@@ -649,7 +646,7 @@ contract BaseTest is Test {
 
             // Fund partners if on local network
             if (deployer.isLocalNetwork()) {
-                ERC20Mock(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
+                MockUSDC(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
             }
         }
         vm.stopPrank();
@@ -664,9 +661,9 @@ contract BaseTest is Test {
     /**
      * @dev Fund an address with USDC (local network only)
      */
-    function fundAddressWithUSDC(address account, uint256 amount) internal {
+    function fundAddressWithUsdc(address account, uint256 amount) internal {
         if (deployer.isLocalNetwork()) {
-            ERC20Mock(address(usdc)).mint(account, amount);
+            MockUSDC(address(usdc)).mint(account, amount);
         }
     }
 
