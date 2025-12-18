@@ -193,7 +193,7 @@ const PartnerDashboard: NextPage = () => {
       {pendingVehicles.length > 0 && (
         <section>
           <h2 className="text-2xl font-bold mb-4 border-b pb-2">
-            Pending Tokenization <span className="badge badge-ghost">{pendingVehicles.length}</span>
+            Pending Tokenization <span className="badge badge-warning">{pendingVehicles.length}</span>
           </h2>
           <div className="grid gap-4">
             {pendingVehicles.map(v => (

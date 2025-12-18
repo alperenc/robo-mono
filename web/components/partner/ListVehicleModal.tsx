@@ -21,8 +21,8 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
     durationDays: "30",
   });
 
-  const { writeContractAsync: writeMarketplace } = useScaffoldWriteContract("Marketplace");
-  const { writeContractAsync: writeRoboshareTokens } = useScaffoldWriteContract("RoboshareTokens");
+  const { writeContractAsync: writeMarketplace } = useScaffoldWriteContract({ contractName: "Marketplace" });
+  const { writeContractAsync: writeRoboshareTokens } = useScaffoldWriteContract({ contractName: "RoboshareTokens" });
 
   const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
 
