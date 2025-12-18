@@ -1,7 +1,28 @@
 {
   "localhost": {
-    "YourContract": {
-      "address": "0x700b6a60ce7eaaea56f065753d8dcb9653dbad35"
+    "MockUSDC": {
+      "address": "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35"
+    },
+    "RoboshareTokens": {
+      "address": "0x8ce361602B935680E8DeC218b820ff5056BeB7af"
+    },
+    "ERC1967Proxy": {
+      "address": "0x8ce361602b935680e8dec218b820ff5056beb7af"
+    },
+    "PartnerManager": {
+      "address": "0xe1DA8919f262Ee86f9BE05059C9280142CF23f48"
+    },
+    "RegistryRouter": {
+      "address": "0xeD1DB453C3156Ff3155a97AD217b3087D5Dc5f6E"
+    },
+    "VehicleRegistry": {
+      "address": "0x12975173B87F7595EE45dFFb2Ab812ECE596Bf84"
+    },
+    "Treasury": {
+      "address": "0x196dBCBb54b8ec4958c959D8949EBFE87aC2Aaaf"
+    },
+    "Marketplace": {
+      "address": "0x05B4CB126885fb10464fdD12666FEb25E2563B76"
     }
   }
 }
