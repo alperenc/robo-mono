@@ -21,8 +21,8 @@ export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensM
     tokenSupply: "",
   });
 
-  const { writeContractAsync: writeVehicleRegistry } = useScaffoldWriteContract("VehicleRegistry");
-  const { writeContractAsync: writeMockUSDC } = useScaffoldWriteContract("MockUSDC");
+  const { writeContractAsync: writeVehicleRegistry } = useScaffoldWriteContract({ contractName: "VehicleRegistry" });
+  const { writeContractAsync: writeMockUSDC } = useScaffoldWriteContract({ contractName: "MockUSDC" });
 
   const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
 
