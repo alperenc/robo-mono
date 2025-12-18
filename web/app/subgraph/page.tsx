@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import GreetingsTable from "./_components/GreetingsTable";
+import VehiclesTable from "./_components/VehiclesTable";
 import type { NextPage } from "next";
 import { MagnifyingGlassIcon, PlusIcon, PowerIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
 
@@ -78,7 +78,7 @@ const Subgraph: NextPage = () => {
               <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
               <p className="mb-0">Explore data using the</p>
               <Link
-                href="http://localhost:8000/subgraphs/name/scaffold-eth/your-contract/graphql"
+                href="http://localhost:8000/subgraphs/name/roboshare/protocol/graphql"
                 passHref
                 className="link"
                 target="_blank"
@@ -93,7 +93,7 @@ const Subgraph: NextPage = () => {
             </div>
           </div>
         </div>
-        <GreetingsTable />
+        <VehiclesTable />
       </div>
     </>
   );
