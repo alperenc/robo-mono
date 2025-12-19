@@ -62,6 +62,7 @@ const VehiclesTable = () => {
           <thead>
             <tr className="rounded-xl">
               <th className="bg-primary">ID</th>
+              <th className="bg-primary">Name</th>
               <th className="bg-primary">VIN</th>
               <th className="bg-primary">Partner</th>
               <th className="bg-primary">Block Number</th>
@@ -71,6 +72,7 @@ const VehiclesTable = () => {
             {vehiclesData?.vehicles?.map((vehicle: any) => (
               <tr key={vehicle.id}>
                 <th>{vehicle.id}</th>
+                <td>{vehicle.displayName || "-"}</td>
                 <td>{vehicle.vin}</td>
                 <td>
                   <Address address={vehicle.partner} />

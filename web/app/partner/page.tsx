@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { NextPage } from "next";
 import { useAccount, useReadContracts } from "wagmi";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
-import { GetVehiclesDocument, execute } from "~~/.graphclient";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
 import { MintTokensModal } from "~~/components/partner/MintTokensModal";
 import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
@@ -17,6 +16,7 @@ type RegisterMode = "REGISTER_ONLY" | "REGISTER_AND_MINT";
 interface DashboardAsset {
   id: string;
   vin?: string; // Specific to Vehicle
+  displayName?: string; // Human readable name
   partner: string;
   blockNumber: string;
   type: AssetType; // The discriminator
@@ -35,7 +35,7 @@ const PartnerDashboard: NextPage = () => {
   const [mintModalOpen, setMintModalOpen] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
 
-  // Dynamic UI Configuration
+  // Dynamic Labels (Global)
   const activeRegistries = Object.values(ASSET_REGISTRIES).filter(r => r.active);
   const isSingleAssetType = activeRegistries.length === 1;
 
@@ -55,7 +55,42 @@ const PartnerDashboard: NextPage = () => {
       try {
         // --- Source 1: Vehicles ---
         if (ASSET_REGISTRIES[AssetType.VEHICLE].active) {
-          const { data: vehicleData } = await execute(GetVehiclesDocument, { partner: connectedAddress.toLowerCase() });
+          const response = await fetch("http://localhost:8000/subgraphs/name/roboshare/protocol", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: `
+                query GetVehicles($partner: Bytes) {
+                  vehicles(
+                    first: 25
+                    orderBy: blockTimestamp
+                    orderDirection: desc
+                    where: { partner: $partner }
+                  ) {
+                    id
+                    partner
+                    vin
+                    displayName
+                    blockNumber
+                    blockTimestamp
+                    transactionHash
+                  }
+                }
+              `,
+              variables: {
+                partner: connectedAddress.toLowerCase(),
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Subgraph fetch failed: ${response.statusText}`);
+          }
+
+          const { data: vehicleData } = await response.json();
+
           const normalizedVehicles: DashboardAsset[] = (vehicleData?.vehicles || []).map((v: any) => ({
             ...v,
             type: AssetType.VEHICLE,
@@ -63,7 +98,7 @@ const PartnerDashboard: NextPage = () => {
           assets.push(...normalizedVehicles);
         }
 
-        // --- Source 2: Real Estate (Placeholder for future expansion) ---
+        // --- Source 2: Real Estate (Future) ---
         // if (ASSET_REGISTRIES[AssetType.REAL_ESTATE].active) { ... fetch & normalize ... }
 
         setAllAssets(assets);
@@ -75,6 +110,8 @@ const PartnerDashboard: NextPage = () => {
   }, [connectedAddress, isRegisterOpen, mintModalOpen, listModalOpen]);
 
   // 2. Fetch Token Status (Batched for all assets)
+  // Note: This assumes all assets use RoboshareTokens. If Real Estate uses a different token contract,
+  // we would need to split this logic based on asset.type or config.
   const contractConfig = {
     address: deployedContracts[31337]?.RoboshareTokens?.address,
     abi: deployedContracts[31337]?.RoboshareTokens?.abi,
@@ -93,10 +130,10 @@ const PartnerDashboard: NextPage = () => {
 
   // 3. Filter & Categorize
   const filteredAssets = allAssets.filter(asset => {
-    // Global Config Check: Asset type must be active
+    // Rule 1: Config Check (Redundant if we check in fetch, but good safety)
     if (!ASSET_REGISTRIES[asset.type].active) return false;
 
-    // User Filter Check: ALL or specific match
+    // Rule 2: User Filter
     if (filterType !== "ALL" && filterType !== asset.type) return false;
 
     return true;
@@ -116,7 +153,7 @@ const PartnerDashboard: NextPage = () => {
     }
   });
 
-  // 4. Dynamic Empty State Content
+  // Dynamic Empty State Text
   let emptyStateTitle = "Start Your Asset Portfolio";
   let emptyStateDesc =
     "You haven't registered any assets yet. Register an asset to start tokenizing and earning revenue.";
@@ -292,10 +329,10 @@ const PartnerDashboard: NextPage = () => {
                   >
                     <div className="flex-1">
                       <div className="text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
-                      <div className="font-bold text-xl">
-                        {asset.type === AssetType.VEHICLE ? asset.vin : `Asset #${asset.id}`}
+                      <div className="font-bold text-xl">{asset.displayName || asset.vin || `Asset #${asset.id}`}</div>
+                      <div className="text-sm opacity-70">
+                        ID: {asset.id} {asset.vin ? `• VIN: ${asset.vin}` : ""}
                       </div>
-                      <div className="text-xs opacity-60">System ID: {asset.id}</div>
                     </div>
                     <div className="flex-none">
                       <button className="btn btn-warning btn-outline" onClick={() => openMintModal(asset)}>
@@ -322,11 +359,10 @@ const PartnerDashboard: NextPage = () => {
                   >
                     <div className="flex-1">
                       <div className="text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
-                      <div className="font-bold text-xl">
-                        {asset.type === AssetType.VEHICLE ? asset.vin : `Asset #${asset.id}`}
-                      </div>
+                      <div className="font-bold text-xl">{asset.displayName || asset.vin || `Asset #${asset.id}`}</div>
                       <div className="text-sm opacity-70">
-                        Supply: <span className="font-mono">{asset.supply?.toString()}</span> shares
+                        ID: {asset.id} {asset.vin ? `• VIN: ${asset.vin}` : ""} • Supply:{" "}
+                        <span className="font-mono">{asset.supply?.toString()}</span> shares
                       </div>
                     </div>
                     <div className="flex-none">

@@ -8,6 +8,7 @@ query GetVehicles($partner: Bytes) {
     id
     partner
     vin
+    displayName
     blockNumber
     blockTimestamp
     transactionHash

@@ -140,13 +140,21 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
   vehicle.blockNumber = event.block.number
   vehicle.blockTimestamp = event.block.timestamp
   vehicle.transactionHash = event.transaction.hash
+
+  // Fetch display name from contract
+  let contract = VehicleRegistry.bind(event.address)
+  let displayNameCall = contract.try_getVehicleDisplayName(event.params.vehicleId)
+  if (!displayNameCall.reverted) {
+    vehicle.displayName = displayNameCall.value
+  }
+
   vehicle.save()
 
-  let contract = VehicleRegistryContract.load("1")
-  if (!contract) {
-    contract = new VehicleRegistryContract("1")
-    contract.address = event.address
-    contract.save()
+  let registryContract = VehicleRegistryContract.load("1")
+  if (!registryContract) {
+    registryContract = new VehicleRegistryContract("1")
+    registryContract.address = event.address
+    registryContract.save()
   }
 }
 
