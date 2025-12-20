@@ -1502,6 +1502,7 @@ export type Vehicle = {
   id: Scalars['ID']['output'];
   partner: Scalars['Bytes']['output'];
   vin: Scalars['String']['output'];
+  displayName?: Maybe<Scalars['String']['output']>;
   blockNumber: Scalars['BigInt']['output'];
   blockTimestamp: Scalars['BigInt']['output'];
   transactionHash: Scalars['Bytes']['output'];
@@ -1580,6 +1581,26 @@ export type Vehicle_filter = {
   vin_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
+  displayName_not?: InputMaybe<Scalars['String']['input']>;
+  displayName_gt?: InputMaybe<Scalars['String']['input']>;
+  displayName_lt?: InputMaybe<Scalars['String']['input']>;
+  displayName_gte?: InputMaybe<Scalars['String']['input']>;
+  displayName_lte?: InputMaybe<Scalars['String']['input']>;
+  displayName_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  displayName_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  displayName_contains?: InputMaybe<Scalars['String']['input']>;
+  displayName_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_contains?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_starts_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_ends_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
   blockNumber?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_not?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_gt?: InputMaybe<Scalars['BigInt']['input']>;
@@ -1616,6 +1637,7 @@ export type Vehicle_orderBy =
   | 'id'
   | 'partner'
   | 'vin'
+  | 'displayName'
   | 'blockNumber'
   | 'blockTimestamp'
   | 'transactionHash';

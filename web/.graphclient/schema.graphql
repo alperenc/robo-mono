@@ -1696,6 +1696,7 @@ type Vehicle {
   id: ID!
   partner: Bytes!
   vin: String!
+  displayName: String
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -1775,6 +1776,26 @@ input Vehicle_filter {
   vin_ends_with_nocase: String
   vin_not_ends_with: String
   vin_not_ends_with_nocase: String
+  displayName: String
+  displayName_not: String
+  displayName_gt: String
+  displayName_lt: String
+  displayName_gte: String
+  displayName_lte: String
+  displayName_in: [String!]
+  displayName_not_in: [String!]
+  displayName_contains: String
+  displayName_contains_nocase: String
+  displayName_not_contains: String
+  displayName_not_contains_nocase: String
+  displayName_starts_with: String
+  displayName_starts_with_nocase: String
+  displayName_not_starts_with: String
+  displayName_not_starts_with_nocase: String
+  displayName_ends_with: String
+  displayName_ends_with_nocase: String
+  displayName_not_ends_with: String
+  displayName_not_ends_with_nocase: String
   blockNumber: BigInt
   blockNumber_not: BigInt
   blockNumber_gt: BigInt
@@ -1811,6 +1832,7 @@ enum Vehicle_orderBy {
   id
   partner
   vin
+  displayName
   blockNumber
   blockTimestamp
   transactionHash

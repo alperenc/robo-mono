@@ -1525,6 +1525,7 @@ export type Vehicle = {
   id: Scalars['ID']['output'];
   partner: Scalars['Bytes']['output'];
   vin: Scalars['String']['output'];
+  displayName?: Maybe<Scalars['String']['output']>;
   blockNumber: Scalars['BigInt']['output'];
   blockTimestamp: Scalars['BigInt']['output'];
   transactionHash: Scalars['Bytes']['output'];
@@ -1603,6 +1604,26 @@ export type Vehicle_filter = {
   vin_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
+  displayName_not?: InputMaybe<Scalars['String']['input']>;
+  displayName_gt?: InputMaybe<Scalars['String']['input']>;
+  displayName_lt?: InputMaybe<Scalars['String']['input']>;
+  displayName_gte?: InputMaybe<Scalars['String']['input']>;
+  displayName_lte?: InputMaybe<Scalars['String']['input']>;
+  displayName_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  displayName_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  displayName_contains?: InputMaybe<Scalars['String']['input']>;
+  displayName_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_contains?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_starts_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_ends_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  displayName_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
   blockNumber?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_not?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_gt?: InputMaybe<Scalars['BigInt']['input']>;
@@ -1639,6 +1660,7 @@ export type Vehicle_orderBy =
   | 'id'
   | 'partner'
   | 'vin'
+  | 'displayName'
   | 'blockNumber'
   | 'blockTimestamp'
   | 'transactionHash';
@@ -2101,6 +2123,7 @@ export type VehicleResolvers<ContextType = MeshContext, ParentType extends Resol
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   partner?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
   vin?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
@@ -2228,8 +2251,8 @@ const merger = new(BareMerger as any)({
         store: rootStore.child('bareMerger')
       })
 const documentHashMap = {
-        "fe3ea2d576683588fad2c40c68344bef78540bfa4d4e6002721777684cac97f4": GetAllVehiclesDocument,
-"7bf859e634922509d3dd121c957349b4591198724cb3777549252ad9f89b8941": GetVehiclesDocument
+        "0e91a9994820bdea498e71ad65502cee75870a2f086b31f575e038875c0794d1": GetAllVehiclesDocument,
+"7e99a6f2a3237c985dbe7877a1ce34e0454590393f2c7cbab2f30931b3c56b18": GetVehiclesDocument
       }
 additionalEnvelopPlugins.push(usePersistedOperations({
         getPersistedOperation(key) {
@@ -2256,14 +2279,14 @@ additionalEnvelopPlugins.push(usePersistedOperations({
           return printWithCache(GetAllVehiclesDocument);
         },
         location: 'GetAllVehiclesDocument.graphql',
-        sha256Hash: 'fe3ea2d576683588fad2c40c68344bef78540bfa4d4e6002721777684cac97f4'
+        sha256Hash: '0e91a9994820bdea498e71ad65502cee75870a2f086b31f575e038875c0794d1'
       },{
         document: GetVehiclesDocument,
         get rawSDL() {
           return printWithCache(GetVehiclesDocument);
         },
         location: 'GetVehiclesDocument.graphql',
-        sha256Hash: '7bf859e634922509d3dd121c957349b4591198724cb3777549252ad9f89b8941'
+        sha256Hash: '7e99a6f2a3237c985dbe7877a1ce34e0454590393f2c7cbab2f30931b3c56b18'
       }
     ];
     },
@@ -2321,14 +2344,14 @@ export function getBuiltGraphSDK<TGlobalContext = any, TOperationContext = any>(
 export type GetAllVehiclesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetAllVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
+export type GetAllVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'displayName' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
 
 export type GetVehiclesQueryVariables = Exact<{
   partner?: InputMaybe<Scalars['Bytes']['input']>;
 }>;
 
 
-export type GetVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
+export type GetVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'displayName' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
 
 
 export const GetAllVehiclesDocument = gql`
@@ -2337,6 +2360,7 @@ export const GetAllVehiclesDocument = gql`
     id
     partner
     vin
+    displayName
     blockNumber
     blockTimestamp
     transactionHash
@@ -2354,6 +2378,7 @@ export const GetVehiclesDocument = gql`
     id
     partner
     vin
+    displayName
     blockNumber
     blockTimestamp
     transactionHash
