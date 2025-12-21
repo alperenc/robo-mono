@@ -258,6 +258,25 @@
   },
   {
     "type": "function",
+    "name": "getTokenMaturityDate",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getTokenPrice",
     "inputs": [
       {
@@ -708,6 +727,11 @@
         "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -838,6 +862,12 @@
       },
       {
         "name": "supply",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

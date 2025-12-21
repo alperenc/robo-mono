@@ -3,7 +3,9 @@ query GetAllVehicles {
     id
     partner
     vin
-    displayName
+    make
+    model
+    year
     blockNumber
     blockTimestamp
     transactionHash

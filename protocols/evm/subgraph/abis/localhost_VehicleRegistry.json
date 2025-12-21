@@ -156,11 +156,6 @@
             "name": "updatedAt",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "maturityDate",
-            "type": "uint256",
-            "internalType": "uint256"
           }
         ]
       }
@@ -462,6 +457,11 @@
         "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -534,6 +534,11 @@
       },
       {
         "name": "supply",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -803,11 +808,6 @@
           },
           {
             "name": "updatedAt",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "maturityDate",
             "type": "uint256",
             "internalType": "uint256"
           }

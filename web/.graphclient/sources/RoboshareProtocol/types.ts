@@ -865,6 +865,7 @@ export type RoboshareToken = {
   revenueTokenId: Scalars['BigInt']['output'];
   price: Scalars['BigInt']['output'];
   supply: Scalars['BigInt']['output'];
+  maturityDate: Scalars['BigInt']['output'];
   setAtBlock: Scalars['BigInt']['output'];
 };
 
@@ -901,6 +902,14 @@ export type RoboshareToken_filter = {
   supply_lte?: InputMaybe<Scalars['BigInt']['input']>;
   supply_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
   supply_not_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
+  maturityDate?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_not?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_gt?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_lt?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_gte?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_lte?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
+  maturityDate_not_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
   setAtBlock?: InputMaybe<Scalars['BigInt']['input']>;
   setAtBlock_not?: InputMaybe<Scalars['BigInt']['input']>;
   setAtBlock_gt?: InputMaybe<Scalars['BigInt']['input']>;
@@ -920,6 +929,7 @@ export type RoboshareToken_orderBy =
   | 'revenueTokenId'
   | 'price'
   | 'supply'
+  | 'maturityDate'
   | 'setAtBlock';
 
 export type RoboshareTokensContract = {
@@ -1502,7 +1512,9 @@ export type Vehicle = {
   id: Scalars['ID']['output'];
   partner: Scalars['Bytes']['output'];
   vin: Scalars['String']['output'];
-  displayName?: Maybe<Scalars['String']['output']>;
+  make?: Maybe<Scalars['String']['output']>;
+  model?: Maybe<Scalars['String']['output']>;
+  year?: Maybe<Scalars['BigInt']['output']>;
   blockNumber: Scalars['BigInt']['output'];
   blockTimestamp: Scalars['BigInt']['output'];
   transactionHash: Scalars['Bytes']['output'];
@@ -1581,26 +1593,54 @@ export type Vehicle_filter = {
   vin_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName?: InputMaybe<Scalars['String']['input']>;
-  displayName_not?: InputMaybe<Scalars['String']['input']>;
-  displayName_gt?: InputMaybe<Scalars['String']['input']>;
-  displayName_lt?: InputMaybe<Scalars['String']['input']>;
-  displayName_gte?: InputMaybe<Scalars['String']['input']>;
-  displayName_lte?: InputMaybe<Scalars['String']['input']>;
-  displayName_in?: InputMaybe<Array<Scalars['String']['input']>>;
-  displayName_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
-  displayName_contains?: InputMaybe<Scalars['String']['input']>;
-  displayName_contains_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_contains?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_starts_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_ends_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make?: InputMaybe<Scalars['String']['input']>;
+  make_not?: InputMaybe<Scalars['String']['input']>;
+  make_gt?: InputMaybe<Scalars['String']['input']>;
+  make_lt?: InputMaybe<Scalars['String']['input']>;
+  make_gte?: InputMaybe<Scalars['String']['input']>;
+  make_lte?: InputMaybe<Scalars['String']['input']>;
+  make_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  make_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  make_contains?: InputMaybe<Scalars['String']['input']>;
+  make_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_not_contains?: InputMaybe<Scalars['String']['input']>;
+  make_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_starts_with?: InputMaybe<Scalars['String']['input']>;
+  make_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  make_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_ends_with?: InputMaybe<Scalars['String']['input']>;
+  make_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  make_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model?: InputMaybe<Scalars['String']['input']>;
+  model_not?: InputMaybe<Scalars['String']['input']>;
+  model_gt?: InputMaybe<Scalars['String']['input']>;
+  model_lt?: InputMaybe<Scalars['String']['input']>;
+  model_gte?: InputMaybe<Scalars['String']['input']>;
+  model_lte?: InputMaybe<Scalars['String']['input']>;
+  model_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  model_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  model_contains?: InputMaybe<Scalars['String']['input']>;
+  model_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_not_contains?: InputMaybe<Scalars['String']['input']>;
+  model_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_starts_with?: InputMaybe<Scalars['String']['input']>;
+  model_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  model_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_ends_with?: InputMaybe<Scalars['String']['input']>;
+  model_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  model_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  year?: InputMaybe<Scalars['BigInt']['input']>;
+  year_not?: InputMaybe<Scalars['BigInt']['input']>;
+  year_gt?: InputMaybe<Scalars['BigInt']['input']>;
+  year_lt?: InputMaybe<Scalars['BigInt']['input']>;
+  year_gte?: InputMaybe<Scalars['BigInt']['input']>;
+  year_lte?: InputMaybe<Scalars['BigInt']['input']>;
+  year_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
+  year_not_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
   blockNumber?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_not?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_gt?: InputMaybe<Scalars['BigInt']['input']>;
@@ -1637,7 +1677,9 @@ export type Vehicle_orderBy =
   | 'id'
   | 'partner'
   | 'vin'
-  | 'displayName'
+  | 'make'
+  | 'model'
+  | 'year'
   | 'blockNumber'
   | 'blockTimestamp'
   | 'transactionHash';

@@ -16,6 +16,9 @@ type RegisterMode = "REGISTER_ONLY" | "REGISTER_AND_MINT";
 interface DashboardAsset {
   id: string;
   vin?: string; // Specific to Vehicle
+  make?: string; // Specific to Vehicle
+  model?: string; // Specific to Vehicle
+  year?: bigint; // Specific to Vehicle
   displayName?: string; // Human readable name
   partner: string;
   blockNumber: string;
@@ -62,12 +65,11 @@ const PartnerDashboard: NextPage = () => {
             },
             body: JSON.stringify({
               query: `
-                query GetVehicles($partner: Bytes) {
+                query GetVehicles {
                   vehicles(
-                    first: 25
+                    first: 100
                     orderBy: blockTimestamp
                     orderDirection: desc
-                    where: { partner: $partner }
                   ) {
                     id
                     partner
@@ -79,9 +81,6 @@ const PartnerDashboard: NextPage = () => {
                   }
                 }
               `,
-              variables: {
-                partner: connectedAddress.toLowerCase(),
-              },
             }),
           });
 
@@ -91,7 +90,17 @@ const PartnerDashboard: NextPage = () => {
 
           const { data: vehicleData } = await response.json();
 
-          const normalizedVehicles: DashboardAsset[] = (vehicleData?.vehicles || []).map((v: any) => ({
+          console.log("Connected Address:", connectedAddress?.toLowerCase());
+          console.log("Raw Vehicles:", vehicleData?.vehicles);
+
+          // Client-side filter for partner address to avoid Bytes matching issues in GQL variables
+          const myVehicles = (vehicleData?.vehicles || []).filter(
+            (v: any) => v.partner.toLowerCase() === connectedAddress?.toLowerCase(),
+          );
+
+          console.log("Filtered Vehicles:", myVehicles);
+
+          const normalizedVehicles: DashboardAsset[] = myVehicles.map((v: any) => ({
             ...v,
             type: AssetType.VEHICLE,
           }));
@@ -110,8 +119,6 @@ const PartnerDashboard: NextPage = () => {
   }, [connectedAddress, isRegisterOpen, mintModalOpen, listModalOpen]);
 
   // 2. Fetch Token Status (Batched for all assets)
-  // Note: This assumes all assets use RoboshareTokens. If Real Estate uses a different token contract,
-  // we would need to split this logic based on asset.type or config.
   const contractConfig = {
     address: deployedContracts[31337]?.RoboshareTokens?.address,
     abi: deployedContracts[31337]?.RoboshareTokens?.abi,
@@ -130,7 +137,7 @@ const PartnerDashboard: NextPage = () => {
 
   // 3. Filter & Categorize
   const filteredAssets = allAssets.filter(asset => {
-    // Rule 1: Config Check (Redundant if we check in fetch, but good safety)
+    // Rule 1: Config Check
     if (!ASSET_REGISTRIES[asset.type].active) return false;
 
     // Rule 2: User Filter
@@ -196,7 +203,7 @@ const PartnerDashboard: NextPage = () => {
         </div>
 
         <div className="flex gap-4 items-center">
-          {/* Asset Type Filter - only show if multiple active registries */}
+          {/* Asset Type Filter */}
           {!isSingleAssetType && (
             <div className="join bg-base-200 p-1 rounded-lg">
               <button
@@ -329,8 +336,12 @@ const PartnerDashboard: NextPage = () => {
                   >
                     <div className="flex-1">
                       <div className="text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
-                      <div className="font-bold text-xl">{asset.displayName || asset.vin || `Asset #${asset.id}`}</div>
-                      <div className="text-sm opacity-70">
+                      <div className="font-bold text-xl">
+                        {asset.type === AssetType.VEHICLE && asset.make
+                          ? `${asset.year?.toString()} ${asset.make} ${asset.model}`
+                          : asset.vin || `Asset #${asset.id}`}
+                      </div>
+                      <div className="text-xs opacity-60">
                         ID: {asset.id} {asset.vin ? `• VIN: ${asset.vin}` : ""}
                       </div>
                     </div>

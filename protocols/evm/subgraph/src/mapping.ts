@@ -96,6 +96,7 @@ export function handleRevenueTokenInfoSet(event: RevenueTokenInfoSetEvent): void
   token.revenueTokenId = event.params.revenueTokenId
   token.price = event.params.price
   token.supply = event.params.supply
+  token.maturityDate = event.params.maturityDate
   token.setAtBlock = event.block.number
   token.save()
 }
@@ -141,11 +142,14 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
   vehicle.blockTimestamp = event.block.timestamp
   vehicle.transactionHash = event.transaction.hash
 
-  // Fetch display name from contract
+  // Fetch vehicle info from contract
   let contract = VehicleRegistry.bind(event.address)
-  let displayNameCall = contract.try_getVehicleDisplayName(event.params.vehicleId)
-  if (!displayNameCall.reverted) {
-    vehicle.displayName = displayNameCall.value
+  let infoCall = contract.try_getVehicleInfo(event.params.vehicleId)
+  if (!infoCall.reverted) {
+    let info = infoCall.value
+    vehicle.make = info.value1 // make
+    vehicle.model = info.value2 // model
+    vehicle.year = info.value3 // year
   }
 
   vehicle.save()

@@ -1,4 +1,4 @@
 {
-  "0e91a9994820bdea498e71ad65502cee75870a2f086b31f575e038875c0794d1": "query GetAllVehicles {\n  vehicles(first: 25, orderBy: blockTimestamp, orderDirection: desc) {\n    id\n    partner\n    vin\n    displayName\n    blockNumber\n    blockTimestamp\n    transactionHash\n  }\n}",
-  "7e99a6f2a3237c985dbe7877a1ce34e0454590393f2c7cbab2f30931b3c56b18": "query GetVehicles($partner: Bytes) {\n  vehicles(\n    first: 25\n    orderBy: blockTimestamp\n    orderDirection: desc\n    where: {partner: $partner}\n  ) {\n    id\n    partner\n    vin\n    displayName\n    blockNumber\n    blockTimestamp\n    transactionHash\n  }\n}"
+  "fd47c4a360dd037c11569d9ff51e0bbd258b2adc5b8fb2d8d1e3a7f40e19ab08": "query GetAllVehicles {\n  vehicles(first: 25, orderBy: blockTimestamp, orderDirection: desc) {\n    id\n    partner\n    vin\n    make\n    model\n    year\n    blockNumber\n    blockTimestamp\n    transactionHash\n  }\n}",
+  "bdd8a61857887fd8aa8ac42d04f01d13c5437f6cfb59b7cdfc8c88f67f81adcc": "query GetVehicles($partner: Bytes) {\n  vehicles(\n    first: 25\n    orderBy: blockTimestamp\n    orderDirection: desc\n    where: {partner: $partner}\n  ) {\n    id\n    partner\n    vin\n    make\n    model\n    year\n    blockNumber\n    blockTimestamp\n    transactionHash\n  }\n}"
 }

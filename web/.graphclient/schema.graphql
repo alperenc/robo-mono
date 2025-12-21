@@ -963,6 +963,7 @@ type RoboshareToken {
   revenueTokenId: BigInt!
   price: BigInt!
   supply: BigInt!
+  maturityDate: BigInt!
   setAtBlock: BigInt!
 }
 
@@ -999,6 +1000,14 @@ input RoboshareToken_filter {
   supply_lte: BigInt
   supply_in: [BigInt!]
   supply_not_in: [BigInt!]
+  maturityDate: BigInt
+  maturityDate_not: BigInt
+  maturityDate_gt: BigInt
+  maturityDate_lt: BigInt
+  maturityDate_gte: BigInt
+  maturityDate_lte: BigInt
+  maturityDate_in: [BigInt!]
+  maturityDate_not_in: [BigInt!]
   setAtBlock: BigInt
   setAtBlock_not: BigInt
   setAtBlock_gt: BigInt
@@ -1018,6 +1027,7 @@ enum RoboshareToken_orderBy {
   revenueTokenId
   price
   supply
+  maturityDate
   setAtBlock
 }
 
@@ -1696,7 +1706,9 @@ type Vehicle {
   id: ID!
   partner: Bytes!
   vin: String!
-  displayName: String
+  make: String
+  model: String
+  year: BigInt
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -1776,26 +1788,54 @@ input Vehicle_filter {
   vin_ends_with_nocase: String
   vin_not_ends_with: String
   vin_not_ends_with_nocase: String
-  displayName: String
-  displayName_not: String
-  displayName_gt: String
-  displayName_lt: String
-  displayName_gte: String
-  displayName_lte: String
-  displayName_in: [String!]
-  displayName_not_in: [String!]
-  displayName_contains: String
-  displayName_contains_nocase: String
-  displayName_not_contains: String
-  displayName_not_contains_nocase: String
-  displayName_starts_with: String
-  displayName_starts_with_nocase: String
-  displayName_not_starts_with: String
-  displayName_not_starts_with_nocase: String
-  displayName_ends_with: String
-  displayName_ends_with_nocase: String
-  displayName_not_ends_with: String
-  displayName_not_ends_with_nocase: String
+  make: String
+  make_not: String
+  make_gt: String
+  make_lt: String
+  make_gte: String
+  make_lte: String
+  make_in: [String!]
+  make_not_in: [String!]
+  make_contains: String
+  make_contains_nocase: String
+  make_not_contains: String
+  make_not_contains_nocase: String
+  make_starts_with: String
+  make_starts_with_nocase: String
+  make_not_starts_with: String
+  make_not_starts_with_nocase: String
+  make_ends_with: String
+  make_ends_with_nocase: String
+  make_not_ends_with: String
+  make_not_ends_with_nocase: String
+  model: String
+  model_not: String
+  model_gt: String
+  model_lt: String
+  model_gte: String
+  model_lte: String
+  model_in: [String!]
+  model_not_in: [String!]
+  model_contains: String
+  model_contains_nocase: String
+  model_not_contains: String
+  model_not_contains_nocase: String
+  model_starts_with: String
+  model_starts_with_nocase: String
+  model_not_starts_with: String
+  model_not_starts_with_nocase: String
+  model_ends_with: String
+  model_ends_with_nocase: String
+  model_not_ends_with: String
+  model_not_ends_with_nocase: String
+  year: BigInt
+  year_not: BigInt
+  year_gt: BigInt
+  year_lt: BigInt
+  year_gte: BigInt
+  year_lte: BigInt
+  year_in: [BigInt!]
+  year_not_in: [BigInt!]
   blockNumber: BigInt
   blockNumber_not: BigInt
   blockNumber_gt: BigInt
@@ -1832,7 +1872,9 @@ enum Vehicle_orderBy {
   id
   partner
   vin
-  displayName
+  make
+  model
+  year
   blockNumber
   blockTimestamp
   transactionHash

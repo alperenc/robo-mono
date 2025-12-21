@@ -888,6 +888,7 @@ export type RoboshareToken = {
   revenueTokenId: Scalars['BigInt']['output'];
   price: Scalars['BigInt']['output'];
   supply: Scalars['BigInt']['output'];
+  maturityDate: Scalars['BigInt']['output'];
   setAtBlock: Scalars['BigInt']['output'];
 };
 
@@ -924,6 +925,14 @@ export type RoboshareToken_filter = {
   supply_lte?: InputMaybe<Scalars['BigInt']['input']>;
   supply_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
   supply_not_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
+  maturityDate?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_not?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_gt?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_lt?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_gte?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_lte?: InputMaybe<Scalars['BigInt']['input']>;
+  maturityDate_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
+  maturityDate_not_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
   setAtBlock?: InputMaybe<Scalars['BigInt']['input']>;
   setAtBlock_not?: InputMaybe<Scalars['BigInt']['input']>;
   setAtBlock_gt?: InputMaybe<Scalars['BigInt']['input']>;
@@ -943,6 +952,7 @@ export type RoboshareToken_orderBy =
   | 'revenueTokenId'
   | 'price'
   | 'supply'
+  | 'maturityDate'
   | 'setAtBlock';
 
 export type RoboshareTokensContract = {
@@ -1525,7 +1535,9 @@ export type Vehicle = {
   id: Scalars['ID']['output'];
   partner: Scalars['Bytes']['output'];
   vin: Scalars['String']['output'];
-  displayName?: Maybe<Scalars['String']['output']>;
+  make?: Maybe<Scalars['String']['output']>;
+  model?: Maybe<Scalars['String']['output']>;
+  year?: Maybe<Scalars['BigInt']['output']>;
   blockNumber: Scalars['BigInt']['output'];
   blockTimestamp: Scalars['BigInt']['output'];
   transactionHash: Scalars['Bytes']['output'];
@@ -1604,26 +1616,54 @@ export type Vehicle_filter = {
   vin_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with?: InputMaybe<Scalars['String']['input']>;
   vin_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName?: InputMaybe<Scalars['String']['input']>;
-  displayName_not?: InputMaybe<Scalars['String']['input']>;
-  displayName_gt?: InputMaybe<Scalars['String']['input']>;
-  displayName_lt?: InputMaybe<Scalars['String']['input']>;
-  displayName_gte?: InputMaybe<Scalars['String']['input']>;
-  displayName_lte?: InputMaybe<Scalars['String']['input']>;
-  displayName_in?: InputMaybe<Array<Scalars['String']['input']>>;
-  displayName_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
-  displayName_contains?: InputMaybe<Scalars['String']['input']>;
-  displayName_contains_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_contains?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_starts_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_starts_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_ends_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_ends_with?: InputMaybe<Scalars['String']['input']>;
-  displayName_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make?: InputMaybe<Scalars['String']['input']>;
+  make_not?: InputMaybe<Scalars['String']['input']>;
+  make_gt?: InputMaybe<Scalars['String']['input']>;
+  make_lt?: InputMaybe<Scalars['String']['input']>;
+  make_gte?: InputMaybe<Scalars['String']['input']>;
+  make_lte?: InputMaybe<Scalars['String']['input']>;
+  make_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  make_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  make_contains?: InputMaybe<Scalars['String']['input']>;
+  make_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_not_contains?: InputMaybe<Scalars['String']['input']>;
+  make_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_starts_with?: InputMaybe<Scalars['String']['input']>;
+  make_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  make_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_ends_with?: InputMaybe<Scalars['String']['input']>;
+  make_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  make_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  make_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model?: InputMaybe<Scalars['String']['input']>;
+  model_not?: InputMaybe<Scalars['String']['input']>;
+  model_gt?: InputMaybe<Scalars['String']['input']>;
+  model_lt?: InputMaybe<Scalars['String']['input']>;
+  model_gte?: InputMaybe<Scalars['String']['input']>;
+  model_lte?: InputMaybe<Scalars['String']['input']>;
+  model_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  model_not_in?: InputMaybe<Array<Scalars['String']['input']>>;
+  model_contains?: InputMaybe<Scalars['String']['input']>;
+  model_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_not_contains?: InputMaybe<Scalars['String']['input']>;
+  model_not_contains_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_starts_with?: InputMaybe<Scalars['String']['input']>;
+  model_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_not_starts_with?: InputMaybe<Scalars['String']['input']>;
+  model_not_starts_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_ends_with?: InputMaybe<Scalars['String']['input']>;
+  model_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  model_not_ends_with?: InputMaybe<Scalars['String']['input']>;
+  model_not_ends_with_nocase?: InputMaybe<Scalars['String']['input']>;
+  year?: InputMaybe<Scalars['BigInt']['input']>;
+  year_not?: InputMaybe<Scalars['BigInt']['input']>;
+  year_gt?: InputMaybe<Scalars['BigInt']['input']>;
+  year_lt?: InputMaybe<Scalars['BigInt']['input']>;
+  year_gte?: InputMaybe<Scalars['BigInt']['input']>;
+  year_lte?: InputMaybe<Scalars['BigInt']['input']>;
+  year_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
+  year_not_in?: InputMaybe<Array<Scalars['BigInt']['input']>>;
   blockNumber?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_not?: InputMaybe<Scalars['BigInt']['input']>;
   blockNumber_gt?: InputMaybe<Scalars['BigInt']['input']>;
@@ -1660,7 +1700,9 @@ export type Vehicle_orderBy =
   | 'id'
   | 'partner'
   | 'vin'
-  | 'displayName'
+  | 'make'
+  | 'model'
+  | 'year'
   | 'blockNumber'
   | 'blockTimestamp'
   | 'transactionHash';
@@ -2041,6 +2083,7 @@ export type RoboshareTokenResolvers<ContextType = MeshContext, ParentType extend
   revenueTokenId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   price?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   supply?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
+  maturityDate?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   setAtBlock?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -2123,7 +2166,9 @@ export type VehicleResolvers<ContextType = MeshContext, ParentType extends Resol
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   partner?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
   vin?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  make?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  model?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  year?: Resolver<Maybe<ResolversTypes['BigInt']>, ParentType, ContextType>;
   blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
   transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
@@ -2251,8 +2296,8 @@ const merger = new(BareMerger as any)({
         store: rootStore.child('bareMerger')
       })
 const documentHashMap = {
-        "0e91a9994820bdea498e71ad65502cee75870a2f086b31f575e038875c0794d1": GetAllVehiclesDocument,
-"7e99a6f2a3237c985dbe7877a1ce34e0454590393f2c7cbab2f30931b3c56b18": GetVehiclesDocument
+        "fd47c4a360dd037c11569d9ff51e0bbd258b2adc5b8fb2d8d1e3a7f40e19ab08": GetAllVehiclesDocument,
+"bdd8a61857887fd8aa8ac42d04f01d13c5437f6cfb59b7cdfc8c88f67f81adcc": GetVehiclesDocument
       }
 additionalEnvelopPlugins.push(usePersistedOperations({
         getPersistedOperation(key) {
@@ -2279,14 +2324,14 @@ additionalEnvelopPlugins.push(usePersistedOperations({
           return printWithCache(GetAllVehiclesDocument);
         },
         location: 'GetAllVehiclesDocument.graphql',
-        sha256Hash: '0e91a9994820bdea498e71ad65502cee75870a2f086b31f575e038875c0794d1'
+        sha256Hash: 'fd47c4a360dd037c11569d9ff51e0bbd258b2adc5b8fb2d8d1e3a7f40e19ab08'
       },{
         document: GetVehiclesDocument,
         get rawSDL() {
           return printWithCache(GetVehiclesDocument);
         },
         location: 'GetVehiclesDocument.graphql',
-        sha256Hash: '7e99a6f2a3237c985dbe7877a1ce34e0454590393f2c7cbab2f30931b3c56b18'
+        sha256Hash: 'bdd8a61857887fd8aa8ac42d04f01d13c5437f6cfb59b7cdfc8c88f67f81adcc'
       }
     ];
     },
@@ -2344,14 +2389,14 @@ export function getBuiltGraphSDK<TGlobalContext = any, TOperationContext = any>(
 export type GetAllVehiclesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetAllVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'displayName' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
+export type GetAllVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'make' | 'model' | 'year' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
 
 export type GetVehiclesQueryVariables = Exact<{
   partner?: InputMaybe<Scalars['Bytes']['input']>;
 }>;
 
 
-export type GetVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'displayName' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
+export type GetVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'make' | 'model' | 'year' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
 
 
 export const GetAllVehiclesDocument = gql`
@@ -2360,7 +2405,9 @@ export const GetAllVehiclesDocument = gql`
     id
     partner
     vin
-    displayName
+    make
+    model
+    year
     blockNumber
     blockTimestamp
     transactionHash
@@ -2378,7 +2425,9 @@ export const GetVehiclesDocument = gql`
     id
     partner
     vin
-    displayName
+    make
+    model
+    year
     blockNumber
     blockTimestamp
     transactionHash

@@ -230,11 +230,6 @@
             "name": "updatedAt",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "maturityDate",
-            "type": "uint256",
-            "internalType": "uint256"
           }
         ]
       }
@@ -539,6 +534,11 @@
         "name": "price",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -619,6 +619,11 @@
         "name": "",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "",

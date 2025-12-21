@@ -1,14 +1,11 @@
 query GetVehicles($partner: Bytes) {
-  vehicles(
-    first: 25
-    orderBy: blockTimestamp
-    orderDirection: desc
-    where: { partner: $partner }
-  ) {
+  vehicles(first: 25, orderBy: blockTimestamp, orderDirection: desc, where: { partner: $partner }) {
     id
     partner
     vin
-    displayName
+    make
+    model
+    year
     blockNumber
     blockTimestamp
     transactionHash
