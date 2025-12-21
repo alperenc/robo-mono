@@ -1,17 +1,119 @@
-type Greeting @entity(immutable:true) {
-  id: ID!
-  sender: Sender!
-  greeting: String!
-  premium: Boolean
-  value: BigInt
-  createdAt: BigInt!
-  transactionHash: String!
-}
-
-type Sender @entity(immutable:true) {
+type MockUSDCContract @entity(immutable: true) {
   id: ID!
   address: Bytes!
-  greetings: [Greeting!] @derivedFrom(field: "sender")
+}
+
+type Transfer @entity(immutable: true) {
+  id: ID!
+  from: Bytes!
+  to: Bytes!
+  value: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RoboshareTokensContract @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type RoboshareToken @entity(immutable: true) {
+  id: ID! # tokenId
+  revenueTokenId: BigInt!
+  price: BigInt!
+  supply: BigInt!
+  maturityDate: BigInt!
+  setAtBlock: BigInt!
+}
+
+type TransferSingleEvent @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  operator: Bytes!
+  from: Bytes!
+  to: Bytes!
+  tokenId: BigInt!
+  value: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PartnerManagerContract @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type Partner @entity(immutable: true) {
+  id: ID! # partner address
+  name: String!
+  authorizedAt: BigInt!
+  address: Bytes!
+}
+
+type RegistryRouterContract @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type RegisteredAssetRouter @entity(immutable: true) {
+  id: ID! # assetId
+  assetId: BigInt!
+  owner: Bytes!
+  status: Int!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type VehicleRegistryContract @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type Vehicle @entity(immutable: true) {
+  id: ID! # vehicleId
+  partner: Bytes!
+  vin: String!
+  make: String
+  model: String
+  year: BigInt
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TreasuryContract @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type CollateralLock @entity(immutable: true) {
+  id: ID! # assetId + transaction hash
+  assetId: BigInt!
+  partner: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketplaceContract @entity(immutable: true) {
+  id: ID!
+  address: Bytes!
+}
+
+type Listing @entity(immutable: true) {
+  id: ID! # listingId
+  tokenId: BigInt!
+  assetId: BigInt!
+  seller: Bytes!
+  amount: BigInt!
+  pricePerToken: BigInt!
+  expiresAt: BigInt!
+  buyerPaysFee: Boolean!
   createdAt: BigInt!
-  greetingCount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
 }

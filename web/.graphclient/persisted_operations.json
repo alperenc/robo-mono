@@ -1,3 +1,4 @@
 {
-  "0f297a8d2a5ec4bc2a5724a8582baf2b6027a6394dc10901d073d4602d66e9d4": "query GetGreetings {\n  greetings(first: 25, orderBy: createdAt, orderDirection: desc) {\n    id\n    greeting\n    premium\n    value\n    createdAt\n    sender {\n      address\n      greetingCount\n    }\n  }\n}"
+  "fd47c4a360dd037c11569d9ff51e0bbd258b2adc5b8fb2d8d1e3a7f40e19ab08": "query GetAllVehicles {\n  vehicles(first: 25, orderBy: blockTimestamp, orderDirection: desc) {\n    id\n    partner\n    vin\n    make\n    model\n    year\n    blockNumber\n    blockTimestamp\n    transactionHash\n  }\n}",
+  "bdd8a61857887fd8aa8ac42d04f01d13c5437f6cfb59b7cdfc8c88f67f81adcc": "query GetVehicles($partner: Bytes) {\n  vehicles(\n    first: 25\n    orderBy: blockTimestamp\n    orderDirection: desc\n    where: {partner: $partner}\n  ) {\n    id\n    partner\n    vin\n    make\n    model\n    year\n    blockNumber\n    blockTimestamp\n    transactionHash\n  }\n}"
 }

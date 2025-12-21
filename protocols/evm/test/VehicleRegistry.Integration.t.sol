@@ -35,15 +35,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             string memory metadataURI
         ) = generateVehicleData(1);
 
-        uint256 maturityDate = block.timestamp + 365 days;
-
         vm.expectEmit(true, true, false, true);
         emit VehicleRegistry.VehicleRegistered(1, partner1, vin);
 
         vm.prank(partner1);
-        uint256 newVehicleId = assetRegistry.registerAsset(
-            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI, maturityDate)
-        );
+        uint256 newVehicleId =
+            assetRegistry.registerAsset(abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI));
 
         assertEq(newVehicleId, 1);
         assertVehicleState(newVehicleId, partner1, vin, true);
@@ -60,11 +57,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             string memory optionCodes1,
             string memory metadataURI1
         ) = generateVehicleData(1);
-        uint256 maturityDate = block.timestamp + 365 days;
 
         vm.prank(partner1);
         uint256 vehicleId1 = assetRegistry.registerAsset(
-            abi.encode(vin1, make1, model1, year1, manufacturerId1, optionCodes1, metadataURI1, maturityDate)
+            abi.encode(vin1, make1, model1, year1, manufacturerId1, optionCodes1, metadataURI1)
         );
 
         (
@@ -78,7 +74,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         ) = generateVehicleData(2);
         vm.prank(partner2);
         uint256 vehicleId2 = assetRegistry.registerAsset(
-            abi.encode(vin2, make2, model2, year2, manufacturerId2, optionCodes2, metadataURI2, maturityDate)
+            abi.encode(vin2, make2, model2, year2, manufacturerId2, optionCodes2, metadataURI2)
         );
 
         assertEq(vehicleId1, 1);
@@ -124,9 +120,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         vm.prank(partner1);
         (uint256 newAssetId, uint256 newRevenueTokenId) = assetRegistry.registerAssetAndMintTokens(
-            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI, maturityDate),
+            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI),
             REVENUE_TOKEN_PRICE,
-            REVENUE_TOKEN_SUPPLY
+            REVENUE_TOKEN_SUPPLY,
+            maturityDate
         );
 
         assertGt(newAssetId, 0);
@@ -172,19 +169,11 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     // Access Control Tests
 
     function testRegisterAssetUnauthorizedPartner() public {
-        uint256 maturityDate = block.timestamp + 365 days;
         vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(unauthorized);
         assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN,
-                TEST_MAKE,
-                TEST_MODEL,
-                TEST_YEAR,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI,
-                maturityDate
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
     }
@@ -193,7 +182,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(unauthorized);
-        assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        assetRegistry.mintRevenueTokens(
+            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days
+        );
     }
 
     function testUpdateMetadataUnauthorizedPartner() public {
@@ -216,18 +207,15 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             string memory optionCodes,
             string memory metadataURI
         ) = generateVehicleData(3);
-        uint256 maturityDate = block.timestamp + 365 days;
         vm.expectRevert(VehicleRegistry.VehicleAlreadyExists.selector);
         vm.prank(partner2);
-        assetRegistry.registerAsset(
-            abi.encode(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI, maturityDate)
-        );
+        assetRegistry.registerAsset(abi.encode(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI));
     }
 
     function testMintRevenueTokensNonexistentVehicle() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         vm.prank(partner1);
-        assetRegistry.mintRevenueTokens(999, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        assetRegistry.mintRevenueTokens(999, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days);
     }
 
     function testMintRevenueTokensAlreadyMinted() public {
@@ -235,7 +223,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         vm.prank(partner1);
         vm.expectRevert(VehicleRegistry.RevenueTokensAlreadyMinted.selector);
-        assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        assetRegistry.mintRevenueTokens(
+            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days
+        );
     }
 
     function testUpdateMetadataNonexistentVehicle() public {
@@ -250,7 +240,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // partner2 is authorized but does not own the asset
         vm.prank(partner2);
         vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        assetRegistry.mintRevenueTokens(
+            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days
+        );
     }
 
     function testTokenIdConversionNonexistentVehicle() public {
@@ -328,19 +320,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         uint256 vehicleId = assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN,
-                TEST_MAKE,
-                TEST_MODEL,
-                TEST_YEAR,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI,
-                maturityDate
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
 
         vm.prank(partner1);
-        uint256 revenueTokenId = assetRegistry.mintRevenueTokens(vehicleId, REVENUE_TOKEN_PRICE, supply);
+        uint256 revenueTokenId = assetRegistry.mintRevenueTokens(vehicleId, REVENUE_TOKEN_PRICE, supply, maturityDate);
 
         assertEq(roboshareTokens.balanceOf(partner1, revenueTokenId), supply);
     }
@@ -461,11 +446,11 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testLiquidateAssetMaturity() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        // Get maturity date (we set it to now + 365 days in tests)
-        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
+        // Get maturity date from RoboshareTokens (now stored in TokenInfo)
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
 
         // Warp to maturity
-        vm.warp(info.maturityDate + 1);
+        vm.warp(maturityDate + 1);
 
         // Calculate expected liquidation amounts (Investor Pool = Base + Earnings Buffer)
         (uint256 base,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
@@ -555,8 +540,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Liquidate the asset to make it eligible for claiming
-        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
-        vm.warp(info.maturityDate + 1);
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
+        vm.warp(maturityDate + 1);
         assetRegistry.liquidateAsset(scenario.assetId);
 
         // Try to claim settlement as an address with no tokens for this asset

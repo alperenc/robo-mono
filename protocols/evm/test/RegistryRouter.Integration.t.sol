@@ -42,7 +42,8 @@ contract MockRegistry is IAssetRegistry {
         assets[assetId].info.updatedAt = block.timestamp;
 
         // 3. Setup Token Info & Lock Collateral
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
+        uint256 maturityDate = block.timestamp + 365 days;
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
 
         // Mint Asset NFT first so partner owns it for collateral locking
         roboshareTokens.mint(partner, assetId, 1, "");
@@ -86,11 +87,11 @@ contract MockRegistry is IAssetRegistry {
         return 0;
     }
 
-    function mintRevenueTokens(uint256, uint256, uint256) external pure override returns (uint256) {
+    function mintRevenueTokens(uint256, uint256, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 
-    function registerAssetAndMintTokens(bytes calldata, uint256, uint256)
+    function registerAssetAndMintTokens(bytes calldata, uint256, uint256, uint256)
         external
         pure
         override
@@ -219,9 +220,9 @@ contract RegistryRouterIntegrationTest is BaseTest {
     function testRegistryNotFoundErrors() public {
         uint256 nonExistentAssetId = 999;
 
-        // mintRevenueTokens
+        // mintRevenueTokens (need maturityDate now)
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
-        router.mintRevenueTokens(nonExistentAssetId, 100, 100);
+        router.mintRevenueTokens(nonExistentAssetId, 100, 100, block.timestamp + 365 days);
 
         // getAssetInfo
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
@@ -369,11 +370,12 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Initially solvent
         assertTrue(router.isAssetSolvent(scenario.assetId));
 
-        // Get maturity date
-        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
+        // Get maturity date from RoboshareTokens (now stored in TokenInfo)
+        uint256 revenueTokenId = scenario.assetId + 1;
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
 
         // Warp to after maturity date to enable liquidation
-        vm.warp(info.maturityDate + 1);
+        vm.warp(maturityDate + 1);
 
         // Trigger liquidation to make it Expired
         vm.prank(unauthorized); // Anyone can call liquidateAsset

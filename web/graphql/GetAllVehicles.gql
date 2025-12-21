@@ -1,0 +1,13 @@
+query GetAllVehicles {
+  vehicles(first: 25, orderBy: blockTimestamp, orderDirection: desc) {
+    id
+    partner
+    vin
+    make
+    model
+    year
+    blockNumber
+    blockTimestamp
+    transactionHash
+  }
+}

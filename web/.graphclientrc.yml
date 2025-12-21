@@ -1,8 +1,9 @@
 # .graphclientrc.yml
 sources:
-  - name: YourContract
+  - name: RoboshareProtocol
     handler:
       graphql:
-        endpoint: http://localhost:8000/subgraphs/name/scaffold-eth/your-contract
+        endpoint: http://localhost:8000/subgraphs/name/roboshare/protocol
 documents:
-  - ./graphql/GetGreetings.gql
+  - ./graphql/GetVehicles.gql
+  - ./graphql/GetAllVehicles.gql

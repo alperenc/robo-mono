@@ -989,8 +989,9 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Simulate asset being liquidated via VehicleRegistry to ensure status is updated
         // We need to warp to maturity for liquidation to be valid.
-        AssetLib.AssetInfo memory info = assetRegistry.getAssetInfo(scenario.assetId);
-        vm.warp(info.maturityDate + 1);
+        uint256 revenueTokenId = scenario.assetId + 1;
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
+        vm.warp(maturityDate + 1);
 
         vm.prank(unauthorized); // Anyone can call liquidateAsset
         assetRegistry.liquidateAsset(scenario.assetId);
@@ -998,7 +999,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Partner owns all tokens
         uint256 initialBalance = usdc.balanceOf(partner1);
 
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId); // Check if still locked, settlement clears this.
         assertFalse(isLocked);
@@ -1013,29 +1013,21 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     function testSettlementAfterMaturityReturnsBufferToPartner() public {
-        // 1. Register asset with maturity date
-        uint256 maturityDate = block.timestamp + 365 days;
-
+        // 1. Register asset
         vm.startPrank(partner1);
         uint256 assetId = assetRegistry.registerAsset(
             abi.encode(
-                TEST_VIN,
-                TEST_MAKE,
-                TEST_MODEL,
-                TEST_YEAR,
-                TEST_MANUFACTURER_ID,
-                TEST_OPTION_CODES,
-                TEST_METADATA_URI,
-                maturityDate
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
 
-        // 2. Lock collateral and mint revenue tokens
+        // 2. Lock collateral and mint revenue tokens with maturity date
+        uint256 maturityDate = block.timestamp + 365 days;
         uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         usdc.approve(address(treasury), requiredCollateral);
 
         // This calls lockCollateral via Router
-        assetRegistry.mintRevenueTokens(assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        assetRegistry.mintRevenueTokens(assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, maturityDate);
         vm.stopPrank();
 
         // Verify collateral is locked

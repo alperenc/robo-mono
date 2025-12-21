@@ -115,7 +115,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         revert DirectCallNotAllowed();
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price)
+    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
         external
         override
         returns (uint256 tokenId)
@@ -124,10 +124,10 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (registry == address(0)) {
             revert RegistryNotFoundForAsset(assetId);
         }
-        return IAssetRegistry(registry).mintRevenueTokens(assetId, supply, price);
+        return IAssetRegistry(registry).mintRevenueTokens(assetId, supply, price, maturityDate);
     }
 
-    function registerAssetAndMintTokens(bytes calldata, uint256, uint256)
+    function registerAssetAndMintTokens(bytes calldata, uint256, uint256, uint256)
         external
         pure
         override

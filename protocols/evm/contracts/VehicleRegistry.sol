@@ -105,8 +105,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 year,
         uint256 manufacturerId,
         string memory optionCodes,
-        string memory dynamicMetadataURI,
-        uint256 maturityDate
+        string memory dynamicMetadataURI
     ) internal returns (uint256 vehicleId, uint256 revenueTokenId) {
         if (vinExists[vin]) revert VehicleAlreadyExists();
 
@@ -116,7 +115,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Initialize vehicle data using new VehicleLib structure
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         VehicleLib.initializeVehicle(
-            vehicle, vehicleId, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI, maturityDate
+            vehicle, vehicleId, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
         );
 
         // Mark VIN as used
@@ -176,19 +175,17 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             uint256 year,
             uint256 manufacturerId,
             string memory optionCodes,
-            string memory dynamicMetadataURI,
-            uint256 maturityDate
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string, uint256));
+            string memory dynamicMetadataURI
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
 
-        (assetId,) =
-            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI, maturityDate);
+        (assetId,) = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
 
         roboshareTokens.mint(msg.sender, assetId, 1, ""); // Mint 1 vehicle NFT to partner
 
         return assetId;
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 price, uint256 supply)
+    function mintRevenueTokens(uint256 assetId, uint256 price, uint256 supply, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
@@ -209,7 +206,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
 
         // Lock Collateral via Router
         router.lockCollateralFor(msg.sender, assetId, price, supply);
@@ -225,7 +222,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return revenueTokenId;
     }
 
-    function registerAssetAndMintTokens(bytes calldata data, uint256 price, uint256 supply)
+    function registerAssetAndMintTokens(bytes calldata data, uint256 price, uint256 supply, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
@@ -238,15 +235,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             uint256 year,
             uint256 manufacturerId,
             string memory optionCodes,
-            string memory dynamicMetadataURI,
-            uint256 maturityDate
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string, uint256));
+            string memory dynamicMetadataURI
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
 
         (assetId, revenueTokenId) =
-            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI, maturityDate);
+            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
 
         // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
 
         // Mint Asset NFT
         roboshareTokens.mint(msg.sender, assetId, 1, "");
@@ -337,7 +333,9 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         // Check liquidation conditions: Maturity OR Insolvency
-        bool isMatured = block.timestamp >= info.maturityDate;
+        uint256 revenueTokenId = assetId + 1;
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
+        bool isMatured = block.timestamp >= maturityDate;
         bool isSolvent = router.isAssetSolvent(assetId);
 
         if (!isMatured && isSolvent) {

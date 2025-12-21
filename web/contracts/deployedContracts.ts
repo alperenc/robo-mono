@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -617,6 +617,25 @@ const deployedContracts = {
           outputs: [
             {
               name: "penaltyAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getTokenMaturityDate",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
               type: "uint256",
               internalType: "uint256",
             },
@@ -1076,6 +1095,11 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "maturityDate",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           outputs: [],
           stateMutability: "nonpayable",
@@ -1205,6 +1229,12 @@ const deployedContracts = {
             },
             {
               name: "supply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "maturityDate",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -1627,7 +1657,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1700,7 +1730,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2337,7 +2367,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2572,11 +2602,6 @@ const deployedContracts = {
                 },
                 {
                   name: "updatedAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "maturityDate",
                   type: "uint256",
                   internalType: "uint256",
                 },
@@ -2884,6 +2909,11 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "maturityDate",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           outputs: [
             {
@@ -2963,6 +2993,11 @@ const deployedContracts = {
               name: "",
               type: "bytes",
               internalType: "bytes",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
             },
             {
               name: "",
@@ -3744,7 +3779,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -3905,11 +3940,6 @@ const deployedContracts = {
                 },
                 {
                   name: "updatedAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "maturityDate",
                   type: "uint256",
                   internalType: "uint256",
                 },
@@ -4214,6 +4244,11 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "maturityDate",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           outputs: [
             {
@@ -4285,6 +4320,11 @@ const deployedContracts = {
             },
             {
               name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maturityDate",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4554,11 +4594,6 @@ const deployedContracts = {
                 },
                 {
                   name: "updatedAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "maturityDate",
                   type: "uint256",
                   internalType: "uint256",
                 },
@@ -5329,7 +5364,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6963,7 +6998,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -8175,7 +8210,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1765643919231.json",
+      deploymentFile: "run-1766317671988.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

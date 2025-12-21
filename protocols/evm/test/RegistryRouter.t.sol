@@ -169,7 +169,7 @@ contract RegistryRouterTest is BaseTest {
         router.registerAsset(bytes(""));
 
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetAndMintTokens(bytes(""), 100, 100);
+        router.registerAssetAndMintTokens(bytes(""), 100, 100, block.timestamp + 365 days);
     }
 
     function testInitializationZeroAddresses() public {

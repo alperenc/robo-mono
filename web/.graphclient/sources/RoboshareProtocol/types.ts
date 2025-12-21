@@ -1,39 +1,16 @@
 // @ts-nocheck
-import { GraphQLResolveInfo, SelectionSetNode, FieldNode, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
-import { gql } from '@graphql-mesh/utils';
 
-import type { GetMeshOptions } from '@graphql-mesh/runtime';
-import type { YamlConfig } from '@graphql-mesh/types';
-import { PubSub } from '@graphql-mesh/utils';
-import { DefaultLogger } from '@graphql-mesh/utils';
-import MeshCache from "@graphql-mesh/cache-localforage";
-import { fetch as fetchFn } from '@whatwg-node/fetch';
+import { InContextSdkMethod } from '@graphql-mesh/types';
+import { MeshContext } from '@graphql-mesh/runtime';
 
-import { MeshResolvedSource } from '@graphql-mesh/runtime';
-import { MeshTransform, MeshPlugin } from '@graphql-mesh/types';
-import GraphqlHandler from "@graphql-mesh/graphql"
-import BareMerger from "@graphql-mesh/merger-bare";
-import { printWithCache } from '@graphql-mesh/utils';
-import { usePersistedOperations } from '@graphql-yoga/plugin-persisted-operations';
-import { createMeshHTTPHandler, MeshHTTPHandler } from '@graphql-mesh/http';
-import { getMesh, ExecuteMeshFn, SubscribeMeshFn, MeshContext as BaseMeshContext, MeshInstance } from '@graphql-mesh/runtime';
-import { MeshStore, FsStoreStorageAdapter } from '@graphql-mesh/store';
-import { path as pathModule } from '@graphql-mesh/cross-helpers';
-import { ImportFn } from '@graphql-mesh/types';
-import type { RoboshareProtocolTypes } from './sources/RoboshareProtocol/types';
-import * as importedModule$0 from "./sources/RoboshareProtocol/introspectionSchema";
-export type Maybe<T> = T | null;
+export namespace RoboshareProtocolTypes {
+  export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
 export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
-export type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
-
-
-
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: { input: string; output: string; }
@@ -1740,712 +1717,142 @@ export type _SubgraphErrorPolicy_ =
   /** If the subgraph has indexing errors, data will be omitted. The default. */
   | 'deny';
 
-export type WithIndex<TObject> = TObject & Record<string, any>;
-export type ResolversObject<TObject> = WithIndex<TObject>;
+  export type QuerySdk = {
+      /** null **/
+  mockUSDCContract: InContextSdkMethod<Query['mockUSDCContract'], QuerymockUSDCContractArgs, MeshContext>,
+  /** null **/
+  mockUSDCContracts: InContextSdkMethod<Query['mockUSDCContracts'], QuerymockUSDCContractsArgs, MeshContext>,
+  /** null **/
+  transfer: InContextSdkMethod<Query['transfer'], QuerytransferArgs, MeshContext>,
+  /** null **/
+  transfers: InContextSdkMethod<Query['transfers'], QuerytransfersArgs, MeshContext>,
+  /** null **/
+  roboshareTokensContract: InContextSdkMethod<Query['roboshareTokensContract'], QueryroboshareTokensContractArgs, MeshContext>,
+  /** null **/
+  roboshareTokensContracts: InContextSdkMethod<Query['roboshareTokensContracts'], QueryroboshareTokensContractsArgs, MeshContext>,
+  /** null **/
+  roboshareToken: InContextSdkMethod<Query['roboshareToken'], QueryroboshareTokenArgs, MeshContext>,
+  /** null **/
+  roboshareTokens: InContextSdkMethod<Query['roboshareTokens'], QueryroboshareTokensArgs, MeshContext>,
+  /** null **/
+  transferSingleEvent: InContextSdkMethod<Query['transferSingleEvent'], QuerytransferSingleEventArgs, MeshContext>,
+  /** null **/
+  transferSingleEvents: InContextSdkMethod<Query['transferSingleEvents'], QuerytransferSingleEventsArgs, MeshContext>,
+  /** null **/
+  partnerManagerContract: InContextSdkMethod<Query['partnerManagerContract'], QuerypartnerManagerContractArgs, MeshContext>,
+  /** null **/
+  partnerManagerContracts: InContextSdkMethod<Query['partnerManagerContracts'], QuerypartnerManagerContractsArgs, MeshContext>,
+  /** null **/
+  partner: InContextSdkMethod<Query['partner'], QuerypartnerArgs, MeshContext>,
+  /** null **/
+  partners: InContextSdkMethod<Query['partners'], QuerypartnersArgs, MeshContext>,
+  /** null **/
+  registryRouterContract: InContextSdkMethod<Query['registryRouterContract'], QueryregistryRouterContractArgs, MeshContext>,
+  /** null **/
+  registryRouterContracts: InContextSdkMethod<Query['registryRouterContracts'], QueryregistryRouterContractsArgs, MeshContext>,
+  /** null **/
+  registeredAssetRouter: InContextSdkMethod<Query['registeredAssetRouter'], QueryregisteredAssetRouterArgs, MeshContext>,
+  /** null **/
+  registeredAssetRouters: InContextSdkMethod<Query['registeredAssetRouters'], QueryregisteredAssetRoutersArgs, MeshContext>,
+  /** null **/
+  vehicleRegistryContract: InContextSdkMethod<Query['vehicleRegistryContract'], QueryvehicleRegistryContractArgs, MeshContext>,
+  /** null **/
+  vehicleRegistryContracts: InContextSdkMethod<Query['vehicleRegistryContracts'], QueryvehicleRegistryContractsArgs, MeshContext>,
+  /** null **/
+  vehicle: InContextSdkMethod<Query['vehicle'], QueryvehicleArgs, MeshContext>,
+  /** null **/
+  vehicles: InContextSdkMethod<Query['vehicles'], QueryvehiclesArgs, MeshContext>,
+  /** null **/
+  treasuryContract: InContextSdkMethod<Query['treasuryContract'], QuerytreasuryContractArgs, MeshContext>,
+  /** null **/
+  treasuryContracts: InContextSdkMethod<Query['treasuryContracts'], QuerytreasuryContractsArgs, MeshContext>,
+  /** null **/
+  collateralLock: InContextSdkMethod<Query['collateralLock'], QuerycollateralLockArgs, MeshContext>,
+  /** null **/
+  collateralLocks: InContextSdkMethod<Query['collateralLocks'], QuerycollateralLocksArgs, MeshContext>,
+  /** null **/
+  marketplaceContract: InContextSdkMethod<Query['marketplaceContract'], QuerymarketplaceContractArgs, MeshContext>,
+  /** null **/
+  marketplaceContracts: InContextSdkMethod<Query['marketplaceContracts'], QuerymarketplaceContractsArgs, MeshContext>,
+  /** null **/
+  listing: InContextSdkMethod<Query['listing'], QuerylistingArgs, MeshContext>,
+  /** null **/
+  listings: InContextSdkMethod<Query['listings'], QuerylistingsArgs, MeshContext>,
+  /** Access to subgraph metadata **/
+  _meta: InContextSdkMethod<Query['_meta'], Query_metaArgs, MeshContext>
+  };
 
-export type ResolverTypeWrapper<T> = Promise<T> | T;
-
-
-export type ResolverWithResolve<TResult, TParent, TContext, TArgs> = {
-  resolve: ResolverFn<TResult, TParent, TContext, TArgs>;
-};
-
-export type LegacyStitchingResolver<TResult, TParent, TContext, TArgs> = {
-  fragment: string;
-  resolve: ResolverFn<TResult, TParent, TContext, TArgs>;
-};
-
-export type NewStitchingResolver<TResult, TParent, TContext, TArgs> = {
-  selectionSet: string | ((fieldNode: FieldNode) => SelectionSetNode);
-  resolve: ResolverFn<TResult, TParent, TContext, TArgs>;
-};
-export type StitchingResolver<TResult, TParent, TContext, TArgs> = LegacyStitchingResolver<TResult, TParent, TContext, TArgs> | NewStitchingResolver<TResult, TParent, TContext, TArgs>;
-export type Resolver<TResult, TParent = {}, TContext = {}, TArgs = {}> =
-  | ResolverFn<TResult, TParent, TContext, TArgs>
-  | ResolverWithResolve<TResult, TParent, TContext, TArgs>
-  | StitchingResolver<TResult, TParent, TContext, TArgs>;
-
-export type ResolverFn<TResult, TParent, TContext, TArgs> = (
-  parent: TParent,
-  args: TArgs,
-  context: TContext,
-  info: GraphQLResolveInfo
-) => Promise<TResult> | TResult;
-
-export type SubscriptionSubscribeFn<TResult, TParent, TContext, TArgs> = (
-  parent: TParent,
-  args: TArgs,
-  context: TContext,
-  info: GraphQLResolveInfo
-) => AsyncIterable<TResult> | Promise<AsyncIterable<TResult>>;
-
-export type SubscriptionResolveFn<TResult, TParent, TContext, TArgs> = (
-  parent: TParent,
-  args: TArgs,
-  context: TContext,
-  info: GraphQLResolveInfo
-) => TResult | Promise<TResult>;
-
-export interface SubscriptionSubscriberObject<TResult, TKey extends string, TParent, TContext, TArgs> {
-  subscribe: SubscriptionSubscribeFn<{ [key in TKey]: TResult }, TParent, TContext, TArgs>;
-  resolve?: SubscriptionResolveFn<TResult, { [key in TKey]: TResult }, TContext, TArgs>;
-}
-
-export interface SubscriptionResolverObject<TResult, TParent, TContext, TArgs> {
-  subscribe: SubscriptionSubscribeFn<any, TParent, TContext, TArgs>;
-  resolve: SubscriptionResolveFn<TResult, any, TContext, TArgs>;
-}
-
-export type SubscriptionObject<TResult, TKey extends string, TParent, TContext, TArgs> =
-  | SubscriptionSubscriberObject<TResult, TKey, TParent, TContext, TArgs>
-  | SubscriptionResolverObject<TResult, TParent, TContext, TArgs>;
-
-export type SubscriptionResolver<TResult, TKey extends string, TParent = {}, TContext = {}, TArgs = {}> =
-  | ((...args: any[]) => SubscriptionObject<TResult, TKey, TParent, TContext, TArgs>)
-  | SubscriptionObject<TResult, TKey, TParent, TContext, TArgs>;
-
-export type TypeResolveFn<TTypes, TParent = {}, TContext = {}> = (
-  parent: TParent,
-  context: TContext,
-  info: GraphQLResolveInfo
-) => Maybe<TTypes> | Promise<Maybe<TTypes>>;
-
-export type IsTypeOfResolverFn<T = {}, TContext = {}> = (obj: T, context: TContext, info: GraphQLResolveInfo) => boolean | Promise<boolean>;
-
-export type NextResolverFn<T> = () => Promise<T>;
-
-export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs = {}> = (
-  next: NextResolverFn<TResult>,
-  parent: TParent,
-  args: TArgs,
-  context: TContext,
-  info: GraphQLResolveInfo
-) => TResult | Promise<TResult>;
-
-
-
-/** Mapping between all available schema types and the resolvers types */
-export type ResolversTypes = ResolversObject<{
-  Aggregation_interval: Aggregation_interval;
-  BigDecimal: ResolverTypeWrapper<Scalars['BigDecimal']['output']>;
-  BigInt: ResolverTypeWrapper<Scalars['BigInt']['output']>;
-  BlockChangedFilter: BlockChangedFilter;
-  Block_height: Block_height;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
-  Bytes: ResolverTypeWrapper<Scalars['Bytes']['output']>;
-  CollateralLock: ResolverTypeWrapper<CollateralLock>;
-  CollateralLock_filter: CollateralLock_filter;
-  CollateralLock_orderBy: CollateralLock_orderBy;
-  Float: ResolverTypeWrapper<Scalars['Float']['output']>;
-  ID: ResolverTypeWrapper<Scalars['ID']['output']>;
-  Int: ResolverTypeWrapper<Scalars['Int']['output']>;
-  Int8: ResolverTypeWrapper<Scalars['Int8']['output']>;
-  Listing: ResolverTypeWrapper<Listing>;
-  Listing_filter: Listing_filter;
-  Listing_orderBy: Listing_orderBy;
-  MarketplaceContract: ResolverTypeWrapper<MarketplaceContract>;
-  MarketplaceContract_filter: MarketplaceContract_filter;
-  MarketplaceContract_orderBy: MarketplaceContract_orderBy;
-  MockUSDCContract: ResolverTypeWrapper<MockUSDCContract>;
-  MockUSDCContract_filter: MockUSDCContract_filter;
-  MockUSDCContract_orderBy: MockUSDCContract_orderBy;
-  OrderDirection: OrderDirection;
-  Partner: ResolverTypeWrapper<Partner>;
-  PartnerManagerContract: ResolverTypeWrapper<PartnerManagerContract>;
-  PartnerManagerContract_filter: PartnerManagerContract_filter;
-  PartnerManagerContract_orderBy: PartnerManagerContract_orderBy;
-  Partner_filter: Partner_filter;
-  Partner_orderBy: Partner_orderBy;
-  Query: ResolverTypeWrapper<{}>;
-  RegisteredAssetRouter: ResolverTypeWrapper<RegisteredAssetRouter>;
-  RegisteredAssetRouter_filter: RegisteredAssetRouter_filter;
-  RegisteredAssetRouter_orderBy: RegisteredAssetRouter_orderBy;
-  RegistryRouterContract: ResolverTypeWrapper<RegistryRouterContract>;
-  RegistryRouterContract_filter: RegistryRouterContract_filter;
-  RegistryRouterContract_orderBy: RegistryRouterContract_orderBy;
-  RoboshareToken: ResolverTypeWrapper<RoboshareToken>;
-  RoboshareToken_filter: RoboshareToken_filter;
-  RoboshareToken_orderBy: RoboshareToken_orderBy;
-  RoboshareTokensContract: ResolverTypeWrapper<RoboshareTokensContract>;
-  RoboshareTokensContract_filter: RoboshareTokensContract_filter;
-  RoboshareTokensContract_orderBy: RoboshareTokensContract_orderBy;
-  String: ResolverTypeWrapper<Scalars['String']['output']>;
-  Subscription: ResolverTypeWrapper<{}>;
-  Timestamp: ResolverTypeWrapper<Scalars['Timestamp']['output']>;
-  Transfer: ResolverTypeWrapper<Transfer>;
-  TransferSingleEvent: ResolverTypeWrapper<TransferSingleEvent>;
-  TransferSingleEvent_filter: TransferSingleEvent_filter;
-  TransferSingleEvent_orderBy: TransferSingleEvent_orderBy;
-  Transfer_filter: Transfer_filter;
-  Transfer_orderBy: Transfer_orderBy;
-  TreasuryContract: ResolverTypeWrapper<TreasuryContract>;
-  TreasuryContract_filter: TreasuryContract_filter;
-  TreasuryContract_orderBy: TreasuryContract_orderBy;
-  Vehicle: ResolverTypeWrapper<Vehicle>;
-  VehicleRegistryContract: ResolverTypeWrapper<VehicleRegistryContract>;
-  VehicleRegistryContract_filter: VehicleRegistryContract_filter;
-  VehicleRegistryContract_orderBy: VehicleRegistryContract_orderBy;
-  Vehicle_filter: Vehicle_filter;
-  Vehicle_orderBy: Vehicle_orderBy;
-  _Block_: ResolverTypeWrapper<_Block_>;
-  _Meta_: ResolverTypeWrapper<_Meta_>;
-  _SubgraphErrorPolicy_: _SubgraphErrorPolicy_;
-}>;
-
-/** Mapping between all available schema types and the resolvers parents */
-export type ResolversParentTypes = ResolversObject<{
-  BigDecimal: Scalars['BigDecimal']['output'];
-  BigInt: Scalars['BigInt']['output'];
-  BlockChangedFilter: BlockChangedFilter;
-  Block_height: Block_height;
-  Boolean: Scalars['Boolean']['output'];
-  Bytes: Scalars['Bytes']['output'];
-  CollateralLock: CollateralLock;
-  CollateralLock_filter: CollateralLock_filter;
-  Float: Scalars['Float']['output'];
-  ID: Scalars['ID']['output'];
-  Int: Scalars['Int']['output'];
-  Int8: Scalars['Int8']['output'];
-  Listing: Listing;
-  Listing_filter: Listing_filter;
-  MarketplaceContract: MarketplaceContract;
-  MarketplaceContract_filter: MarketplaceContract_filter;
-  MockUSDCContract: MockUSDCContract;
-  MockUSDCContract_filter: MockUSDCContract_filter;
-  Partner: Partner;
-  PartnerManagerContract: PartnerManagerContract;
-  PartnerManagerContract_filter: PartnerManagerContract_filter;
-  Partner_filter: Partner_filter;
-  Query: {};
-  RegisteredAssetRouter: RegisteredAssetRouter;
-  RegisteredAssetRouter_filter: RegisteredAssetRouter_filter;
-  RegistryRouterContract: RegistryRouterContract;
-  RegistryRouterContract_filter: RegistryRouterContract_filter;
-  RoboshareToken: RoboshareToken;
-  RoboshareToken_filter: RoboshareToken_filter;
-  RoboshareTokensContract: RoboshareTokensContract;
-  RoboshareTokensContract_filter: RoboshareTokensContract_filter;
-  String: Scalars['String']['output'];
-  Subscription: {};
-  Timestamp: Scalars['Timestamp']['output'];
-  Transfer: Transfer;
-  TransferSingleEvent: TransferSingleEvent;
-  TransferSingleEvent_filter: TransferSingleEvent_filter;
-  Transfer_filter: Transfer_filter;
-  TreasuryContract: TreasuryContract;
-  TreasuryContract_filter: TreasuryContract_filter;
-  Vehicle: Vehicle;
-  VehicleRegistryContract: VehicleRegistryContract;
-  VehicleRegistryContract_filter: VehicleRegistryContract_filter;
-  Vehicle_filter: Vehicle_filter;
-  _Block_: _Block_;
-  _Meta_: _Meta_;
-}>;
-
-export type entityDirectiveArgs = { };
-
-export type entityDirectiveResolver<Result, Parent, ContextType = MeshContext, Args = entityDirectiveArgs> = DirectiveResolverFn<Result, Parent, ContextType, Args>;
-
-export type subgraphIdDirectiveArgs = {
-  id: Scalars['String']['input'];
-};
-
-export type subgraphIdDirectiveResolver<Result, Parent, ContextType = MeshContext, Args = subgraphIdDirectiveArgs> = DirectiveResolverFn<Result, Parent, ContextType, Args>;
-
-export type derivedFromDirectiveArgs = {
-  field: Scalars['String']['input'];
-};
-
-export type derivedFromDirectiveResolver<Result, Parent, ContextType = MeshContext, Args = derivedFromDirectiveArgs> = DirectiveResolverFn<Result, Parent, ContextType, Args>;
-
-export interface BigDecimalScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['BigDecimal'], any> {
-  name: 'BigDecimal';
-}
-
-export interface BigIntScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['BigInt'], any> {
-  name: 'BigInt';
-}
-
-export interface BytesScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Bytes'], any> {
-  name: 'Bytes';
-}
-
-export type CollateralLockResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['CollateralLock'] = ResolversParentTypes['CollateralLock']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  assetId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  partner?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  amount?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export interface Int8ScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Int8'], any> {
-  name: 'Int8';
-}
-
-export type ListingResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['Listing'] = ResolversParentTypes['Listing']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  tokenId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  assetId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  seller?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  amount?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  pricePerToken?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  expiresAt?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  buyerPaysFee?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type MarketplaceContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['MarketplaceContract'] = ResolversParentTypes['MarketplaceContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type MockUSDCContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['MockUSDCContract'] = ResolversParentTypes['MockUSDCContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type PartnerResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['Partner'] = ResolversParentTypes['Partner']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  authorizedAt?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type PartnerManagerContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['PartnerManagerContract'] = ResolversParentTypes['PartnerManagerContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type QueryResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
-  mockUSDCContract?: Resolver<Maybe<ResolversTypes['MockUSDCContract']>, ParentType, ContextType, RequireFields<QuerymockUSDCContractArgs, 'id' | 'subgraphError'>>;
-  mockUSDCContracts?: Resolver<Array<ResolversTypes['MockUSDCContract']>, ParentType, ContextType, RequireFields<QuerymockUSDCContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  transfer?: Resolver<Maybe<ResolversTypes['Transfer']>, ParentType, ContextType, RequireFields<QuerytransferArgs, 'id' | 'subgraphError'>>;
-  transfers?: Resolver<Array<ResolversTypes['Transfer']>, ParentType, ContextType, RequireFields<QuerytransfersArgs, 'skip' | 'first' | 'subgraphError'>>;
-  roboshareTokensContract?: Resolver<Maybe<ResolversTypes['RoboshareTokensContract']>, ParentType, ContextType, RequireFields<QueryroboshareTokensContractArgs, 'id' | 'subgraphError'>>;
-  roboshareTokensContracts?: Resolver<Array<ResolversTypes['RoboshareTokensContract']>, ParentType, ContextType, RequireFields<QueryroboshareTokensContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  roboshareToken?: Resolver<Maybe<ResolversTypes['RoboshareToken']>, ParentType, ContextType, RequireFields<QueryroboshareTokenArgs, 'id' | 'subgraphError'>>;
-  roboshareTokens?: Resolver<Array<ResolversTypes['RoboshareToken']>, ParentType, ContextType, RequireFields<QueryroboshareTokensArgs, 'skip' | 'first' | 'subgraphError'>>;
-  transferSingleEvent?: Resolver<Maybe<ResolversTypes['TransferSingleEvent']>, ParentType, ContextType, RequireFields<QuerytransferSingleEventArgs, 'id' | 'subgraphError'>>;
-  transferSingleEvents?: Resolver<Array<ResolversTypes['TransferSingleEvent']>, ParentType, ContextType, RequireFields<QuerytransferSingleEventsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  partnerManagerContract?: Resolver<Maybe<ResolversTypes['PartnerManagerContract']>, ParentType, ContextType, RequireFields<QuerypartnerManagerContractArgs, 'id' | 'subgraphError'>>;
-  partnerManagerContracts?: Resolver<Array<ResolversTypes['PartnerManagerContract']>, ParentType, ContextType, RequireFields<QuerypartnerManagerContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  partner?: Resolver<Maybe<ResolversTypes['Partner']>, ParentType, ContextType, RequireFields<QuerypartnerArgs, 'id' | 'subgraphError'>>;
-  partners?: Resolver<Array<ResolversTypes['Partner']>, ParentType, ContextType, RequireFields<QuerypartnersArgs, 'skip' | 'first' | 'subgraphError'>>;
-  registryRouterContract?: Resolver<Maybe<ResolversTypes['RegistryRouterContract']>, ParentType, ContextType, RequireFields<QueryregistryRouterContractArgs, 'id' | 'subgraphError'>>;
-  registryRouterContracts?: Resolver<Array<ResolversTypes['RegistryRouterContract']>, ParentType, ContextType, RequireFields<QueryregistryRouterContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  registeredAssetRouter?: Resolver<Maybe<ResolversTypes['RegisteredAssetRouter']>, ParentType, ContextType, RequireFields<QueryregisteredAssetRouterArgs, 'id' | 'subgraphError'>>;
-  registeredAssetRouters?: Resolver<Array<ResolversTypes['RegisteredAssetRouter']>, ParentType, ContextType, RequireFields<QueryregisteredAssetRoutersArgs, 'skip' | 'first' | 'subgraphError'>>;
-  vehicleRegistryContract?: Resolver<Maybe<ResolversTypes['VehicleRegistryContract']>, ParentType, ContextType, RequireFields<QueryvehicleRegistryContractArgs, 'id' | 'subgraphError'>>;
-  vehicleRegistryContracts?: Resolver<Array<ResolversTypes['VehicleRegistryContract']>, ParentType, ContextType, RequireFields<QueryvehicleRegistryContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  vehicle?: Resolver<Maybe<ResolversTypes['Vehicle']>, ParentType, ContextType, RequireFields<QueryvehicleArgs, 'id' | 'subgraphError'>>;
-  vehicles?: Resolver<Array<ResolversTypes['Vehicle']>, ParentType, ContextType, RequireFields<QueryvehiclesArgs, 'skip' | 'first' | 'subgraphError'>>;
-  treasuryContract?: Resolver<Maybe<ResolversTypes['TreasuryContract']>, ParentType, ContextType, RequireFields<QuerytreasuryContractArgs, 'id' | 'subgraphError'>>;
-  treasuryContracts?: Resolver<Array<ResolversTypes['TreasuryContract']>, ParentType, ContextType, RequireFields<QuerytreasuryContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  collateralLock?: Resolver<Maybe<ResolversTypes['CollateralLock']>, ParentType, ContextType, RequireFields<QuerycollateralLockArgs, 'id' | 'subgraphError'>>;
-  collateralLocks?: Resolver<Array<ResolversTypes['CollateralLock']>, ParentType, ContextType, RequireFields<QuerycollateralLocksArgs, 'skip' | 'first' | 'subgraphError'>>;
-  marketplaceContract?: Resolver<Maybe<ResolversTypes['MarketplaceContract']>, ParentType, ContextType, RequireFields<QuerymarketplaceContractArgs, 'id' | 'subgraphError'>>;
-  marketplaceContracts?: Resolver<Array<ResolversTypes['MarketplaceContract']>, ParentType, ContextType, RequireFields<QuerymarketplaceContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  listing?: Resolver<Maybe<ResolversTypes['Listing']>, ParentType, ContextType, RequireFields<QuerylistingArgs, 'id' | 'subgraphError'>>;
-  listings?: Resolver<Array<ResolversTypes['Listing']>, ParentType, ContextType, RequireFields<QuerylistingsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  _meta?: Resolver<Maybe<ResolversTypes['_Meta_']>, ParentType, ContextType, Partial<Query_metaArgs>>;
-}>;
-
-export type RegisteredAssetRouterResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['RegisteredAssetRouter'] = ResolversParentTypes['RegisteredAssetRouter']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  assetId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  owner?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  status?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type RegistryRouterContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['RegistryRouterContract'] = ResolversParentTypes['RegistryRouterContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type RoboshareTokenResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['RoboshareToken'] = ResolversParentTypes['RoboshareToken']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  revenueTokenId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  price?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  supply?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  maturityDate?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  setAtBlock?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type RoboshareTokensContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['RoboshareTokensContract'] = ResolversParentTypes['RoboshareTokensContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type SubscriptionResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']> = ResolversObject<{
-  mockUSDCContract?: SubscriptionResolver<Maybe<ResolversTypes['MockUSDCContract']>, "mockUSDCContract", ParentType, ContextType, RequireFields<SubscriptionmockUSDCContractArgs, 'id' | 'subgraphError'>>;
-  mockUSDCContracts?: SubscriptionResolver<Array<ResolversTypes['MockUSDCContract']>, "mockUSDCContracts", ParentType, ContextType, RequireFields<SubscriptionmockUSDCContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  transfer?: SubscriptionResolver<Maybe<ResolversTypes['Transfer']>, "transfer", ParentType, ContextType, RequireFields<SubscriptiontransferArgs, 'id' | 'subgraphError'>>;
-  transfers?: SubscriptionResolver<Array<ResolversTypes['Transfer']>, "transfers", ParentType, ContextType, RequireFields<SubscriptiontransfersArgs, 'skip' | 'first' | 'subgraphError'>>;
-  roboshareTokensContract?: SubscriptionResolver<Maybe<ResolversTypes['RoboshareTokensContract']>, "roboshareTokensContract", ParentType, ContextType, RequireFields<SubscriptionroboshareTokensContractArgs, 'id' | 'subgraphError'>>;
-  roboshareTokensContracts?: SubscriptionResolver<Array<ResolversTypes['RoboshareTokensContract']>, "roboshareTokensContracts", ParentType, ContextType, RequireFields<SubscriptionroboshareTokensContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  roboshareToken?: SubscriptionResolver<Maybe<ResolversTypes['RoboshareToken']>, "roboshareToken", ParentType, ContextType, RequireFields<SubscriptionroboshareTokenArgs, 'id' | 'subgraphError'>>;
-  roboshareTokens?: SubscriptionResolver<Array<ResolversTypes['RoboshareToken']>, "roboshareTokens", ParentType, ContextType, RequireFields<SubscriptionroboshareTokensArgs, 'skip' | 'first' | 'subgraphError'>>;
-  transferSingleEvent?: SubscriptionResolver<Maybe<ResolversTypes['TransferSingleEvent']>, "transferSingleEvent", ParentType, ContextType, RequireFields<SubscriptiontransferSingleEventArgs, 'id' | 'subgraphError'>>;
-  transferSingleEvents?: SubscriptionResolver<Array<ResolversTypes['TransferSingleEvent']>, "transferSingleEvents", ParentType, ContextType, RequireFields<SubscriptiontransferSingleEventsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  partnerManagerContract?: SubscriptionResolver<Maybe<ResolversTypes['PartnerManagerContract']>, "partnerManagerContract", ParentType, ContextType, RequireFields<SubscriptionpartnerManagerContractArgs, 'id' | 'subgraphError'>>;
-  partnerManagerContracts?: SubscriptionResolver<Array<ResolversTypes['PartnerManagerContract']>, "partnerManagerContracts", ParentType, ContextType, RequireFields<SubscriptionpartnerManagerContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  partner?: SubscriptionResolver<Maybe<ResolversTypes['Partner']>, "partner", ParentType, ContextType, RequireFields<SubscriptionpartnerArgs, 'id' | 'subgraphError'>>;
-  partners?: SubscriptionResolver<Array<ResolversTypes['Partner']>, "partners", ParentType, ContextType, RequireFields<SubscriptionpartnersArgs, 'skip' | 'first' | 'subgraphError'>>;
-  registryRouterContract?: SubscriptionResolver<Maybe<ResolversTypes['RegistryRouterContract']>, "registryRouterContract", ParentType, ContextType, RequireFields<SubscriptionregistryRouterContractArgs, 'id' | 'subgraphError'>>;
-  registryRouterContracts?: SubscriptionResolver<Array<ResolversTypes['RegistryRouterContract']>, "registryRouterContracts", ParentType, ContextType, RequireFields<SubscriptionregistryRouterContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  registeredAssetRouter?: SubscriptionResolver<Maybe<ResolversTypes['RegisteredAssetRouter']>, "registeredAssetRouter", ParentType, ContextType, RequireFields<SubscriptionregisteredAssetRouterArgs, 'id' | 'subgraphError'>>;
-  registeredAssetRouters?: SubscriptionResolver<Array<ResolversTypes['RegisteredAssetRouter']>, "registeredAssetRouters", ParentType, ContextType, RequireFields<SubscriptionregisteredAssetRoutersArgs, 'skip' | 'first' | 'subgraphError'>>;
-  vehicleRegistryContract?: SubscriptionResolver<Maybe<ResolversTypes['VehicleRegistryContract']>, "vehicleRegistryContract", ParentType, ContextType, RequireFields<SubscriptionvehicleRegistryContractArgs, 'id' | 'subgraphError'>>;
-  vehicleRegistryContracts?: SubscriptionResolver<Array<ResolversTypes['VehicleRegistryContract']>, "vehicleRegistryContracts", ParentType, ContextType, RequireFields<SubscriptionvehicleRegistryContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  vehicle?: SubscriptionResolver<Maybe<ResolversTypes['Vehicle']>, "vehicle", ParentType, ContextType, RequireFields<SubscriptionvehicleArgs, 'id' | 'subgraphError'>>;
-  vehicles?: SubscriptionResolver<Array<ResolversTypes['Vehicle']>, "vehicles", ParentType, ContextType, RequireFields<SubscriptionvehiclesArgs, 'skip' | 'first' | 'subgraphError'>>;
-  treasuryContract?: SubscriptionResolver<Maybe<ResolversTypes['TreasuryContract']>, "treasuryContract", ParentType, ContextType, RequireFields<SubscriptiontreasuryContractArgs, 'id' | 'subgraphError'>>;
-  treasuryContracts?: SubscriptionResolver<Array<ResolversTypes['TreasuryContract']>, "treasuryContracts", ParentType, ContextType, RequireFields<SubscriptiontreasuryContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  collateralLock?: SubscriptionResolver<Maybe<ResolversTypes['CollateralLock']>, "collateralLock", ParentType, ContextType, RequireFields<SubscriptioncollateralLockArgs, 'id' | 'subgraphError'>>;
-  collateralLocks?: SubscriptionResolver<Array<ResolversTypes['CollateralLock']>, "collateralLocks", ParentType, ContextType, RequireFields<SubscriptioncollateralLocksArgs, 'skip' | 'first' | 'subgraphError'>>;
-  marketplaceContract?: SubscriptionResolver<Maybe<ResolversTypes['MarketplaceContract']>, "marketplaceContract", ParentType, ContextType, RequireFields<SubscriptionmarketplaceContractArgs, 'id' | 'subgraphError'>>;
-  marketplaceContracts?: SubscriptionResolver<Array<ResolversTypes['MarketplaceContract']>, "marketplaceContracts", ParentType, ContextType, RequireFields<SubscriptionmarketplaceContractsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  listing?: SubscriptionResolver<Maybe<ResolversTypes['Listing']>, "listing", ParentType, ContextType, RequireFields<SubscriptionlistingArgs, 'id' | 'subgraphError'>>;
-  listings?: SubscriptionResolver<Array<ResolversTypes['Listing']>, "listings", ParentType, ContextType, RequireFields<SubscriptionlistingsArgs, 'skip' | 'first' | 'subgraphError'>>;
-  _meta?: SubscriptionResolver<Maybe<ResolversTypes['_Meta_']>, "_meta", ParentType, ContextType, Partial<Subscription_metaArgs>>;
-}>;
-
-export interface TimestampScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Timestamp'], any> {
-  name: 'Timestamp';
-}
-
-export type TransferResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['Transfer'] = ResolversParentTypes['Transfer']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  from?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  to?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  value?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type TransferSingleEventResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['TransferSingleEvent'] = ResolversParentTypes['TransferSingleEvent']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  operator?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  from?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  to?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  tokenId?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  value?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type TreasuryContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['TreasuryContract'] = ResolversParentTypes['TreasuryContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type VehicleResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['Vehicle'] = ResolversParentTypes['Vehicle']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  partner?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  vin?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  make?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  model?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  year?: Resolver<Maybe<ResolversTypes['BigInt']>, ParentType, ContextType>;
-  blockNumber?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  blockTimestamp?: Resolver<ResolversTypes['BigInt'], ParentType, ContextType>;
-  transactionHash?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type VehicleRegistryContractResolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['VehicleRegistryContract'] = ResolversParentTypes['VehicleRegistryContract']> = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  address?: Resolver<ResolversTypes['Bytes'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type _Block_Resolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['_Block_'] = ResolversParentTypes['_Block_']> = ResolversObject<{
-  hash?: Resolver<Maybe<ResolversTypes['Bytes']>, ParentType, ContextType>;
-  number?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  timestamp?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  parentHash?: Resolver<Maybe<ResolversTypes['Bytes']>, ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type _Meta_Resolvers<ContextType = MeshContext, ParentType extends ResolversParentTypes['_Meta_'] = ResolversParentTypes['_Meta_']> = ResolversObject<{
-  block?: Resolver<ResolversTypes['_Block_'], ParentType, ContextType>;
-  deployment?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  hasIndexingErrors?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
-
-export type Resolvers<ContextType = MeshContext> = ResolversObject<{
-  BigDecimal?: GraphQLScalarType;
-  BigInt?: GraphQLScalarType;
-  Bytes?: GraphQLScalarType;
-  CollateralLock?: CollateralLockResolvers<ContextType>;
-  Int8?: GraphQLScalarType;
-  Listing?: ListingResolvers<ContextType>;
-  MarketplaceContract?: MarketplaceContractResolvers<ContextType>;
-  MockUSDCContract?: MockUSDCContractResolvers<ContextType>;
-  Partner?: PartnerResolvers<ContextType>;
-  PartnerManagerContract?: PartnerManagerContractResolvers<ContextType>;
-  Query?: QueryResolvers<ContextType>;
-  RegisteredAssetRouter?: RegisteredAssetRouterResolvers<ContextType>;
-  RegistryRouterContract?: RegistryRouterContractResolvers<ContextType>;
-  RoboshareToken?: RoboshareTokenResolvers<ContextType>;
-  RoboshareTokensContract?: RoboshareTokensContractResolvers<ContextType>;
-  Subscription?: SubscriptionResolvers<ContextType>;
-  Timestamp?: GraphQLScalarType;
-  Transfer?: TransferResolvers<ContextType>;
-  TransferSingleEvent?: TransferSingleEventResolvers<ContextType>;
-  TreasuryContract?: TreasuryContractResolvers<ContextType>;
-  Vehicle?: VehicleResolvers<ContextType>;
-  VehicleRegistryContract?: VehicleRegistryContractResolvers<ContextType>;
-  _Block_?: _Block_Resolvers<ContextType>;
-  _Meta_?: _Meta_Resolvers<ContextType>;
-}>;
-
-export type DirectiveResolvers<ContextType = MeshContext> = ResolversObject<{
-  entity?: entityDirectiveResolver<any, any, ContextType>;
-  subgraphId?: subgraphIdDirectiveResolver<any, any, ContextType>;
-  derivedFrom?: derivedFromDirectiveResolver<any, any, ContextType>;
-}>;
-
-export type MeshContext = RoboshareProtocolTypes.Context & BaseMeshContext;
-
-
-import { fileURLToPath } from '@graphql-mesh/utils';
-const baseDir = pathModule.join(pathModule.dirname(fileURLToPath(import.meta.url)), '..');
-
-const importFn: ImportFn = <T>(moduleId: string) => {
-  const relativeModuleId = (pathModule.isAbsolute(moduleId) ? pathModule.relative(baseDir, moduleId) : moduleId).split('\\').join('/').replace(baseDir + '/', '');
-  switch(relativeModuleId) {
-    case ".graphclient/sources/RoboshareProtocol/introspectionSchema":
-      return Promise.resolve(importedModule$0) as T;
+  export type MutationSdk = {
     
-    default:
-      return Promise.reject(new Error(`Cannot find module '${relativeModuleId}'.`));
-  }
-};
-
-const rootStore = new MeshStore('.graphclient', new FsStoreStorageAdapter({
-  cwd: baseDir,
-  importFn,
-  fileType: "ts",
-}), {
-  readonly: true,
-  validate: false
-});
-
-export const rawServeConfig: YamlConfig.Config['serve'] = undefined as any
-export async function getMeshOptions(): Promise<GetMeshOptions> {
-const pubsub = new PubSub();
-const sourcesStore = rootStore.child('sources');
-const logger = new DefaultLogger("GraphClient");
-const cache = new (MeshCache as any)({
-      ...({} as any),
-      importFn,
-      store: rootStore.child('cache'),
-      pubsub,
-      logger,
-    } as any)
-
-const sources: MeshResolvedSource[] = [];
-const transforms: MeshTransform[] = [];
-const additionalEnvelopPlugins: MeshPlugin<any>[] = [];
-const roboshareProtocolTransforms = [];
-const additionalTypeDefs = [] as any[];
-const roboshareProtocolHandler = new GraphqlHandler({
-              name: "RoboshareProtocol",
-              config: {"endpoint":"http://localhost:8000/subgraphs/name/roboshare/protocol"},
-              baseDir,
-              cache,
-              pubsub,
-              store: sourcesStore.child("RoboshareProtocol"),
-              logger: logger.child("RoboshareProtocol"),
-              importFn,
-            });
-sources[0] = {
-          name: 'RoboshareProtocol',
-          handler: roboshareProtocolHandler,
-          transforms: roboshareProtocolTransforms
-        }
-const additionalResolvers = [] as any[]
-const merger = new(BareMerger as any)({
-        cache,
-        pubsub,
-        logger: logger.child('bareMerger'),
-        store: rootStore.child('bareMerger')
-      })
-const documentHashMap = {
-        "fd47c4a360dd037c11569d9ff51e0bbd258b2adc5b8fb2d8d1e3a7f40e19ab08": GetAllVehiclesDocument,
-"bdd8a61857887fd8aa8ac42d04f01d13c5437f6cfb59b7cdfc8c88f67f81adcc": GetVehiclesDocument
-      }
-additionalEnvelopPlugins.push(usePersistedOperations({
-        getPersistedOperation(key) {
-          return documentHashMap[key];
-        },
-        ...{}
-      }))
-
-  return {
-    sources,
-    transforms,
-    additionalTypeDefs,
-    additionalResolvers,
-    cache,
-    pubsub,
-    merger,
-    logger,
-    additionalEnvelopPlugins,
-    get documents() {
-      return [
-      {
-        document: GetAllVehiclesDocument,
-        get rawSDL() {
-          return printWithCache(GetAllVehiclesDocument);
-        },
-        location: 'GetAllVehiclesDocument.graphql',
-        sha256Hash: 'fd47c4a360dd037c11569d9ff51e0bbd258b2adc5b8fb2d8d1e3a7f40e19ab08'
-      },{
-        document: GetVehiclesDocument,
-        get rawSDL() {
-          return printWithCache(GetVehiclesDocument);
-        },
-        location: 'GetVehiclesDocument.graphql',
-        sha256Hash: 'bdd8a61857887fd8aa8ac42d04f01d13c5437f6cfb59b7cdfc8c88f67f81adcc'
-      }
-    ];
-    },
-    fetchFn,
   };
-}
 
-export function createBuiltMeshHTTPHandler<TServerContext = {}>(): MeshHTTPHandler<TServerContext> {
-  return createMeshHTTPHandler<TServerContext>({
-    baseDir,
-    getBuiltMesh: getBuiltGraphClient,
-    rawServeConfig: undefined,
-  })
-}
-
-
-let meshInstance$: Promise<MeshInstance> | undefined;
-
-export const pollingInterval = null;
-
-export function getBuiltGraphClient(): Promise<MeshInstance> {
-  if (meshInstance$ == null) {
-    if (pollingInterval) {
-      setInterval(() => {
-        getMeshOptions()
-        .then(meshOptions => getMesh(meshOptions))
-        .then(newMesh =>
-          meshInstance$.then(oldMesh => {
-            oldMesh.destroy()
-            meshInstance$ = Promise.resolve(newMesh)
-          })
-        ).catch(err => {
-          console.error("Mesh polling failed so the existing version will be used:", err);
-        });
-      }, pollingInterval)
-    }
-    meshInstance$ = getMeshOptions().then(meshOptions => getMesh(meshOptions)).then(mesh => {
-      const id = mesh.pubsub.subscribe('destroy', () => {
-        meshInstance$ = undefined;
-        mesh.pubsub.unsubscribe(id);
-      });
-      return mesh;
-    });
-  }
-  return meshInstance$;
-}
-
-export const execute: ExecuteMeshFn = (...args) => getBuiltGraphClient().then(({ execute }) => execute(...args));
-
-export const subscribe: SubscribeMeshFn = (...args) => getBuiltGraphClient().then(({ subscribe }) => subscribe(...args));
-export function getBuiltGraphSDK<TGlobalContext = any, TOperationContext = any>(globalContext?: TGlobalContext) {
-  const sdkRequester$ = getBuiltGraphClient().then(({ sdkRequesterFactory }) => sdkRequesterFactory(globalContext));
-  return getSdk<TOperationContext, TGlobalContext>((...args) => sdkRequester$.then(sdkRequester => sdkRequester(...args)));
-}
-export type GetAllVehiclesQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type GetAllVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'make' | 'model' | 'year' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
-
-export type GetVehiclesQueryVariables = Exact<{
-  partner?: InputMaybe<Scalars['Bytes']['input']>;
-}>;
-
-
-export type GetVehiclesQuery = { vehicles: Array<Pick<Vehicle, 'id' | 'partner' | 'vin' | 'make' | 'model' | 'year' | 'blockNumber' | 'blockTimestamp' | 'transactionHash'>> };
-
-
-export const GetAllVehiclesDocument = gql`
-    query GetAllVehicles {
-  vehicles(first: 25, orderBy: blockTimestamp, orderDirection: desc) {
-    id
-    partner
-    vin
-    make
-    model
-    year
-    blockNumber
-    blockTimestamp
-    transactionHash
-  }
-}
-    ` as unknown as DocumentNode<GetAllVehiclesQuery, GetAllVehiclesQueryVariables>;
-export const GetVehiclesDocument = gql`
-    query GetVehicles($partner: Bytes) {
-  vehicles(
-    first: 25
-    orderBy: blockTimestamp
-    orderDirection: desc
-    where: {partner: $partner}
-  ) {
-    id
-    partner
-    vin
-    make
-    model
-    year
-    blockNumber
-    blockTimestamp
-    transactionHash
-  }
-}
-    ` as unknown as DocumentNode<GetVehiclesQuery, GetVehiclesQueryVariables>;
-
-
-
-export type Requester<C = {}, E = unknown> = <R, V>(doc: DocumentNode, vars?: V, options?: C) => Promise<R> | AsyncIterable<R>
-export function getSdk<C, E>(requester: Requester<C, E>) {
-  return {
-    GetAllVehicles(variables?: GetAllVehiclesQueryVariables, options?: C): Promise<GetAllVehiclesQuery> {
-      return requester<GetAllVehiclesQuery, GetAllVehiclesQueryVariables>(GetAllVehiclesDocument, variables, options) as Promise<GetAllVehiclesQuery>;
-    },
-    GetVehicles(variables?: GetVehiclesQueryVariables, options?: C): Promise<GetVehiclesQuery> {
-      return requester<GetVehiclesQuery, GetVehiclesQueryVariables>(GetVehiclesDocument, variables, options) as Promise<GetVehiclesQuery>;
-    }
+  export type SubscriptionSdk = {
+      /** null **/
+  mockUSDCContract: InContextSdkMethod<Subscription['mockUSDCContract'], SubscriptionmockUSDCContractArgs, MeshContext>,
+  /** null **/
+  mockUSDCContracts: InContextSdkMethod<Subscription['mockUSDCContracts'], SubscriptionmockUSDCContractsArgs, MeshContext>,
+  /** null **/
+  transfer: InContextSdkMethod<Subscription['transfer'], SubscriptiontransferArgs, MeshContext>,
+  /** null **/
+  transfers: InContextSdkMethod<Subscription['transfers'], SubscriptiontransfersArgs, MeshContext>,
+  /** null **/
+  roboshareTokensContract: InContextSdkMethod<Subscription['roboshareTokensContract'], SubscriptionroboshareTokensContractArgs, MeshContext>,
+  /** null **/
+  roboshareTokensContracts: InContextSdkMethod<Subscription['roboshareTokensContracts'], SubscriptionroboshareTokensContractsArgs, MeshContext>,
+  /** null **/
+  roboshareToken: InContextSdkMethod<Subscription['roboshareToken'], SubscriptionroboshareTokenArgs, MeshContext>,
+  /** null **/
+  roboshareTokens: InContextSdkMethod<Subscription['roboshareTokens'], SubscriptionroboshareTokensArgs, MeshContext>,
+  /** null **/
+  transferSingleEvent: InContextSdkMethod<Subscription['transferSingleEvent'], SubscriptiontransferSingleEventArgs, MeshContext>,
+  /** null **/
+  transferSingleEvents: InContextSdkMethod<Subscription['transferSingleEvents'], SubscriptiontransferSingleEventsArgs, MeshContext>,
+  /** null **/
+  partnerManagerContract: InContextSdkMethod<Subscription['partnerManagerContract'], SubscriptionpartnerManagerContractArgs, MeshContext>,
+  /** null **/
+  partnerManagerContracts: InContextSdkMethod<Subscription['partnerManagerContracts'], SubscriptionpartnerManagerContractsArgs, MeshContext>,
+  /** null **/
+  partner: InContextSdkMethod<Subscription['partner'], SubscriptionpartnerArgs, MeshContext>,
+  /** null **/
+  partners: InContextSdkMethod<Subscription['partners'], SubscriptionpartnersArgs, MeshContext>,
+  /** null **/
+  registryRouterContract: InContextSdkMethod<Subscription['registryRouterContract'], SubscriptionregistryRouterContractArgs, MeshContext>,
+  /** null **/
+  registryRouterContracts: InContextSdkMethod<Subscription['registryRouterContracts'], SubscriptionregistryRouterContractsArgs, MeshContext>,
+  /** null **/
+  registeredAssetRouter: InContextSdkMethod<Subscription['registeredAssetRouter'], SubscriptionregisteredAssetRouterArgs, MeshContext>,
+  /** null **/
+  registeredAssetRouters: InContextSdkMethod<Subscription['registeredAssetRouters'], SubscriptionregisteredAssetRoutersArgs, MeshContext>,
+  /** null **/
+  vehicleRegistryContract: InContextSdkMethod<Subscription['vehicleRegistryContract'], SubscriptionvehicleRegistryContractArgs, MeshContext>,
+  /** null **/
+  vehicleRegistryContracts: InContextSdkMethod<Subscription['vehicleRegistryContracts'], SubscriptionvehicleRegistryContractsArgs, MeshContext>,
+  /** null **/
+  vehicle: InContextSdkMethod<Subscription['vehicle'], SubscriptionvehicleArgs, MeshContext>,
+  /** null **/
+  vehicles: InContextSdkMethod<Subscription['vehicles'], SubscriptionvehiclesArgs, MeshContext>,
+  /** null **/
+  treasuryContract: InContextSdkMethod<Subscription['treasuryContract'], SubscriptiontreasuryContractArgs, MeshContext>,
+  /** null **/
+  treasuryContracts: InContextSdkMethod<Subscription['treasuryContracts'], SubscriptiontreasuryContractsArgs, MeshContext>,
+  /** null **/
+  collateralLock: InContextSdkMethod<Subscription['collateralLock'], SubscriptioncollateralLockArgs, MeshContext>,
+  /** null **/
+  collateralLocks: InContextSdkMethod<Subscription['collateralLocks'], SubscriptioncollateralLocksArgs, MeshContext>,
+  /** null **/
+  marketplaceContract: InContextSdkMethod<Subscription['marketplaceContract'], SubscriptionmarketplaceContractArgs, MeshContext>,
+  /** null **/
+  marketplaceContracts: InContextSdkMethod<Subscription['marketplaceContracts'], SubscriptionmarketplaceContractsArgs, MeshContext>,
+  /** null **/
+  listing: InContextSdkMethod<Subscription['listing'], SubscriptionlistingArgs, MeshContext>,
+  /** null **/
+  listings: InContextSdkMethod<Subscription['listings'], SubscriptionlistingsArgs, MeshContext>,
+  /** Access to subgraph metadata **/
+  _meta: InContextSdkMethod<Subscription['_meta'], Subscription_metaArgs, MeshContext>
   };
+
+  export type Context = {
+      ["RoboshareProtocol"]: { Query: QuerySdk, Mutation: MutationSdk, Subscription: SubscriptionSdk },
+      
+    };
 }
-export type Sdk = ReturnType<typeof getSdk>;
