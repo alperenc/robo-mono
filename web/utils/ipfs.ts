@@ -9,8 +9,8 @@ export const uploadToIpfs = async (data: File | object): Promise<string> => {
       formData.append("file", blob, "metadata.json");
     }
 
-    // Using the local IPFS node exposed by the subgraph docker compose
-    const response = await fetch("http://localhost:5001/api/v0/add", {
+    // Use our internal API proxy to avoid CORS issues and protect infrastructure
+    const response = await fetch("/api/ipfs", {
       method: "POST",
       body: formData,
     });
