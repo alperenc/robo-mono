@@ -41,8 +41,10 @@ interface IAssetRegistry {
      * @dev Asset registration and token minting
      */
     function registerAsset(bytes calldata data) external returns (uint256 assetId);
-    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price) external returns (uint256 tokenId);
-    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price)
+    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
+        external
+        returns (uint256 tokenId);
+    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price, uint256 maturityDate)
         external
         returns (uint256 assetId, uint256 tokenId);
 

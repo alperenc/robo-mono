@@ -298,7 +298,7 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.prank(minter);
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.setRevenueTokenInfo(assetId, price, supply);
+        roboshareTokens.setRevenueTokenInfo(assetId, price, supply, block.timestamp + 365 days);
     }
 
     function testSetRevenueTokenInfoAlreadySet() public {
@@ -307,11 +307,11 @@ contract RoboshareTokensTest is BaseTest {
         uint256 supply = 1000;
 
         vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days);
 
         vm.startPrank(minter);
         vm.expectRevert(RoboshareTokens.RevenueTokenInfoAlreadySet.selector);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days);
         vm.stopPrank();
     }
 

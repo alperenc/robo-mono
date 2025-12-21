@@ -190,11 +190,15 @@ contract BaseTest is Test {
         // Calculate required collateral
         scenario.requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
+        uint256 maturityDate = block.timestamp + 365 days;
+
         vm.startPrank(partner1);
         // Approve USDC for collateral
         usdc.approve(address(treasury), scenario.requiredCollateral);
 
-        revenueTokenId = assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        revenueTokenId = assetRegistry.mintRevenueTokens(
+            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, maturityDate
+        );
         vm.stopPrank();
     }
 
@@ -581,8 +585,12 @@ contract BaseTest is Test {
         vm.startPrank(partner);
 
         // Register asset and mint tokens in one go
+        uint256 maturityDate = block.timestamp + 365 days;
         (scenario.assetId, scenario.revenueTokenId) = assetRegistry.registerAssetAndMintTokens(
-            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI), tokenPrice, totalTokens
+            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI),
+            tokenPrice,
+            totalTokens,
+            maturityDate
         );
 
         // Approve RoboshareTokens for Marketplace listing

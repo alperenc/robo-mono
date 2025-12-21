@@ -42,7 +42,7 @@ contract RoboshareTokens is
     event RevenueTokenPositionsUpdated(
         uint256 indexed revenueTokenId, address indexed from, address indexed to, uint256 amount
     );
-    event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply);
+    event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -83,8 +83,12 @@ contract RoboshareTokens is
      * @param revenueTokenId The ID of the revenue token.
      * @param supply The total supply of the revenue token.
      * @param price The initial price per token.
+     * @param maturityDate The date by which the revenue commitment ends.
      */
-    function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply) external onlyRole(MINTER_ROLE) {
+    function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate)
+        external
+        onlyRole(MINTER_ROLE)
+    {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
@@ -97,9 +101,10 @@ contract RoboshareTokens is
             tokenInfo,
             revenueTokenId,
             price,
-            ProtocolLib.MONTHLY_INTERVAL // Default holding period
+            ProtocolLib.MONTHLY_INTERVAL, // Default holding period
+            maturityDate
         );
-        emit RevenueTokenInfoSet(revenueTokenId, price, supply);
+        emit RevenueTokenInfoSet(revenueTokenId, price, supply, maturityDate);
     }
 
     /**
@@ -185,6 +190,18 @@ contract RoboshareTokens is
             revert NotRevenueToken();
         }
         return _revenueTokenInfos[revenueTokenId].tokenPrice;
+    }
+
+    /**
+     * @dev Gets the maturity date for a specific revenue token ID.
+     * @param revenueTokenId The ID of the revenue token.
+     * @return The maturity date timestamp.
+     */
+    function getTokenMaturityDate(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].maturityDate;
     }
 
     /**

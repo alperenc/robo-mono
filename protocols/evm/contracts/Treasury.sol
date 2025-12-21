@@ -622,8 +622,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _clearCollateral(assetId);
 
         // Check for maturity
-        AssetLib.AssetInfo memory assetInfo = router.getAssetInfo(assetId);
-        bool isMatured = block.timestamp >= assetInfo.maturityDate;
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
+        bool isMatured = block.timestamp >= maturityDate;
 
         if (!isLiquidation && isMatured) {
             // Voluntary settlement after maturity: Refund earnings AND protocol buffer to partner

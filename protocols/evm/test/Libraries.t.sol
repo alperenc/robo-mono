@@ -33,8 +33,8 @@ contract AssetHelper {
 
     AssetLib.AssetInfo internal info;
 
-    function init(AssetLib.AssetStatus s, uint256 maturityDate) external {
-        info.initializeAssetInfo(maturityDate);
+    function init(AssetLib.AssetStatus s) external {
+        info.initializeAssetInfo();
         if (s != AssetLib.AssetStatus.Pending) {
             info.updateAssetStatus(s);
         }
@@ -115,12 +115,12 @@ contract CollateralTokenEarningsHelper {
         return CollateralLib.getBenchmarkEarningsBuffer(base);
     }
 
-    function initToken(uint256 tokenId, uint256 price, uint256 minHold) external {
-        t.initializeTokenInfo(tokenId, price, minHold);
+    function initToken(uint256 tokenId, uint256 price, uint256 minHold, uint256 maturityDate) external {
+        t.initializeTokenInfo(tokenId, price, minHold, maturityDate);
     }
 
-    function tokenInfo() external view returns (uint256, uint256, uint256, uint256) {
-        return (t.tokenId, t.tokenPrice, t.tokenSupply, t.minHoldingPeriod);
+    function tokenInfo() external view returns (uint256, uint256, uint256, uint256, uint256) {
+        return (t.tokenId, t.tokenPrice, t.tokenSupply, t.minHoldingPeriod, t.maturityDate);
     }
 
     function addPos(address h, uint256 amt) external {
@@ -197,8 +197,7 @@ contract LibrariesTest is Test {
 
     // AssetLib tests
     function testAssetsInitAndTransitions() public {
-        uint256 testMaturityDate = block.timestamp + 365 days; // 1 year from now for testing
-        ah.init(AssetLib.AssetStatus.Pending, testMaturityDate);
+        ah.init(AssetLib.AssetStatus.Pending);
         assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Pending));
         assertFalse(ah.isOperational());
 
@@ -232,8 +231,7 @@ contract LibrariesTest is Test {
     }
 
     function testAssetsTimeViews() public {
-        uint256 testMaturityDate = block.timestamp + 365 days; // 1 year from now for testing
-        ah.init(AssetLib.AssetStatus.Active, testMaturityDate);
+        ah.init(AssetLib.AssetStatus.Active);
         uint256 t0 = block.timestamp;
         vm.warp(t0 + 1 days);
         assertApproxEqAbs(ah.age(), 1 days, 2);
@@ -320,19 +318,22 @@ contract LibrariesTest is Test {
     // TokenLib tests
     function testTokenInitializationAndValueCalculation() public {
         // min holding coerced to at least MONTHLY_INTERVAL
-        cteh.initToken(1, 100e6, 1 days);
-        (uint256 tid, uint256 price, uint256 supply, uint256 minHold) = cteh.tokenInfo();
+        uint256 maturityDate = block.timestamp + 365 days;
+        cteh.initToken(1, 100e6, 1 days, maturityDate);
+        (uint256 tid, uint256 price, uint256 supply, uint256 minHold, uint256 tokenMaturity) = cteh.tokenInfo();
         assertEq(tid, 1);
         assertEq(price, 100e6);
         assertEq(supply, 0);
         assertEq(minHold, ProtocolLib.MONTHLY_INTERVAL);
+        assertEq(tokenMaturity, maturityDate);
 
         // token value
         assertEq(cteh.tokenValue(5), 5 * 100e6);
     }
 
     function testTokenUnclaimedForPositionsAndEarningsHelpers() public {
-        cteh.initToken(7, 100e6, ProtocolLib.MONTHLY_INTERVAL);
+        uint256 maturityDate = block.timestamp + 365 days;
+        cteh.initToken(7, 100e6, ProtocolLib.MONTHLY_INTERVAL, maturityDate);
         cteh.addPos(alice, 10);
 
         // Initialize earnings and set three periods
@@ -355,7 +356,8 @@ contract LibrariesTest is Test {
     }
 
     function testRemovePositionInsufficientBalance() public {
-        cteh.initToken(1, 100e6, ProtocolLib.MONTHLY_INTERVAL);
+        uint256 maturityDate = block.timestamp + 365 days;
+        cteh.initToken(1, 100e6, ProtocolLib.MONTHLY_INTERVAL, maturityDate);
         cteh.addPos(alice, 10);
         vm.expectRevert(TokenLib.InsufficientTokenBalance.selector);
         cteh.removePos(alice, 11);

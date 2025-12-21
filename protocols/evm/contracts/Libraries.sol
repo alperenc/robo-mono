@@ -96,19 +96,16 @@ library AssetLib {
         AssetStatus status; // Current asset status
         uint256 createdAt; // Asset registration timestamp
         uint256 updatedAt; // Last status/metadata update
-        uint256 maturityDate; // Date by which asset must be retired
     }
 
     /**
      * @dev Initialize asset info
      * @param info Storage reference to asset info
-     * @param maturityDate Asset maturity timestamp
      */
-    function initializeAssetInfo(AssetInfo storage info, uint256 maturityDate) internal {
+    function initializeAssetInfo(AssetInfo storage info) internal {
         info.status = AssetStatus.Pending;
         info.createdAt = block.timestamp;
         info.updatedAt = block.timestamp;
-        info.maturityDate = maturityDate;
     }
 
     /**
@@ -250,14 +247,13 @@ library VehicleLib {
         uint256 year,
         uint256 manufacturerId,
         string memory optionCodes,
-        string memory dynamicMetadataURI,
-        uint256 maturityDate
+        string memory dynamicMetadataURI
     ) internal {
         // Set vehicle ID
         vehicle.vehicleId = vehicleId;
 
         // Initialize asset info
-        AssetLib.initializeAssetInfo(vehicle.assetInfo, maturityDate);
+        AssetLib.initializeAssetInfo(vehicle.assetInfo);
 
         // Initialize vehicle-specific info
         initializeVehicleInfo(
@@ -319,7 +315,7 @@ library VehicleLib {
      * @dev Get vehicle display name for UI/events
      */
     function getDisplayName(VehicleInfo storage info) internal view returns (string memory) {
-        return string(abi.encodePacked(info.make, " ", info.model, " (", _uint256ToString(info.year), ")"));
+        return string(abi.encodePacked(_uint256ToString(info.year), " ", info.make, " ", info.model));
     }
 
     /**
@@ -379,6 +375,7 @@ library TokenLib {
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
         uint256 tokenSupply; // Total number of tokens issued
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
+        uint256 maturityDate; // Date by which the revenue commitment ends
         // Track positions per user using Queue
         mapping(address => PositionQueue) positions;
     }
@@ -391,15 +388,21 @@ library TokenLib {
      * @param tokenId ERC1155 token ID
      * @param tokenPrice Price per token in USDC
      * @param minHoldingPeriod Minimum holding period (defaults to MONTHLY_INTERVAL)
+     * @param maturityDate Date by which the revenue commitment ends
      */
-    function initializeTokenInfo(TokenInfo storage info, uint256 tokenId, uint256 tokenPrice, uint256 minHoldingPeriod)
-        internal
-    {
+    function initializeTokenInfo(
+        TokenInfo storage info,
+        uint256 tokenId,
+        uint256 tokenPrice,
+        uint256 minHoldingPeriod,
+        uint256 maturityDate
+    ) internal {
         info.tokenId = tokenId;
         info.tokenPrice = tokenPrice;
         info.tokenSupply = 0; // Initialize to 0, will be updated by minting/burning
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
+        info.maturityDate = maturityDate;
         // mappings are automatically initialized
     }
 
