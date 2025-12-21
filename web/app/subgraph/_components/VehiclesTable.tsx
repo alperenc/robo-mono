@@ -22,6 +22,9 @@ const VehiclesTable = () => {
                   id
                   partner
                   vin
+                  make
+                  model
+                  year
                   blockNumber
                   blockTimestamp
                   transactionHash

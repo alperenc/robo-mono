@@ -16,10 +16,9 @@ type RegisterMode = "REGISTER_ONLY" | "REGISTER_AND_MINT";
 interface DashboardAsset {
   id: string;
   vin?: string; // Specific to Vehicle
-  make?: string; // Specific to Vehicle
-  model?: string; // Specific to Vehicle
-  year?: bigint; // Specific to Vehicle
-  displayName?: string; // Human readable name
+  make?: string;
+  model?: string;
+  year?: string | bigint;
   partner: string;
   blockNumber: string;
   type: AssetType; // The discriminator
@@ -74,7 +73,9 @@ const PartnerDashboard: NextPage = () => {
                     id
                     partner
                     vin
-                    displayName
+                    make
+                    model
+                    year
                     blockNumber
                     blockTimestamp
                     transactionHash
@@ -88,7 +89,10 @@ const PartnerDashboard: NextPage = () => {
             throw new Error(`Subgraph fetch failed: ${response.statusText}`);
           }
 
-          const { data: vehicleData } = await response.json();
+          const responseJson = await response.json();
+          console.log("Full Subgraph Response:", responseJson);
+
+          const { data: vehicleData } = responseJson;
 
           console.log("Connected Address:", connectedAddress?.toLowerCase());
           console.log("Raw Vehicles:", vehicleData?.vehicles);
@@ -335,11 +339,11 @@ const PartnerDashboard: NextPage = () => {
                     className="card bg-base-100 shadow-sm border-l-4 border-warning flex-row items-center p-5 hover:shadow-md transition-shadow"
                   >
                     <div className="flex-1">
+                      {/* Debug: Print raw make */}
+                      {/* <pre className="text-[10px]">{JSON.stringify(asset, null, 2)}</pre> */}
                       <div className="text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
                       <div className="font-bold text-xl">
-                        {asset.type === AssetType.VEHICLE && asset.make
-                          ? `${asset.year?.toString()} ${asset.make} ${asset.model}`
-                          : asset.vin || `Asset #${asset.id}`}
+                        {asset.make ? `${asset.year} ${asset.make} ${asset.model}` : asset.vin || `Asset #${asset.id}`}
                       </div>
                       <div className="text-xs opacity-60">
                         ID: {asset.id} {asset.vin ? `• VIN: ${asset.vin}` : ""}
@@ -370,7 +374,9 @@ const PartnerDashboard: NextPage = () => {
                   >
                     <div className="flex-1">
                       <div className="text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
-                      <div className="font-bold text-xl">{asset.displayName || asset.vin || `Asset #${asset.id}`}</div>
+                      <div className="font-bold text-xl">
+                        {asset.make ? `${asset.year} ${asset.make} ${asset.model}` : asset.vin || `Asset #${asset.id}`}
+                      </div>
                       <div className="text-sm opacity-70">
                         ID: {asset.id} {asset.vin ? `• VIN: ${asset.vin}` : ""} • Supply:{" "}
                         <span className="font-mono">{asset.supply?.toString()}</span> shares
