@@ -522,7 +522,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testClaimSettlementNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         vm.prank(partner1);
-        assetRegistry.claimSettlement(999);
+        assetRegistry.claimSettlement(999, false);
     }
 
     function testClaimSettlementNotSettled() public {
@@ -533,7 +533,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
                 IAssetRegistry.AssetNotSettled.selector, scenario.assetId, AssetLib.AssetStatus.Active
             )
         );
-        assetRegistry.claimSettlement(scenario.assetId);
+        assetRegistry.claimSettlement(scenario.assetId, false);
     }
 
     function testClaimSettlementNoTokens() public {
@@ -552,7 +552,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             abi.encodeWithSelector(IAssetRegistry.InsufficientTokenBalance.selector, scenario.revenueTokenId, 1, 0)
         );
 
-        assetRegistry.claimSettlement(scenario.assetId);
+        assetRegistry.claimSettlement(scenario.assetId, false);
     }
 
     // Branch Coverage Improvement Tests

@@ -121,8 +121,8 @@ contract MockRegistry is IAssetRegistry {
         assets[assetId].info.status = AssetLib.AssetStatus.Expired;
     }
 
-    function claimSettlement(uint256) external pure override returns (uint256) {
-        return 0;
+    function claimSettlement(uint256, bool) external pure override returns (uint256, uint256) {
+        return (0, 0);
     }
 
     function getRegistryType() external pure override returns (string memory) {
@@ -357,7 +357,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.liquidateAsset(nonExistentAssetId);
 
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
-        router.claimSettlement(nonExistentAssetId);
+        router.claimSettlement(nonExistentAssetId, false);
 
         // Test non-existent asset when calling processSettlementClaim/initiateSettlement/executeLiquidation
         // These are handled by RegistryRouter.RegistryNotBoundToAsset, TreasuryNotSet, etc.

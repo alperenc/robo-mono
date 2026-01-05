@@ -67,6 +67,9 @@ interface ITreasury {
     function distributeEarnings(uint256 assetId, uint256 totalRevenue, uint256 investorAmount) external;
     function getMinProtocolFee() external pure returns (uint256);
     function claimEarnings(uint256 assetId) external;
+    function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
+        external
+        returns (uint256 snapshotAmount);
     function releasePartialCollateral(uint256 assetId) external;
     function getTotalCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply)
         external

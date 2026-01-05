@@ -90,7 +90,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     function testLockCollateralAlreadyLocked() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
         uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         vm.startPrank(partner1);
@@ -254,7 +254,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     function testUnlockCollateralUnauthorizedPartner() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
         vm.expectRevert(ITreasury.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         treasury.releaseCollateral(scenario.assetId);
@@ -552,7 +552,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     function testReleasePartialCollateral() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
         vm.warp(block.timestamp + 30 days);
         setupEarningsScenario(scenario.assetId, 1000e6);
         vm.startPrank(partner1);
@@ -571,7 +571,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     function testReleasePartialCollateralNoEarnings() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
         vm.warp(block.timestamp + 16 days);
         vm.expectRevert(ITreasury.NoPriorEarningsDistribution.selector);
         vm.prank(partner1);
@@ -579,7 +579,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     function testReleasePartialCollateralNotOwner() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
         // partner2 is authorized but does not own scenario.assetId
         vm.prank(partner2);
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
@@ -1064,7 +1064,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         (, uint256 settlementPerToken,) = treasury.assetSettlements(scenario.assetId);
 
         vm.prank(partner1);
-        uint256 claimed = assetRegistry.claimSettlement(scenario.assetId);
+        (uint256 claimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
 
         assertEq(claimed, totalSupply * settlementPerToken, "Claimed amount mismatch");
         assertEq(usdc.balanceOf(partner1), initialBalance + claimed, "Partner1 USDC balance mismatch");
@@ -1130,7 +1130,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     /// @dev Test line 567: initiateSettlement reverts when asset is already settled
     function testInitiateSettlementAlreadySettled() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
 
         // First settlement via Treasury directly (simulating router call)
         vm.prank(address(router));
@@ -1148,7 +1148,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     /// @dev Test line 607: executeLiquidation reverts when asset is already settled
     function testExecuteLiquidationAlreadySettled() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
 
         // First: settle via Treasury directly (simulating router call)
         vm.prank(address(router));
@@ -1166,7 +1166,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     /// @dev Test line 689: processSettlementClaim with zero amount returns 0
     function testProcessSettlementClaimZeroAmount() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.AssetWithPurchase);
 
         // Settle the asset
         vm.warp(block.timestamp + ProtocolLib.YEARLY_INTERVAL * 5 + 1);
@@ -1177,5 +1177,302 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // This is tested via the router/registry claim flow
         // Since claimSettlement requires burning tokens, and we can't burn 0,
         // the zero-check is defense-in-depth that protects against internal calls
+    }
+
+    // ============================================
+    // Earnings Snapshot Tests
+    // ============================================
+
+    /// @dev Test claimSettlement with autoClaimEarnings=true claims both settlement and earnings
+    function testClaimSettlementWithAutoClaimEarnings() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Buyer purchases tokens - now buyer holds 100 tokens, partner1 holds 900
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        assertEq(buyerBalance, 100); // From SetupState.AssetWithListing
+
+        // Distribute earnings
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Settle the asset
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        // Calculate expected earnings for buyer (100 tokens out of 1000 investor tokens)
+        // Partner owns 900, investor owns 100. investorAmount = 10_000 * 100 / 1000 = 1000
+        // But partner is not an investor - earnings per token = investorAmount / investorSupply
+        // Actually partner holds 900 so investor portion = 10_000 * 100 / 1000 = 1000 for buyer
+        // Wait, _distributeEarnings calculates investorTokens = totalSupply - partnerTokens
+        // So with partner1 holding 900 after selling 100 to buyer:
+        // investorTokens = 1000 - 900 = 100
+        // investorAmount = 10_000 * 100 / 1000 = 1000
+        // earningsPerToken = 1000 / 1000 = 1 USDC per token
+        // buyer earnings = 100 * 1 = 100 USDC
+
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+        uint256 buyerPendingBefore = treasury.getPendingWithdrawal(buyer);
+
+        // Claim settlement with autoClaimEarnings=true
+        vm.prank(buyer);
+        (uint256 settlementClaimed, uint256 earningsClaimed) = assetRegistry.claimSettlement(scenario.assetId, true);
+
+        assertGt(settlementClaimed, 0, "Settlement should be > 0");
+        assertGt(earningsClaimed, 0, "Earnings should be > 0 with autoClaim");
+
+        // Earnings should be added to pending withdrawals
+        uint256 buyerPendingAfter = treasury.getPendingWithdrawal(buyer);
+        assertEq(buyerPendingAfter, buyerPendingBefore + earningsClaimed, "Pending should include earnings");
+
+        // Settlement is transferred directly
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + settlementClaimed, "Settlement should be direct transfer");
+    }
+
+    /// @dev Test claimSettlement with autoClaimEarnings=false then claim earnings separately
+    function testClaimSettlementThenClaimEarningsFromSnapshot() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        assertEq(buyerBalance, 100);
+
+        // Distribute earnings
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Settle the asset
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        uint256 buyerPendingBefore = treasury.getPendingWithdrawal(buyer);
+
+        // Claim settlement WITHOUT auto-claiming earnings
+        vm.prank(buyer);
+        (uint256 settlementClaimed, uint256 earningsClaimed) = assetRegistry.claimSettlement(scenario.assetId, false);
+
+        assertGt(settlementClaimed, 0, "Settlement should be > 0");
+        assertEq(earningsClaimed, 0, "Earnings should be 0 without autoClaim");
+
+        // Tokens are now burned
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0, "Tokens should be burned");
+
+        // But buyer can still claim earnings from snapshot
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+
+        uint256 buyerPendingAfter = treasury.getPendingWithdrawal(buyer);
+        assertGt(buyerPendingAfter, buyerPendingBefore, "Should have claimed earnings from snapshot");
+    }
+
+    /// @dev Critical test: verify earnings can be claimed via snapshot even after tokens are burned
+    function testClaimEarningsAfterTokensBurned() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute earnings
+        uint256 earningsAmount = 5_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Settle asset and claim settlement (without auto-claim earnings)
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        vm.prank(buyer);
+        assetRegistry.claimSettlement(scenario.assetId, false);
+
+        // Verify tokens are burned
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0, "Tokens should be burned");
+
+        // Now claim earnings - should work via snapshot
+        uint256 pendingBefore = treasury.getPendingWithdrawal(buyer);
+
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+
+        uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
+        assertGt(pendingAfter, pendingBefore, "Should claim earnings from snapshot after tokens burned");
+    }
+
+    /// @dev Test multiple investors claiming in different orders
+    function testClaimSettledEarningsMultipleInvestors() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Create second buyer
+        address buyer2 = makeAddr("buyer2");
+        deal(address(usdc), buyer2, 1_000_000e6);
+
+        // Partner1 sells more tokens to buyer2
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        vm.prank(partner1);
+        uint256 listing2Id =
+            marketplace.createListing(scenario.revenueTokenId, 200, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+
+        vm.startPrank(buyer2);
+        (,, uint256 payment2) = marketplace.calculatePurchaseCost(listing2Id, 200);
+        usdc.approve(address(marketplace), payment2);
+        marketplace.purchaseTokens(listing2Id, 200);
+        vm.stopPrank();
+
+        // Distribute earnings
+        uint256 earningsAmount = 30_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Settle
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        // Buyer1 claims with autoClaim, buyer2 claims without then claims earnings separately
+        vm.prank(buyer);
+        (uint256 buyer1Settlement, uint256 buyer1Earnings) = assetRegistry.claimSettlement(scenario.assetId, true);
+        assertGt(buyer1Settlement, 0, "Buyer1 settlement should be > 0");
+        assertGt(buyer1Earnings, 0, "Buyer1 should have auto-claimed earnings");
+
+        vm.prank(buyer2);
+        (uint256 buyer2Settlement, uint256 buyer2EarningsClaimed) =
+            assetRegistry.claimSettlement(scenario.assetId, false);
+        assertGt(buyer2Settlement, 0, "Buyer2 settlement should be > 0");
+        assertEq(buyer2EarningsClaimed, 0, "Buyer2 did not auto-claim");
+
+        // Buyer2 claims earnings from snapshot
+        uint256 buyer2PendingBefore = treasury.getPendingWithdrawal(buyer2);
+        vm.prank(buyer2);
+        treasury.claimEarnings(scenario.assetId);
+        uint256 buyer2PendingAfter = treasury.getPendingWithdrawal(buyer2);
+
+        assertGt(buyer2PendingAfter, buyer2PendingBefore, "Buyer2 should claim from snapshot");
+        // Buyer2 has 200 tokens vs buyer1's 100, so buyer2 should have ~2x the earnings
+        assertGt(buyer2PendingAfter - buyer2PendingBefore, buyer1Earnings, "Buyer2 should have more earnings");
+    }
+
+    /// @dev Test claiming with no unclaimed earnings works fine
+    function testClaimSettlementNoUnclaimedEarnings() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute and claim earnings BEFORE settlement
+        uint256 earningsAmount = 5_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Buyer claims earnings now
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+
+        // Now settle
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        // Claim settlement with autoClaim - should work, but earnings should be 0
+        vm.prank(buyer);
+        (uint256 settlement, uint256 earnings) = assetRegistry.claimSettlement(scenario.assetId, true);
+
+        assertGt(settlement, 0, "Should still get settlement");
+        assertEq(earnings, 0, "No unclaimed earnings");
+    }
+
+    /// @dev Test cannot claim snapshotted earnings twice
+    function testClaimEarningsCannotClaimSnapshotTwice() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute earnings
+        uint256 earningsAmount = 5_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Settle and claim settlement (snapshot created)
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        vm.prank(buyer);
+        assetRegistry.claimSettlement(scenario.assetId, false);
+
+        // First claim from snapshot works
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+
+        // Second claim should revert with NoEarningsToClaim
+        vm.prank(buyer);
+        vm.expectRevert(ITreasury.NoEarningsToClaim.selector);
+        treasury.claimEarnings(scenario.assetId);
+    }
+
+    /// @dev Test claimEarnings on active asset still uses position-based calculation
+    function testClaimEarningsAssetNotSettledNoSnapshot() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute earnings
+        uint256 earningsAmount = 5_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Asset NOT settled - claim should use normal position-based approach
+        uint256 pendingBefore = treasury.getPendingWithdrawal(buyer);
+
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+
+        uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
+        assertGt(pendingAfter, pendingBefore, "Should claim via positions for active asset");
+
+        // Verify buyer still has tokens (not burned)
+        assertGt(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0, "Tokens should not be burned");
+    }
+
+    /// @dev Test multiple earnings distributions before settlement
+    function testSnapshotEarningsMultipleEarningsPeriods() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute earnings in 3 periods
+        for (uint256 i = 0; i < 3; i++) {
+            uint256 earningsAmount = 3_000e6;
+            deal(address(usdc), partner1, earningsAmount);
+            vm.startPrank(partner1);
+            usdc.approve(address(treasury), earningsAmount);
+            _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+            vm.stopPrank();
+
+            // Advance time between distributions
+            vm.warp(block.timestamp + 30 days);
+        }
+
+        // Settle
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        // Claim with autoClaim
+        uint256 pendingBefore = treasury.getPendingWithdrawal(buyer);
+
+        vm.prank(buyer);
+        (uint256 settlement, uint256 earnings) = assetRegistry.claimSettlement(scenario.assetId, true);
+
+        assertGt(settlement, 0);
+        assertGt(earnings, 0, "Should have earnings from all 3 periods");
+
+        uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
+        assertEq(pendingAfter - pendingBefore, earnings, "Pending should match earnings claimed");
     }
 }
