@@ -78,6 +78,7 @@ type Vehicle @entity(immutable: true) {
   make: String
   model: String
   year: BigInt
+  metadataURI: String
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -103,16 +104,31 @@ type MarketplaceContract @entity(immutable: true) {
   address: Bytes!
 }
 
-type Listing @entity(immutable: true) {
+type Listing @entity(immutable: false) {
   id: ID! # listingId
   tokenId: BigInt!
   assetId: BigInt!
   seller: Bytes!
   amount: BigInt!
+  amountSold: BigInt!
   pricePerToken: BigInt!
   expiresAt: BigInt!
   buyerPaysFee: Boolean!
+  status: String! # "active", "completed", "cancelled"
   createdAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TokenTrade @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  listingId: BigInt!
+  tokenId: BigInt!
+  buyer: Bytes!
+  seller: Bytes!
+  amount: BigInt!
+  totalPrice: BigInt!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!

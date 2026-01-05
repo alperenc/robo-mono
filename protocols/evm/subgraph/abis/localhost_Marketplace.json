@@ -150,6 +150,24 @@
   },
   {
     "type": "function",
+    "name": "extendListing",
+    "inputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "additionalDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "getAssetListings",
     "inputs": [
       {
@@ -824,6 +842,25 @@
   },
   {
     "type": "event",
+    "name": "ListingExtended",
+    "inputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newExpiresAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PartnerManagerUpdated",
     "inputs": [
       {
@@ -1119,6 +1156,11 @@
   {
     "type": "error",
     "name": "InvalidAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidDuration",
     "inputs": []
   },
   {

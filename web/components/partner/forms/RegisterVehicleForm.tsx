@@ -295,6 +295,7 @@ export const RegisterVehicleForm = ({ onClose, initialMode, onBack }: RegisterVe
                       className="input input-bordered input-sm w-full pl-6"
                       value={formData.tokenPrice}
                       onChange={handleInputChange}
+                      placeholder="e.g. 1.00"
                       required
                     />
                   </div>
@@ -309,6 +310,7 @@ export const RegisterVehicleForm = ({ onClose, initialMode, onBack }: RegisterVe
                     className="input input-bordered input-sm w-full"
                     value={formData.tokenSupply}
                     onChange={handleInputChange}
+                    placeholder="e.g. 10000"
                     required
                   />
                 </div>
@@ -336,6 +338,14 @@ export const RegisterVehicleForm = ({ onClose, initialMode, onBack }: RegisterVe
                   <span className="text-sm font-bold text-primary">{formatUsdc(requiredCollateral)} USDC</span>
                 </div>
               </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-info/10 p-3 rounded-lg text-xs mt-3">
+              <p className="opacity-80">
+                You will need to deposit <span className="font-bold">{formatUsdc(requiredCollateral)} USDC</span> as
+                collateral. This amount will be locked in the Treasury until the asset matures or is settled.
+              </p>
             </div>
           </>
         )}

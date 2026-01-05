@@ -177,4 +177,59 @@ contract MarketplaceTest is BaseTest {
         vm.prank(unauthorized);
         marketplace.updateTreasury(address(newTreasury));
     }
+
+    // ExtendListing Tests
+
+    function testExtendListingSuccess() public {
+        // Setup: Create a listing
+        _ensureState(SetupState.AssetWithListing);
+
+        Marketplace.Listing memory listingBefore = marketplace.getListing(scenario.listingId);
+        uint256 additionalDuration = 7 days;
+
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, additionalDuration);
+
+        Marketplace.Listing memory listingAfter = marketplace.getListing(scenario.listingId);
+        assertEq(listingAfter.expiresAt, listingBefore.expiresAt + additionalDuration);
+        assertTrue(listingAfter.isActive);
+    }
+
+    function testExtendListingNonExistent() public {
+        _ensureState(SetupState.ContractsDeployed);
+
+        uint256 nonExistentListingId = 999;
+
+        vm.expectRevert(Marketplace.ListingNotFound.selector);
+        vm.prank(partner1);
+        marketplace.extendListing(nonExistentListingId, 7 days);
+    }
+
+    function testExtendListingUnauthorized() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.prank(unauthorized);
+        marketplace.extendListing(scenario.listingId, 7 days);
+    }
+
+    function testExtendListingInactive() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Cancel the listing first
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, 7 days);
+    }
+
+    function testExtendListingZeroDuration() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        vm.expectRevert(Marketplace.InvalidDuration.selector);
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, 0);
+    }
 }

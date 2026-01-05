@@ -26,7 +26,10 @@ import {
 } from "../generated/Treasury/Treasury"
 import {
   Marketplace,
-  ListingCreated as ListingCreatedEvent
+  ListingCreated as ListingCreatedEvent,
+  RevenueTokensTraded as RevenueTokensTradedEvent,
+  ListingCancelled as ListingCancelledEvent,
+  ListingExtended as ListingExtendedEvent
 } from "../generated/Marketplace/Marketplace"
 
 import {
@@ -44,7 +47,8 @@ import {
   TreasuryContract,
   CollateralLock,
   MarketplaceContract,
-  Listing
+  Listing,
+  TokenTrade
 } from "../generated/schema"
 
 export function handleMockUSDCTransfer(event: MockUSDCTransferEvent): void {
@@ -150,6 +154,7 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
     vehicle.make = info.value1 // make
     vehicle.model = info.value2 // model
     vehicle.year = info.value3 // year
+    vehicle.metadataURI = info.value6 // dynamicMetadataURI
   }
 
   vehicle.save()
@@ -188,9 +193,11 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.assetId = event.params.assetId
   listing.seller = event.params.seller
   listing.amount = event.params.amount
+  listing.amountSold = BigInt.fromI32(0)
   listing.pricePerToken = event.params.pricePerToken
   listing.expiresAt = event.params.expiresAt
   listing.buyerPaysFee = event.params.buyerPaysFee
+  listing.status = "active"
   listing.createdAt = event.block.timestamp
   listing.blockNumber = event.block.number
   listing.blockTimestamp = event.block.timestamp
@@ -202,5 +209,59 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
     contract = new MarketplaceContract("1")
     contract.address = event.address
     contract.save()
+  }
+}
+
+export function handleRevenueTokensTraded(event: RevenueTokensTradedEvent): void {
+  // Create TokenTrade entity
+  let trade = new TokenTrade(
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
+  )
+  trade.listingId = event.params.listingId
+  trade.tokenId = event.params.tokenId
+  trade.buyer = event.params.to
+  trade.seller = event.params.from
+  trade.amount = event.params.amount
+  trade.totalPrice = event.params.totalPrice
+  trade.blockNumber = event.block.number
+  trade.blockTimestamp = event.block.timestamp
+  trade.transactionHash = event.transaction.hash
+  trade.save()
+
+  // Update listing amountSold and status
+  let listing = Listing.load(event.params.listingId.toString())
+  if (listing) {
+    listing.amountSold = listing.amountSold.plus(event.params.amount)
+    // If all tokens sold, mark as completed
+    if (listing.amountSold.equals(listing.amount.plus(listing.amountSold).minus(listing.amount))) {
+      // Check by loading fresh amount from remaining
+      let remaining = listing.amount.minus(event.params.amount)
+      listing.amount = remaining
+      if (remaining.equals(BigInt.fromI32(0))) {
+        listing.status = "completed"
+      }
+    } else {
+      listing.amount = listing.amount.minus(event.params.amount)
+      if (listing.amount.equals(BigInt.fromI32(0))) {
+        listing.status = "completed"
+      }
+    }
+    listing.save()
+  }
+}
+
+export function handleListingCancelled(event: ListingCancelledEvent): void {
+  let listing = Listing.load(event.params.listingId.toString())
+  if (listing) {
+    listing.status = "cancelled"
+    listing.save()
+  }
+}
+
+export function handleListingExtended(event: ListingExtendedEvent): void {
+  let listing = Listing.load(event.params.listingId.toString())
+  if (listing) {
+    listing.expiresAt = event.params.newExpiresAt
+    listing.save()
   }
 }

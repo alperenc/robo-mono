@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { AssetLib } from "../Libraries.sol";
+
 /**
  * @title ITreasury
  * @dev Interface for the Treasury contract
@@ -17,7 +19,9 @@ interface ITreasury {
     event CollateralBuffersUpdated(
         uint256 indexed assetId, uint256 newEarningsBuffer, uint256 newReservedForLiquidation
     );
-    event EarningsDistributed(uint256 indexed assetId, address indexed partner, uint256 amount, uint256 period);
+    event EarningsDistributed(
+        uint256 indexed assetId, address indexed partner, uint256 totalRevenue, uint256 investorEarnings, uint256 period
+    );
     event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
     event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
     event RouterUpdated(address indexed newRouter);
@@ -43,6 +47,7 @@ interface ITreasury {
     error TooSoonForCollateralRelease();
     error NoPriorEarningsDistribution();
     error InsufficientTokenBalance();
+    error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
 
     function lockCollateral(uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply) external;
     function lockCollateralFor(address partner, uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply)
@@ -59,7 +64,8 @@ interface ITreasury {
         external
         returns (uint256 claimedAmount);
     function isAssetSolvent(uint256 assetId) external view returns (bool);
-    function distributeEarnings(uint256 assetId, uint256 amount) external;
+    function distributeEarnings(uint256 assetId, uint256 totalRevenue, uint256 investorAmount) external;
+    function getMinProtocolFee() external pure returns (uint256);
     function claimEarnings(uint256 assetId) external;
     function releasePartialCollateral(uint256 assetId) external;
     function getTotalCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply)

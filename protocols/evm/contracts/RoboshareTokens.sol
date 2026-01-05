@@ -36,7 +36,6 @@ contract RoboshareTokens is
     // Errors
     error NotRevenueToken();
     error RevenueTokenInfoAlreadySet();
-    error InsufficientBalance();
 
     // Events
     event RevenueTokenPositionsUpdated(
@@ -246,11 +245,6 @@ contract RoboshareTokens is
     {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
-        }
-
-        // Check balance before proceeding
-        if (balanceOf(seller, revenueTokenId) < amount) {
-            revert InsufficientBalance();
         }
 
         // If the seller is the current owner of the corresponding Asset NFT, they are exempt from the penalty.
