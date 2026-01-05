@@ -1419,7 +1419,6 @@ export namespace RoboshareProtocolTypes {
     make?: Maybe<Scalars["String"]["output"]>;
     model?: Maybe<Scalars["String"]["output"]>;
     year?: Maybe<Scalars["BigInt"]["output"]>;
-    metadataURI?: Maybe<Scalars["String"]["output"]>;
     blockNumber: Scalars["BigInt"]["output"];
     blockTimestamp: Scalars["BigInt"]["output"];
     transactionHash: Scalars["Bytes"]["output"];
@@ -1544,26 +1543,6 @@ export namespace RoboshareProtocolTypes {
     year_lte?: InputMaybe<Scalars["BigInt"]["input"]>;
     year_in?: InputMaybe<Array<Scalars["BigInt"]["input"]>>;
     year_not_in?: InputMaybe<Array<Scalars["BigInt"]["input"]>>;
-    metadataURI?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_gt?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_lt?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_gte?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_lte?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_in?: InputMaybe<Array<Scalars["String"]["input"]>>;
-    metadataURI_not_in?: InputMaybe<Array<Scalars["String"]["input"]>>;
-    metadataURI_contains?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_contains_nocase?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not_contains?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not_contains_nocase?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_starts_with?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_starts_with_nocase?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not_starts_with?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not_starts_with_nocase?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_ends_with?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_ends_with_nocase?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not_ends_with?: InputMaybe<Scalars["String"]["input"]>;
-    metadataURI_not_ends_with_nocase?: InputMaybe<Scalars["String"]["input"]>;
     blockNumber?: InputMaybe<Scalars["BigInt"]["input"]>;
     blockNumber_not?: InputMaybe<Scalars["BigInt"]["input"]>;
     blockNumber_gt?: InputMaybe<Scalars["BigInt"]["input"]>;
@@ -1603,7 +1582,6 @@ export namespace RoboshareProtocolTypes {
     | "make"
     | "model"
     | "year"
-    | "metadataURI"
     | "blockNumber"
     | "blockTimestamp"
     | "transactionHash";
