@@ -514,9 +514,8 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
 
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-        uint256 totalNet =
-            (earnings1 - calculateExpectedProtocolFee(earnings1))
-                + (earnings2 - calculateExpectedProtocolFee(earnings2));
+        uint256 totalNet = (earnings1 - calculateExpectedProtocolFee(earnings1))
+            + (earnings2 - calculateExpectedProtocolFee(earnings2));
         uint256 buyerShare = (totalNet * buyerBalance) / REVENUE_TOKEN_SUPPLY;
 
         uint256 initialPending = treasury.getPendingWithdrawal(buyer);
