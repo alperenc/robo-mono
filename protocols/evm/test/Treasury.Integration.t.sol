@@ -1064,7 +1064,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         (, uint256 settlementPerToken,) = treasury.assetSettlements(scenario.assetId);
 
         vm.prank(partner1);
-        uint256 claimed = assetRegistry.claimSettlement(scenario.assetId);
+        (uint256 claimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
 
         assertEq(claimed, totalSupply * settlementPerToken, "Claimed amount mismatch");
         assertEq(usdc.balanceOf(partner1), initialBalance + claimed, "Partner1 USDC balance mismatch");

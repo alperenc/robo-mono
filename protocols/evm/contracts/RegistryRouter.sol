@@ -234,6 +234,28 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         return ITreasury(treasury).processSettlementClaim(recipient, assetId, amount);
     }
 
+    /**
+     * @dev Forward earnings snapshot (and optionally claim) request from Registry to Treasury.
+     * Called before burning tokens to preserve unclaimed earnings.
+     * Callable only by authorized registries.
+     */
+    function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
+        external
+        onlyRole(AUTHORIZED_REGISTRY_ROLE)
+        returns (uint256 snapshotAmount)
+    {
+        // Verify this registry owns the asset
+        if (assetIdToRegistry[assetId] != msg.sender) {
+            revert RegistryNotBoundToAsset();
+        }
+
+        if (treasury == address(0)) {
+            revert TreasuryNotSet();
+        }
+
+        return ITreasury(treasury).snapshotAndClaimEarnings(assetId, holder, autoClaim);
+    }
+
     function isAssetSolvent(uint256 assetId) external view returns (bool) {
         if (treasury == address(0)) {
             revert TreasuryNotSet();
@@ -257,12 +279,16 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         IAssetRegistry(registry).liquidateAsset(assetId);
     }
 
-    function claimSettlement(uint256 assetId) external override returns (uint256) {
+    function claimSettlement(uint256 assetId, bool autoClaimEarnings)
+        external
+        override
+        returns (uint256 claimedAmount, uint256 earningsClaimed)
+    {
         address registry = assetIdToRegistry[assetId];
         if (registry == address(0)) {
             revert RegistryNotFoundForAsset(assetId);
         }
-        return IAssetRegistry(registry).claimSettlement(assetId);
+        return IAssetRegistry(registry).claimSettlement(assetId, autoClaimEarnings);
     }
 
     function burnRevenueTokens(uint256 assetId, uint256 amount) external override {

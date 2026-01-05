@@ -54,7 +54,9 @@ interface IAssetRegistry {
     function retireAsset(uint256 assetId) external;
     function settleAsset(uint256 assetId, uint256 topUpAmount) external;
     function liquidateAsset(uint256 assetId) external;
-    function claimSettlement(uint256 assetId) external returns (uint256 claimedAmount);
+    function claimSettlement(uint256 assetId, bool autoClaimEarnings)
+        external
+        returns (uint256 claimedAmount, uint256 earningsClaimed);
     function burnRevenueTokens(uint256 assetId, uint256 amount) external;
     function retireAssetAndBurnTokens(uint256 assetId) external;
 

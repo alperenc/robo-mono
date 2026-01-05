@@ -839,6 +839,9 @@ library EarningsLib {
         mapping(uint256 => EarningsPeriod) periods; // period => earnings data
         // Track last claimed period for each individual position
         mapping(address => mapping(uint256 => mapping(uint256 => uint256))) positionsLastClaimedPeriod; // holder => tokenId => positionId => lastClaimedPeriod
+        // Settlement earnings snapshot - allows claiming earnings after tokens are burned
+        mapping(address => uint256) settledEarningsSnapshot; // holder => unclaimed earnings at settlement
+        mapping(address => bool) hasClaimedSettledEarnings; // holder => whether they claimed snapshot
     }
 
     /**
@@ -983,5 +986,69 @@ library EarningsLib {
             period--;
         }
         return period;
+    }
+
+    /**
+     * @dev Snapshot a holder's unclaimed earnings at settlement time.
+     * Called before tokens are burned so earnings can be claimed later.
+     * @param earningsInfo Storage reference to earnings info
+     * @param holder Address of the token holder
+     * @param positions Memory array of user's positions (before burn)
+     * @return snapshotAmount Amount of unclaimed earnings snapshotted
+     */
+    function snapshotHolderEarnings(
+        EarningsInfo storage earningsInfo,
+        address holder,
+        TokenLib.TokenPosition[] memory positions
+    ) internal returns (uint256 snapshotAmount) {
+        // Calculate unclaimed earnings for all positions
+        snapshotAmount = calculateEarningsForPositions(earningsInfo, holder, positions);
+
+        // Store snapshot for later claim
+        earningsInfo.settledEarningsSnapshot[holder] = snapshotAmount;
+
+        // Mark claim periods as updated (to prevent double claiming via positions)
+        updateClaimPeriods(earningsInfo, holder, positions);
+
+        return snapshotAmount;
+    }
+
+    /**
+     * @dev Get the snapshot amount for a holder (unclaimed settled earnings)
+     * @param earningsInfo Storage reference to earnings info
+     * @param holder Address of the token holder
+     * @return amount Amount of unclaimed earnings in snapshot
+     * @return hasClaimed Whether the holder has already claimed this snapshot
+     */
+    function getSnapshotAmount(EarningsInfo storage earningsInfo, address holder)
+        internal
+        view
+        returns (uint256 amount, bool hasClaimed)
+    {
+        amount = earningsInfo.settledEarningsSnapshot[holder];
+        hasClaimed = earningsInfo.hasClaimedSettledEarnings[holder];
+        return (amount, hasClaimed);
+    }
+
+    /**
+     * @dev Claim settled earnings from snapshot and mark as claimed.
+     * @param earningsInfo Storage reference to earnings info
+     * @param holder Address of the token holder
+     * @return claimedAmount Amount of earnings claimed from snapshot
+     */
+    function claimSettledEarnings(EarningsInfo storage earningsInfo, address holder)
+        internal
+        returns (uint256 claimedAmount)
+    {
+        // Get snapshot and verify not already claimed
+        claimedAmount = earningsInfo.settledEarningsSnapshot[holder];
+
+        if (claimedAmount > 0 && !earningsInfo.hasClaimedSettledEarnings[holder]) {
+            // Mark as claimed
+            earningsInfo.hasClaimedSettledEarnings[holder] = true;
+            return claimedAmount;
+        }
+
+        return 0;
     }
 }

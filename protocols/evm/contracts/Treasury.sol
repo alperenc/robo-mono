@@ -389,7 +389,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Claim earnings from revenue token holdings
+     * @dev Claim earnings from revenue token holdings.
+     * For active assets: calculates earnings from current positions.
+     * For settled assets: uses snapshot taken before tokens were burned.
      * @param assetId The ID of the asset
      */
     function claimEarnings(uint256 assetId) external nonReentrant {
@@ -398,35 +400,86 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert AssetNotFound();
         }
 
-        // Check token ownership (source of truth)
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
-        uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-        if (tokenBalance == 0) {
-            revert InsufficientTokenBalance();
-        }
-
-        // Get earnings info
         EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
         if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
             revert NoEarningsToClaim();
         }
 
-        // Get user's positions from RoboshareTokens (single source of truth)
-        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, msg.sender);
+        // Check if asset is settled - if so, use snapshot approach
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        bool isSettled = (status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired);
 
-        // Calculate position-based earnings using Treasury's claim tracking
-        uint256 unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, msg.sender, positions);
+        uint256 unclaimedAmount;
+
+        if (isSettled) {
+            // For settled assets: claim from snapshot (works even after tokens burned)
+            unclaimedAmount = EarningsLib.claimSettledEarnings(earningsInfo, msg.sender);
+        } else {
+            // For active assets: calculate from current positions
+            uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+            uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
+            if (tokenBalance == 0) {
+                revert InsufficientTokenBalance();
+            }
+
+            // Get user's positions from RoboshareTokens (single source of truth)
+            TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, msg.sender);
+
+            // Calculate position-based earnings using Treasury's claim tracking
+            unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, msg.sender, positions);
+
+            if (unclaimedAmount > 0) {
+                // Update claim periods for all positions
+                EarningsLib.updateClaimPeriods(earningsInfo, msg.sender, positions);
+            }
+        }
+
         if (unclaimedAmount == 0) {
             revert NoEarningsToClaim();
         }
-
-        // Update claim periods for all positions
-        EarningsLib.updateClaimPeriods(earningsInfo, msg.sender, positions);
 
         // Add to pending withdrawals
         pendingWithdrawals[msg.sender] += unclaimedAmount;
 
         emit EarningsClaimed(assetId, msg.sender, unclaimedAmount);
+    }
+
+    /**
+     * @dev Snapshot a holder's unclaimed earnings before burning their tokens.
+     * Called by VehicleRegistry during claimSettlement to preserve earnings.
+     * @param assetId The ID of the asset
+     * @param holder The address of the token holder
+     * @param autoClaim If true, adds earnings to pendingWithdrawals immediately
+     * @return snapshotAmount Amount of unclaimed earnings snapshotted (and claimed if autoClaim=true)
+     */
+    function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
+        external
+        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        returns (uint256 snapshotAmount)
+    {
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+
+        // If no earnings were ever distributed, nothing to snapshot
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            return 0;
+        }
+
+        // Get holder's positions before they are burned
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+
+        // Snapshot their unclaimed earnings
+        snapshotAmount = EarningsLib.snapshotHolderEarnings(earningsInfo, holder, positions);
+
+        // If autoClaim is true, add to pendingWithdrawals and mark as claimed
+        if (autoClaim && snapshotAmount > 0) {
+            // Mark as claimed so they can't claim again via claimEarnings
+            earningsInfo.hasClaimedSettledEarnings[holder] = true;
+            pendingWithdrawals[holder] += snapshotAmount;
+            emit EarningsClaimed(assetId, holder, snapshotAmount);
+        }
+
+        return snapshotAmount;
     }
 
     /**
