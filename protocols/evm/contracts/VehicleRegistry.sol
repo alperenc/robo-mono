@@ -385,7 +385,13 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Snapshot (and optionally claim) earnings BEFORE burning tokens
         // This preserves earnings so they can be claimed later even after tokens are burned
-        earningsClaimed = router.snapshotAndClaimEarnings(assetId, msg.sender, autoClaimEarnings);
+        uint256 snapshotAmount = router.snapshotAndClaimEarnings(assetId, msg.sender, autoClaimEarnings);
+
+        // Only return earnings if they were actually claimed (autoClaim=true)
+        // When autoClaim=false, earnings are snapshotted for later claim via claimEarnings()
+        if (autoClaimEarnings) {
+            earningsClaimed = snapshotAmount;
+        }
 
         // Burn tokens (positions will be deleted)
         roboshareTokens.burn(msg.sender, revenueTokenId, balance);
