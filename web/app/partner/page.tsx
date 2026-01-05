@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { NextPage } from "next";
 import { useAccount, useReadContracts } from "wagmi";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
@@ -371,9 +372,9 @@ const PartnerDashboard: NextPage = () => {
     >
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         {/* Asset Image */}
-        <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-lg bg-base-200 overflow-hidden">
+        <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-lg bg-base-200 overflow-hidden">
           {asset.imageUrl ? (
-            <img src={asset.imageUrl} alt={getAssetDisplayName(asset)} className="w-full h-full object-cover" />
+            <Image src={asset.imageUrl} alt={getAssetDisplayName(asset)} fill className="object-cover" unoptimized />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-base-content/30">
               <span className="text-2xl sm:text-3xl">{ASSET_REGISTRIES[asset.type].icon}</span>
