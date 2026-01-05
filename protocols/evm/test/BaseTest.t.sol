@@ -148,16 +148,8 @@ contract BaseTest is Test {
     }
 
     function _setupInitialRolesAndPartners() internal {
-        // Setup roles and permissions
+        // Authorize test partners (test-specific setup, not part of deployment)
         vm.startPrank(admin);
-        // Grant MINTER_ROLE and BURNER_ROLE to VehicleRegistry for token operations
-        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(assetRegistry));
-        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(assetRegistry));
-        // Grant MINTER_ROLE to Router for reserveNextTokenIdPair
-        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(router));
-        // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace for Treasury operations
-        treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(marketplace));
-        // Authorize partners
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
         partnerManager.authorizePartner(partner2, PARTNER2_NAME);
         vm.stopPrank();
@@ -606,11 +598,25 @@ contract BaseTest is Test {
 
     /**
      * @dev Setup earnings distribution scenario
+     * @param _assetId The asset ID
+     * @param totalEarningsAmount Total revenue (for tracking)
+     * Note: Requires investor tokens to exist (buyer must have purchased tokens first)
      */
-    function setupEarningsScenario(uint256 _assetId, uint256 earningsAmount) internal {
+    function setupEarningsScenario(uint256 _assetId, uint256 totalEarningsAmount) internal {
+        // Get revenue token ID
+        uint256 revenueTokenId = router.getTokenIdFromAssetId(_assetId);
+
+        // Calculate investor portion based on token ownership
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+        uint256 partnerTokens = roboshareTokens.balanceOf(partner1, revenueTokenId);
+        uint256 investorTokens = totalSupply - partnerTokens;
+
+        // Calculate investor amount (proportional to their token ownership)
+        uint256 investorAmount = (totalEarningsAmount * investorTokens) / totalSupply;
+
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), earningsAmount);
-        treasury.distributeEarnings(_assetId, earningsAmount);
+        usdc.approve(address(treasury), investorAmount);
+        treasury.distributeEarnings(_assetId, totalEarningsAmount, investorAmount);
         vm.stopPrank();
     }
 

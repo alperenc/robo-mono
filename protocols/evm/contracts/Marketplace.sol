@@ -61,6 +61,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     error FeesExceedPrice();
     error InsufficientPayment();
     error NotTokenOwner();
+    error InvalidDuration();
 
     // Events
     event ListingCreated(
@@ -73,6 +74,8 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         uint256 expiresAt,
         bool buyerPaysFee
     );
+
+    event ListingExtended(uint256 indexed listingId, uint256 newExpiresAt);
 
     event RevenueTokensTraded(
         uint256 indexed tokenId,
@@ -328,6 +331,37 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
 
         emit ListingCancelled(listingId, msg.sender);
+    }
+
+    /**
+     * @dev Extend the duration of an active listing
+     * @param listingId The listing ID to extend
+     * @param additionalDuration Additional duration in seconds
+     */
+    function extendListing(uint256 listingId, uint256 additionalDuration) external nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        // Validate listing exists
+        if (listing.listingId == 0) {
+            revert ListingNotFound();
+        }
+        // Validate caller is the seller
+        if (listing.seller != msg.sender) {
+            revert NotTokenOwner();
+        }
+        // Validate listing is active
+        if (!listing.isActive) {
+            revert ListingNotActive();
+        }
+        // Validate duration is non-zero
+        if (additionalDuration == 0) {
+            revert InvalidDuration();
+        }
+
+        // Extend the expiration
+        listing.expiresAt += additionalDuration;
+
+        emit ListingExtended(listingId, listing.expiresAt);
     }
 
     // View Functions

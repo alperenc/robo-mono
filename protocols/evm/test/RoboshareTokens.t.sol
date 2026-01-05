@@ -327,13 +327,4 @@ contract RoboshareTokensTest is BaseTest {
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getSalesPenalty(user1, assetId, 100);
     }
-
-    function testGetSalesPenaltyInsufficientBalance() public {
-        _ensureState(SetupState.RevenueTokensMinted); // Mints tokens to partner1
-
-        // Attempt to get penalty for an amount greater than balance
-        uint256 excessAmount = REVENUE_TOKEN_SUPPLY + 1;
-        vm.expectRevert(RoboshareTokens.InsufficientBalance.selector);
-        roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, excessAmount);
-    }
 }

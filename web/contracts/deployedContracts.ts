@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1611,11 +1611,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "InsufficientBalance",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InsufficientTokenBalance",
           inputs: [],
         },
@@ -1657,7 +1652,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1730,7 +1725,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2367,7 +2362,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -3779,7 +3774,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5364,7 +5359,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -5623,7 +5618,12 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "amount",
+              name: "totalRevenue",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "investorAmount",
               type: "uint256",
               internalType: "uint256",
             },
@@ -5693,6 +5693,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getMinProtocolFee",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
         },
         {
           type: "function",
@@ -6465,7 +6478,13 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "amount",
+              name: "totalRevenue",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "investorEarnings",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -6782,6 +6801,22 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "AssetNotActive",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "AssetNotFound",
           inputs: [],
         },
@@ -6998,7 +7033,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -7151,6 +7186,24 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "extendListing",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "additionalDuration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -7829,6 +7882,25 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "ListingExtended",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "newExpiresAt",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "PartnerManagerUpdated",
           inputs: [
             {
@@ -8128,6 +8200,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidDuration",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
           inputs: [],
         },
@@ -8210,7 +8287,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1766317671988.json",
+      deploymentFile: "run-1767611379468.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

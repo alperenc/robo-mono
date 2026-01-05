@@ -1244,11 +1244,6 @@
   },
   {
     "type": "error",
-    "name": "InsufficientBalance",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InsufficientTokenBalance",
     "inputs": []
   },

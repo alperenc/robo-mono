@@ -252,7 +252,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "amount",
+        "name": "totalRevenue",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "investorAmount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -322,6 +327,19 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getMinProtocolFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -1094,7 +1112,13 @@
         "internalType": "address"
       },
       {
-        "name": "amount",
+        "name": "totalRevenue",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "investorEarnings",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1396,6 +1420,22 @@
   {
     "type": "error",
     "name": "AssetAlreadySettled",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentStatus",
+        "type": "uint8",
+        "internalType": "enum AssetLib.AssetStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AssetNotActive",
     "inputs": [
       {
         "name": "assetId",

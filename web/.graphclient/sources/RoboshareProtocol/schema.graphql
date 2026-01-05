@@ -8,7 +8,9 @@ Marks the GraphQL type as indexable entity.  Each type that should be an entity 
 """
 directive @entity on OBJECT
 
-"""Defined a Subgraph ID for an object type"""
+"""
+Defined a Subgraph ID for an object type
+"""
 directive @subgraphId(id: String!) on OBJECT
 
 """
@@ -108,7 +110,9 @@ input CollateralLock_filter {
   transactionHash_not_in: [Bytes!]
   transactionHash_contains: Bytes
   transactionHash_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [CollateralLock_filter]
   or: [CollateralLock_filter]
@@ -126,7 +130,6 @@ enum CollateralLock_orderBy {
 
 """
 8 bytes signed integer
-
 """
 scalar Int8
 
@@ -242,7 +245,9 @@ input Listing_filter {
   transactionHash_not_in: [Bytes!]
   transactionHash_contains: Bytes
   transactionHash_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [Listing_filter]
   or: [Listing_filter]
@@ -287,7 +292,9 @@ input MarketplaceContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [MarketplaceContract_filter]
   or: [MarketplaceContract_filter]
@@ -322,7 +329,9 @@ input MockUSDCContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [MockUSDCContract_filter]
   or: [MockUSDCContract_filter]
@@ -333,7 +342,9 @@ enum MockUSDCContract_orderBy {
   address
 }
 
-"""Defines the order direction, either ascending or descending"""
+"""
+Defines the order direction, either ascending or descending
+"""
 enum OrderDirection {
   asc
   desc
@@ -370,7 +381,9 @@ input PartnerManagerContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [PartnerManagerContract_filter]
   or: [PartnerManagerContract_filter]
@@ -428,7 +441,9 @@ input Partner_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [Partner_filter]
   or: [Partner_filter]
@@ -832,7 +847,9 @@ type Query {
     """
     subgraphError: _SubgraphErrorPolicy_! = deny
   ): [Listing!]!
-  """Access to subgraph metadata"""
+  """
+  Access to subgraph metadata
+  """
   _meta(block: Block_height): _Meta_
 }
 
@@ -907,7 +924,9 @@ input RegisteredAssetRouter_filter {
   transactionHash_not_in: [Bytes!]
   transactionHash_contains: Bytes
   transactionHash_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [RegisteredAssetRouter_filter]
   or: [RegisteredAssetRouter_filter]
@@ -947,7 +966,9 @@ input RegistryRouterContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [RegistryRouterContract_filter]
   or: [RegistryRouterContract_filter]
@@ -1016,7 +1037,9 @@ input RoboshareToken_filter {
   setAtBlock_lte: BigInt
   setAtBlock_in: [BigInt!]
   setAtBlock_not_in: [BigInt!]
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [RoboshareToken_filter]
   or: [RoboshareToken_filter]
@@ -1055,7 +1078,9 @@ input RoboshareTokensContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [RoboshareTokensContract_filter]
   or: [RoboshareTokensContract_filter]
@@ -1457,13 +1482,14 @@ type Subscription {
     """
     subgraphError: _SubgraphErrorPolicy_! = deny
   ): [Listing!]!
-  """Access to subgraph metadata"""
+  """
+  Access to subgraph metadata
+  """
   _meta(block: Block_height): _Meta_
 }
 
 """
 A string representation of microseconds UNIX timestamp (16 digits)
-
 """
 scalar Timestamp
 
@@ -1570,7 +1596,9 @@ input TransferSingleEvent_filter {
   transactionHash_not_in: [Bytes!]
   transactionHash_contains: Bytes
   transactionHash_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [TransferSingleEvent_filter]
   or: [TransferSingleEvent_filter]
@@ -1651,7 +1679,9 @@ input Transfer_filter {
   transactionHash_not_in: [Bytes!]
   transactionHash_contains: Bytes
   transactionHash_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [Transfer_filter]
   or: [Transfer_filter]
@@ -1691,7 +1721,9 @@ input TreasuryContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [TreasuryContract_filter]
   or: [TreasuryContract_filter]
@@ -1709,6 +1741,7 @@ type Vehicle {
   make: String
   model: String
   year: BigInt
+  metadataURI: String
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -1738,7 +1771,9 @@ input VehicleRegistryContract_filter {
   address_not_in: [Bytes!]
   address_contains: Bytes
   address_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [VehicleRegistryContract_filter]
   or: [VehicleRegistryContract_filter]
@@ -1836,6 +1871,26 @@ input Vehicle_filter {
   year_lte: BigInt
   year_in: [BigInt!]
   year_not_in: [BigInt!]
+  metadataURI: String
+  metadataURI_not: String
+  metadataURI_gt: String
+  metadataURI_lt: String
+  metadataURI_gte: String
+  metadataURI_lte: String
+  metadataURI_in: [String!]
+  metadataURI_not_in: [String!]
+  metadataURI_contains: String
+  metadataURI_contains_nocase: String
+  metadataURI_not_contains: String
+  metadataURI_not_contains_nocase: String
+  metadataURI_starts_with: String
+  metadataURI_starts_with_nocase: String
+  metadataURI_not_starts_with: String
+  metadataURI_not_starts_with_nocase: String
+  metadataURI_ends_with: String
+  metadataURI_ends_with_nocase: String
+  metadataURI_not_ends_with: String
+  metadataURI_not_ends_with_nocase: String
   blockNumber: BigInt
   blockNumber_not: BigInt
   blockNumber_gt: BigInt
@@ -1862,7 +1917,9 @@ input Vehicle_filter {
   transactionHash_not_in: [Bytes!]
   transactionHash_contains: Bytes
   transactionHash_not_contains: Bytes
-  """Filter for the block changed event."""
+  """
+  Filter for the block changed event.
+  """
   _change_block: BlockChangedFilter
   and: [Vehicle_filter]
   or: [Vehicle_filter]
@@ -1875,40 +1932,56 @@ enum Vehicle_orderBy {
   make
   model
   year
+  metadataURI
   blockNumber
   blockTimestamp
   transactionHash
 }
 
 type _Block_ {
-  """The hash of the block"""
+  """
+  The hash of the block
+  """
   hash: Bytes
-  """The block number"""
+  """
+  The block number
+  """
   number: Int!
-  """Integer representation of the timestamp stored in blocks for the chain"""
+  """
+  Integer representation of the timestamp stored in blocks for the chain
+  """
   timestamp: Int
-  """The hash of the parent block"""
+  """
+  The hash of the parent block
+  """
   parentHash: Bytes
 }
 
-"""The type for the top-level _meta field"""
+"""
+The type for the top-level _meta field
+"""
 type _Meta_ {
   """
   Information about a specific subgraph block. The hash of the block
   will be null if the _meta field has a block constraint that asks for
   a block number. It will be filled if the _meta field has no block constraint
   and therefore asks for the latest  block
-  
   """
   block: _Block_!
-  """The deployment ID"""
+  """
+  The deployment ID
+  """
   deployment: String!
-  """If `true`, the subgraph encountered indexing errors at some past block"""
+  """
+  If `true`, the subgraph encountered indexing errors at some past block
+  """
   hasIndexingErrors: Boolean!
 }
 
 enum _SubgraphErrorPolicy_ {
-  """Data will be returned even if the subgraph has indexing errors"""
+  """
+  Data will be returned even if the subgraph has indexing errors
+  """
   allow
   """
   If the subgraph has indexing errors, data will be omitted. The default.
