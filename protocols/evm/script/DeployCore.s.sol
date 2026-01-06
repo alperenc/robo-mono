@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";

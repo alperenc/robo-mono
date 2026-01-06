@@ -44,7 +44,6 @@ interface ITreasury {
     error InvalidEarningsAmount();
     error NoEarningsToClaim();
     error NoRevenueTokensIssued();
-    error TooSoonForCollateralRelease();
     error NoPriorEarningsDistribution();
     error InsufficientTokenBalance();
     error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
@@ -64,7 +63,9 @@ interface ITreasury {
         external
         returns (uint256 claimedAmount);
     function isAssetSolvent(uint256 assetId) external view returns (bool);
-    function distributeEarnings(uint256 assetId, uint256 totalRevenue, uint256 investorAmount) external;
+    function distributeEarnings(uint256 assetId, uint256 totalRevenue, uint256 investorAmount, bool tryAutoRelease)
+        external
+        returns (uint256 collateralReleased);
     function getMinProtocolFee() external pure returns (uint256);
     function claimEarnings(uint256 assetId) external;
     function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)

@@ -26,7 +26,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Calculate investor portion (if no investors, use totalAmount for error testing)
         uint256 investorAmount = investorTokens > 0 ? (totalAmount * investorTokens) / totalSupply : totalAmount;
 
-        treasury.distributeEarnings(assetId, totalAmount, investorAmount);
+        treasury.distributeEarnings(assetId, totalAmount, investorAmount, false);
     }
 
     function setUp() public {
@@ -380,7 +380,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         usdc.approve(address(treasury), investorAmount);
         vm.expectEmit(true, true, false, true);
         emit ITreasury.EarningsDistributed(scenario.assetId, partner1, totalAmount, netEarnings, 1);
-        treasury.distributeEarnings(scenario.assetId, totalAmount, investorAmount);
+        treasury.distributeEarnings(scenario.assetId, totalAmount, investorAmount, false);
         vm.stopPrank();
     }
 
@@ -388,20 +388,20 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.AssetWithPurchase);
         vm.expectRevert(ITreasury.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
-        treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6);
+        treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6, false);
     }
 
     function testDistributeEarningsInvalidAmount() public {
         _ensureState(SetupState.AssetWithPurchase);
         vm.expectRevert(ITreasury.InvalidEarningsAmount.selector);
         vm.prank(partner1);
-        treasury.distributeEarnings(scenario.assetId, 0, 0);
+        treasury.distributeEarnings(scenario.assetId, 0, 0, false);
     }
 
     function testDistributeEarningsNonExistentAsset() public {
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
         vm.prank(partner1);
-        treasury.distributeEarnings(999, 1000 * 1e6, 1000 * 1e6);
+        treasury.distributeEarnings(999, 1000 * 1e6, 1000 * 1e6, false);
     }
 
     function testDistributeEarningsPendingAsset() public {
@@ -420,7 +420,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.expectRevert(
             abi.encodeWithSelector(ITreasury.AssetNotActive.selector, assetId, AssetLib.AssetStatus.Pending)
         );
-        treasury.distributeEarnings(assetId, 1000 * 1e6, 1000 * 1e6);
+        treasury.distributeEarnings(assetId, 1000 * 1e6, 1000 * 1e6, false);
         vm.stopPrank();
     }
 
@@ -438,7 +438,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.expectRevert(
             abi.encodeWithSelector(ITreasury.AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Retired)
         );
-        treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6);
+        treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6, false);
         vm.stopPrank();
     }
 
@@ -449,7 +449,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.startPrank(partner2);
         usdc.approve(address(treasury), 1e9);
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
-        treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6);
+        treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6, false);
         vm.stopPrank();
     }
 
@@ -556,16 +556,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.warp(block.timestamp + 30 days);
         setupEarningsScenario(scenario.assetId, 1000e6);
         vm.startPrank(partner1);
-        treasury.releasePartialCollateral(scenario.assetId);
-        vm.stopPrank();
-    }
-
-    function testReleasePartialCollateralTooSoon() public {
-        _ensureState(SetupState.AssetWithPurchase);
-        vm.startPrank(partner1);
-        usdc.approve(address(treasury), 1000e6);
-        _distributeEarnings(scenario.assetId, 1000e6, partner1);
-        vm.expectRevert(ITreasury.TooSoonForCollateralRelease.selector);
         treasury.releasePartialCollateral(scenario.assetId);
         vm.stopPrank();
     }
@@ -868,31 +858,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.releasePartialCollateral(scenario.assetId);
     }
 
-    function testReleasePartialCollateralTooSoonMidCycle() public {
-        // 1. Set up state with a vehicle and initial earnings distribution.
-        _ensureState(SetupState.AssetWithEarnings);
-
-        // 2. Warp time forward to allow for an initial depreciation release.
-        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertTrue(isLocked);
-        vm.warp(lockedAt + ProtocolLib.MONTHLY_INTERVAL);
-
-        // 3. Perform the first release, which updates the lastEventTimestamp.
-        vm.prank(partner1);
-        treasury.releasePartialCollateral(scenario.assetId);
-
-        // 4. Distribute new earnings to pass the performance gate for the second attempt.
-        setupEarningsScenario(scenario.assetId, 1000e6);
-
-        // 5. Warp forward by less than the minimum interval.
-        vm.warp(block.timestamp + 1 days);
-
-        // 6. Expect the specific revert for attempting a release too soon.
-        vm.expectRevert(ITreasury.TooSoonForCollateralRelease.selector);
-        vm.prank(partner1);
-        treasury.releasePartialCollateral(scenario.assetId);
-    }
-
     function testDistributeEarningsMinimumProtocolFee() public {
         _ensureState(SetupState.AssetWithPurchase);
 
@@ -924,7 +889,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), insufficientEarningsAmount);
         vm.expectRevert(Treasury.EarningsLessThanMinimumFee.selector);
-        treasury.distributeEarnings(scenario.assetId, insufficientEarningsAmount, insufficientEarningsAmount);
+        treasury.distributeEarnings(scenario.assetId, insufficientEarningsAmount, insufficientEarningsAmount, false);
         vm.stopPrank();
     }
 
@@ -1474,5 +1439,117 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
         assertEq(pendingAfter - pendingBefore, earnings, "Pending should match earnings claimed");
+    }
+
+    // ============================================
+    // Bundled Collateral Release Tests
+    // ============================================
+
+    /// @dev Test distributeEarnings with tryAutoRelease=true releases collateral when eligible
+    function testDistributeEarningsAutoReleasesCollateral() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // First distribution with auto-release disabled (to establish earnings history)
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount * 3);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount * 3);
+
+        // First distribution - no release (first period)
+        uint256 released1 = treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, true);
+        assertEq(released1, 0, "No release on first period");
+
+        // Advance past minimum interval (15 days)
+        vm.warp(block.timestamp + 16 days);
+
+        // Second distribution with auto-release - should release collateral
+        uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
+        uint256 released2 = treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, true);
+
+        assertGt(released2, 0, "Should release collateral on second distribution");
+
+        uint256 pendingAfter = treasury.getPendingWithdrawal(partner1);
+        assertEq(pendingAfter - pendingBefore, released2, "Pending should include released collateral");
+
+        vm.stopPrank();
+    }
+
+    /// @dev Test that consecutive distributions with auto-release work (no interval check)
+    function testDistributeEarningsAutoReleaseConsecutive() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount * 2);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount * 2);
+
+        // First distribution - creates period 1, but no prior period to process yet
+        uint256 released1 = treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, true);
+        assertEq(released1, 0, "First distribution has no prior periods to process");
+
+        // Warp time forward - release amount is based on linear depreciation over time
+        vm.warp(block.timestamp + 7 days);
+
+        // Second distribution - now has period 1 to process AND time has passed for depreciation
+        uint256 released2 = treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, true);
+        assertGt(released2, 0, "Second distribution should release collateral");
+
+        vm.stopPrank();
+    }
+
+    /// @dev Test distributeEarnings with tryAutoRelease=false does not release collateral
+    function testDistributeEarningsAutoReleaseDisabled() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount * 2);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount * 2);
+
+        // First distribution
+        treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, false);
+
+        // Advance past minimum interval
+        vm.warp(block.timestamp + 16 days);
+
+        // Second distribution with auto-release DISABLED
+        uint256 released = treasury.distributeEarnings(
+            scenario.assetId,
+            earningsAmount,
+            earningsAmount,
+            false // disabled
+        );
+
+        assertEq(released, 0, "Should not release when tryAutoRelease=false");
+
+        // Partner can still manually release
+        treasury.releasePartialCollateral(scenario.assetId);
+
+        vm.stopPrank();
+    }
+
+    /// @dev Test manual releasePartialCollateral still works independently
+    function testManualReleaseAfterDistributeWithAutoReleaseDisabled() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+
+        // Distribute without auto-release
+        treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, false);
+
+        // Advance past minimum interval
+        vm.warp(block.timestamp + 16 days);
+
+        // Manual release should work
+        uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
+        treasury.releasePartialCollateral(scenario.assetId);
+        uint256 pendingAfter = treasury.getPendingWithdrawal(partner1);
+
+        assertGt(pendingAfter, pendingBefore, "Manual release should work");
+
+        vm.stopPrank();
     }
 }
