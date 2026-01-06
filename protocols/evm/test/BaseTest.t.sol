@@ -616,7 +616,7 @@ contract BaseTest is Test {
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), investorAmount);
-        treasury.distributeEarnings(_assetId, totalEarningsAmount, investorAmount);
+        treasury.distributeEarnings(_assetId, totalEarningsAmount, investorAmount, false);
         vm.stopPrank();
     }
 
