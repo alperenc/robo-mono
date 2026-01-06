@@ -10,6 +10,9 @@
     ]
   },
   "scripts": {
+    "dev": "./scripts/start-dev.sh",
+    "dev:reset": "./scripts/start-dev.sh --reset",
+    "dev:kill": "./scripts/start-dev.sh --kill",
     "account": "yarn evm:account",
     "account:generate": "yarn evm:generate",
     "account:import": "yarn evm:account-import",
@@ -56,6 +59,7 @@
     "subgraph:codegen": "yarn workspace subgraph codegen",
     "subgraph:create-local": "yarn workspace subgraph create-local",
     "subgraph:local-ship": "yarn workspace subgraph local-ship",
+    "subgraph:local-ship-auto": "yarn workspace subgraph local-ship-auto",
     "subgraph:run-node": "yarn workspace subgraph run-node",
     "subgraph:stop-node": "yarn workspace subgraph stop-node",
     "subgraph:test": "yarn workspace subgraph test -d",
