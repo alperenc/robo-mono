@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1652,7 +1652,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1725,7 +1725,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2362,7 +2362,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2516,10 +2516,20 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "autoClaimEarnings",
+              type: "bool",
+              internalType: "bool",
+            },
           ],
           outputs: [
             {
-              name: "",
+              name: "claimedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "earningsClaimed",
               type: "uint256",
               internalType: "uint256",
             },
@@ -3187,6 +3197,35 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "snapshotAndClaimEarnings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "autoClaim",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "snapshotAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "supportsInterface",
           inputs: [
             {
@@ -3774,7 +3813,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -3878,10 +3917,20 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "autoClaimEarnings",
+              type: "bool",
+              internalType: "bool",
+            },
           ],
           outputs: [
             {
               name: "claimedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "earningsClaimed",
               type: "uint256",
               internalType: "uint256",
             },
@@ -5359,7 +5408,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6181,6 +6230,35 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "snapshotAndClaimEarnings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "autoClaim",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "snapshotAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -7033,7 +7111,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -8287,7 +8365,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767611379468.json",
+      deploymentFile: "run-1767692566138.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

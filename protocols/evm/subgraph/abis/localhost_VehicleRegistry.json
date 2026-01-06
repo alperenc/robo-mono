@@ -96,11 +96,21 @@
         "name": "assetId",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "autoClaimEarnings",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [
       {
         "name": "claimedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "earningsClaimed",
         "type": "uint256",
         "internalType": "uint256"
       }
