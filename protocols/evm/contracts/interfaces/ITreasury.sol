@@ -72,6 +72,8 @@ interface ITreasury {
         external
         returns (uint256 snapshotAmount);
     function releasePartialCollateral(uint256 assetId) external;
+    function releaseAndWithdrawCollateral(uint256 assetId) external returns (uint256 withdrawn);
+    function claimAndWithdrawEarnings(uint256 assetId) external returns (uint256 withdrawn);
     function getTotalCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply)
         external
         pure
