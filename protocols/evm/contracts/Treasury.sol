@@ -306,6 +306,133 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
     }
 
+    // ============================================
+    // Convenience Withdrawal Functions
+    // ============================================
+
+    /**
+     * @dev Release partial collateral and withdraw in one transaction.
+     * Combines releasePartialCollateral() + processWithdrawal() for better UX.
+     * @param assetId The ID of the asset
+     * @return withdrawn Amount of USDC withdrawn
+     */
+    function releaseAndWithdrawCollateral(uint256 assetId)
+        external
+        onlyAuthorizedPartner
+        nonReentrant
+        returns (uint256 withdrawn)
+    {
+        // Use same logic as releasePartialCollateral
+        _releasePartialCollateralFor(assetId, msg.sender);
+
+        // Withdraw immediately
+        withdrawn = _processWithdrawalFor(msg.sender);
+    }
+
+    /**
+     * @dev Claim earnings and withdraw in one transaction.
+     * Combines claimEarnings() + processWithdrawal() for better UX.
+     * @param assetId The ID of the asset
+     * @return withdrawn Amount of USDC withdrawn
+     */
+    function claimAndWithdrawEarnings(uint256 assetId) external nonReentrant returns (uint256 withdrawn) {
+        // Use same logic as claimEarnings
+        _claimEarningsFor(assetId, msg.sender);
+
+        // Withdraw immediately
+        withdrawn = _processWithdrawalFor(msg.sender);
+    }
+
+    /**
+     * @dev Internal: process withdrawal for a specific account
+     * @param account The account to withdraw for
+     * @return amount Amount withdrawn
+     */
+    function _processWithdrawalFor(address account) internal returns (uint256 amount) {
+        amount = pendingWithdrawals[account];
+        if (amount > 0) {
+            pendingWithdrawals[account] = 0;
+            usdc.safeTransfer(account, amount);
+            emit WithdrawalProcessed(account, amount);
+        }
+    }
+
+    /**
+     * @dev Internal: release partial collateral for a partner
+     * Reverts if not eligible
+     */
+    function _releasePartialCollateralFor(uint256 assetId, address partner) internal {
+        // Verify partner owns the asset
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert NotAssetOwner();
+        }
+
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+
+        if (!collateralInfo.isLocked) {
+            revert NoCollateralLocked();
+        }
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            revert NoPriorEarningsDistribution();
+        }
+
+        bool hasNewPeriods = earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod;
+        if (!hasNewPeriods) {
+            revert NoNewPeriodsToProcess();
+        }
+
+        uint256 releaseAmount = _tryReleaseCollateral(assetId, partner);
+        if (releaseAmount == 0) {
+            revert InsufficientCollateral();
+        }
+    }
+
+    /**
+     * @dev Internal: claim earnings for a holder
+     * Reverts if no earnings to claim
+     */
+    function _claimEarningsFor(uint256 assetId, address holder) internal {
+        if (!router.assetExists(assetId)) {
+            revert AssetNotFound();
+        }
+
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            revert NoEarningsToClaim();
+        }
+
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        bool isSettled = (status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired);
+
+        uint256 unclaimedAmount;
+
+        if (isSettled) {
+            unclaimedAmount = EarningsLib.claimSettledEarnings(earningsInfo, holder);
+        } else {
+            uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+            uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
+            if (tokenBalance == 0) {
+                revert InsufficientTokenBalance();
+            }
+
+            TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+
+            unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
+
+            if (unclaimedAmount > 0) {
+                EarningsLib.updateClaimPeriods(earningsInfo, holder, positions);
+            }
+        }
+
+        if (unclaimedAmount == 0) {
+            revert NoEarningsToClaim();
+        }
+
+        pendingWithdrawals[holder] += unclaimedAmount;
+        emit EarningsClaimed(assetId, holder, unclaimedAmount);
+    }
+
     // Earnings Distribution Functions
 
     /**
@@ -403,53 +530,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @param assetId The ID of the asset
      */
     function claimEarnings(uint256 assetId) external nonReentrant {
-        // Verify asset exists
-        if (!router.assetExists(assetId)) {
-            revert AssetNotFound();
-        }
-
-        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
-        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
-            revert NoEarningsToClaim();
-        }
-
-        // Check if asset is settled - if so, use snapshot approach
-        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
-        bool isSettled = (status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired);
-
-        uint256 unclaimedAmount;
-
-        if (isSettled) {
-            // For settled assets: claim from snapshot (works even after tokens burned)
-            unclaimedAmount = EarningsLib.claimSettledEarnings(earningsInfo, msg.sender);
-        } else {
-            // For active assets: calculate from current positions
-            uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
-            uint256 tokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-            if (tokenBalance == 0) {
-                revert InsufficientTokenBalance();
-            }
-
-            // Get user's positions from RoboshareTokens (single source of truth)
-            TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, msg.sender);
-
-            // Calculate position-based earnings using Treasury's claim tracking
-            unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, msg.sender, positions);
-
-            if (unclaimedAmount > 0) {
-                // Update claim periods for all positions
-                EarningsLib.updateClaimPeriods(earningsInfo, msg.sender, positions);
-            }
-        }
-
-        if (unclaimedAmount == 0) {
-            revert NoEarningsToClaim();
-        }
-
-        // Add to pending withdrawals
-        pendingWithdrawals[msg.sender] += unclaimedAmount;
-
-        emit EarningsClaimed(assetId, msg.sender, unclaimedAmount);
+        _claimEarningsFor(assetId, msg.sender);
     }
 
     /**
@@ -584,32 +665,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @param assetId The ID of the asset
      */
     function releasePartialCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
-        // Verify partner owns the asset
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
-
-        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
-        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
-
-        // Provide specific error messages for manual calls (better UX than just returning 0)
-        if (!collateralInfo.isLocked) {
-            revert NoCollateralLocked();
-        }
-        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
-            revert NoPriorEarningsDistribution();
-        }
-
-        bool hasNewPeriods = earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod;
-        if (!hasNewPeriods) {
-            revert NoNewPeriodsToProcess();
-        }
-
-        // Use helper for the actual release logic
-        uint256 releaseAmount = _tryReleaseCollateral(assetId, msg.sender);
-        if (releaseAmount == 0) {
-            revert InsufficientCollateral();
-        }
+        _releasePartialCollateralFor(assetId, msg.sender);
     }
 
     /**
@@ -766,9 +822,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Calculate claim
         claimedAmount = amount * settlement.settlementPerToken;
 
-        // Transfer USDC
+        // Add to pending withdrawals (consistent withdrawal pattern)
         if (claimedAmount > 0) {
-            usdc.safeTransfer(recipient, claimedAmount);
+            pendingWithdrawals[recipient] += claimedAmount;
         }
 
         emit SettlementClaimed(assetId, recipient, claimedAmount);

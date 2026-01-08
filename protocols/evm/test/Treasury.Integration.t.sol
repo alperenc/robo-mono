@@ -1028,8 +1028,11 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         (, uint256 settlementPerToken,) = treasury.assetSettlements(scenario.assetId);
 
-        vm.prank(partner1);
+        vm.startPrank(partner1);
         (uint256 claimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
+        // Settlement now uses pendingWithdrawals pattern - need to withdraw
+        treasury.processWithdrawal();
+        vm.stopPrank();
 
         assertEq(claimed, totalSupply * settlementPerToken, "Claimed amount mismatch");
         assertEq(usdc.balanceOf(partner1), initialBalance + claimed, "Partner1 USDC balance mismatch");
@@ -1189,12 +1192,23 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertGt(settlementClaimed, 0, "Settlement should be > 0");
         assertGt(earningsClaimed, 0, "Earnings should be > 0 with autoClaim");
 
-        // Earnings should be added to pending withdrawals
+        // Both settlement AND earnings now go to pending withdrawals
         uint256 buyerPendingAfter = treasury.getPendingWithdrawal(buyer);
-        assertEq(buyerPendingAfter, buyerPendingBefore + earningsClaimed, "Pending should include earnings");
+        assertEq(
+            buyerPendingAfter,
+            buyerPendingBefore + settlementClaimed + earningsClaimed,
+            "Pending should include earnings"
+        );
 
-        // Settlement is transferred directly
-        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + settlementClaimed, "Settlement should be direct transfer");
+        // Need to withdraw to get USDC
+        vm.prank(buyer);
+        treasury.processWithdrawal();
+
+        assertEq(
+            usdc.balanceOf(buyer),
+            buyerUsdcBefore + settlementClaimed + earningsClaimed,
+            "Should receive both settlement and earnings"
+        );
     }
 
     /// @dev Test claimSettlement with autoClaimEarnings=false then claim earnings separately
@@ -1437,8 +1451,9 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertGt(settlement, 0);
         assertGt(earnings, 0, "Should have earnings from all 3 periods");
 
+        // Both settlement and earnings now go to pending withdrawals
         uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
-        assertEq(pendingAfter - pendingBefore, earnings, "Pending should match earnings claimed");
+        assertEq(pendingAfter - pendingBefore, settlement + earnings, "Pending should match earnings claimed");
     }
 
     // ============================================
@@ -1551,5 +1566,122 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertGt(pendingAfter, pendingBefore, "Manual release should work");
 
         vm.stopPrank();
+    }
+
+    // ============================================
+    // Convenience Withdrawal Function Tests
+    // ============================================
+
+    /// @dev Test releaseAndWithdrawCollateral releases and withdraws in one call
+    function testReleaseAndWithdrawCollateral() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount * 2);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount * 2);
+
+        // First distribution to establish earnings
+        treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, false);
+
+        // Advance time for depreciation
+        vm.warp(block.timestamp + 30 days);
+
+        // Second distribution
+        treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, false);
+
+        uint256 usdcBefore = usdc.balanceOf(partner1);
+
+        // Use convenience function - should release and withdraw in one call
+        uint256 withdrawn = treasury.releaseAndWithdrawCollateral(scenario.assetId);
+
+        assertGt(withdrawn, 0, "Should withdraw collateral");
+        assertEq(usdc.balanceOf(partner1), usdcBefore + withdrawn, "USDC balance should increase");
+        assertEq(treasury.getPendingWithdrawal(partner1), 0, "Pending should be 0 after withdrawal");
+
+        vm.stopPrank();
+    }
+
+    /// @dev Test claimAndWithdrawEarnings claims and withdraws in one call
+    function testClaimAndWithdrawEarnings() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute earnings
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Buyer claims with convenience function
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+
+        vm.prank(buyer);
+        uint256 withdrawn = treasury.claimAndWithdrawEarnings(scenario.assetId);
+
+        assertGt(withdrawn, 0, "Should withdraw earnings");
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + withdrawn, "USDC balance should increase");
+        assertEq(treasury.getPendingWithdrawal(buyer), 0, "Pending should be 0 after withdrawal");
+    }
+
+    /// @dev Test claimAndWithdrawEarnings works for settled assets
+    function testClaimAndWithdrawEarningsSettledAsset() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // Distribute earnings
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        vm.stopPrank();
+
+        // Settle the asset (without auto-claiming earnings)
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        // Buyer claims settlement without auto-claiming earnings
+        vm.prank(buyer);
+        assetRegistry.claimSettlement(scenario.assetId, false);
+
+        // Buyer uses convenience function to claim earnings from snapshot
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+        uint256 buyerPendingBefore = treasury.getPendingWithdrawal(buyer);
+
+        vm.prank(buyer);
+        uint256 withdrawn = treasury.claimAndWithdrawEarnings(scenario.assetId);
+
+        assertGt(withdrawn, buyerPendingBefore, "Should withdraw more than just settlement");
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + withdrawn, "USDC balance should increase");
+    }
+
+    /// @dev Test releaseAndWithdrawCollateral reverts when no new periods
+    function testReleaseAndWithdrawCollateralRevertsNoNewPeriods() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        uint256 earningsAmount = 10_000e6;
+        deal(address(usdc), partner1, earningsAmount);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), earningsAmount);
+
+        // Distribute and release immediately
+        treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, true);
+
+        // Try to release again without new distribution
+        vm.expectRevert(Treasury.NoNewPeriodsToProcess.selector);
+        treasury.releaseAndWithdrawCollateral(scenario.assetId);
+
+        vm.stopPrank();
+    }
+
+    /// @dev Test claimAndWithdrawEarnings reverts when no earnings
+    function testClaimAndWithdrawEarningsRevertsNoEarnings() public {
+        _ensureState(SetupState.AssetWithPurchase);
+
+        // No earnings distributed - should revert
+        vm.prank(buyer);
+        vm.expectRevert(ITreasury.NoEarningsToClaim.selector);
+        treasury.claimAndWithdrawEarnings(scenario.assetId);
     }
 }
