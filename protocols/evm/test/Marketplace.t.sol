@@ -232,4 +232,36 @@ contract MarketplaceTest is BaseTest {
         vm.prank(partner1);
         marketplace.extendListing(scenario.listingId, 0);
     }
+
+    // ============ createListingFor Tests ============
+
+    function testCreateListingForSuccess() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Grant AUTHORIZED_CONTRACT_ROLE to test address
+        bytes32 authorizedRole = marketplace.AUTHORIZED_CONTRACT_ROLE();
+        vm.prank(admin);
+        marketplace.grantRole(authorizedRole, address(this));
+
+        // Partner must approve marketplace for token transfer
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        // Create listing on behalf of partner
+        uint256 listingId =
+            marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.seller, partner1);
+        assertEq(listing.tokenId, scenario.revenueTokenId);
+        assertEq(listing.amount, 500);
+    }
+
+    function testCreateListingForUnauthorized() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Without AUTHORIZED_CONTRACT_ROLE - should revert
+        vm.expectRevert();
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+    }
 }

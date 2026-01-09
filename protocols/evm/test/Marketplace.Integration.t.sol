@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { BaseTest } from "./BaseTest.t.sol";
-import { ProtocolLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib } from "../contracts/Libraries.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
 contract MarketplaceIntegrationTest is BaseTest {
@@ -591,5 +591,58 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
+    }
+
+    // ============ registerAssetMintAndList Integration Test ============
+
+    function testRegisterAssetMintAndListFullFlow() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Setup: Configure marketplace on VehicleRegistry and grant role
+        vm.startPrank(admin);
+        assetRegistry.updateMarketplace(address(marketplace));
+        marketplace.grantRole(marketplace.AUTHORIZED_CONTRACT_ROLE(), address(assetRegistry));
+        vm.stopPrank();
+
+        // Partner must approve marketplace for token transfers
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        // Prepare collateral
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        deal(address(usdc), partner1, requiredCollateral);
+        usdc.approve(address(treasury), requiredCollateral);
+
+        // Use a different VIN for this test
+        bytes memory vehicleData = abi.encode(
+            "UNIQUE123456789", // Different VIN
+            TEST_MAKE,
+            TEST_MODEL,
+            TEST_YEAR,
+            TEST_MANUFACTURER_ID,
+            TEST_OPTION_CODES,
+            TEST_METADATA_URI
+        );
+
+        // Execute: Register, mint, and list in one transaction!
+        (uint256 assetId, uint256 revenueTokenId, uint256 listingId) = assetRegistry.registerAssetMintAndList(
+            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days, 30 days, true
+        );
+        vm.stopPrank();
+
+        // Verify: Asset was registered and activated
+        assertTrue(assetRegistry.assetExists(assetId));
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+
+        // Verify: Revenue tokens were minted (but transferred to marketplace for escrow)
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), REVENUE_TOKEN_SUPPLY);
+
+        // Verify: Listing was created with full supply at face value
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.seller, partner1);
+        assertEq(listing.tokenId, revenueTokenId);
+        assertEq(listing.amount, REVENUE_TOKEN_SUPPLY);
+        assertEq(listing.pricePerToken, REVENUE_TOKEN_PRICE);
+        assertTrue(listing.isActive);
     }
 }

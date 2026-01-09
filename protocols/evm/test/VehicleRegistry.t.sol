@@ -367,4 +367,46 @@ contract VehicleRegistryTest is BaseTest {
         vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         assetRegistry.updateRouter(address(0));
     }
+
+    // ============ Marketplace Integration Tests ============
+
+    function testUpdateMarketplace() public {
+        address newMarketplace = makeAddr("newMarketplace");
+        address oldMarketplace = address(assetRegistry.marketplace());
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit VehicleRegistry.MarketplaceUpdated(oldMarketplace, newMarketplace);
+        assetRegistry.updateMarketplace(newMarketplace);
+
+        assertEq(address(assetRegistry.marketplace()), newMarketplace);
+    }
+
+    function testUpdateMarketplaceZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
+        assetRegistry.updateMarketplace(address(0));
+    }
+
+    function testRegisterAssetMintAndListRevertsWithoutMarketplace() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Marketplace not set - should revert
+        bytes memory vehicleData = abi.encode(
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+
+        // Ensure partner has enough USDC for collateral
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        deal(address(usdc), partner1, requiredCollateral);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
+
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
+        assetRegistry.registerAssetMintAndList(
+            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days, 30 days, true
+        );
+        vm.stopPrank();
+    }
 }

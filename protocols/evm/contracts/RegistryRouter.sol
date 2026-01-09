@@ -136,6 +136,19 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         revert DirectCallNotAllowed();
     }
 
+    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, bool)
+        external
+        pure
+        override
+        returns (uint256, uint256, uint256)
+    {
+        revert DirectCallNotAllowed();
+    }
+
+    function updateMarketplace(address) external pure override {
+        revert DirectCallNotAllowed();
+    }
+
     function assetExists(uint256 assetId) external view override returns (bool) {
         address registry = assetIdToRegistry[assetId];
         if (registry == address(0)) return false;
