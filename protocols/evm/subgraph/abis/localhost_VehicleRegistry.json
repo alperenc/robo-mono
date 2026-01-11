@@ -451,19 +451,6 @@
   },
   {
     "type": "function",
-    "name": "marketplace",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IMarketplace"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "mintRevenueTokens",
     "inputs": [
       {
@@ -776,19 +763,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "updateMarketplace",
-    "inputs": [
-      {
-        "name": "_marketplace",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1113,25 +1087,6 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "MarketplaceUpdated",
-    "inputs": [
-      {
-        "name": "oldAddress",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newAddress",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
       }
     ],
     "anonymous": false

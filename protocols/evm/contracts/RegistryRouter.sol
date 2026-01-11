@@ -6,6 +6,7 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
+import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { AssetLib, TokenLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 
@@ -23,6 +24,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     // Core contracts
     RoboshareTokens public roboshareTokens;
     address public treasury;
+    address public marketplace;
 
     // Registry management
     mapping(uint256 => address) public assetIdToRegistry;
@@ -69,6 +71,37 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_treasury == address(0)) revert ZeroAddress();
         treasury = _treasury;
+    }
+
+    /**
+     * @dev Set the Marketplace address
+     */
+    function setMarketplace(address _marketplace) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_marketplace == address(0)) revert ZeroAddress();
+        marketplace = _marketplace;
+    }
+
+    /**
+     * @dev Create a listing on behalf of a seller. Can only be called by authorized registries.
+     * Routes to marketplace.createListingFor for registries implementing registerAssetMintAndList.
+     * @param seller The address of the seller (partner)
+     * @param tokenId The revenue share token ID
+     * @param amount Number of tokens to list
+     * @param pricePerToken Price per token in USDC
+     * @param duration Listing duration in seconds
+     * @param buyerPaysFee If true, buyer pays protocol fee
+     */
+    function createListingFor(
+        address seller,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 pricePerToken,
+        uint256 duration,
+        bool buyerPaysFee
+    ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 listingId) {
+        if (marketplace == address(0)) revert ZeroAddress();
+        return
+            IMarketplace(marketplace).createListingFor(seller, tokenId, amount, pricePerToken, duration, buyerPaysFee);
     }
 
     /**
@@ -142,10 +175,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         override
         returns (uint256, uint256, uint256)
     {
-        revert DirectCallNotAllowed();
-    }
-
-    function updateMarketplace(address) external pure override {
         revert DirectCallNotAllowed();
     }
 

@@ -55,7 +55,6 @@ interface IAssetRegistry {
         uint256 listingDuration,
         bool buyerPaysFee
     ) external returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId);
-    function updateMarketplace(address marketplace) external;
 
     /**
      * @dev Asset Lifecycle

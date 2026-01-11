@@ -8,11 +8,11 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ProtocolLib, TokenLib, AssetLib } from "./Libraries.sol";
+import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RegistryRouter } from "./RegistryRouter.sol";
 import { Treasury } from "./Treasury.sol";
-import { IMarketplace } from "./interfaces/IMarketplace.sol";
 
 /**
  * @dev Marketplace for buying and selling revenue share tokens
@@ -63,6 +63,7 @@ contract Marketplace is
     error InvalidAmount();
     error InsufficientTokenBalance();
     error ListingNotActive();
+    error AssetNotActive();
     error NoCollateralLocked();
     error ListingNotFound();
     error ListingExpired();
@@ -245,7 +246,7 @@ contract Marketplace is
 
         // Check asset status is Active
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert ListingNotActive();
+            revert AssetNotActive();
         }
 
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
@@ -292,7 +293,7 @@ contract Marketplace is
         // Transfer tokens to marketplace for escrow
         roboshareTokens.safeTransferFrom(seller, address(this), tokenId, amount, "");
 
-        emit ListingCreated(listingId, tokenId, assetId, msg.sender, amount, pricePerToken, expiresAt, buyerPaysFee);
+        emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee);
 
         return listingId;
     }

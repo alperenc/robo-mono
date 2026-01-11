@@ -109,8 +109,6 @@ contract MockRegistry is IAssetRegistry {
         return (0, 0, 0);
     }
 
-    function updateMarketplace(address) external pure override { }
-
     function setAssetStatus(uint256, AssetLib.AssetStatus) external override { }
     function burnRevenueTokens(uint256, uint256) external override { }
     function retireAsset(uint256) external override { }

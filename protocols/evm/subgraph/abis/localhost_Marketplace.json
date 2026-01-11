@@ -1176,6 +1176,11 @@
   },
   {
     "type": "error",
+    "name": "AssetNotActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {

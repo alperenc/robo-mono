@@ -5,7 +5,6 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
-import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { TokenLib, AssetLib, VehicleLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
@@ -26,7 +25,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
     RegistryRouter public router;
-    IMarketplace public marketplace;
 
     // Vehicle storage
     mapping(uint256 => VehicleLib.Vehicle) public vehicles;
@@ -56,7 +54,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event RouterUpdated(address indexed oldAddress, address indexed newAddress);
-    event MarketplaceUpdated(address indexed oldAddress, address indexed newAddress);
 
     /**
      * @dev Initialize contract with references to core contracts
@@ -266,7 +263,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     /**
      * @dev Register a vehicle, mint revenue tokens, and list for sale - all in one transaction.
-     * Combines registerAssetAndMintTokens + marketplace.createListingFor for better UX.
+     * Combines registerAssetAndMintTokens + router.createListingFor for better UX.
      * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
      * @param data Encoded vehicle data (same as registerAsset)
      * @param price Price per revenue token in USDC
@@ -286,11 +283,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 listingDuration,
         bool buyerPaysFee
     ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId) {
-        // Ensure marketplace is configured
-        if (address(marketplace) == address(0)) {
-            revert ZeroAddress();
-        }
-
         // Step 1: Register and mint (reuses existing logic)
         (
             string memory vin,
@@ -322,8 +314,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, supply);
 
-        // Step 2: Create listing at face value with full supply
-        listingId = marketplace.createListingFor(
+        // Step 2: Create listing at face value with full supply via Router
+        listingId = router.createListingFor(
             msg.sender,
             revenueTokenId,
             supply, // Full supply
@@ -684,19 +676,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         router = RegistryRouter(_router);
         _grantRole(ROUTER_ROLE, _router);
         emit RouterUpdated(oldAddress, _router);
-    }
-
-    /**
-     * @dev Update Marketplace contract reference
-     * @param _marketplace New Marketplace contract address
-     */
-    function updateMarketplace(address _marketplace) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_marketplace == address(0)) {
-            revert ZeroAddress();
-        }
-        address oldAddress = address(marketplace);
-        marketplace = IMarketplace(_marketplace);
-        emit MarketplaceUpdated(oldAddress, _marketplace);
     }
 
     // UUPS Upgrade authorization
