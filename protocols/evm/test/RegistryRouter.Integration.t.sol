@@ -100,6 +100,15 @@ contract MockRegistry is IAssetRegistry {
         return (0, 0);
     }
 
+    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, bool)
+        external
+        pure
+        override
+        returns (uint256, uint256, uint256)
+    {
+        return (0, 0, 0);
+    }
+
     function setAssetStatus(uint256, AssetLib.AssetStatus) external override { }
     function burnRevenueTokens(uint256, uint256) external override { }
     function retireAsset(uint256) external override { }

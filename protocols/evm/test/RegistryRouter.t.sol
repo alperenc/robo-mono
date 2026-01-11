@@ -92,6 +92,23 @@ contract RegistryRouterTest is BaseTest {
         vm.stopPrank();
     }
 
+    function testSetMarketplace() public {
+        address newMarketplace = makeAddr("newMarketplace");
+
+        vm.startPrank(admin);
+        router.setMarketplace(newMarketplace);
+        vm.stopPrank();
+
+        assertEq(router.marketplace(), newMarketplace);
+    }
+
+    function testSetMarketplaceZeroAddress() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.ZeroAddress.selector));
+        router.setMarketplace(address(0));
+        vm.stopPrank();
+    }
+
     function testBindAsset() public {
         address newRegistry = makeAddr("newRegistry");
         uint256 assetId = 100;

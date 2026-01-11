@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1652,7 +1652,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1725,7 +1725,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2362,7 +2362,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2530,6 +2530,50 @@ const deployedContracts = {
             },
             {
               name: "earningsClaimed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "createListingFor",
+          inputs: [
+            {
+              name: "seller",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "duration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "buyerPaysFee",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "listingId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2897,6 +2941,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "marketplace",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "mintRevenueTokens",
           inputs: [
             {
@@ -3016,6 +3073,60 @@ const deployedContracts = {
             },
           ],
           outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "registerAssetMintAndList",
+          inputs: [
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
             {
               name: "",
               type: "uint256",
@@ -3159,6 +3270,19 @@ const deployedContracts = {
               name: "status",
               type: "uint8",
               internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "setMarketplace",
+          inputs: [
+            {
+              name: "_marketplace",
+              type: "address",
+              internalType: "address",
             },
           ],
           outputs: [],
@@ -3813,7 +3937,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -4381,6 +4505,60 @@ const deployedContracts = {
             },
             {
               name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "registerAssetMintAndList",
+          inputs: [
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+            {
+              name: "price",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maturityDate",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "listingDuration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "buyerPaysFee",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "listingId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -5408,7 +5586,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -5646,6 +5824,25 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "claimAndWithdrawEarnings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "withdrawn",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "claimEarnings",
           inputs: [
             {
@@ -5676,8 +5873,19 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "tryAutoRelease",
+              type: "bool",
+              internalType: "bool",
+            },
           ],
-          outputs: [],
+          outputs: [
+            {
+              name: "collateralReleased",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           stateMutability: "nonpayable",
         },
         {
@@ -6117,6 +6325,25 @@ const deployedContracts = {
             },
           ],
           outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "releaseAndWithdrawCollateral",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "withdrawn",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           stateMutability: "nonpayable",
         },
         {
@@ -7075,11 +7302,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "TooSoonForCollateralRelease",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "TransferFailed",
           inputs: [],
         },
@@ -7111,12 +7333,25 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
       address: "0x05B4CB126885fb10464fdD12666FEb25E2563B76",
       abi: [
+        {
+          type: "function",
+          name: "AUTHORIZED_CONTRACT_ROLE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
         {
           type: "function",
           name: "DEFAULT_ADMIN_ROLE",
@@ -7231,6 +7466,50 @@ const deployedContracts = {
           type: "function",
           name: "createListing",
           inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "duration",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "buyerPaysFee",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "createListingFor",
+          inputs: [
+            {
+              name: "seller",
+              type: "address",
+              internalType: "address",
+            },
             {
               name: "tokenId",
               type: "uint256",
@@ -8237,6 +8516,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "AssetNotActive",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ERC1967InvalidImplementation",
           inputs: [
             {
@@ -8365,7 +8649,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1767692566138.json",
+      deploymentFile: "run-1768131057545.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

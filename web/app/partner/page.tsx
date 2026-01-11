@@ -16,7 +16,7 @@ import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
 
-type RegisterMode = "REGISTER_ONLY" | "REGISTER_AND_MINT";
+// maxStep: 1=Register Only, 2=Register&Mint, 3=List Vehicle
 
 // Unified Asset Interface for Dashboard logic
 interface DashboardAsset {
@@ -66,7 +66,7 @@ const PartnerDashboard: NextPage = () => {
 
   // Modal States
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [registerMode, setRegisterMode] = useState<RegisterMode>("REGISTER_AND_MINT");
+  const [maxStep, setMaxStep] = useState<1 | 2 | 3>(3);
   const [selectedAsset, setSelectedAsset] = useState<DashboardAsset | null>(null);
   const [selectedCategorizedAsset, setSelectedCategorizedAsset] = useState<CategorizedAsset | null>(null);
   const [mintModalOpen, setMintModalOpen] = useState(false);
@@ -88,8 +88,6 @@ const PartnerDashboard: NextPage = () => {
   // Dynamic Labels (Global)
   const activeRegistries = Object.values(ASSET_REGISTRIES).filter(r => r.active);
   const isSingleAssetType = activeRegistries.length === 1;
-
-  const registerButtonLabel = isSingleAssetType ? `Register ${activeRegistries[0].name}` : "Register Asset";
 
   const dashboardSubtitle = isSingleAssetType
     ? `Manage your ${activeRegistries[0].name.toLowerCase()} ${activeRegistries[0].collectiveNoun} and revenue tokens`
@@ -464,16 +462,16 @@ const PartnerDashboard: NextPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary">Partner Dashboard</h1>
 
-          {/* Split Register Button */}
+          {/* Split Register Button - List Vehicle is primary action */}
           <div className="flex">
             <button
               className="btn btn-primary rounded-r-none border-r-base-100"
               onClick={() => {
                 setIsRegisterOpen(true);
-                setRegisterMode("REGISTER_AND_MINT");
+                setMaxStep(3);
               }}
             >
-              {registerButtonLabel}
+              List Vehicle
             </button>
             <div className="dropdown dropdown-end">
               <div tabIndex={0} role="button" className="btn btn-primary rounded-l-none px-2 min-h-0 h-full">
@@ -484,7 +482,17 @@ const PartnerDashboard: NextPage = () => {
                   <a
                     onClick={() => {
                       setIsRegisterOpen(true);
-                      setRegisterMode("REGISTER_AND_MINT");
+                      setMaxStep(3);
+                    }}
+                  >
+                    List Vehicle
+                  </a>
+                </li>
+                <li>
+                  <a
+                    onClick={() => {
+                      setIsRegisterOpen(true);
+                      setMaxStep(2);
                     }}
                   >
                     Register & Mint
@@ -494,7 +502,7 @@ const PartnerDashboard: NextPage = () => {
                   <a
                     onClick={() => {
                       setIsRegisterOpen(true);
-                      setRegisterMode("REGISTER_ONLY");
+                      setMaxStep(1);
                     }}
                   >
                     Register Only
@@ -607,10 +615,10 @@ const PartnerDashboard: NextPage = () => {
                   className="btn btn-primary sm:btn-lg rounded-r-none border-r-base-100"
                   onClick={() => {
                     setIsRegisterOpen(true);
-                    setRegisterMode("REGISTER_AND_MINT");
+                    setMaxStep(3);
                   }}
                 >
-                  Get Started
+                  List Your First Vehicle
                 </button>
                 <div className="dropdown dropdown-end">
                   <div
@@ -625,7 +633,17 @@ const PartnerDashboard: NextPage = () => {
                       <a
                         onClick={() => {
                           setIsRegisterOpen(true);
-                          setRegisterMode("REGISTER_AND_MINT");
+                          setMaxStep(3);
+                        }}
+                      >
+                        List Vehicle
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        onClick={() => {
+                          setIsRegisterOpen(true);
+                          setMaxStep(2);
                         }}
                       >
                         Register & Mint
@@ -635,7 +653,7 @@ const PartnerDashboard: NextPage = () => {
                       <a
                         onClick={() => {
                           setIsRegisterOpen(true);
-                          setRegisterMode("REGISTER_ONLY");
+                          setMaxStep(1);
                         }}
                       >
                         Register Only
@@ -790,7 +808,7 @@ const PartnerDashboard: NextPage = () => {
           setIsRegisterOpen(false);
           triggerRefresh();
         }}
-        initialMode={registerMode}
+        maxStep={maxStep}
       />
 
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (

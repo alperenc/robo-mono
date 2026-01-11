@@ -47,6 +47,14 @@ interface IAssetRegistry {
     function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price, uint256 maturityDate)
         external
         returns (uint256 assetId, uint256 tokenId);
+    function registerAssetMintAndList(
+        bytes calldata data,
+        uint256 price,
+        uint256 supply,
+        uint256 maturityDate,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) external returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId);
 
     /**
      * @dev Asset Lifecycle

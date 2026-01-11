@@ -161,7 +161,7 @@ tmux send-keys -t $SESSION:main.0 "yarn chain" Enter
 
 # Pane 1: Next.js Web App
 tmux send-keys -t $SESSION:main.1 "echo '🌐 Starting Next.js Web App...'" Enter
-tmux send-keys -t $SESSION:main.1 "sleep 8 && yarn start" Enter
+tmux send-keys -t $SESSION:main.1 "sleep 10 && yarn start" Enter
 
 # Pane 2: Deploy contracts
 tmux send-keys -t $SESSION:main.2 "echo '⏳ Waiting for chain to start...'" Enter
@@ -169,18 +169,18 @@ tmux send-keys -t $SESSION:main.2 "sleep 3 && echo '📦 Deploying contracts...'
 
 # Pane 3: Graph Node (Docker)
 tmux send-keys -t $SESSION:main.3 "echo '📊 Graph Node - waiting for contracts to deploy...'" Enter
-tmux send-keys -t $SESSION:main.3 "echo 'Starting Graph node in 10 seconds...'" Enter
-tmux send-keys -t $SESSION:main.3 "sleep 10 && yarn subgraph:run-node" Enter
+tmux send-keys -t $SESSION:main.3 "echo 'Starting Graph node in 5 seconds...'" Enter
+tmux send-keys -t $SESSION:main.3 "sleep 5 && yarn subgraph:run-node" Enter
 
 # Pane 4: Subgraph deployment
 if [ "$RESET_MODE" = true ]; then
     tmux send-keys -t $SESSION:main.4 "echo '📡 Subgraph Deploy (reset mode)...'" Enter
-    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (30s)...'" Enter
-    tmux send-keys -t $SESSION:main.4 "sleep 30 && yarn subgraph:create-local && yarn subgraph:local-ship-auto" Enter
+    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (45s)...'" Enter
+    tmux send-keys -t $SESSION:main.4 "sleep 60 && yarn subgraph:create-local && yarn subgraph:local-ship-auto" Enter
 else
     tmux send-keys -t $SESSION:main.4 "echo '📡 Subgraph Deploy...'" Enter
-    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (30s)...'" Enter
-    tmux send-keys -t $SESSION:main.4 "sleep 30 && yarn subgraph:local-ship-auto" Enter
+    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (45s)...'" Enter
+    tmux send-keys -t $SESSION:main.4 "sleep 60 && yarn subgraph:local-ship-auto" Enter
 fi
 
 # Pane 5: Shell for commands - show quick reference

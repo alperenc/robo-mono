@@ -8,6 +8,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ProtocolLib, TokenLib, AssetLib } from "./Libraries.sol";
+import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RegistryRouter } from "./RegistryRouter.sol";
@@ -18,10 +19,17 @@ import { Treasury } from "./Treasury.sol";
  * Handles listing creation, purchasing, and fee distribution
  * Integrates with Treasury to ensure collateral is locked before listing
  */
-contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
+contract Marketplace is
+    IMarketplace,
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+    bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
     // Core contracts
     RoboshareTokens public roboshareTokens;
@@ -55,6 +63,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     error InvalidAmount();
     error InsufficientTokenBalance();
     error ListingNotActive();
+    error AssetNotActive();
     error NoCollateralLocked();
     error ListingNotFound();
     error ListingExpired();
@@ -190,16 +199,75 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             revert NoCollateralLocked();
         }
 
-        return _createListing(tokenId, amount, pricePerToken, duration, buyerPaysFee);
+        return _createListingFor(msg.sender, tokenId, amount, pricePerToken, duration, buyerPaysFee);
     }
 
     /**
-     * @dev Internal function to create listing
+     * @dev Create a listing on behalf of a seller (for authorized contracts like VehicleRegistry)
+     * Allows registries to create listings during registerAssetMintAndList flow
+     * @param seller The address of the seller
+     * @param tokenId The revenue share token ID
+     * @param amount Number of tokens to list
+     * @param pricePerToken Price per token in USDC
+     * @param duration Listing duration in seconds
+     * @param buyerPaysFee If true, buyer pays protocol fee
      */
-    function _createListing(uint256 tokenId, uint256 amount, uint256 pricePerToken, uint256 duration, bool buyerPaysFee)
-        internal
-        returns (uint256 listingId)
-    {
+    function createListingFor(
+        address seller,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 pricePerToken,
+        uint256 duration,
+        bool buyerPaysFee
+    ) external override onlyRole(AUTHORIZED_CONTRACT_ROLE) nonReentrant returns (uint256 listingId) {
+        // Validate token type (must be revenue share token)
+        if (!TokenLib.isRevenueToken(tokenId)) {
+            revert InvalidTokenType();
+        }
+        if (pricePerToken == 0) {
+            revert InvalidPrice();
+        }
+
+        uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
+
+        // Validate inputs
+        if (amount == 0 || amount > tokenSupply) {
+            revert InvalidAmount();
+        }
+
+        // Verify seller owns enough tokens
+        uint256 sellerBalance = roboshareTokens.balanceOf(seller, tokenId);
+        if (sellerBalance < amount) {
+            revert InsufficientTokenBalance();
+        }
+
+        // Get asset ID and check collateral is locked
+        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+
+        // Check asset status is Active
+        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
+            revert AssetNotActive();
+        }
+
+        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
+        if (!isLocked) {
+            revert NoCollateralLocked();
+        }
+
+        return _createListingFor(seller, tokenId, amount, pricePerToken, duration, buyerPaysFee);
+    }
+
+    /**
+     * @dev Internal function to create listing for a specific seller
+     */
+    function _createListingFor(
+        address seller,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 pricePerToken,
+        uint256 duration,
+        bool buyerPaysFee
+    ) internal returns (uint256 listingId) {
         // Get asset ID for indexing
         uint256 assetId = router.getAssetIdFromTokenId(tokenId);
 
@@ -212,7 +280,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             tokenId: tokenId,
             amount: amount,
             pricePerToken: pricePerToken,
-            seller: msg.sender,
+            seller: seller,
             expiresAt: expiresAt,
             isActive: true,
             createdAt: block.timestamp,
@@ -223,9 +291,9 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         assetListings[assetId].push(listingId);
 
         // Transfer tokens to marketplace for escrow
-        roboshareTokens.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
+        roboshareTokens.safeTransferFrom(seller, address(this), tokenId, amount, "");
 
-        emit ListingCreated(listingId, tokenId, assetId, msg.sender, amount, pricePerToken, expiresAt, buyerPaysFee);
+        emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee);
 
         return listingId;
     }
