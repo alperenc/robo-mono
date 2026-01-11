@@ -70,15 +70,16 @@ export const EndListingModal = ({ isOpen, onClose, listingId, tokenAmount }: End
               <div>
                 <div className="font-semibold">Tokens will be returned</div>
                 <div className="text-sm">
-                  <span className="font-bold text-warning-content">{formattedTokenAmount}</span> tokens will be transferred
-                  back to your wallet.
+                  <span className="font-bold text-warning-content">{formattedTokenAmount}</span> tokens will be
+                  transferred back to your wallet.
                 </div>
               </div>
             </div>
 
             {/* Confirmation Text */}
             <p className="text-sm opacity-70">
-              Are you sure you want to cancel this listing? You can create a new listing at any time with different terms.
+              Are you sure you want to cancel this listing? You can create a new listing at any time with different
+              terms.
             </p>
           </div>
         </div>

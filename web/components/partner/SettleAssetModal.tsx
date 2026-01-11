@@ -108,8 +108,8 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                 <div>
                   <div className="font-semibold">This action is irreversible</div>
                   <div className="text-sm">
-                    Settling <strong>{assetName}</strong> will end revenue distribution and allow token holders to claim their
-                    settlement amount.
+                    Settling <strong>{assetName}</strong> will end revenue distribution and allow token holders to claim
+                    their settlement amount.
                   </div>
                 </div>
               </div>
