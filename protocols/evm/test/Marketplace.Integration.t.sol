@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { BaseTest } from "./BaseTest.t.sol";
-import { ProtocolLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib } from "../contracts/Libraries.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
 contract MarketplaceIntegrationTest is BaseTest {
@@ -591,5 +591,183 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
+    }
+
+    // ============ createListingFor Tests ============
+
+    function testCreateListingForSuccess() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Production flow: Router has AUTHORIZED_CONTRACT_ROLE on Marketplace (set during deploy)
+        // Test that Router can create listing for partner and event emits correct seller
+
+        // Partner must approve marketplace for token transfer
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        uint256 expectedListingId = 1;
+        uint256 listingAmount = 500;
+        uint256 duration = 30 days;
+
+        // Verify the ListingCreated event emits the correct seller (partner1, NOT router)
+        vm.expectEmit(true, true, true, true, address(marketplace));
+        emit ListingCreated(
+            expectedListingId,
+            scenario.revenueTokenId,
+            scenario.assetId,
+            partner1, // Critical: This should be the actual seller, not msg.sender (router)
+            listingAmount,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + duration,
+            true
+        );
+
+        // Create listing via Router (as happens in production when registries call router.createListingFor)
+        vm.prank(address(assetRegistry)); // Registry has role on Router
+        uint256 listingId = router.createListingFor(
+            partner1, scenario.revenueTokenId, listingAmount, REVENUE_TOKEN_PRICE, duration, true
+        );
+
+        // Verify listing struct also has correct seller
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.seller, partner1, "Listing seller should be partner1");
+        assertEq(listing.tokenId, scenario.revenueTokenId);
+        assertEq(listing.amount, listingAmount);
+    }
+
+    function testCreateListingForUnauthorized() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Without AUTHORIZED_CONTRACT_ROLE - should revert
+        vm.expectRevert();
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+    }
+
+    function testCreateListingForInvalidTokenType() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        bytes32 authorizedRole = marketplace.AUTHORIZED_CONTRACT_ROLE();
+        vm.prank(admin);
+        marketplace.grantRole(authorizedRole, address(this));
+
+        // assetId (even number) is not a revenue token
+        vm.expectRevert(Marketplace.InvalidTokenType.selector);
+        marketplace.createListingFor(partner1, scenario.assetId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+    }
+
+    function testCreateListingForInvalidPrice() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        bytes32 authorizedRole = marketplace.AUTHORIZED_CONTRACT_ROLE();
+        vm.prank(admin);
+        marketplace.grantRole(authorizedRole, address(this));
+
+        // Price of 0 is invalid
+        vm.expectRevert(Marketplace.InvalidPrice.selector);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, 0, 30 days, true);
+    }
+
+    function testCreateListingForInvalidAmount() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        bytes32 authorizedRole = marketplace.AUTHORIZED_CONTRACT_ROLE();
+        vm.prank(admin);
+        marketplace.grantRole(authorizedRole, address(this));
+
+        // Amount of 0 is invalid
+        vm.expectRevert(Marketplace.InvalidAmount.selector);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, 30 days, true);
+
+        // Amount greater than total supply is invalid
+        vm.expectRevert(Marketplace.InvalidAmount.selector);
+        marketplace.createListingFor(
+            partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY + 1, REVENUE_TOKEN_PRICE, 30 days, true
+        );
+    }
+
+    function testCreateListingForInsufficientBalance() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        bytes32 authorizedRole = marketplace.AUTHORIZED_CONTRACT_ROLE();
+        vm.prank(admin);
+        marketplace.grantRole(authorizedRole, address(this));
+
+        // partner2 doesn't own any of this token
+        vm.expectRevert(Marketplace.InsufficientTokenBalance.selector);
+        marketplace.createListingFor(partner2, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+    }
+
+    function testCreateListingForAssetNotActive() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        bytes32 authorizedRole = marketplace.AUTHORIZED_CONTRACT_ROLE();
+        vm.prank(admin);
+        marketplace.grantRole(authorizedRole, address(this));
+
+        // Settle the asset so it's not Active anymore
+        // Partner must top up to cover total liability
+        uint256 totalLiability = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
+        deal(address(usdc), partner1, totalLiability);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), totalLiability);
+        assetRegistry.settleAsset(scenario.assetId, totalLiability);
+        vm.stopPrank();
+
+        // Asset is now Retired (not Active) - should revert with AssetNotActive
+        vm.expectRevert(Marketplace.AssetNotActive.selector);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+    }
+
+    // ============ registerAssetMintAndList Integration Test ============
+
+    function testRegisterAssetMintAndListFullFlow() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Setup: Configure marketplace on Router and grant role to Router
+        vm.startPrank(admin);
+        router.setMarketplace(address(marketplace));
+        marketplace.grantRole(marketplace.AUTHORIZED_CONTRACT_ROLE(), address(router));
+        vm.stopPrank();
+
+        // Partner must approve marketplace for token transfers
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        // Prepare collateral
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        deal(address(usdc), partner1, requiredCollateral);
+        usdc.approve(address(treasury), requiredCollateral);
+
+        // Use a different VIN for this test
+        bytes memory vehicleData = abi.encode(
+            "UNIQUE123456789", // Different VIN
+            TEST_MAKE,
+            TEST_MODEL,
+            TEST_YEAR,
+            TEST_MANUFACTURER_ID,
+            TEST_OPTION_CODES,
+            TEST_METADATA_URI
+        );
+
+        // Execute: Register, mint, and list in one transaction!
+        (uint256 assetId, uint256 revenueTokenId, uint256 listingId) = assetRegistry.registerAssetMintAndList(
+            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days, 30 days, true
+        );
+        vm.stopPrank();
+
+        // Verify: Asset was registered and activated
+        assertTrue(assetRegistry.assetExists(assetId));
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+
+        // Verify: Revenue tokens were minted (but transferred to marketplace for escrow)
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), REVENUE_TOKEN_SUPPLY);
+
+        // Verify: Listing was created with full supply at face value
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.seller, partner1);
+        assertEq(listing.tokenId, revenueTokenId);
+        assertEq(listing.amount, REVENUE_TOKEN_SUPPLY);
+        assertEq(listing.pricePerToken, REVENUE_TOKEN_PRICE);
+        assertTrue(listing.isActive);
     }
 }

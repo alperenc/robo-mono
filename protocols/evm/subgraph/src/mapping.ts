@@ -18,7 +18,8 @@ import {
 } from "../generated/RegistryRouter/RegistryRouter"
 import {
   VehicleRegistry,
-  VehicleRegistered as VehicleRegisteredEvent
+  VehicleRegistered as VehicleRegisteredEvent,
+  VehicleRegisteredAndRevenueTokensMinted as VehicleRegisteredAndMintedEvent
 } from "../generated/VehicleRegistry/VehicleRegistry"
 import {
   Treasury,
@@ -158,6 +159,41 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
   }
 
   vehicle.save()
+
+  let registryContract = VehicleRegistryContract.load("1")
+  if (!registryContract) {
+    registryContract = new VehicleRegistryContract("1")
+    registryContract.address = event.address
+    registryContract.save()
+  }
+}
+
+export function handleVehicleRegisteredAndMinted(
+  event: VehicleRegisteredAndMintedEvent
+): void {
+  // Create Vehicle entity
+  let vehicle = new Vehicle(event.params.vehicleId.toString())
+  vehicle.partner = event.params.partner
+  vehicle.blockNumber = event.block.number
+  vehicle.blockTimestamp = event.block.timestamp
+  vehicle.transactionHash = event.transaction.hash
+
+  // Fetch vehicle info from contract
+  let contract = VehicleRegistry.bind(event.address)
+  let infoCall = contract.try_getVehicleInfo(event.params.vehicleId)
+  if (!infoCall.reverted) {
+    let info = infoCall.value
+    vehicle.vin = info.value0 // vin
+    vehicle.make = info.value1 // make
+    vehicle.model = info.value2 // model
+    vehicle.year = info.value3 // year
+    vehicle.metadataURI = info.value6 // dynamicMetadataURI
+  }
+
+  vehicle.save()
+
+  // Note: RoboshareToken entity is created by handleRevenueTokenInfoSet event
+  // which fires when mintRevenueTokens is called (part of registerAssetMintAndList)
 
   let registryContract = VehicleRegistryContract.load("1")
   if (!registryContract) {

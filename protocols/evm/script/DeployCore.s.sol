@@ -117,6 +117,7 @@ abstract contract DeployCore is ScaffoldETHDeploy {
     function _configureRoles(DeployedContracts memory contracts) internal {
         // 1. Configure Router
         contracts.router.setTreasury(address(contracts.treasury));
+        contracts.router.setMarketplace(address(contracts.marketplace));
 
         // 2. Grant Roles
         // Grant AUTHORIZED_REGISTRY_ROLE to VehicleRegistry
@@ -131,5 +132,8 @@ abstract contract DeployCore is ScaffoldETHDeploy {
 
         // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace on Treasury (for recording pending withdrawals on purchases)
         contracts.treasury.grantRole(contracts.treasury.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));
+
+        // Grant AUTHORIZED_CONTRACT_ROLE to Router on Marketplace (for createListingFor via registries)
+        contracts.marketplace.grantRole(contracts.marketplace.AUTHORIZED_CONTRACT_ROLE(), address(contracts.router));
     }
 }

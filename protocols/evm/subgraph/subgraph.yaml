@@ -101,12 +101,16 @@ dataSources:
       entities:
         - VehicleRegistryContract
         - VehicleRegistered
+        - VehicleRegisteredAndMinted
       abis:
         - name: VehicleRegistry
           file: ./abis/localhost_VehicleRegistry.json
       eventHandlers:
         - event: VehicleRegistered(indexed uint256,indexed address,string)
           handler: handleVehicleRegistered
+        - event: VehicleRegisteredAndRevenueTokensMinted(indexed uint256,indexed
+            uint256,indexed address,uint256)
+          handler: handleVehicleRegisteredAndMinted
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Treasury

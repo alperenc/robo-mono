@@ -231,6 +231,25 @@
   },
   {
     "type": "function",
+    "name": "claimAndWithdrawEarnings",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "withdrawn",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "claimEarnings",
     "inputs": [
       {
@@ -260,9 +279,20 @@
         "name": "investorAmount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "tryAutoRelease",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "collateralReleased",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -702,6 +732,25 @@
       }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "releaseAndWithdrawCollateral",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "withdrawn",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -1657,11 +1706,6 @@
         "internalType": "address"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "TooSoonForCollateralRelease",
-    "inputs": []
   },
   {
     "type": "error",

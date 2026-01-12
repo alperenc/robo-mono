@@ -262,6 +262,70 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     /**
+     * @dev Register a vehicle, mint revenue tokens, and list for sale - all in one transaction.
+     * Combines registerAssetAndMintTokens + router.createListingFor for better UX.
+     * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
+     * @param data Encoded vehicle data (same as registerAsset)
+     * @param price Price per revenue token in USDC
+     * @param supply Total supply of revenue tokens
+     * @param maturityDate Maturity date for the revenue tokens
+     * @param listingDuration Duration of the marketplace listing in seconds
+     * @param buyerPaysFee If true, buyer pays protocol fee
+     * @return assetId The registered asset ID
+     * @return revenueTokenId The minted revenue token ID
+     * @return listingId The created marketplace listing ID
+     */
+    function registerAssetMintAndList(
+        bytes calldata data,
+        uint256 price,
+        uint256 supply,
+        uint256 maturityDate,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId) {
+        // Step 1: Register and mint (reuses existing logic)
+        (
+            string memory vin,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory dynamicMetadataURI
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+
+        (assetId, revenueTokenId) =
+            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+
+        // Initialize revenue token info in RoboshareTokens
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
+
+        // Mint Asset NFT
+        roboshareTokens.mint(msg.sender, assetId, 1, "");
+
+        // Lock Collateral via Router
+        router.lockCollateralFor(msg.sender, assetId, price, supply);
+
+        // Mint Revenue Tokens
+        roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
+
+        // Activate asset
+        _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, supply);
+
+        // Step 2: Create listing at face value with full supply via Router
+        listingId = router.createListingFor(
+            msg.sender,
+            revenueTokenId,
+            supply, // Full supply
+            price, // Face value
+            listingDuration,
+            buyerPaysFee
+        );
+    }
+
+    /**
      * @dev Update dynamic metadata URI for a vehicle
      */
     function updateVehicleMetadata(uint256 vehicleId, string memory newMetadataURI) external onlyAuthorizedPartner {
