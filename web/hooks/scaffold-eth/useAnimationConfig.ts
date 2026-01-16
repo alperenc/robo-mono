@@ -1,18 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ANIMATION_TIME = 2000;
 
 export function useAnimationConfig(data: any) {
   const [showAnimation, setShowAnimation] = useState(false);
-  const [prevData, setPrevData] = useState();
+  const prevDataRef = useRef<any>(undefined);
 
   useEffect(() => {
-    if (prevData !== undefined && prevData !== data) {
+    if (prevDataRef.current !== undefined && prevDataRef.current !== data) {
       setShowAnimation(true);
       setTimeout(() => setShowAnimation(false), ANIMATION_TIME);
     }
-    setPrevData(data);
-  }, [data, prevData]);
+    prevDataRef.current = data;
+  }, [data]);
 
   return {
     showAnimation,

@@ -7,3 +7,4 @@ sources:
 documents:
   - ./graphql/GetVehicles.gql
   - ./graphql/GetAllVehicles.gql
+  - ./graphql/GetMarketListings.gql

@@ -1,0 +1,45 @@
+query GetMarketListings {
+  listings(first: 100, orderBy: createdAt, orderDirection: desc, where: { status: "active" }) {
+    id
+    tokenId
+    assetId
+    seller
+    amount
+    amountSold
+    pricePerToken
+    expiresAt
+    buyerPaysFee
+    status
+    createdAt
+  }
+  vehicles(first: 100) {
+    id
+    partner
+    vin
+    make
+    model
+    year
+    metadataURI
+  }
+  roboshareTokens(first: 100) {
+    id
+    revenueTokenId
+    price
+    supply
+    maturityDate
+  }
+  assetEarnings(first: 100) {
+    id
+    assetId
+    totalEarnings
+    totalRevenue
+    distributionCount
+    lastDistributionAt
+    firstDistributionAt
+  }
+  partners(first: 100) {
+    id
+    name
+    address
+  }
+}

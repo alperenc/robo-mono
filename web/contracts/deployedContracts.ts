@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1652,7 +1652,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1725,7 +1725,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2362,7 +2362,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -3937,7 +3937,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5586,7 +5586,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -7333,7 +7333,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -8649,7 +8649,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1768131057545.json",
+      deploymentFile: "run-1768556095787.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

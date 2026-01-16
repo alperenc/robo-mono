@@ -1,6 +1,6 @@
 import { describe, test, assert, beforeAll } from "matchstick-as";
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { Partner, Vehicle, Listing } from "../generated/schema";
+import { Partner, Vehicle, Listing, EarningsDistribution, AssetEarnings } from "../generated/schema";
 
 describe("Asserts", () => {
     beforeAll(() => {
@@ -111,4 +111,73 @@ describe("Asserts", () => {
 
         assert.entityCount("Listing", 1);
     });
+
+    test("EarningsDistribution entity", () => {
+        // Testing EarningsDistribution entity creation
+        let distributionId = "0x1234567890abcdef-1";
+
+        let distribution = new EarningsDistribution(distributionId);
+        distribution.assetId = BigInt.fromI32(1);
+        distribution.partner = Bytes.fromHexString(
+            "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+        );
+        distribution.totalRevenue = BigInt.fromI64(1000000000); // 1000 USDC
+        distribution.netEarnings = BigInt.fromI64(100000000);   // 100 USDC
+        distribution.period = BigInt.fromI32(1);
+        distribution.blockNumber = BigInt.fromI32(12345);
+        distribution.blockTimestamp = BigInt.fromI32(1709849870);
+        distribution.transactionHash = Bytes.fromHexString(
+            "0x4909fcb0b41989e28308afcb0cf55adb6faba28e14fcbf66c489c69b8fe95dd9"
+        );
+        distribution.save();
+
+        // Loading and asserting
+        let loaded = EarningsDistribution.load(distributionId);
+        assert.assertNotNull(loaded, "EarningsDistribution should not be null");
+        assert.fieldEquals("EarningsDistribution", distributionId, "assetId", "1");
+        assert.fieldEquals("EarningsDistribution", distributionId, "totalRevenue", "1000000000");
+        assert.fieldEquals("EarningsDistribution", distributionId, "netEarnings", "100000000");
+        assert.fieldEquals("EarningsDistribution", distributionId, "period", "1");
+
+        assert.entityCount("EarningsDistribution", 1);
+    });
+
+    test("AssetEarnings aggregate entity", () => {
+        // Testing AssetEarnings entity creation and aggregation
+        let assetId = "1";
+
+        // Create initial AssetEarnings
+        let assetEarnings = new AssetEarnings(assetId);
+        assetEarnings.assetId = BigInt.fromI32(1);
+        assetEarnings.totalEarnings = BigInt.fromI64(100000000);  // 100 USDC
+        assetEarnings.totalRevenue = BigInt.fromI64(1000000000); // 1000 USDC
+        assetEarnings.distributionCount = BigInt.fromI32(1);
+        assetEarnings.firstDistributionAt = BigInt.fromI32(1709849870);
+        assetEarnings.lastDistributionAt = BigInt.fromI32(1709849870);
+        assetEarnings.save();
+
+        // Verify initial state
+        assert.fieldEquals("AssetEarnings", assetId, "totalEarnings", "100000000");
+        assert.fieldEquals("AssetEarnings", assetId, "distributionCount", "1");
+
+        // Simulate second distribution (aggregation)
+        let loaded = AssetEarnings.load(assetId);
+        if (loaded) {
+            loaded.totalEarnings = loaded.totalEarnings.plus(BigInt.fromI64(150000000));
+            loaded.totalRevenue = loaded.totalRevenue.plus(BigInt.fromI64(1500000000));
+            loaded.distributionCount = loaded.distributionCount.plus(BigInt.fromI32(1));
+            loaded.lastDistributionAt = BigInt.fromI32(1712441870);
+            loaded.save();
+        }
+
+        // Verify aggregated state
+        assert.fieldEquals("AssetEarnings", assetId, "totalEarnings", "250000000"); // 100 + 150
+        assert.fieldEquals("AssetEarnings", assetId, "totalRevenue", "2500000000"); // 1000 + 1500
+        assert.fieldEquals("AssetEarnings", assetId, "distributionCount", "2");
+        assert.fieldEquals("AssetEarnings", assetId, "firstDistributionAt", "1709849870");
+        assert.fieldEquals("AssetEarnings", assetId, "lastDistributionAt", "1712441870");
+
+        assert.entityCount("AssetEarnings", 1);
+    });
 });
+

@@ -131,6 +131,9 @@ dataSources:
       eventHandlers:
         - event: CollateralLocked(indexed uint256,indexed address,uint256)
           handler: handleCollateralLocked
+        - event: EarningsDistributed(indexed uint256,indexed
+            address,uint256,uint256,uint256)
+          handler: handleEarningsDistributed
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Marketplace

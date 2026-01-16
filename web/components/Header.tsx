@@ -6,14 +6,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { hardhat } from "viem/chains";
 import { Bars3Icon, BugAntIcon } from "@heroicons/react/24/outline";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { BuildingStorefrontIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { FaucetButton, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-eth";
+import { useIsAdmin } from "~~/hooks/useIsAdmin";
 
 type HeaderMenuLink = {
   label: string;
   href: string;
   icon?: React.ReactNode;
+  adminOnly?: boolean;
 };
 
 export const menuLinks: HeaderMenuLink[] = [
@@ -22,39 +24,54 @@ export const menuLinks: HeaderMenuLink[] = [
     href: "/",
   },
   {
+    label: "Markets",
+    href: "/markets",
+    icon: <BuildingStorefrontIcon className="h-4 w-4" />,
+  },
+  {
+    label: "Partners",
+    href: "/partner",
+    icon: <UserGroupIcon className="h-4 w-4" />,
+  },
+  {
     label: "Subgraph",
     href: "/subgraph",
     icon: <MagnifyingGlassIcon className="h-4 w-4" />,
+    adminOnly: true,
   },
   {
     label: "Debug Contracts",
     href: "/debug",
     icon: <BugAntIcon className="h-4 w-4" />,
+    adminOnly: true,
   },
 ];
 
 export const HeaderMenuLinks = () => {
   const pathname = usePathname();
+  const { isAdmin } = useIsAdmin();
 
   return (
     <>
-      {menuLinks.map(({ label, href, icon }) => {
-        const isActive = pathname === href;
-        return (
-          <li key={href}>
-            <Link
-              href={href}
-              passHref
-              className={`${
-                isActive ? "bg-secondary shadow-md" : ""
-              } hover:bg-secondary hover:shadow-md focus:!bg-secondary active:!text-neutral py-1.5 px-3 text-sm rounded-full gap-2 grid grid-flow-col`}
-            >
-              {icon}
-              <span>{label}</span>
-            </Link>
-          </li>
-        );
-      })}
+      {menuLinks
+        .filter(link => !link.adminOnly || isAdmin)
+        .map(({ label, href, icon }) => {
+          const isActive = pathname === href;
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                passHref
+                className={`${
+                  isActive ? "bg-secondary shadow-md" : ""
+                } hover:bg-secondary hover:shadow-md focus:!bg-secondary active:!text-neutral py-1.5 px-3 text-sm rounded-full gap-2 grid grid-flow-col`}
+              >
+                {icon}
+                <span>{label}</span>
+              </Link>
+            </li>
+          );
+        })}
     </>
   );
 };

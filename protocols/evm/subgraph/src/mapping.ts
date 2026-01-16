@@ -23,7 +23,8 @@ import {
 } from "../generated/VehicleRegistry/VehicleRegistry"
 import {
   Treasury,
-  CollateralLocked as CollateralLockedEvent
+  CollateralLocked as CollateralLockedEvent,
+  EarningsDistributed as EarningsDistributedEvent
 } from "../generated/Treasury/Treasury"
 import {
   Marketplace,
@@ -49,7 +50,9 @@ import {
   CollateralLock,
   MarketplaceContract,
   Listing,
-  TokenTrade
+  TokenTrade,
+  EarningsDistribution,
+  AssetEarnings
 } from "../generated/schema"
 
 export function handleMockUSDCTransfer(event: MockUSDCTransferEvent): void {
@@ -221,6 +224,41 @@ export function handleCollateralLocked(event: CollateralLockedEvent): void {
     contract.address = event.address
     contract.save()
   }
+}
+
+export function handleEarningsDistributed(event: EarningsDistributedEvent): void {
+  // Create individual distribution record
+  let distribution = new EarningsDistribution(
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
+  )
+  distribution.assetId = event.params.assetId
+  distribution.partner = event.params.partner
+  distribution.totalRevenue = event.params.totalRevenue
+  distribution.netEarnings = event.params.investorEarnings
+  distribution.period = event.params.period
+  distribution.blockNumber = event.block.number
+  distribution.blockTimestamp = event.block.timestamp
+  distribution.transactionHash = event.transaction.hash
+  distribution.save()
+
+  // Update or create aggregate earnings for asset
+  let assetEarningsId = event.params.assetId.toString()
+  let assetEarnings = AssetEarnings.load(assetEarningsId)
+
+  if (!assetEarnings) {
+    assetEarnings = new AssetEarnings(assetEarningsId)
+    assetEarnings.assetId = event.params.assetId
+    assetEarnings.totalEarnings = BigInt.fromI32(0)
+    assetEarnings.totalRevenue = BigInt.fromI32(0)
+    assetEarnings.distributionCount = BigInt.fromI32(0)
+    assetEarnings.firstDistributionAt = event.block.timestamp
+  }
+
+  assetEarnings.totalEarnings = assetEarnings.totalEarnings.plus(event.params.investorEarnings)
+  assetEarnings.totalRevenue = assetEarnings.totalRevenue.plus(event.params.totalRevenue)
+  assetEarnings.distributionCount = assetEarnings.distributionCount.plus(BigInt.fromI32(1))
+  assetEarnings.lastDistributionAt = event.block.timestamp
+  assetEarnings.save()
 }
 
 export function handleListingCreated(event: ListingCreatedEvent): void {

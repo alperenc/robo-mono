@@ -1,12 +1,13 @@
-import React from "react";
+"use client";
+
 import Link from "next/link";
 import VehiclesTable from "./_components/VehiclesTable";
-import type { NextPage } from "next";
 import { MagnifyingGlassIcon, PlusIcon, PowerIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+import { RequireAdmin } from "~~/components/RequireAdmin";
 
-const Subgraph: NextPage = () => {
+export default function Subgraph() {
   return (
-    <>
+    <RequireAdmin>
       <div>
         <div className="flex items-center flex-col flex-grow pt-10">
           <h1 className="text-center mb-8">
@@ -95,8 +96,6 @@ const Subgraph: NextPage = () => {
         </div>
         <VehiclesTable />
       </div>
-    </>
+    </RequireAdmin>
   );
-};
-
-export default Subgraph;
+}
