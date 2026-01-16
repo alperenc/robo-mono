@@ -133,3 +133,25 @@ type TokenTrade @entity(immutable: true) {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
 }
+
+type EarningsDistribution @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  assetId: BigInt!
+  partner: Bytes!
+  totalRevenue: BigInt!
+  netEarnings: BigInt!
+  period: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type AssetEarnings @entity(immutable: false) {
+  id: ID! # assetId
+  assetId: BigInt!
+  totalEarnings: BigInt!
+  totalRevenue: BigInt!
+  distributionCount: BigInt!
+  lastDistributionAt: BigInt!
+  firstDistributionAt: BigInt!
+}

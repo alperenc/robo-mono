@@ -19,7 +19,9 @@ export const ContractVariables = ({
     .filter(fn => {
       const isQueryableWithNoParams =
         (fn.stateMutability === "view" || fn.stateMutability === "pure") && fn.inputs.length === 0;
-      return isQueryableWithNoParams;
+      // Skip UUPS proxy functions that fail when called directly on implementation
+      const isUUPSProxyFunction = fn.name === "proxiableUUID";
+      return isQueryableWithNoParams && !isUUPSProxyFunction;
     })
     .map(fn => {
       return {

@@ -39,7 +39,6 @@ const VehiclesTable = () => {
         }
 
         const result = await response.json();
-        console.log("Subgraph response:", result);
         setVehiclesData(result.data);
       } catch (err) {
         console.error("Subgraph fetch error:", err);

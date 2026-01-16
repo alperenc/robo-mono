@@ -47,7 +47,8 @@ export const DisplayVariable = ({
 
   useEffect(() => {
     refetch();
-  }, [refetch, refreshDisplayVariables]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshDisplayVariables]);
 
   useEffect(() => {
     if (error) {
