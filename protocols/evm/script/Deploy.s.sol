@@ -31,17 +31,17 @@ contract Deploy is DeployCore {
         // Get network configuration
         NetworkConfig memory config = getActiveNetworkConfig();
 
-        // For local Anvil, deploy mock USDC if not set
-        if (config.usdcToken == address(0)) {
+        // For testnets and localhost, deploy MockUSDC if not already set
+        if (config.usdcToken == address(0) && isLocalOrTestNetwork()) {
             MockUSDC mockUsdc = new MockUSDC();
             config.usdcToken = address(mockUsdc);
-            console.log("Mock USDC (6 decimals) deployed at:", address(mockUsdc));
+            console.log("MockUSDC (6 decimals) deployed at:", address(mockUsdc));
 
             // Mint initial supply to deployer for testing
             mockUsdc.mint(deployer, 1_000_000 * 1e6); // 1M USDC
         }
 
-        // Use deployer as treasuryFeeRecipient fallback for local testing
+        // Use deployer as treasuryFeeRecipient fallback for test networks
         if (config.treasuryFeeRecipient == address(0)) {
             config.treasuryFeeRecipient = deployer;
             console.log("Using deployer as treasuryFeeRecipient:", deployer);
@@ -68,11 +68,10 @@ contract Deploy is DeployCore {
         saveDeployment("VehicleRegistry", address(vehicleRegistry));
         saveDeployment("Treasury", address(treasury));
         saveDeployment("Marketplace", address(marketplace));
-        if (config.usdcToken != address(0)) {
-            // If local network, save the mock USDC deployment
-            if (getActiveNetworkConfig().usdcToken != address(0) && isLocalNetwork()) {
-                saveDeployment("MockUSDC", config.usdcToken);
-            }
+
+        // Save MockUSDC deployment for test networks
+        if (isLocalOrTestNetwork() && config.usdcToken != address(0)) {
+            saveDeployment("MockUSDC", config.usdcToken);
         }
     }
 }

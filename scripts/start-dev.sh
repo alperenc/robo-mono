@@ -99,14 +99,15 @@ check_prerequisites() {
 print_header
 check_prerequisites
 
-# Handle --reset mode: clean up graph node data
+# Handle --reset mode: clean up graph node data and chain state
 if [ "$RESET_MODE" = true ]; then
-    print_warning "Reset mode enabled - cleaning graph node data..."
+    print_warning "Reset mode enabled - cleaning graph node data and chain state..."
     cd "$ROOT_DIR"
     yarn subgraph:stop-node 2>/dev/null || true
     yarn subgraph:clean-node 2>/dev/null || true
     rm -rf protocols/evm/subgraph/graph-node/data 2>/dev/null || true
-    print_status "Graph node data cleaned"
+    rm -f protocols/evm/anvil-state.json 2>/dev/null || true
+    print_status "Graph node data and chain state cleaned"
 fi
 
 # Kill existing session if it exists

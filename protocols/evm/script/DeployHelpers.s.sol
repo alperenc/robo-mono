@@ -41,14 +41,15 @@ contract ScaffoldETHDeploy is Script {
     constructor() {
         if (block.chainid == 1) {
             activeNetworkConfig = getMainnetConfig();
-        } else if (block.chainid == 11155111) {
-            activeNetworkConfig = getSepoliaConfig();
         } else if (block.chainid == 137) {
             activeNetworkConfig = getPolygonConfig();
         } else if (block.chainid == 42161) {
             activeNetworkConfig = getArbitrumConfig();
+        } else if (block.chainid == 8453) {
+            activeNetworkConfig = getBaseConfig();
         } else {
-            activeNetworkConfig = getOrCreateAnvilConfig();
+            // Testnets and localhost use MockUSDC
+            activeNetworkConfig = getLocalOrTestNetworkConfig();
         }
     }
 
@@ -166,21 +167,11 @@ contract ScaffoldETHDeploy is Script {
         return mainnetConfig;
     }
 
-    function getSepoliaConfig() public view returns (NetworkConfig memory) {
-        address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
-        require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for sepolia");
-        NetworkConfig memory sepoliaConfig = NetworkConfig({
-            usdcToken: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238, // Sepolia USDC
-            treasuryFeeRecipient: treasuryRecipient
-        });
-        return sepoliaConfig;
-    }
-
     function getPolygonConfig() public view returns (NetworkConfig memory) {
         address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
         require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for polygon");
         NetworkConfig memory polygonConfig = NetworkConfig({
-            usdcToken: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359, // Polygon USDC (native, corrected)
+            usdcToken: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359, // Polygon USDC (native)
             treasuryFeeRecipient: treasuryRecipient
         });
         return polygonConfig;
@@ -196,19 +187,29 @@ contract ScaffoldETHDeploy is Script {
         return arbitrumConfig;
     }
 
-    function getOrCreateAnvilConfig() public view returns (NetworkConfig memory) {
-        // For Anvil/localhost, use address(0) as placeholder unless USDC_ADDRESS is set
-        // Deploy scripts will use deployer as fallback for treasuryFeeRecipient
+    function getBaseConfig() public view returns (NetworkConfig memory) {
+        address treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
+        require(treasuryRecipient != address(0), "TREASURY_FEE_RECIPIENT env var required for base");
+        NetworkConfig memory baseConfig = NetworkConfig({
+            usdcToken: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, // Base USDC
+            treasuryFeeRecipient: treasuryRecipient
+        });
+        return baseConfig;
+    }
 
+    /// @notice Config for localhost and testnets - uses MockUSDC
+    function getLocalOrTestNetworkConfig() public view returns (NetworkConfig memory) {
+        // For testnets and localhost, use address(0) as placeholder
+        // Deploy scripts will deploy MockUSDC and use deployer as fallback for treasuryFeeRecipient
         address usdc = address(0);
         try vm.envAddress("USDC_ADDRESS") returns (address _usdc) {
             usdc = _usdc;
         } catch { }
-        NetworkConfig memory anvilConfig = NetworkConfig({
-            usdcToken: usdc, // Will be used if set, otherwise deployed by scripts
+        NetworkConfig memory testConfig = NetworkConfig({
+            usdcToken: usdc, // Will deploy MockUSDC if not set
             treasuryFeeRecipient: address(0) // Will use deployer as fallback
         });
-        return anvilConfig;
+        return testConfig;
     }
 
     /// @notice Read TREASURY_FEE_RECIPIENT from environment variable
@@ -232,20 +233,27 @@ contract ScaffoldETHDeploy is Script {
         return block.chainid == 31337; // Anvil chain ID
     }
 
+    /// @notice Check if we're on a local network or testnet
+    /// MockUSDC will be deployed on these networks
+    function isLocalOrTestNetwork() public view returns (bool) {
+        return block.chainid == 31337 // Anvil (localhost)
+            || block.chainid == 11155111 // Sepolia
+            || block.chainid == 84532 // Base Sepolia
+            || block.chainid == 421614 // Arbitrum Sepolia
+            || block.chainid == 80002; // Polygon Amoy
+    }
+
     /// @notice Get network name for logging
     function getNetworkName() public view returns (string memory) {
-        if (block.chainid == 1) {
-            return "mainnet";
-        } else if (block.chainid == 11155111) {
-            return "sepolia";
-        } else if (block.chainid == 137) {
-            return "polygon";
-        } else if (block.chainid == 42161) {
-            return "arbitrum";
-        } else if (block.chainid == 31337) {
-            return "anvil";
-        } else {
-            return "unknown";
-        }
+        if (block.chainid == 1) return "mainnet";
+        if (block.chainid == 137) return "polygon";
+        if (block.chainid == 42161) return "arbitrum";
+        if (block.chainid == 8453) return "base";
+        if (block.chainid == 11155111) return "sepolia";
+        if (block.chainid == 84532) return "baseSepolia";
+        if (block.chainid == 421614) return "arbitrumSepolia";
+        if (block.chainid == 80002) return "polygonAmoy";
+        if (block.chainid == 31337) return "anvil";
+        return "unknown";
     }
 }
