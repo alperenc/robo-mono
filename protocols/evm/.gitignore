@@ -19,3 +19,6 @@ CLAUDE.md
 # testing
 /coverage
 lcov.info
+
+# Anvil local chain state
+anvil-state.json

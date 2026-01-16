@@ -157,7 +157,7 @@ contract BaseTest is Test {
 
     function _fundInitialAccounts() private {
         // Fund accounts with USDC for testing
-        if (deployer.isLocalNetwork()) {
+        if (deployer.isLocalOrTestNetwork()) {
             MockUSDC mockUsdc = MockUSDC(address(usdc));
             mockUsdc.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
             mockUsdc.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
@@ -659,7 +659,7 @@ contract BaseTest is Test {
             partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i))));
 
             // Fund partners if on local network
-            if (deployer.isLocalNetwork()) {
+            if (deployer.isLocalOrTestNetwork()) {
                 MockUSDC(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
             }
         }
@@ -676,7 +676,7 @@ contract BaseTest is Test {
      * @dev Fund an address with USDC (local network only)
      */
     function fundAddressWithUsdc(address account, uint256 amount) internal {
-        if (deployer.isLocalNetwork()) {
+        if (deployer.isLocalOrTestNetwork()) {
             MockUSDC(address(usdc)).mint(account, amount);
         }
     }
