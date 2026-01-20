@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { NextPage } from "next";
-import { useAccount, useReadContracts } from "wagmi";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { useAccount, useReadContract, useReadContracts } from "wagmi";
+import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
+import { FinalizeListingModal } from "~~/components/partner/FinalizeListingModal";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
 import { MintTokensModal } from "~~/components/partner/MintTokensModal";
 import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
+import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
@@ -76,6 +78,8 @@ const PartnerDashboard: NextPage = () => {
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
   const [extendListingModalOpen, setExtendListingModalOpen] = useState(false);
   const [endListingModalOpen, setEndListingModalOpen] = useState(false);
+  const [finalizeListingModalOpen, setFinalizeListingModalOpen] = useState(false);
+  const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Trigger a data refresh with delay to allow subgraph to index
@@ -251,6 +255,19 @@ const PartnerDashboard: NextPage = () => {
     }
   }, [refreshCounter, allAssets.length]);
 
+  // View/Display Mode State
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  // Fetch pending withdrawal amount for seller
+  const { data: pendingWithdrawal, refetch: refetchPending } = useReadContract({
+    address: deployedContracts[31337]?.Treasury?.address,
+    abi: deployedContracts[31337]?.Treasury?.abi,
+    functionName: "getPendingWithdrawal",
+    args: connectedAddress ? [connectedAddress] : undefined,
+    query: { enabled: !!connectedAddress },
+  });
+  const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
+
   // Categorize assets into 5 states
   const categorizeAssets = (): {
     activeFleet: CategorizedAsset[];
@@ -358,19 +375,25 @@ const PartnerDashboard: NextPage = () => {
     asset,
     borderColor,
     primaryAction,
-    secondaryAction,
+    secondaryActions,
+    isGrid = false,
   }: {
     asset: CategorizedAsset;
     borderColor: string;
     primaryAction?: { label: string; onClick: () => void; className: string };
-    secondaryAction?: { label: string; onClick: () => void };
+    secondaryActions?: Array<{ label: string; onClick: () => void }>;
+    isGrid?: boolean;
   }) => (
     <div
-      className={`card bg-base-100 shadow-sm border-l-4 ${borderColor} p-4 sm:p-6 hover:shadow-md transition-shadow`}
+      className={`card bg-base-100 shadow-sm border-l-4 ${borderColor} p-4 sm:p-6 hover:shadow-md transition-shadow h-full`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className={`flex flex-col ${isGrid ? "gap-4" : "sm:flex-row sm:items-center gap-4"}`}>
         {/* Asset Image */}
-        <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-lg bg-base-200 overflow-hidden">
+        <div
+          className={`relative w-full aspect-video ${
+            isGrid ? "sm:aspect-video sm:w-full sm:h-auto" : "sm:w-20 sm:h-20 sm:aspect-auto"
+          } flex-shrink-0 rounded-lg bg-base-200 overflow-hidden`}
+        >
           {asset.imageUrl ? (
             <Image src={asset.imageUrl} alt={getAssetDisplayName(asset)} fill className="object-cover" unoptimized />
           ) : (
@@ -397,7 +420,7 @@ const PartnerDashboard: NextPage = () => {
         {/* Actions - only render if primaryAction is provided */}
         {primaryAction && (
           <div className="flex-shrink-0 flex gap-2 mt-2 sm:mt-0">
-            {secondaryAction && (
+            {secondaryActions && secondaryActions.length > 0 ? (
               <div className="dropdown dropdown-end w-full sm:w-auto">
                 <div className="flex items-stretch w-full sm:w-auto">
                   <button
@@ -415,13 +438,14 @@ const PartnerDashboard: NextPage = () => {
                   </div>
                 </div>
                 <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                  <li>
-                    <a onClick={secondaryAction.onClick}>{secondaryAction.label}</a>
-                  </li>
+                  {secondaryActions.map((action, idx) => (
+                    <li key={idx}>
+                      <a onClick={action.onClick}>{action.label}</a>
+                    </li>
+                  ))}
                 </ul>
               </div>
-            )}
-            {!secondaryAction && (
+            ) : (
               <button className={`${primaryAction.className} w-full sm:w-auto`} onClick={primaryAction.onClick}>
                 {primaryAction.label}
               </button>
@@ -439,18 +463,24 @@ const PartnerDashboard: NextPage = () => {
     badgeClass,
     borderClass,
     children,
+    viewMode,
   }: {
     title: string;
     count: number;
     badgeClass: string;
     borderClass: string;
     children: React.ReactNode;
+    viewMode: "list" | "grid";
   }) => (
     <section className="space-y-4 sm:space-y-6">
       <h2 className={`text-xl sm:text-2xl font-bold border-b ${borderClass} pb-3 flex items-center gap-3`}>
         {title} <span className={`badge ${badgeClass} badge-md`}>{count}</span>
       </h2>
-      <div className="grid gap-3 sm:gap-4">{children}</div>
+      <div
+        className={`grid gap-3 sm:gap-4 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}
+      >
+        {children}
+      </div>
     </section>
   );
 
@@ -590,9 +620,54 @@ const PartnerDashboard: NextPage = () => {
                 </button>
               </div>
             </div>
+
+            {/* View Mode Switcher - Hidden on mobile */}
+            <div className="hidden lg:flex items-center gap-2 bg-base-200 p-1 rounded-lg">
+              <button
+                className={`btn btn-sm btn-square ${viewMode === "list" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setViewMode("list")}
+                title="List View"
+              >
+                <Bars4Icon className="w-5 h-5" />
+              </button>
+              <button
+                className={`btn btn-sm btn-square ${viewMode === "grid" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setViewMode("grid")}
+                title="Grid View"
+              >
+                <Squares2X2Icon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Pending Proceeds Banner */}
+      {hasPendingWithdrawal && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-br from-success/5 to-success/10 border border-success/20 mb-8 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-success border border-success/10">
+              <CurrencyDollarIcon className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-sm font-medium opacity-60">Pending Sales Proceeds</div>
+              <div className="text-2xl font-bold flex items-baseline gap-1.5">
+                {(Number(pendingWithdrawal) / 1e6).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                <span className="text-base font-semibold text-success">USDC</span>
+              </div>
+            </div>
+          </div>
+          <button
+            className="btn btn-success text-white w-full sm:w-auto px-6 shadow-md shadow-success/20 hover:shadow-lg hover:shadow-success/30 transition-all rounded-xl"
+            onClick={() => setWithdrawProceedsModalOpen(true)}
+          >
+            Withdraw Now
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       {totalAssets === 0 ? (
@@ -674,27 +749,31 @@ const PartnerDashboard: NextPage = () => {
               count={activeFleet.length}
               badgeClass="badge-success"
               borderClass="border-success/30"
+              viewMode={viewMode}
             >
               {activeFleet.map(asset => (
                 <AssetCard
                   key={asset.id}
                   asset={asset}
                   borderColor="border-success"
+                  isGrid={viewMode === "grid"}
                   primaryAction={{
                     label: "Distribute Earnings",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
                       setDistributeEarningsModalOpen(true);
                     },
-                    className: "btn btn-success text-white",
+                    className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
                   }}
-                  secondaryAction={{
-                    label: "Settle Asset",
-                    onClick: () => {
-                      setSelectedCategorizedAsset(asset);
-                      setSettleAssetModalOpen(true);
+                  secondaryActions={[
+                    {
+                      label: "Settle Asset",
+                      onClick: () => {
+                        setSelectedCategorizedAsset(asset);
+                        setSettleAssetModalOpen(true);
+                      },
                     },
-                  }}
+                  ]}
                 />
               ))}
             </Section>
@@ -707,12 +786,14 @@ const PartnerDashboard: NextPage = () => {
               count={activeListingsAssets.length}
               badgeClass="badge-info"
               borderClass="border-info/30"
+              viewMode={viewMode}
             >
               {activeListingsAssets.map(asset => (
                 <AssetCard
                   key={asset.id}
                   asset={asset}
                   borderColor="border-info"
+                  isGrid={viewMode === "grid"}
                   primaryAction={{
                     label: "Extend Listing",
                     onClick: () => {
@@ -722,18 +803,30 @@ const PartnerDashboard: NextPage = () => {
                       }
                       setExtendListingModalOpen(true);
                     },
-                    className: "btn btn-info text-white",
+                    className: "btn btn-info bg-info/15 border-0 text-info hover:bg-info/25",
                   }}
-                  secondaryAction={{
-                    label: "End Listing",
-                    onClick: () => {
-                      setSelectedCategorizedAsset(asset);
-                      if (asset.listings && asset.listings.length > 0) {
-                        setSelectedListing(asset.listings[0]);
-                      }
-                      setEndListingModalOpen(true);
+                  secondaryActions={[
+                    {
+                      label: "Finalize Listing",
+                      onClick: () => {
+                        setSelectedCategorizedAsset(asset);
+                        if (asset.listings && asset.listings.length > 0) {
+                          setSelectedListing(asset.listings[0]);
+                        }
+                        setFinalizeListingModalOpen(true);
+                      },
                     },
-                  }}
+                    {
+                      label: "End Listing",
+                      onClick: () => {
+                        setSelectedCategorizedAsset(asset);
+                        if (asset.listings && asset.listings.length > 0) {
+                          setSelectedListing(asset.listings[0]);
+                        }
+                        setEndListingModalOpen(true);
+                      },
+                    },
+                  ]}
                 />
               ))}
             </Section>
@@ -746,16 +839,18 @@ const PartnerDashboard: NextPage = () => {
               count={pendingListings.length}
               badgeClass="badge-warning"
               borderClass="border-warning/30"
+              viewMode={viewMode}
             >
               {pendingListings.map(asset => (
                 <AssetCard
                   key={asset.id}
                   asset={asset}
                   borderColor="border-warning"
+                  isGrid={viewMode === "grid"}
                   primaryAction={{
                     label: "List For Sale",
                     onClick: () => openListModal(asset),
-                    className: "btn btn-warning",
+                    className: "btn btn-warning bg-warning/15 border-0 text-warning hover:bg-warning/25",
                   }}
                 />
               ))}
@@ -769,16 +864,18 @@ const PartnerDashboard: NextPage = () => {
               count={pendingTokenization.length}
               badgeClass="badge-neutral"
               borderClass="border-neutral/30"
+              viewMode={viewMode}
             >
               {pendingTokenization.map(asset => (
                 <AssetCard
                   key={asset.id}
                   asset={asset}
                   borderColor="border-neutral"
+                  isGrid={viewMode === "grid"}
                   primaryAction={{
                     label: "Mint Revenue Tokens",
                     onClick: () => openMintModal(asset),
-                    className: "btn btn-neutral",
+                    className: "btn btn-neutral bg-neutral/15 border-0 text-neutral hover:bg-neutral/25",
                   }}
                 />
               ))}
@@ -792,9 +889,10 @@ const PartnerDashboard: NextPage = () => {
               count={settledAssets.length}
               badgeClass="badge-ghost"
               borderClass="border-base-300"
+              viewMode={viewMode}
             >
               {settledAssets.map(asset => (
-                <AssetCard key={asset.id} asset={asset} borderColor="border-base-300" />
+                <AssetCard key={asset.id} asset={asset} borderColor="border-base-300" isGrid={viewMode === "grid"} />
               ))}
             </Section>
           )}
@@ -873,6 +971,17 @@ const PartnerDashboard: NextPage = () => {
             isOpen={endListingModalOpen}
             onClose={() => {
               setEndListingModalOpen(false);
+              refetchPending();
+              triggerRefresh();
+            }}
+            listingId={selectedListing.id}
+            tokenAmount={selectedListing.amount}
+          />
+          <FinalizeListingModal
+            isOpen={finalizeListingModalOpen}
+            onClose={() => {
+              setFinalizeListingModalOpen(false);
+              refetchPending();
               triggerRefresh();
             }}
             listingId={selectedListing.id}
@@ -880,6 +989,14 @@ const PartnerDashboard: NextPage = () => {
           />
         </>
       )}
+
+      <WithdrawProceedsModal
+        isOpen={withdrawProceedsModalOpen}
+        onClose={() => {
+          setWithdrawProceedsModalOpen(false);
+          refetchPending();
+        }}
+      />
     </div>
   );
 };

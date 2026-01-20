@@ -306,6 +306,20 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
     }
 
+    /**
+     * @dev Process withdrawal on behalf of a user (for convenience functions)
+     * @param account The account to withdraw for
+     * @return amount Amount withdrawn
+     */
+    function processWithdrawalFor(address account)
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+        nonReentrant
+        returns (uint256 amount)
+    {
+        amount = _processWithdrawalFor(account);
+    }
+
     // ============================================
     // Convenience Withdrawal Functions
     // ============================================

@@ -59,6 +59,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
             0, // Treasury Fee Recipient USDC change
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(requiredCollateral), // Treasury Contract USDC change
+            0, // Marketplace Contract USDC change
             0, // Partner token change
             0 // Buyer token change
         );
