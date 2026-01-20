@@ -18,16 +18,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create worktree
-        run: git worktree add test-worktree
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
 
       - name: Run coverage
-        working-directory: test-worktree/protocols/evm
+        working-directory: protocols/evm
         env:
           FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
         run: |
@@ -36,7 +33,7 @@ jobs:
           forge coverage --ir-minimum --report lcov
 
       - name: Enforce contracts coverage thresholds
-        working-directory: test-worktree/protocols/evm
+        working-directory: protocols/evm
         run: |
           set -euo pipefail
           test -f lcov.info
@@ -64,4 +61,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: evm-lcov
-          path: test-worktree/protocols/evm/lcov.info
+          path: protocols/evm/lcov.info
