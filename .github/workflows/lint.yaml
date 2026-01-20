@@ -17,9 +17,12 @@ jobs:
         os: [ubuntu-latest]
         node: [lts/*]
 
-    steps:
+     steps:
       - name: Checkout
         uses: actions/checkout@master
+
+      - name: Create worktree
+        run: git worktree add test-worktree
 
       - name: Setup node env
         uses: actions/setup-node@v3
@@ -29,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: yarn install --immutable
-      
+
       - name: Install foundry-toolchain
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -37,15 +40,20 @@ jobs:
 
       - name: Run contract tests
         run: yarn test
+        working-directory: test-worktree
 
       - name: Check contract compilation
         run: yarn compile
+        working-directory: test-worktree
 
       - name: Run EVM lint (Solidity + JS)
         run: yarn evm:lint
+        working-directory: test-worktree
 
       - name: Run nextjs lint
         run: yarn workspace web lint --max-warnings=0
+        working-directory: test-worktree
 
       - name: Check typings on nextjs
         run: yarn workspace web check-types
+        working-directory: test-worktree
