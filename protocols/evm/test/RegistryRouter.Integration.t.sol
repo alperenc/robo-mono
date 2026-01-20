@@ -11,6 +11,8 @@ import { Treasury } from "../contracts/Treasury.sol";
 
 // Simple Mock Registry to simulate a second asset type (e.g., "MachineRegistry")
 contract MockRegistry is IAssetRegistry {
+    uint256 constant ONE_YEAR_DAYS = 365;
+
     RegistryRouter public router;
     RoboshareTokens public roboshareTokens;
     Treasury public treasuryContract;

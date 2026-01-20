@@ -718,7 +718,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Compute target net = base * MIN_EARNINGS_BUFFER_BP * dt / (BP_PRECISION * YEARLY_INTERVAL)
         (uint256 baseCollateral,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        uint256 targetNet = (baseCollateral * 1000 * dt) / (10000 * ONE_YEAR_DAYS days);
+        uint256 targetNet = (baseCollateral * 1000 * dt) / (10000 * ONE_YEAR_DAYS * 1 days);
         // Compute gross so that net ~= targetNet (ceil to be safe): gross = ceil(targetNet * 10000 / 9750)
         uint256 gross = (targetNet * 10000 + 9749) / 9750;
 
@@ -747,7 +747,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertTrue(isLocked);
 
         // Warp one year from lock and release
-        vm.warp(lockedAt + ONE_YEAR_DAYS days);
+        vm.warp(lockedAt + ONE_YEAR_DAYS * 1 days);
         uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
@@ -779,7 +779,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertTrue(isLocked);
 
         // First release after 1 year
-        vm.warp(lockedAt + ONE_YEAR_DAYS days);
+        vm.warp(lockedAt + ONE_YEAR_DAYS * 1 days);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
 
@@ -905,13 +905,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Repeatedly release collateral over 10 years until it's fully depleted (12% per year, ~8.33 years to deplete)
         uint256 timeToWarp = lockedAt;
         for (uint256 i = 0; i < 9; i++) {
-            timeToWarp += ONE_YEAR_DAYS days;
+            timeToWarp += ONE_YEAR_DAYS * 1 days;
             vm.warp(timeToWarp);
 
             // Distribute earnings that meet the benchmark to avoid draining the buffer
             // With new logic, we need to distribute enough so investor portion meets benchmark
             (uint256 currentBase,,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(currentBase, ONE_YEAR_DAYS days);
+            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(currentBase, ONE_YEAR_DAYS * 1 days);
             uint256 grossEarnings = (benchmarkEarnings * 10000) / 9750; // Gross up to account for protocol fee
             // Scale up by token ratio since setupEarningsScenario uses investor portion
             uint256 scaledGrossEarnings = (grossEarnings * REVENUE_TOKEN_SUPPLY) / PURCHASE_AMOUNT;
@@ -934,7 +934,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Attempt one final release in the 10th year
         setupEarningsScenario(scenario.assetId, 10_000e6); // Scale up for investor ratio
-        vm.warp(block.timestamp + ONE_YEAR_DAYS days);
+        vm.warp(block.timestamp + ONE_YEAR_DAYS * 1 days);
 
         // Expect revert because releaseAmount will be 0
         vm.expectRevert(ITreasury.InsufficientCollateral.selector);
@@ -1048,7 +1048,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         );
 
         // 2. Lock collateral and mint revenue tokens with maturity date
-        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
         uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         usdc.approve(address(treasury), requiredCollateral);
 

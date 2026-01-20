@@ -16,7 +16,7 @@ contract RoboshareTokensTest is BaseTest {
     // Local constants for test values
     uint256 constant SMALL_BURN_AMOUNT = 50;
     uint256 constant SMALL_TRANSFER_AMOUNT = 30;
-    uint256 constant DOUBLE_DEFAULT_AMOUNT = DOUBLE_DEFAULT_AMOUNT;
+    uint256 constant DOUBLE_DEFAULT_AMOUNT = 200;
 
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);

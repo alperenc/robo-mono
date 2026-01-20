@@ -175,6 +175,7 @@ contract LibrariesTest is Test {
     // Local constants for test values
     uint256 constant EXTENSION_DURATION_DAYS = 7;
     uint256 constant MEDIUM_BP_ADDITION = 500;
+    uint256 constant ONE_YEAR_DAYS = 365;
 
     function setUp() public {
         peh = new ProtocolEarningsHelper();

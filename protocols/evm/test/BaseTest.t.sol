@@ -190,10 +190,18 @@ contract BaseTest is Test {
         // Approve USDC for collateral
         usdc.approve(address(treasury), scenario.requiredCollateral);
 
-        revenueTokenId = assetRegistry.mintRevenueTokens(
+        scenario.revenueTokenId = assetRegistry.mintRevenueTokens(
             scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, maturityDate
         );
         vm.stopPrank();
+    }
+
+    function _setupRevenueTokensMinted() internal returns (uint256) {
+        vm.prank(partner1);
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
+        return assetRegistry.mintRevenueTokens(
+            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, maturityDate
+        );
     }
 
     // ========================================
