@@ -26,6 +26,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 totalPrice
     );
 
+    // Local constants for test values
+    uint256 constant TRANSFER_AMOUNT = 600;
+    uint256 constant SMALL_LISTING_AMOUNT = 50;
+    uint256 constant LOW_PRICE = 30;
+
     function setUp() public {
         _ensureState(SetupState.AccountsFunded);
     }
@@ -104,7 +109,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         vm.startPrank(partner1);
-        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.revenueTokenId, 600, "");
+        roboshareTokens.safeTransferFrom(partner1, partner2, scenario.revenueTokenId, TRANSFER_AMOUNT, "");
 
         vm.expectRevert(Marketplace.InsufficientTokenBalance.selector);
         marketplace.createListing(
@@ -370,7 +375,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Create a second listing
         vm.prank(partner1);
         uint256 listingId2 =
-            marketplace.createListing(scenario.revenueTokenId, 50, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+            marketplace.createListing(scenario.revenueTokenId, SMALL_LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
 
         // Cancel the first listing
         vm.prank(partner1);
@@ -424,7 +429,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     function testPurchaseTokensNonExistentListing() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 nonExistentListingId = 999;
+        uint256 nonExistentListingId = INVALID_LISTING_ID;
 
         vm.prank(buyer);
         vm.expectRevert(Marketplace.ListingNotFound.selector);
@@ -446,7 +451,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     function testCancelListingNonExistentListing() public {
         _ensureState(SetupState.AssetWithListing);
-        uint256 nonExistentListingId = 999;
+        uint256 nonExistentListingId = INVALID_LISTING_ID;
 
         vm.prank(partner1);
         vm.expectRevert(Marketplace.ListingNotFound.selector);
@@ -468,7 +473,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     function testPurchaseTokensMinimumProtocolFee() public {
         // 1. Setup with a very low price to ensure percentage-based protocol fee calculates to zero
-        uint256 lowPrice = 30; // Total price < 40 results in a percentage fee of 0
+        uint256 lowPrice = LOW_PRICE; // Total price < 40 results in a percentage fee of 0
         uint256 purchaseAmount = 1;
         uint256 listingAmount = 10;
 
@@ -606,8 +611,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         roboshareTokens.setApprovalForAll(address(marketplace), true);
 
         uint256 expectedListingId = 1;
-        uint256 listingAmount = 500;
-        uint256 duration = 30 days;
+        uint256 listingAmount = MEDIUM_TOKEN_AMOUNT;
+        uint256 duration = ONE_MONTH_DAYS * 1 days;
 
         // Verify the ListingCreated event emits the correct seller (partner1, NOT router)
         vm.expectEmit(true, true, true, true, address(marketplace));
@@ -640,7 +645,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Without AUTHORIZED_CONTRACT_ROLE - should revert
         vm.expectRevert();
-        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, MEDIUM_TOKEN_AMOUNT, REVENUE_TOKEN_PRICE, ONE_MONTH_DAYS * 1 days, true);
     }
 
     function testCreateListingForInvalidTokenType() public {
@@ -652,7 +657,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // assetId (even number) is not a revenue token
         vm.expectRevert(Marketplace.InvalidTokenType.selector);
-        marketplace.createListingFor(partner1, scenario.assetId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+        marketplace.createListingFor(partner1, scenario.assetId, MEDIUM_TOKEN_AMOUNT, REVENUE_TOKEN_PRICE, ONE_MONTH_DAYS * 1 days, true);
     }
 
     function testCreateListingForInvalidPrice() public {
@@ -664,7 +669,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Price of 0 is invalid
         vm.expectRevert(Marketplace.InvalidPrice.selector);
-        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, 0, 30 days, true);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, MEDIUM_TOKEN_AMOUNT, 0, ONE_MONTH_DAYS * 1 days, true);
     }
 
     function testCreateListingForInvalidAmount() public {
@@ -676,12 +681,12 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Amount of 0 is invalid
         vm.expectRevert(Marketplace.InvalidAmount.selector);
-        marketplace.createListingFor(partner1, scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, 30 days, true);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, ONE_MONTH_DAYS * 1 days, true);
 
         // Amount greater than total supply is invalid
         vm.expectRevert(Marketplace.InvalidAmount.selector);
         marketplace.createListingFor(
-            partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY + 1, REVENUE_TOKEN_PRICE, 30 days, true
+            partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY + 1, REVENUE_TOKEN_PRICE, ONE_MONTH_DAYS * 1 days, true
         );
     }
 
@@ -694,7 +699,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // partner2 doesn't own any of this token
         vm.expectRevert(Marketplace.InsufficientTokenBalance.selector);
-        marketplace.createListingFor(partner2, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+        marketplace.createListingFor(partner2, scenario.revenueTokenId, MEDIUM_TOKEN_AMOUNT, REVENUE_TOKEN_PRICE, ONE_MONTH_DAYS * 1 days, true);
     }
 
     function testCreateListingForAssetNotActive() public {
@@ -715,7 +720,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Asset is now Retired (not Active) - should revert with AssetNotActive
         vm.expectRevert(Marketplace.AssetNotActive.selector);
-        marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
+        marketplace.createListingFor(partner1, scenario.revenueTokenId, MEDIUM_TOKEN_AMOUNT, REVENUE_TOKEN_PRICE, ONE_MONTH_DAYS * 1 days, true);
     }
 
     // ============ registerAssetMintAndList Integration Test ============
@@ -751,7 +756,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Execute: Register, mint, and list in one transaction!
         (uint256 assetId, uint256 revenueTokenId, uint256 listingId) = assetRegistry.registerAssetMintAndList(
-            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days, 30 days, true
+            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + ONE_YEAR_DAYS * 1 days, ONE_MONTH_DAYS * 1 days, true
         );
         vm.stopPrank();
 

@@ -85,7 +85,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1000 * 1e6);
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
-        treasury.lockCollateral(999, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        treasury.lockCollateral(INVALID_ASSET_ID, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
     }
 
@@ -176,7 +176,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testUnlockCollateralNotAssetOwner() public {
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
         vm.prank(partner1);
-        treasury.releaseCollateral(999);
+        treasury.releaseCollateral(INVALID_ASSET_ID);
         vm.stopPrank();
     }
 
@@ -401,7 +401,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testDistributeEarningsNonExistentAsset() public {
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
         vm.prank(partner1);
-        treasury.distributeEarnings(999, 1000 * 1e6, 1000 * 1e6, false);
+        treasury.distributeEarnings(INVALID_ASSET_ID, LARGE_TOKEN_AMOUNT * 1e6, LARGE_TOKEN_AMOUNT * 1e6, false);
     }
 
     function testDistributeEarningsPendingAsset() public {
@@ -463,7 +463,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     function testLockCollateralForNonExistentAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        uint256 nonExistentAssetId = 999;
+        uint256 nonExistentAssetId = INVALID_ASSET_ID;
         vm.prank(address(router));
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
         treasury.lockCollateralFor(partner1, nonExistentAssetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
@@ -471,7 +471,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     function testClaimEarningsNonExistentAsset() public {
         _ensureState(SetupState.AssetWithEarnings);
-        uint256 nonExistentAssetId = 999;
+        uint256 nonExistentAssetId = INVALID_ASSET_ID;
 
         vm.prank(buyer);
         vm.expectRevert(ITreasury.AssetNotFound.selector);
@@ -506,7 +506,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testClaimEarningsMultiplePeriods() public {
         _ensureState(SetupState.AssetWithPurchase);
         uint256 earnings1 = 1000 * 1e6;
-        uint256 earnings2 = 500 * 1e6;
+        uint256 earnings2 = MEDIUM_TOKEN_AMOUNT * 1e6;
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earnings1 + earnings2);
         _distributeEarnings(scenario.assetId, earnings1, partner1);
@@ -553,7 +553,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     function testReleasePartialCollateral() public {
         _ensureState(SetupState.AssetWithPurchase);
-        vm.warp(block.timestamp + 30 days);
+        vm.warp(block.timestamp + ONE_MONTH_DAYS * 1 days);
         setupEarningsScenario(scenario.assetId, 1000e6);
         vm.startPrank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
@@ -711,14 +711,14 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.AssetWithPurchase);
 
         // Use a realistic interval to avoid overflow while targeting the equality path
-        uint256 dt = 30 days;
+        uint256 dt = ONE_MONTH_DAYS * 1 days;
         (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
         assertTrue(isLocked);
         vm.warp(lockedAt + dt);
 
         // Compute target net = base * MIN_EARNINGS_BUFFER_BP * dt / (BP_PRECISION * YEARLY_INTERVAL)
         (uint256 baseCollateral,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        uint256 targetNet = (baseCollateral * 1000 * dt) / (10000 * 365 days);
+        uint256 targetNet = (baseCollateral * 1000 * dt) / (10000 * ONE_YEAR_DAYS days);
         // Compute gross so that net ~= targetNet (ceil to be safe): gross = ceil(targetNet * 10000 / 9750)
         uint256 gross = (targetNet * 10000 + 9749) / 9750;
 
@@ -747,7 +747,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertTrue(isLocked);
 
         // Warp one year from lock and release
-        vm.warp(lockedAt + 365 days);
+        vm.warp(lockedAt + ONE_YEAR_DAYS days);
         uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
@@ -779,7 +779,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertTrue(isLocked);
 
         // First release after 1 year
-        vm.warp(lockedAt + 365 days);
+        vm.warp(lockedAt + ONE_YEAR_DAYS days);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
 
@@ -798,7 +798,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         (uint256 baseAfter,,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
 
         // Expected cumulative release over 1.5 years: 18% of initial base
-        uint256 expectedCumulative = (baseInitial * (1200 * 365 + 1200 * 182)) / (10000 * 365);
+        uint256 expectedCumulative = (baseInitial * (1200 * ONE_YEAR_DAYS + 1200 * 182)) / (10000 * ONE_YEAR_DAYS);
         // After two releases, remaining base should be initial - expectedCumulative (no compounding)
         assertEq(baseAfter, baseInitial - expectedCumulative, "Linear 18-month cumulative base release mismatch");
     }
@@ -905,13 +905,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Repeatedly release collateral over 10 years until it's fully depleted (12% per year, ~8.33 years to deplete)
         uint256 timeToWarp = lockedAt;
         for (uint256 i = 0; i < 9; i++) {
-            timeToWarp += 365 days;
+            timeToWarp += ONE_YEAR_DAYS days;
             vm.warp(timeToWarp);
 
             // Distribute earnings that meet the benchmark to avoid draining the buffer
             // With new logic, we need to distribute enough so investor portion meets benchmark
             (uint256 currentBase,,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(currentBase, 365 days);
+            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(currentBase, ONE_YEAR_DAYS days);
             uint256 grossEarnings = (benchmarkEarnings * 10000) / 9750; // Gross up to account for protocol fee
             // Scale up by token ratio since setupEarningsScenario uses investor portion
             uint256 scaledGrossEarnings = (grossEarnings * REVENUE_TOKEN_SUPPLY) / PURCHASE_AMOUNT;
@@ -934,7 +934,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Attempt one final release in the 10th year
         setupEarningsScenario(scenario.assetId, 10_000e6); // Scale up for investor ratio
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + ONE_YEAR_DAYS days);
 
         // Expect revert because releaseAmount will be 0
         vm.expectRevert(ITreasury.InsufficientCollateral.selector);
@@ -1048,7 +1048,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         );
 
         // 2. Lock collateral and mint revenue tokens with maturity date
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS days;
         uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         usdc.approve(address(treasury), requiredCollateral);
 
@@ -1435,7 +1435,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
             vm.stopPrank();
 
             // Advance time between distributions
-            vm.warp(block.timestamp + 30 days);
+            vm.warp(block.timestamp + ONE_MONTH_DAYS * 1 days);
         }
 
         // Settle
@@ -1585,7 +1585,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, false);
 
         // Advance time for depreciation
-        vm.warp(block.timestamp + 30 days);
+        vm.warp(block.timestamp + ONE_MONTH_DAYS * 1 days);
 
         // Second distribution
         treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, false);

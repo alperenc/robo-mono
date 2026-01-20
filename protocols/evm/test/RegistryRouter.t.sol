@@ -178,7 +178,7 @@ contract RegistryRouterTest is BaseTest {
         );
 
         assertTrue(router.assetExists(assetId));
-        assertFalse(router.assetExists(999));
+        assertFalse(router.assetExists(INVALID_ASSET_ID));
     }
 
     function testDirectCallNotAllowed() public {
@@ -186,7 +186,7 @@ contract RegistryRouterTest is BaseTest {
         router.registerAsset(bytes(""));
 
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetAndMintTokens(bytes(""), 100, 100, block.timestamp + 365 days);
+        router.registerAssetAndMintTokens(bytes(""), DEFAULT_TOKEN_AMOUNT, DEFAULT_TOKEN_AMOUNT, block.timestamp + ONE_YEAR_DAYS * 1 days);
     }
 
     function testInitializationZeroAddresses() public {

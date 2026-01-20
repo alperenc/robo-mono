@@ -9,8 +9,11 @@ import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
-
 contract MarketplaceTest is BaseTest {
+
+    // Local constants for test values
+    uint256 constant EXTENSION_DURATION_DAYS = 7;
+
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }
@@ -185,7 +188,7 @@ contract MarketplaceTest is BaseTest {
         _ensureState(SetupState.AssetWithListing);
 
         Marketplace.Listing memory listingBefore = marketplace.getListing(scenario.listingId);
-        uint256 additionalDuration = 7 days;
+        uint256 additionalDuration = EXTENSION_DURATION_DAYS * 1 days;
 
         vm.prank(partner1);
         marketplace.extendListing(scenario.listingId, additionalDuration);
@@ -198,11 +201,11 @@ contract MarketplaceTest is BaseTest {
     function testExtendListingNonExistent() public {
         _ensureState(SetupState.ContractsDeployed);
 
-        uint256 nonExistentListingId = 999;
+        uint256 nonExistentListingId = INVALID_LISTING_ID;
 
         vm.expectRevert(Marketplace.ListingNotFound.selector);
         vm.prank(partner1);
-        marketplace.extendListing(nonExistentListingId, 7 days);
+        marketplace.extendListing(nonExistentListingId, EXTENSION_DURATION_DAYS * 1 days);
     }
 
     function testExtendListingUnauthorized() public {
@@ -210,7 +213,7 @@ contract MarketplaceTest is BaseTest {
 
         vm.expectRevert(Marketplace.NotTokenOwner.selector);
         vm.prank(unauthorized);
-        marketplace.extendListing(scenario.listingId, 7 days);
+        marketplace.extendListing(scenario.listingId, EXTENSION_DURATION_DAYS * 1 days);
     }
 
     function testExtendListingInactive() public {
@@ -222,7 +225,7 @@ contract MarketplaceTest is BaseTest {
 
         vm.expectRevert(Marketplace.ListingNotActive.selector);
         vm.prank(partner1);
-        marketplace.extendListing(scenario.listingId, 7 days);
+        marketplace.extendListing(scenario.listingId, EXTENSION_DURATION_DAYS * 1 days);
     }
 
     function testExtendListingZeroDuration() public {

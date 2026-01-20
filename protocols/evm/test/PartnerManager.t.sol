@@ -10,6 +10,9 @@ contract PartnerManagerTest is BaseTest {
 
     string constant NEW_PARTNER_NAME = "BMW Group";
 
+    // Local constants for test values
+    uint256 constant MAX_PARTNERS = 50;
+
     event PartnerAuthorized(address indexed partner, string name);
     event PartnerRevoked(address indexed partner);
     event PartnerNameUpdated(address indexed partner, string newName);
@@ -210,7 +213,7 @@ contract PartnerManagerTest is BaseTest {
     }
 
     function testFuzzMultiplePartners(uint8 numPartners) public {
-        vm.assume(numPartners > 0 && numPartners <= 50);
+        vm.assume(numPartners > 0 && numPartners <= MAX_PARTNERS);
 
         vm.startPrank(partnerAdmin);
 

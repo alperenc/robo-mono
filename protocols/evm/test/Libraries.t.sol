@@ -172,6 +172,10 @@ contract LibrariesTest is Test {
 
     address private alice = address(0xA11CE);
 
+    // Local constants for test values
+    uint256 constant EXTENSION_DURATION_DAYS = 7;
+    uint256 constant MEDIUM_BP_ADDITION = 500;
+
     function setUp() public {
         peh = new ProtocolEarningsHelper();
         ah = new AssetHelper();
@@ -259,8 +263,8 @@ contract LibrariesTest is Test {
         // lock duration behavior
         assertEq(cteh.lockDuration(), 0);
         cteh.lockNow();
-        vm.warp(block.timestamp + 7 days);
-        assertApproxEqAbs(cteh.lockDuration(), 7 days, 2);
+        vm.warp(block.timestamp + EXTENSION_DURATION_DAYS * 1 days);
+        assertApproxEqAbs(cteh.lockDuration(), EXTENSION_DURATION_DAYS * 1 days, 2);
     }
 
     function testCollateralRequirements() public pure {
@@ -311,14 +315,14 @@ contract LibrariesTest is Test {
         uint256 principal = 1000e6;
         uint256 dt = 30 days;
         uint256 defaultBench = EarningsLib.calculateBenchmarkEarnings(principal, dt);
-        uint256 higherBench = EarningsLib.calculateEarnings(principal, dt, ProtocolLib.BENCHMARK_EARNINGS_BP + 500);
+        uint256 higherBench = EarningsLib.calculateEarnings(principal, dt, ProtocolLib.BENCHMARK_EARNINGS_BP + MEDIUM_BP_ADDITION);
         assertGt(higherBench, defaultBench);
     }
 
     // TokenLib tests
     function testTokenInitializationAndValueCalculation() public {
         // min holding coerced to at least MONTHLY_INTERVAL
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
         cteh.initToken(1, 100e6, 1 days, maturityDate);
         (uint256 tid, uint256 price, uint256 supply, uint256 minHold, uint256 tokenMaturity) = cteh.tokenInfo();
         assertEq(tid, 1);
@@ -332,7 +336,7 @@ contract LibrariesTest is Test {
     }
 
     function testTokenUnclaimedForPositionsAndEarningsHelpers() public {
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
         cteh.initToken(7, 100e6, ProtocolLib.MONTHLY_INTERVAL, maturityDate);
         cteh.addPos(alice, 10);
 
@@ -356,7 +360,7 @@ contract LibrariesTest is Test {
     }
 
     function testRemovePositionInsufficientBalance() public {
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
         cteh.initToken(1, 100e6, ProtocolLib.MONTHLY_INTERVAL, maturityDate);
         cteh.addPos(alice, 10);
         vm.expectRevert(TokenLib.InsufficientTokenBalance.selector);

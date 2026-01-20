@@ -66,6 +66,18 @@ contract BaseTest is Test {
     uint256 constant LISTING_DURATION = 30 days;
     uint256 constant PURCHASE_AMOUNT = 100;
 
+    // Additional constants for magic numbers
+    uint256 constant INVALID_ASSET_ID = 999;
+    uint256 constant INVALID_TOKEN_ID = 999999;
+    uint256 constant INVALID_LISTING_ID = 1000;
+    uint256 constant ONE_YEAR_DAYS = 365;
+    uint256 constant ONE_MONTH_DAYS = 30;
+    uint256 constant SMALL_TOKEN_AMOUNT = 30;
+    uint256 constant DEFAULT_TOKEN_AMOUNT = 100;
+    uint256 constant MEDIUM_TOKEN_AMOUNT = 500;
+    uint256 constant LARGE_TOKEN_AMOUNT = 1000;
+    uint256 constant LARGE_USDC_AMOUNT = 1000000;
+
     // Storage for test scenario states
     struct TestScenario {
         uint256 assetId;
@@ -159,30 +171,20 @@ contract BaseTest is Test {
         // Fund accounts with USDC for testing
         if (deployer.isLocalOrTestNetwork()) {
             MockUSDC mockUsdc = MockUSDC(address(usdc));
-            mockUsdc.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
-            mockUsdc.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
-            mockUsdc.mint(buyer, 1000000 * 10 ** 6); // 1M USDC
+            mockUsdc.mint(partner1, LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
+            mockUsdc.mint(partner2, LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
+            mockUsdc.mint(buyer, LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
         } else {
-            deal(address(usdc), partner1, 1000000 * 10 ** 6); // 1M USDC
-            deal(address(usdc), partner2, 1000000 * 10 ** 6); // 1M USDC
-            deal(address(usdc), buyer, 1000000 * 10 ** 6); // 1M USDC
+            deal(address(usdc), partner1, LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
+            deal(address(usdc), partner2, LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
+            deal(address(usdc), buyer, LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
         }
     }
 
     function _setupAssetRegistered() internal returns (uint256 assetId) {
         vm.prank(partner1);
-        assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            )
-        );
-    }
 
-    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
-        // Calculate required collateral
-        scenario.requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
 
         vm.startPrank(partner1);
         // Approve USDC for collateral
@@ -363,7 +365,7 @@ contract BaseTest is Test {
      * @dev Warp past holding period for penalty-free transfers
      */
     function warpPastHoldingPeriod() internal {
-        vm.warp(block.timestamp + 30 days + 1); // Monthly interval + 1
+        vm.warp(block.timestamp + ONE_MONTH_DAYS * 1 days + 1); // Monthly interval + 1
     }
 
     /**
@@ -544,7 +546,7 @@ contract BaseTest is Test {
         pure
         returns (uint256)
     {
-        return (principal * earningsRateBp * timeElapsed) / (10000 * 365 days);
+        return (principal * earningsRateBp * timeElapsed) / (10000 * ONE_YEAR_DAYS * 1 days);
     }
 
     // ========================================
@@ -577,7 +579,7 @@ contract BaseTest is Test {
         vm.startPrank(partner);
 
         // Register asset and mint tokens in one go
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
         (scenario.assetId, scenario.revenueTokenId) = assetRegistry.registerAssetAndMintTokens(
             abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI),
             tokenPrice,
@@ -660,7 +662,7 @@ contract BaseTest is Test {
 
             // Fund partners if on local network
             if (deployer.isLocalOrTestNetwork()) {
-                MockUSDC(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
+                MockUSDC(address(usdc)).mint(partners[i], LARGE_USDC_AMOUNT * 10 ** 6); // 1M USDC
             }
         }
         vm.stopPrank();

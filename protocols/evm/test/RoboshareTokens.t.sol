@@ -13,6 +13,11 @@ contract RoboshareTokensTest is BaseTest {
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
+    // Local constants for test values
+    uint256 constant SMALL_BURN_AMOUNT = 50;
+    uint256 constant SMALL_TRANSFER_AMOUNT = 30;
+    uint256 constant DOUBLE_DEFAULT_AMOUNT = DOUBLE_DEFAULT_AMOUNT;
+
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
         minter = admin; // Admin has minter role by default
@@ -52,7 +57,7 @@ contract RoboshareTokensTest is BaseTest {
         ids[0] = 101; // Asset token
         ids[1] = 102; // Revenue token
         amounts[0] = 1;
-        amounts[1] = 200;
+        amounts[1] = DOUBLE_DEFAULT_AMOUNT;
         bytes memory data = "";
 
         vm.expectEmit(true, true, true, false);
@@ -62,7 +67,7 @@ contract RoboshareTokensTest is BaseTest {
         roboshareTokens.mintBatch(user1, ids, amounts, data);
 
         assertEq(roboshareTokens.balanceOf(user1, 101), 1);
-        assertEq(roboshareTokens.balanceOf(user1, 102), 200);
+        assertEq(roboshareTokens.balanceOf(user1, 102), DOUBLE_DEFAULT_AMOUNT);
     }
 
     function testBurnSingleToken() public {
@@ -75,7 +80,7 @@ contract RoboshareTokensTest is BaseTest {
 
         // Test burn
         vm.prank(burner);
-        roboshareTokens.burn(user1, tokenId, 50);
+        roboshareTokens.burn(user1, tokenId, SMALL_BURN_AMOUNT);
 
         assertEq(roboshareTokens.balanceOf(user1, tokenId), 50);
     }
@@ -87,15 +92,15 @@ contract RoboshareTokensTest is BaseTest {
         ids[0] = 101;
         ids[1] = 102;
         amounts[0] = 100;
-        amounts[1] = 200;
+        amounts[1] = DOUBLE_DEFAULT_AMOUNT;
 
         vm.prank(minter);
         roboshareTokens.mintBatch(user1, ids, amounts, "");
 
         // Test burn batch
         uint256[] memory burnAmounts = new uint256[](2);
-        burnAmounts[0] = 30;
-        burnAmounts[1] = 50;
+        burnAmounts[0] = SMALL_TOKEN_AMOUNT;
+        burnAmounts[1] = SMALL_BURN_AMOUNT;
 
         vm.prank(burner);
         roboshareTokens.burnBatch(user1, ids, burnAmounts);
@@ -123,10 +128,10 @@ contract RoboshareTokensTest is BaseTest {
 
         // Transfer from user1 to user2
         vm.prank(user1);
-        roboshareTokens.safeTransferFrom(user1, user2, tokenId, 30, "");
+        roboshareTokens.safeTransferFrom(user1, user2, tokenId, SMALL_TRANSFER_AMOUNT, "");
 
         assertEq(roboshareTokens.balanceOf(user1, tokenId), 70);
-        assertEq(roboshareTokens.balanceOf(user2, tokenId), 30);
+        assertEq(roboshareTokens.balanceOf(user2, tokenId), SMALL_TRANSFER_AMOUNT);
     }
 
     function testBatchTransfers() public {
@@ -136,23 +141,23 @@ contract RoboshareTokensTest is BaseTest {
         ids[0] = 101;
         ids[1] = 102;
         amounts[0] = 100;
-        amounts[1] = 200;
+        amounts[1] = DOUBLE_DEFAULT_AMOUNT;
 
         vm.prank(minter);
         roboshareTokens.mintBatch(user1, ids, amounts, "");
 
         // Batch transfer
         uint256[] memory transferAmounts = new uint256[](2);
-        transferAmounts[0] = 30;
-        transferAmounts[1] = 50;
+        transferAmounts[0] = SMALL_TRANSFER_AMOUNT;
+        transferAmounts[1] = SMALL_BURN_AMOUNT;
 
         vm.prank(user1);
         roboshareTokens.safeBatchTransferFrom(user1, user2, ids, transferAmounts, "");
 
         assertEq(roboshareTokens.balanceOf(user1, 101), 70);
         assertEq(roboshareTokens.balanceOf(user1, 102), 150);
-        assertEq(roboshareTokens.balanceOf(user2, 101), 30);
-        assertEq(roboshareTokens.balanceOf(user2, 102), 50);
+        assertEq(roboshareTokens.balanceOf(user2, 101), SMALL_TRANSFER_AMOUNT);
+        assertEq(roboshareTokens.balanceOf(user2, 102), SMALL_BURN_AMOUNT);
     }
 
     // Access Control Tests
@@ -170,7 +175,7 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.expectRevert();
         vm.prank(unauthorized);
-        roboshareTokens.burn(user1, 1, 50);
+        roboshareTokens.burn(user1, 1, SMALL_BURN_AMOUNT);
     }
 
     function testSetURIUnauthorized() public {
@@ -298,7 +303,7 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.prank(minter);
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.setRevenueTokenInfo(assetId, price, supply, block.timestamp + 365 days);
+        roboshareTokens.setRevenueTokenInfo(assetId, price, supply, block.timestamp + ONE_YEAR_DAYS * 1 days);
     }
 
     function testSetRevenueTokenInfoAlreadySet() public {
@@ -307,11 +312,11 @@ contract RoboshareTokensTest is BaseTest {
         uint256 supply = 1000;
 
         vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + ONE_YEAR_DAYS * 1 days);
 
         vm.startPrank(minter);
         vm.expectRevert(RoboshareTokens.RevenueTokenInfoAlreadySet.selector);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + ONE_YEAR_DAYS * 1 days);
         vm.stopPrank();
     }
 

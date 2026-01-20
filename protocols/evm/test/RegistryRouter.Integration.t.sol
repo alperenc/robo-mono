@@ -42,7 +42,7 @@ contract MockRegistry is IAssetRegistry {
         assets[assetId].info.updatedAt = block.timestamp;
 
         // 3. Setup Token Info & Lock Collateral
-        uint256 maturityDate = block.timestamp + 365 days;
+        uint256 maturityDate = block.timestamp + ONE_YEAR_DAYS * 1 days;
         roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
 
         // Mint Asset NFT first so partner owns it for collateral locking
@@ -227,11 +227,11 @@ contract RegistryRouterIntegrationTest is BaseTest {
     }
 
     function testRegistryNotFoundErrors() public {
-        uint256 nonExistentAssetId = 999;
+        uint256 nonExistentAssetId = INVALID_ASSET_ID;
 
         // mintRevenueTokens (need maturityDate now)
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
-        router.mintRevenueTokens(nonExistentAssetId, 100, 100, block.timestamp + 365 days);
+        router.mintRevenueTokens(nonExistentAssetId, DEFAULT_TOKEN_AMOUNT, DEFAULT_TOKEN_AMOUNT, block.timestamp + ONE_YEAR_DAYS * 1 days);
 
         // getAssetInfo
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
@@ -355,7 +355,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
     }
 
     function testSettlementAndLiquidationErrors() public {
-        uint256 nonExistentAssetId = 999;
+        uint256 nonExistentAssetId = INVALID_ASSET_ID;
 
         // Assuming assetId 1 is already handled by assetRegistry
         // Revert when calling through Router for non-existent registry
