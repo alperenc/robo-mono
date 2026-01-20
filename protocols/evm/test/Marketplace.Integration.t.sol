@@ -121,6 +121,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
         uint256 salesPenalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, PURCHASE_AMOUNT);
+        uint256 sellerReceives = totalPrice - salesPenalty;
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -137,19 +138,28 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
 
+        // Deferred proceeds: USDC held in Marketplace until listing ends
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(totalPrice) - int256(salesPenalty), // Partner USDC change
+            0, // Partner USDC change (deferred - no transfer yet)
             // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
-            0, // Treasury Fee Recipient USDC does not change directly
+            0, // Treasury Fee Recipient USDC (deferred)
+            0, // Treasury Contract USDC (deferred until listing ends)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change
+            int256(sellerReceives) + int256(protocolFee) + int256(salesPenalty), // Marketplace holds USDC
             0, // Partner token change (already escrowed)
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(PURCHASE_AMOUNT) // Buyer token change
+        );
+
+        // Verify listing proceeds accumulated in Marketplace (not Treasury pendingWithdrawals)
+        assertEq(marketplace.listingProceeds(scenario.listingId), sellerReceives, "Listing proceeds mismatch");
+        assertEq(
+            marketplace.listingProtocolFees(scenario.listingId),
+            protocolFee + salesPenalty,
+            "Listing protocol fees mismatch"
         );
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
@@ -191,21 +201,24 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
 
-        // 5. Assert correct distribution of funds, including the penalty
+        // 5. Deferred proceeds: USDC held in Marketplace until listing ends
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(sellerReceives), // Partner USDC change
+            0, // Partner USDC change (deferred)
             // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
-            0, // Treasury Fee Recipient USDC does not change directly
+            0, // Treasury Fee Recipient USDC (deferred)
+            0, // Treasury Contract USDC (deferred until listing ends)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change (receives fee + penalty)
+            int256(totalPrice), // Marketplace holds USDC
             0, // Partner token change (already escrowed)
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(PURCHASE_AMOUNT) // Buyer token change
         );
+
+        // Verify listing proceeds accumulated in Marketplace
+        assertEq(marketplace.listingProceeds(newListingId), sellerReceives, "Listing proceeds mismatch");
     }
 
     function testPurchaseListingSellerPaysFee() public {
@@ -234,20 +247,24 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
 
+        // Deferred proceeds: USDC held in Marketplace until listing ends
         assertBalanceChanges(
             beforeBalance,
             afterBalance,
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(sellerReceives), // Partner USDC change
+            0, // Partner USDC change (deferred)
             // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
-            0, // Treasury Fee Recipient USDC does not change directly
+            0, // Treasury Fee Recipient USDC (deferred)
+            0, // Treasury Contract USDC (deferred until listing ends)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee) + int256(salesPenalty), // Treasury Contract USDC change
+            int256(totalPrice), // Marketplace holds USDC
             0, // Partner token change (already escrowed)
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(PURCHASE_AMOUNT) // Buyer token change
         );
+
+        // Verify listing proceeds accumulated in Marketplace
+        assertEq(marketplace.listingProceeds(newListingId), sellerReceives, "Listing proceeds mismatch");
     }
 
     function testPurchaseListingCompletelyExhaustsListing() public {
@@ -326,6 +343,77 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation"
         );
+    }
+
+    // Finalize Listing Tests
+
+    function testFinalizeListingWithPendingProceeds() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // First, make a partial purchase to generate proceeds held in Marketplace
+        (uint256 totalPrice,, uint256 expectedPayment) =
+            marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
+        uint256 salesPenalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, PURCHASE_AMOUNT);
+        uint256 sellerReceives = totalPrice - salesPenalty; // buyerPaysFee = true
+
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
+        vm.stopPrank();
+
+        // Verify proceeds are held in Marketplace (not Treasury pendingWithdrawals)
+        assertEq(marketplace.listingProceeds(scenario.listingId), sellerReceives, "Listing proceeds before finalize");
+        assertEq(treasury.getPendingWithdrawal(partner1), 0, "Pending withdrawal should be zero before finalize");
+
+        uint256 partnerUsdcBefore = usdc.balanceOf(partner1);
+        uint256 partnerTokensBefore = roboshareTokens.balanceOf(partner1, scenario.revenueTokenId);
+
+        // Finalize listing - should cancel remaining listing, transfer to Treasury, AND withdraw proceeds
+        vm.prank(partner1);
+        uint256 withdrawn = marketplace.finalizeListing(scenario.listingId);
+
+        // Verify withdrawal happened
+        assertEq(withdrawn, sellerReceives, "Withdrawn amount mismatch");
+        assertEq(usdc.balanceOf(partner1), partnerUsdcBefore + sellerReceives, "Partner USDC after finalize");
+
+        // Verify listing was cancelled
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive, "Listing should be inactive");
+
+        // Verify tokens returned to seller
+        uint256 remainingTokens = LISTING_AMOUNT - PURCHASE_AMOUNT;
+        assertEq(
+            roboshareTokens.balanceOf(partner1, scenario.revenueTokenId),
+            partnerTokensBefore + remainingTokens,
+            "Partner tokens after finalize"
+        );
+
+        // Verify listing proceeds cleared
+        assertEq(marketplace.listingProceeds(scenario.listingId), 0, "Listing proceeds should be zero after finalize");
+        assertEq(treasury.getPendingWithdrawal(partner1), 0, "Pending withdrawal should be zero after finalize");
+    }
+
+    function testFinalizeListingAlreadyCancelled() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // First cancel the listing
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        // Finalize should still work (just no tokens to return)
+        vm.prank(partner1);
+        uint256 withdrawn = marketplace.finalizeListing(scenario.listingId);
+
+        // No proceeds to withdraw
+        assertEq(withdrawn, 0, "No withdrawal expected");
+    }
+
+    function testFinalizeListingUnauthorized() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.prank(unauthorized);
+        marketplace.finalizeListing(scenario.listingId);
     }
 
     function testCancelListingUnauthorized() public {
@@ -502,21 +590,24 @@ contract MarketplaceIntegrationTest is BaseTest {
         BalanceSnapshot memory afterPurchase = takeBalanceSnapshot(scenario.revenueTokenId);
         vm.stopPrank();
 
-        // 4. Assert balances
-        // Seller receives full amount, treasury contract receives the minimum fee.
+        // 4. Deferred proceeds: USDC held in Marketplace until listing ends
         assertBalanceChanges(
             beforePurchase,
             afterPurchase,
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(totalPrice), // Partner USDC change
+            0, // Partner USDC change (deferred)
             // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC change
-            int256(ProtocolLib.MIN_PROTOCOL_FEE), // Treasury Contract USDC change (receives minimum fee)
+            0, // Treasury Contract USDC change (deferred until listing ends)
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(expectedPayment), // Marketplace holds USDC
             0, // Partner token change
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(purchaseAmount) // Buyer token change
         );
+
+        // Verify listing proceeds accumulated in Marketplace
+        assertEq(marketplace.listingProceeds(listingId), totalPrice, "Listing proceeds mismatch");
     }
 
     function testPurchaseListingFeesExceedPriceBuyerPays() public {

@@ -391,6 +391,7 @@ contract BaseTest is Test {
         uint256 buyerUsdc;
         uint256 treasuryFeeRecipientUsdc;
         uint256 treasuryContractUsdc;
+        uint256 marketplaceContractUsdc;
         uint256 partnerTokens;
         uint256 buyerTokens;
         uint256 marketplaceTokens;
@@ -405,6 +406,7 @@ contract BaseTest is Test {
         snapshot.buyerUsdc = usdc.balanceOf(buyer);
         snapshot.treasuryFeeRecipientUsdc = usdc.balanceOf(config.treasuryFeeRecipient);
         snapshot.treasuryContractUsdc = usdc.balanceOf(address(treasury));
+        snapshot.marketplaceContractUsdc = usdc.balanceOf(address(marketplace));
         snapshot.partnerTokens = roboshareTokens.balanceOf(partner1, tokenId);
         snapshot.buyerTokens = roboshareTokens.balanceOf(buyer, tokenId);
         snapshot.marketplaceTokens = roboshareTokens.balanceOf(address(marketplace), tokenId);
@@ -421,6 +423,7 @@ contract BaseTest is Test {
         int256 expectedBuyerUsdcChange,
         int256 expectedTreasuryFeeRecipientUsdcChange,
         int256 expectedTreasuryContractUsdcChange,
+        int256 expectedMarketplaceContractUsdcChange,
         int256 expectedPartnerTokenChange,
         int256 expectedBuyerTokenChange
     ) internal pure {
@@ -443,6 +446,11 @@ contract BaseTest is Test {
             int256(afterSnapshot.treasuryContractUsdc) - int256(before.treasuryContractUsdc),
             expectedTreasuryContractUsdcChange,
             "Treasury Contract USDC change mismatch"
+        );
+        assertEq(
+            int256(afterSnapshot.marketplaceContractUsdc) - int256(before.marketplaceContractUsdc),
+            expectedMarketplaceContractUsdcChange,
+            "Marketplace Contract USDC change mismatch"
         );
         assertEq(
             int256(afterSnapshot.partnerTokens) - int256(before.partnerTokens),
