@@ -56,6 +56,10 @@ contract Marketplace is
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => uint256[]) public assetListings; // assetId => listingIds[]
 
+    // Deferred proceeds tracking (held until listing ends)
+    mapping(uint256 => uint256) public listingProceeds; // listingId => seller proceeds
+    mapping(uint256 => uint256) public listingProtocolFees; // listingId => protocol fees
+
     // Errors
     error ZeroAddress();
     error InvalidTokenType();
@@ -97,12 +101,16 @@ contract Marketplace is
 
     event ListingCancelled(uint256 indexed listingId, address indexed seller);
 
-    // Admin Events
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
     event RouterUpdated(address indexed oldAddress, address indexed newAddress);
     event TreasuryUpdated(address indexed oldAddress, address indexed newAddress);
+    event SalesProceedsRecorded(uint256 indexed listingId, address indexed seller, uint256 amount);
+    event ProtocolFeeRecorded(uint256 indexed listingId, uint256 amount);
+    event ListingSettled(
+        uint256 indexed listingId, address indexed seller, uint256 sellerProceeds, uint256 protocolFees
+    );
 
     /**
      * @dev Initialize the marketplace
@@ -363,20 +371,25 @@ contract Marketplace is
             listing.isActive = false;
         }
 
-        // Transfer USDC payments
-        usdc.safeTransferFrom(msg.sender, listing.seller, sellerReceives);
-        // Transfer fees to the Treasury contract and notify it to record the pending withdrawal
-        usdc.safeTransferFrom(msg.sender, address(treasury), totalFeesToTreasury);
-        treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), totalFeesToTreasury);
+        // Hold USDC in Marketplace (deferred transfer to Treasury)
+        uint256 totalPayment = sellerReceives + totalFeesToTreasury;
+        usdc.safeTransferFrom(msg.sender, address(this), totalPayment);
+
+        // Accumulate proceeds for this listing
+        listingProceeds[listingId] += sellerReceives;
+        listingProtocolFees[listingId] += totalFeesToTreasury;
 
         // Transfer tokens to buyer
         roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
 
         emit RevenueTokensTraded(listing.tokenId, listing.seller, msg.sender, amount, listingId, totalPrice);
+        emit SalesProceedsRecorded(listingId, listing.seller, sellerReceives);
+        emit ProtocolFeeRecorded(listingId, totalFeesToTreasury);
     }
 
     /**
      * @dev Cancel a listing and return tokens to seller
+     * Also transfers accumulated proceeds to Treasury for withdrawal
      */
     function cancelListing(uint256 listingId) external nonReentrant {
         Listing storage listing = listings[listingId];
@@ -398,7 +411,66 @@ contract Marketplace is
         // Return tokens to seller
         roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
 
+        // Transfer deferred proceeds to Treasury
+        _settleListing(listingId, listing.seller);
+
         emit ListingCancelled(listingId, msg.sender);
+    }
+
+    /**
+     * @dev Finalize a listing: cancel if active, transfer proceeds to Treasury, and withdraw
+     * @param listingId The listing ID to finalize
+     * @return withdrawn Amount of USDC withdrawn
+     */
+    function finalizeListing(uint256 listingId) external nonReentrant returns (uint256 withdrawn) {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (listing.seller != msg.sender) revert NotTokenOwner();
+
+        // Cancel listing if still active (return escrowed tokens)
+        if (listing.isActive) {
+            listing.isActive = false;
+            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+            emit ListingCancelled(listingId, msg.sender);
+        }
+
+        // Transfer deferred proceeds to Treasury
+        _settleListing(listingId, listing.seller);
+
+        // Withdraw all pending proceeds from Treasury (includes this listing's proceeds)
+        withdrawn = treasury.processWithdrawalFor(msg.sender);
+    }
+
+    /**
+     * @dev Internal: Transfer accumulated listing proceeds to Treasury
+     * @param listingId The listing ID to settle
+     * @param seller The seller address to credit
+     */
+    function _settleListing(uint256 listingId, address seller) internal {
+        uint256 sellerProceeds = listingProceeds[listingId];
+        uint256 protocolFees = listingProtocolFees[listingId];
+
+        if (sellerProceeds == 0 && protocolFees == 0) {
+            return; // Nothing to settle
+        }
+
+        // Clear the mappings
+        listingProceeds[listingId] = 0;
+        listingProtocolFees[listingId] = 0;
+
+        // Transfer to Treasury and record pending withdrawals
+        uint256 totalToTreasury = sellerProceeds + protocolFees;
+        usdc.safeTransfer(address(treasury), totalToTreasury);
+
+        if (sellerProceeds > 0) {
+            treasury.recordPendingWithdrawal(seller, sellerProceeds);
+        }
+        if (protocolFees > 0) {
+            treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), protocolFees);
+        }
+
+        emit ListingSettled(listingId, seller, sellerProceeds, protocolFees);
     }
 
     /**
