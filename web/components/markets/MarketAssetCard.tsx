@@ -16,8 +16,12 @@ interface MarketAssetCardProps {
     assetId: string;
     pricePerToken: string;
     amount: string;
+    amountSold?: string;
     expiresAt: string;
     seller: string;
+    status?: string;
+    isCancelled?: boolean;
+    isEnded?: boolean;
   };
   vehicle?: {
     id: string;
@@ -127,20 +131,27 @@ export function MarketAssetCard({
   // Format available tokens (available/total)
   const availableTokensDisplay = useMemo(() => {
     const availableNum = Number(listing.amount);
-    const totalNum = token ? Number(token.supply) : availableNum;
-    const soldNum = totalNum - availableNum;
+    // Use explicit amountSold if available, otherwise assume remaining vs supply (which might be inaccurate if burn happened)
+    // Actually, listing.amountSold is from subgraph which is accurate.
+    const soldNum = listing.amountSold ? Number(listing.amountSold) : token ? Number(token.supply) - availableNum : 0;
+    const totalNum = availableNum + soldNum;
+
     const soldPercentage = totalNum > 0 ? Math.round((soldNum / totalNum) * 100) : 0;
     return {
       available: formatCompact(availableNum),
       total: formatCompact(totalNum),
       soldPercentage,
     };
-  }, [listing.amount, token]);
+  }, [listing.amount, listing.amountSold, token]);
 
-  // Check if listing is expired
+  // Check statuses
   const isExpired = useMemo(() => {
     return Number(listing.expiresAt) * 1000 < Date.now();
   }, [listing.expiresAt]);
+
+  const isCancelled = listing.isCancelled;
+  const isEnded = listing.isEnded;
+  const isInactive = isCancelled || isEnded || isExpired;
 
   const registry = ASSET_REGISTRIES[assetType];
 
@@ -170,9 +181,20 @@ export function MarketAssetCard({
           <span className="badge badge-success font-bold shadow-md text-xs">{aprDisplay} APR</span>
         </div>
 
-        {isExpired && (
-          <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center">
-            <span className="badge badge-warning badge-lg">Listing Expired</span>
+        {/* Status Overlays */}
+        {isCancelled && (
+          <div className="absolute inset-0 bg-error/80 flex items-center justify-center z-10">
+            <span className="badge badge-error badge-lg font-bold shadow-lg">CANCELLED</span>
+          </div>
+        )}
+        {isEnded && !isCancelled && (
+          <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center z-10">
+            <span className="badge badge-neutral badge-lg font-bold shadow-lg">SALE ENDED</span>
+          </div>
+        )}
+        {isExpired && !isEnded && !isCancelled && (
+          <div className="absolute inset-0 bg-warning/80 flex items-center justify-center z-10">
+            <span className="badge badge-warning badge-lg font-bold shadow-lg">EXPIRED</span>
           </div>
         )}
       </figure>
@@ -212,7 +234,7 @@ export function MarketAssetCard({
             <span className="font-semibold">{availableTokensDisplay.soldPercentage}%</span>
           </div>
           <progress
-            className="progress progress-primary w-full h-2"
+            className={`progress w-full h-2 ${isCancelled ? "progress-error" : "progress-primary"}`}
             value={availableTokensDisplay.soldPercentage}
             max="100"
           ></progress>
@@ -240,8 +262,8 @@ export function MarketAssetCard({
 
         {/* Action Button */}
         <div className="card-actions mt-2">
-          <button className="btn btn-primary btn-block" onClick={onBuyClick} disabled={isExpired}>
-            {isExpired ? "Expired" : "Buy Tokens"}
+          <button className="btn btn-primary btn-block" onClick={onBuyClick} disabled={isInactive}>
+            {isCancelled ? "Cancelled" : isEnded ? "Ended" : isExpired ? "Expired" : "Buy Tokens"}
           </button>
         </div>
       </div>

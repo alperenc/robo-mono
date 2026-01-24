@@ -1,5 +1,5 @@
 query GetMarketListings {
-  listings(first: 100, orderBy: createdAt, orderDirection: desc, where: { status: "active" }) {
+  listings(first: 100, orderBy: createdAt, orderDirection: desc) {
     id
     tokenId
     assetId
@@ -10,6 +10,10 @@ query GetMarketListings {
     expiresAt
     buyerPaysFee
     status
+    isCancelled
+    isEnded
+    claimedAmount
+    refundedUSDC
     createdAt
   }
   vehicles(first: 100) {
