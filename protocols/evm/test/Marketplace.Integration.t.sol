@@ -150,8 +150,7 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(sellerReceives) + int256(protocolFee) + int256(salesPenalty), // Marketplace holds USDC
             0, // Partner token change (already escrowed)
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(PURCHASE_AMOUNT) // Buyer token change
+            0 // Buyer token change (HELD IN ESCROW)
         );
 
         // Verify listing proceeds accumulated in Marketplace (not Treasury pendingWithdrawals)
@@ -164,6 +163,8 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertEq(listing.amount, LISTING_AMOUNT - PURCHASE_AMOUNT);
+        assertEq(listing.soldAmount, PURCHASE_AMOUNT);
+        assertEq(marketplace.buyerTokens(scenario.listingId, buyer), PURCHASE_AMOUNT);
     }
 
     function testPurchaseListingEarlySalePenalty() public {
@@ -213,12 +214,12 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(totalPrice), // Marketplace holds USDC
             0, // Partner token change (already escrowed)
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(PURCHASE_AMOUNT) // Buyer token change
+            0 // Buyer token change (HELD IN ESCROW)
         );
 
         // Verify listing proceeds accumulated in Marketplace
         assertEq(marketplace.listingProceeds(newListingId), sellerReceives, "Listing proceeds mismatch");
+        assertEq(marketplace.buyerTokens(newListingId, buyer), PURCHASE_AMOUNT);
     }
 
     function testPurchaseListingSellerPaysFee() public {
@@ -259,12 +260,12 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(totalPrice), // Marketplace holds USDC
             0, // Partner token change (already escrowed)
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(PURCHASE_AMOUNT) // Buyer token change
+            0 // Buyer token change (HELD IN ESCROW)
         );
 
         // Verify listing proceeds accumulated in Marketplace
         assertEq(marketplace.listingProceeds(newListingId), sellerReceives, "Listing proceeds mismatch");
+        assertEq(marketplace.buyerTokens(newListingId, buyer), PURCHASE_AMOUNT);
     }
 
     function testPurchaseListingCompletelyExhaustsListing() public {
@@ -281,6 +282,20 @@ contract MarketplaceIntegrationTest is BaseTest {
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertEq(listing.amount, 0);
         assertFalse(listing.isActive);
+        assertEq(listing.soldAmount, LISTING_AMOUNT);
+
+        // Tokens held in escrow, not transferred yet
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        assertEq(marketplace.buyerTokens(scenario.listingId, buyer), LISTING_AMOUNT);
+
+        // To claim tokens, we must end the listing (which is already inactive due to 0 amount, but needs settlement)
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        // Now buyer can claim
+        vm.prank(buyer);
+        marketplace.claimTokens(scenario.listingId);
+
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), LISTING_AMOUNT);
         assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
     }
@@ -326,23 +341,53 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testCancelListingSuccess() public {
         _ensureState(SetupState.AssetWithListing);
 
-        uint256 partnerBalanceBefore = roboshareTokens.balanceOf(partner1, scenario.revenueTokenId);
+        // 1. Purchase some tokens to have them in escrow
+        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
+        vm.stopPrank();
 
+        uint256 partnerBalanceBefore = roboshareTokens.balanceOf(partner1, scenario.revenueTokenId);
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+
+        // 2. Cancel listing
         vm.prank(partner1);
         marketplace.cancelListing(scenario.listingId);
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertFalse(listing.isActive);
+        assertTrue(listing.isCancelled);
 
+        // 3. Verify seller received ALL tokens (unsold + sold)
+        // Seller had (Total - ListingAmount) + (ListingAmount - PurchaseAmount) returned + PurchaseAmount (escrowed) returned
+        // So Seller should have original Total - ListingAmount + ListingAmount = Original Total
+        // Wait, logic:
+        // Before cancel: Seller has Total - ListingAmount.
+        // Listing has ListingAmount - PurchaseAmount (unsold) + PurchaseAmount (sold).
+        // Return = ListingAmount.
+        // Result: Seller has Total.
         assertTokenBalance(
             partner1,
             scenario.revenueTokenId,
-            partnerBalanceBefore + LISTING_AMOUNT,
+            partnerBalanceBefore + LISTING_AMOUNT, // Returns everything
             "Partner token balance mismatch after cancellation"
         );
         assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation"
         );
+
+        // 4. Verify buyer cannot claim tokens
+        vm.prank(buyer);
+        vm.expectRevert(Marketplace.ListingNotEnded.selector);
+        marketplace.claimTokens(scenario.listingId);
+
+        // 5. Verify buyer can claim refund
+        vm.prank(buyer);
+        marketplace.claimRefund(scenario.listingId);
+
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + expectedPayment, "Buyer refund mismatch");
+        assertEq(marketplace.buyerPayments(scenario.listingId, buyer), 0, "Buyer payment state mismatch");
     }
 
     // Finalize Listing Tests
@@ -376,21 +421,32 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(withdrawn, sellerReceives, "Withdrawn amount mismatch");
         assertEq(usdc.balanceOf(partner1), partnerUsdcBefore + sellerReceives, "Partner USDC after finalize");
 
-        // Verify listing was cancelled
+        // Verify listing was ended (not cancelled in the refund sense)
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertFalse(listing.isActive, "Listing should be inactive");
+        assertFalse(listing.isCancelled, "Listing should NOT be cancelled");
 
-        // Verify tokens returned to seller
-        uint256 remainingTokens = LISTING_AMOUNT - PURCHASE_AMOUNT;
+        // Verify unsold tokens returned to seller
+        uint256 unsoldTokens = LISTING_AMOUNT - PURCHASE_AMOUNT;
         assertEq(
             roboshareTokens.balanceOf(partner1, scenario.revenueTokenId),
-            partnerTokensBefore + remainingTokens,
+            partnerTokensBefore + unsoldTokens,
             "Partner tokens after finalize"
         );
 
         // Verify listing proceeds cleared
         assertEq(marketplace.listingProceeds(scenario.listingId), 0, "Listing proceeds should be zero after finalize");
         assertEq(treasury.getPendingWithdrawal(partner1), 0, "Pending withdrawal should be zero after finalize");
+
+        // Verify Buyer can claim tokens
+        vm.prank(buyer);
+        marketplace.claimTokens(scenario.listingId);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), PURCHASE_AMOUNT);
+
+        // Verify Buyer cannot claim refund
+        vm.prank(buyer);
+        vm.expectRevert(Marketplace.ListingNotCancelled.selector);
+        marketplace.claimRefund(scenario.listingId);
     }
 
     function testFinalizeListingAlreadyCancelled() public {
@@ -507,6 +563,17 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(scenario.listingId, purchaseAmount);
         vm.stopPrank();
 
+        // Tokens are escrowed
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        assertEq(marketplace.buyerTokens(scenario.listingId, buyer), purchaseAmount);
+
+        // Claim tokens
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        vm.prank(buyer);
+        marketplace.claimTokens(scenario.listingId);
+
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), purchaseAmount);
     }
 
@@ -602,12 +669,12 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(expectedPayment), // Marketplace holds USDC
             0, // Partner token change
-            // forge-lint: disable-next-line(unsafe-typecast)
-            int256(purchaseAmount) // Buyer token change
+            0 // Buyer token change (HELD IN ESCROW)
         );
 
         // Verify listing proceeds accumulated in Marketplace
         assertEq(marketplace.listingProceeds(listingId), totalPrice, "Listing proceeds mismatch");
+        assertEq(marketplace.buyerTokens(listingId, buyer), purchaseAmount);
     }
 
     function testPurchaseListingFeesExceedPriceBuyerPays() public {
