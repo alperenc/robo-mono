@@ -45,10 +45,12 @@ contract Marketplace is
         uint256 listingId;
         uint256 tokenId;
         uint256 amount;
+        uint256 soldAmount; // Tokens sold and held in escrow
         uint256 pricePerToken; // Price in USDC (6 decimals)
         address seller;
         uint256 expiresAt;
         bool isActive;
+        bool isCancelled;
         uint256 createdAt;
         bool buyerPaysFee; // If true, buyer pays protocol fee; if false, seller absorbs fee
     }
@@ -59,6 +61,10 @@ contract Marketplace is
     // Deferred proceeds tracking (held until listing ends)
     mapping(uint256 => uint256) public listingProceeds; // listingId => seller proceeds
     mapping(uint256 => uint256) public listingProtocolFees; // listingId => protocol fees
+
+    // Escrow tracking
+    mapping(uint256 => mapping(address => uint256)) public buyerTokens; // listingId => buyer => tokenAmount
+    mapping(uint256 => mapping(address => uint256)) public buyerPayments; // listingId => buyer => usdcPaid
 
     // Errors
     error ZeroAddress();
@@ -75,6 +81,10 @@ contract Marketplace is
     error InsufficientPayment();
     error NotTokenOwner();
     error InvalidDuration();
+    error ListingNotEnded();
+    error ListingNotCancelled();
+    error NoTokensToClaim();
+    error NoRefundToClaim();
 
     // Events
     event ListingCreated(
@@ -100,6 +110,9 @@ contract Marketplace is
     );
 
     event ListingCancelled(uint256 indexed listingId, address indexed seller);
+    event ListingEnded(uint256 indexed listingId, address indexed seller);
+    event TokensClaimed(uint256 indexed listingId, address indexed buyer, uint256 amount);
+    event RefundClaimed(uint256 indexed listingId, address indexed buyer, uint256 amount);
 
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
@@ -287,10 +300,12 @@ contract Marketplace is
             listingId: listingId,
             tokenId: tokenId,
             amount: amount,
+            soldAmount: 0,
             pricePerToken: pricePerToken,
             seller: seller,
             expiresAt: expiresAt,
             isActive: true,
+            isCancelled: false,
             createdAt: block.timestamp,
             buyerPaysFee: buyerPaysFee
         });
