@@ -480,6 +480,132 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.cancelListing(scenario.listingId);
     }
 
+    // Extend Listing Tests
+
+    function testExtendListingSuccess() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        Marketplace.Listing memory listingBefore = marketplace.getListing(scenario.listingId);
+        uint256 additionalDuration = 7 days;
+
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, additionalDuration);
+
+        Marketplace.Listing memory listingAfter = marketplace.getListing(scenario.listingId);
+        assertEq(listingAfter.expiresAt, listingBefore.expiresAt + additionalDuration);
+        assertTrue(listingAfter.isActive);
+    }
+
+    function testExtendListingNonExistent() public {
+        _ensureState(SetupState.ContractsDeployed);
+
+        uint256 nonExistentListingId = 999;
+
+        vm.expectRevert(Marketplace.ListingNotFound.selector);
+        vm.prank(partner1);
+        marketplace.extendListing(nonExistentListingId, 7 days);
+    }
+
+    function testExtendListingUnauthorized() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.prank(unauthorized);
+        marketplace.extendListing(scenario.listingId, 7 days);
+    }
+
+    function testExtendListingInactive() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        vm.prank(partner1);
+        marketplace.cancelListing(scenario.listingId);
+
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, 7 days);
+    }
+
+    function testExtendListingZeroDuration() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        vm.expectRevert(Marketplace.InvalidDuration.selector);
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, 0);
+    }
+
+    // End Listing Tests
+
+    function testEndListingSoldOut() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Buy all tokens
+        (,, uint256 payment) = marketplace.calculatePurchaseCost(scenario.listingId, LISTING_AMOUNT);
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), payment);
+        marketplace.purchaseTokens(scenario.listingId, LISTING_AMOUNT);
+        vm.stopPrank();
+
+        // Check state before ending
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive); // Already inactive because amount is 0
+        assertEq(listing.amount, 0);
+
+        // End listing to settle proceeds
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        // Verify proceeds settled
+        assertEq(marketplace.listingProceeds(scenario.listingId), 0);
+        assertGt(treasury.getPendingWithdrawal(partner1), 0);
+    }
+
+    function testEndListingExpired() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Warping to future
+        vm.warp(block.timestamp + LISTING_DURATION + 1);
+
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+
+        // Unsold tokens should be returned
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testEndListingActiveSuccess() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Check it is active
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertTrue(listing.isActive);
+
+        // End listing early
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        // Verify it ended
+        listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+        assertFalse(listing.isCancelled);
+
+        // Unsold tokens returned
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
+    }
+
+    function testEndListingUnauthorized() public {
+        _ensureState(SetupState.AssetWithListing);
+
+        // Expire it so it's eligible to end
+        vm.warp(block.timestamp + LISTING_DURATION + 1);
+
+        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.prank(unauthorized);
+        marketplace.endListing(scenario.listingId);
+    }
+
     // View Function Tests
 
     function testGetAssetListings() public {
