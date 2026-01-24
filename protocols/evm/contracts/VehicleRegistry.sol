@@ -36,8 +36,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     error VehicleDoesNotExist();
     error RevenueTokensAlreadyMinted();
     error OutstandingTokensHeldByOthers();
-    error IncorrectVehicleId();
-    error IncorrectRevenueTokenId();
+    error InvalidVehicleId();
+    error InvalidRevenueTokenId();
 
     // Events
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
@@ -586,7 +586,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
         if (!TokenLib.isRevenueToken(tokenId) || tokenId > roboshareTokens.getNextTokenId()) {
-            revert IncorrectRevenueTokenId();
+            revert InvalidRevenueTokenId();
         }
 
         return tokenId - 1; // Vehicle NFT has ID one less than revenue token ID
@@ -597,7 +597,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function getTokenIdFromAssetId(uint256 assetId) external view override returns (uint256) {
         if (TokenLib.isRevenueToken(assetId) || assetId == 0 || assetId >= roboshareTokens.getNextTokenId()) {
-            revert IncorrectVehicleId();
+            revert InvalidVehicleId();
         }
 
         return assetId + 1; // Revenue token ID is one more than vehicle NFT ID

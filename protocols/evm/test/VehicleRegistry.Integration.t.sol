@@ -13,7 +13,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.PartnersAuthorized);
     }
 
-    function testRetireAssetPureWithOutstandingTokens() public {
+    function testRetireAssetOutstandingTokens() public {
         _ensureState(SetupState.RevenueTokensMinted);
         // Don't burn tokens
         vm.prank(partner1);
@@ -245,35 +245,40 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
     }
 
-    function testTokenIdConversionNonexistentVehicle() public {
+    function testGetAssetIdFromTokenIdError() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(100);
-
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(101);
-    }
-
-    function testGetVehicleIdFromRevenueTokenIdErrorCases() public {
-        _ensureState(SetupState.PartnersAuthorized);
 
         // Test revenueTokenId == 0
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(0);
 
         // Test revenueTokenId % 2 != 0 (odd revenue token ID)
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(1); // 1 is an odd ID
 
         // Test revenueTokenId >= _tokenIdCounter (non-existent revenue token ID)
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(999999);
 
-        // Test vehicles[vehicleId].vehicleId == 0 (corresponding vehicle NFT doesn't exist)
-        // To test this, we need a revenueTokenId that is valid in terms of parity and counter,
-        // but whose corresponding vehicleId does not exist. This is hard to achieve without
-        // directly manipulating _tokenIdCounter or deleting a vehicle, which is not possible.
-        // The existing test `testMintRevenueTokensForNonexistentVehicleFails` covers a similar scenario.
+        // Test with non-existent but valid parity ID
+        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
+        assetRegistry.getAssetIdFromTokenId(100);
+    }
+
+    function testGetTokenIdFromAssetIdError() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Test assetId == 0
+        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
+        assetRegistry.getTokenIdFromAssetId(0);
+
+        // Test assetId >= nextTokenId
+        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
+        assetRegistry.getTokenIdFromAssetId(999999);
+
+        // Test with revenue token ID (not an asset ID)
+        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
+        assetRegistry.getTokenIdFromAssetId(101);
     }
 
     // View Function Tests
@@ -395,7 +400,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY - burnAmount);
     }
 
-    function testRetireAssetPure() public {
+    function testRetireAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
         // Burn all tokens first
         vm.prank(partner1);
@@ -578,17 +583,5 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Partner2 is authorized (via SetupState) but does not own the asset
         assertTrue(partnerManager.isAuthorizedPartner(partner2));
         assertFalse(assetRegistry.isAuthorizedForAsset(partner2, scenario.assetId));
-    }
-
-    function testGetTokenIdFromAssetIdEdgeCases() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-
-        // Test assetId == 0
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(0);
-
-        // Test assetId >= nextTokenId
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(999999);
     }
 }

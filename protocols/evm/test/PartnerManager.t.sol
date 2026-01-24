@@ -115,19 +115,19 @@ contract PartnerManagerTest is BaseTest {
 
     // Access Control Tests
 
-    function testUnauthorizedAuthorizePartnerFails() public {
+    function testAuthorizePartnerUnauthorized() public {
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
     }
 
-    function testUnauthorizedRevokePartnerFails() public {
+    function testRevokePartnerUnauthorized() public {
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.revokePartner(partner1);
     }
 
-    function testUnauthorizedUpdatePartnerNameFails() public {
+    function testUpdatePartnerNameUnauthorized() public {
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.updatePartnerName(partner1, "New Name");
@@ -135,37 +135,37 @@ contract PartnerManagerTest is BaseTest {
 
     // Error Cases
 
-    function testAuthorizeZeroAddressFails() public {
+    function testAuthorizePartnerZeroAddress() public {
         vm.expectRevert(PartnerManager.ZeroAddress.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(address(0), NEW_PARTNER_NAME);
     }
 
-    function testAuthorizeEmptyNameFails() public {
+    function testAuthorizePartnerEmptyName() public {
         vm.expectRevert(PartnerManager.EmptyName.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(partner3, "");
     }
 
-    function testAuthorizeAlreadyAuthorizedFails() public {
+    function testAuthorizePartnerAlreadyAuthorized() public {
         vm.expectRevert(PartnerManager.AlreadyAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
     }
 
-    function testRevokeNotAuthorizedFails() public {
+    function testRevokePartnerNotAuthorized() public {
         vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.revokePartner(partner3);
     }
 
-    function testUpdateNameNotAuthorizedFails() public {
+    function testUpdatePartnerNameNotAuthorized() public {
         vm.expectRevert(PartnerManager.NotAuthorized.selector);
         vm.prank(partnerAdmin);
         partnerManager.updatePartnerName(partner3, "New Name");
     }
 
-    function testUpdateEmptyNameFails() public {
+    function testUpdatePartnerNameEmptyName() public {
         vm.expectRevert(PartnerManager.EmptyName.selector);
         vm.prank(partnerAdmin);
         partnerManager.updatePartnerName(partner1, "");

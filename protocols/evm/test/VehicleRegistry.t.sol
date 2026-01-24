@@ -33,10 +33,8 @@ contract VehicleRegistryTest is BaseTest {
         assertTrue(assetRegistry.hasRole(assetRegistry.ROUTER_ROLE(), address(router)));
     }
 
-    function testInitializationZeroAddresses() public {
+    function testInitializationZeroAdmin() public {
         VehicleRegistry newImplementation = new VehicleRegistry();
-
-        // Test zero admin
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)",
             address(0),
@@ -46,23 +44,29 @@ contract VehicleRegistryTest is BaseTest {
         );
         vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero tokens
-        initData = abi.encodeWithSignature(
+    function testInitializationZeroTokens() public {
+        VehicleRegistry newImplementation = new VehicleRegistry();
+        bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)", admin, address(0), address(partnerManager), address(router)
         );
         vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero partner manager
-        initData = abi.encodeWithSignature(
+    function testInitializationZeroPartnerManager() public {
+        VehicleRegistry newImplementation = new VehicleRegistry();
+        bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)", admin, address(roboshareTokens), address(0), address(router)
         );
         vm.expectRevert();
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero router
-        initData = abi.encodeWithSignature(
+    function testInitializationZeroRouter() public {
+        VehicleRegistry newImplementation = new VehicleRegistry();
+        bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)",
             admin,
             address(roboshareTokens),
@@ -95,17 +99,19 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.getVehicleDisplayName(999);
     }
 
-    function testTokenIdConversionErrorCases() public {
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
+    function testGetAssetIdFromTokenIdError() public {
+        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(1);
 
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
+        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(0);
+    }
 
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
+    function testGetTokenIdFromAssetIdError() public {
+        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(2);
 
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
+        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(0);
     }
 

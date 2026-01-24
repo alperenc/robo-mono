@@ -392,7 +392,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Finalize Listing Tests
 
-    function testFinalizeListingWithPendingProceeds() public {
+    function testFinalizeListingPendingProceeds() public {
         _ensureState(SetupState.AssetWithListing);
 
         // First, make a partial purchase to generate proceeds held in Marketplace

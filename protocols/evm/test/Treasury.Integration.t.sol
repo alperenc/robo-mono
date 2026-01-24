@@ -101,7 +101,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
-    function testLockCollateralWithoutApproval() public {
+    function testLockCollateralNoApproval() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 0);
@@ -945,7 +945,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     // Settlement Tests
 
-    function testInitiateSettlementWithTopUp() public {
+    function testInitiateSettlementTopUp() public {
         _ensureState(SetupState.RevenueTokensMinted);
         uint256 topUpAmount = 1000e6;
 
@@ -1153,7 +1153,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     // ============================================
 
     /// @dev Test claimSettlement with autoClaimEarnings=true claims both settlement and earnings
-    function testClaimSettlementWithAutoClaimEarnings() public {
+    function testClaimSettlementAutoClaimEarnings() public {
         _ensureState(SetupState.AssetWithClaimedTokens);
 
         // Buyer purchases tokens - now buyer holds 100 tokens, partner1 holds 900
@@ -1551,7 +1551,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     /// @dev Test manual releasePartialCollateral still works independently
-    function testManualReleaseAfterDistributeWithAutoReleaseDisabled() public {
+    function testManualReleaseAfterDistributeAutoReleaseDisabled() public {
         _ensureState(SetupState.AssetWithClaimedTokens);
 
         uint256 earningsAmount = 10_000e6;

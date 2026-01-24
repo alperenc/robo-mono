@@ -181,35 +181,39 @@ contract RegistryRouterTest is BaseTest {
         assertFalse(router.assetExists(999));
     }
 
-    function testDirectCallNotAllowed() public {
+    function testRegisterAssetDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.registerAsset(bytes(""));
+    }
 
+    function testRegisterAssetAndMintTokensDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.registerAssetAndMintTokens(bytes(""), 100, 100, block.timestamp + 365 days);
     }
 
-    function testInitializationZeroAddresses() public {
+    function testInitializationZeroAdmin() public {
         RegistryRouter newImplementation = new RegistryRouter();
-
-        // Test zero admin
         bytes memory initData =
             abi.encodeWithSignature("initialize(address,address)", address(0), address(roboshareTokens));
         vm.expectRevert(RegistryRouter.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero tokens
-        initData = abi.encodeWithSignature("initialize(address,address)", admin, address(0));
+    function testInitializationZeroTokens() public {
+        RegistryRouter newImplementation = new RegistryRouter();
+        bytes memory initData = abi.encodeWithSignature("initialize(address,address)", admin, address(0));
         vm.expectRevert(RegistryRouter.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
-    function testTokenIdConversionErrorCases() public {
+    function testGetAssetIdFromTokenIdError() public {
         // Test getAssetIdFromTokenId with non-revenue token (e.g. asset ID itself)
         // Asset ID 1 is not a revenue token
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.TokenNotFound.selector, 1));
         router.getAssetIdFromTokenId(1);
+    }
 
+    function testGetTokenIdFromAssetIdError() public {
         // Test getTokenIdFromAssetId with revenue token ID
         // Revenue Token ID 2 is not an asset ID
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 2));
