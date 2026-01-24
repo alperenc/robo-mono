@@ -64,6 +64,10 @@ print_error() {
 if [[ " $@ " =~ " --kill " ]]; then
     print_header
     if tmux has-session -t $SESSION 2>/dev/null; then
+        # Gracefully stop Anvil (Pane 0) to ensure state saves
+        tmux send-keys -t $SESSION:main.0 C-c 2>/dev/null
+        echo "Stopping services..."
+        sleep 2
         tmux kill-session -t $SESSION
         print_status "Killed session: $SESSION"
     else
@@ -107,6 +111,7 @@ if [ "$RESET_MODE" = true ]; then
     yarn subgraph:clean-node 2>/dev/null || true
     rm -rf protocols/evm/subgraph/graph-node/data 2>/dev/null || true
     rm -f protocols/evm/anvil-state.json 2>/dev/null || true
+    rm -rf protocols/evm/broadcast/Deploy.s.sol/31337 2>/dev/null || true
     print_status "Graph node data and chain state cleaned"
 fi
 
@@ -131,10 +136,13 @@ print_status "Creating new tmux session: $SESSION"
 # └───────────────────────────┴───────────────────────────┴───────────────────┘
 # =============================================================================
 
-# Determine deploy command based on reset mode
+# Determine deploy command based on reset mode and existing state
 DEPLOY_CMD="yarn deploy"
 if [ "$RESET_MODE" = true ]; then
     DEPLOY_CMD="yarn deploy --reset"
+elif [ -f "protocols/evm/anvil-state.json" ]; then
+    echo "Found existing chain state. Skipping fresh deployment."
+    DEPLOY_CMD="echo '🔄 Found existing chain state. Skipping deployment.' && cd protocols/evm && make generate-abis"
 fi
 
 # Create session with first window named 'main'
@@ -176,11 +184,11 @@ tmux send-keys -t $SESSION:main.3 "sleep 5 && yarn subgraph:run-node" Enter
 # Pane 4: Subgraph deployment
 if [ "$RESET_MODE" = true ]; then
     tmux send-keys -t $SESSION:main.4 "echo '📡 Subgraph Deploy (reset mode)...'" Enter
-    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (45s)...'" Enter
+    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (60s)...'" Enter
     tmux send-keys -t $SESSION:main.4 "sleep 60 && yarn subgraph:create-local && yarn subgraph:local-ship-auto" Enter
 else
     tmux send-keys -t $SESSION:main.4 "echo '📡 Subgraph Deploy...'" Enter
-    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (45s)...'" Enter
+    tmux send-keys -t $SESSION:main.4 "echo 'Waiting for Graph node (60s)...'" Enter
     tmux send-keys -t $SESSION:main.4 "sleep 60 && yarn subgraph:local-ship-auto" Enter
 fi
 
