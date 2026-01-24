@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1652,7 +1652,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1725,7 +1725,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2362,7 +2362,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -3937,7 +3937,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5586,7 +5586,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -7352,7 +7352,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -7436,6 +7436,54 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "buyerPayments",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "buyerTokens",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "calculatePurchaseCost",
           inputs: [
             {
@@ -7471,6 +7519,32 @@ const deployedContracts = {
         {
           type: "function",
           name: "cancelListing",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "claimRefund",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "claimTokens",
           inputs: [
             {
               name: "listingId",
@@ -7562,6 +7636,19 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "endListing",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -7665,6 +7752,11 @@ const deployedContracts = {
                   internalType: "uint256",
                 },
                 {
+                  name: "soldAmount",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
                   name: "pricePerToken",
                   type: "uint256",
                   internalType: "uint256",
@@ -7681,6 +7773,11 @@ const deployedContracts = {
                 },
                 {
                   name: "isActive",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "isCancelled",
                   type: "bool",
                   internalType: "bool",
                 },
@@ -7882,6 +7979,11 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
+              name: "soldAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
               name: "pricePerToken",
               type: "uint256",
               internalType: "uint256",
@@ -7898,6 +8000,11 @@ const deployedContracts = {
             },
             {
               name: "isActive",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "isCancelled",
               type: "bool",
               internalType: "bool",
             },
@@ -8315,6 +8422,25 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "ListingEnded",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "seller",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "ListingExtended",
           inputs: [
             {
@@ -8391,6 +8517,31 @@ const deployedContracts = {
               type: "uint256",
               indexed: true,
               internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RefundClaimed",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "buyer",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
             {
               name: "amount",
@@ -8584,6 +8735,31 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "TokensClaimed",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "buyer",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "TreasuryUpdated",
           inputs: [
             {
@@ -8743,12 +8919,32 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "ListingNotCancelled",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ListingNotEnded",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ListingNotFound",
           inputs: [],
         },
         {
           type: "error",
           name: "NoCollateralLocked",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoRefundToClaim",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoTokensToClaim",
           inputs: [],
         },
         {
@@ -8800,7 +8996,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769079920429.json",
+      deploymentFile: "run-1769259495283.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

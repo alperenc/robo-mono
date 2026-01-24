@@ -36,9 +36,15 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
   });
 
   const isLoading = isLoadingTreasury || isLoadingMarketplace;
-  const totalProceeds = ((pendingTreasuryAmount as bigint) || 0n) + ((listingProceeds as bigint) || 0n);
+  const listingAmount = (listingProceeds as bigint) || 0n;
+  const pendingAmountVal = (pendingTreasuryAmount as bigint) || 0n;
+  const totalProceeds = listingAmount + pendingAmountVal;
+
   const formattedTokenAmount = Number(tokenAmount).toLocaleString();
-  const formattedProceedsAmount = formatUnits(totalProceeds, 6);
+  const formattedTotal = formatUnits(totalProceeds, 6);
+  const formattedListingPart = formatUnits(listingAmount, 6);
+  const formattedPendingPart = formatUnits(pendingAmountVal, 6);
+
   const hasProceeds = totalProceeds > 0n;
 
   const handleFinalize = async () => {
@@ -100,12 +106,20 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
                   {hasProceeds && (
                     <div className="flex items-start gap-3">
                       <div className="badge badge-success badge-sm mt-0.5">{Number(tokenAmount) > 0 ? 2 : 1}</div>
-                      <div className="text-sm">
-                        Withdraw{" "}
-                        <span className="font-bold text-success">
-                          ${Number(formattedProceedsAmount).toLocaleString()}
-                        </span>{" "}
-                        USDC (Listing Proceeds + Pending)
+                      <div>
+                        <div className="text-sm">
+                          Withdraw{" "}
+                          <span className="font-bold text-success">${Number(formattedTotal).toLocaleString()}</span>{" "}
+                          USDC total
+                        </div>
+                        <div className="text-xs opacity-60 mt-1 space-y-0.5">
+                          {listingAmount > 0n && (
+                            <div>• ${Number(formattedListingPart).toLocaleString()} from this listing</div>
+                          )}
+                          {pendingAmountVal > 0n && (
+                            <div>• ${Number(formattedPendingPart).toLocaleString()} from treasury balance</div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

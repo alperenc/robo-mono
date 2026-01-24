@@ -293,7 +293,9 @@ const PartnerDashboard: NextPage = () => {
       const status = assetStatuses?.[index]?.result as number | undefined;
       const assetListings = listings.filter(l => l.assetId === asset.id);
       const activeAssetListings = assetListings.filter(l => l.status === "active");
-      const totalSold = assetListings.reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
+      const totalSold = assetListings
+        .filter(l => l.status !== "cancelled") // Exclude cancelled listings from total sold
+        .reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
 
       const categorizedAsset: CategorizedAsset = {
         ...asset,
@@ -507,21 +509,11 @@ const PartnerDashboard: NextPage = () => {
             >
               List Vehicle
             </button>
-            <div className="dropdown dropdown-end">
+            <div className="dropdown sm:dropdown-end">
               <div tabIndex={0} role="button" className="btn btn-primary rounded-l-none px-2 min-h-0 h-full">
                 <ChevronDownIcon className="h-5 w-5" />
               </div>
               <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                <li>
-                  <a
-                    onClick={() => {
-                      setIsRegisterOpen(true);
-                      setMaxStep(3);
-                    }}
-                  >
-                    List Vehicle
-                  </a>
-                </li>
                 <li>
                   <a
                     onClick={() => {
@@ -699,7 +691,7 @@ const PartnerDashboard: NextPage = () => {
                 >
                   List Your First Vehicle
                 </button>
-                <div className="dropdown dropdown-end">
+                <div className="dropdown sm:dropdown-end">
                   <div
                     tabIndex={0}
                     role="button"
@@ -708,16 +700,6 @@ const PartnerDashboard: NextPage = () => {
                     <ChevronDownIcon className="h-5 w-5" />
                   </div>
                   <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                    <li>
-                      <a
-                        onClick={() => {
-                          setIsRegisterOpen(true);
-                          setMaxStep(3);
-                        }}
-                      >
-                        List Vehicle
-                      </a>
-                    </li>
                     <li>
                       <a
                         onClick={() => {

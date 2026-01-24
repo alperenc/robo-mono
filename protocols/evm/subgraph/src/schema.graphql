@@ -115,7 +115,31 @@ type Listing @entity(immutable: false) {
   expiresAt: BigInt!
   buyerPaysFee: Boolean!
   status: String! # "active", "completed", "cancelled"
+  isCancelled: Boolean!
+  isEnded: Boolean!
+  claimedAmount: BigInt!
+  refundedUSDC: BigInt!
   createdAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TokenClaim @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  listingId: BigInt!
+  buyer: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RefundClaim @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  listingId: BigInt!
+  buyer: Bytes!
+  amount: BigInt!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
