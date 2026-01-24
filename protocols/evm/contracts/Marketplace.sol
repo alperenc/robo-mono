@@ -414,8 +414,14 @@ contract Marketplace is
         if (listing.listingId == 0) revert ListingNotFound();
         if (listing.seller != msg.sender) revert NotTokenOwner();
 
-        // Can only end if active or if it has expired (but still marked active)
-        if (!listing.isActive && block.timestamp <= listing.expiresAt) {
+        // Allow ending if:
+        // 1. Active
+        // 2. Inactive but Sold Out (amount == 0) and Not Cancelled (needs settlement)
+        // 3. Expired (regardless of active state)
+        bool isSoldOut = (!listing.isActive && listing.amount == 0 && !listing.isCancelled);
+        bool isExpired = block.timestamp > listing.expiresAt;
+
+        if (!listing.isActive && !isSoldOut && !isExpired) {
             revert ListingNotActive();
         }
 
