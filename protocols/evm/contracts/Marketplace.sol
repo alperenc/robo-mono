@@ -518,6 +518,49 @@ contract Marketplace is
     }
 
     /**
+     * @dev Claim purchased tokens after a listing has successfully ended.
+     */
+    function claimTokens(uint256 listingId) external nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (listing.isActive) revert ListingNotEnded();
+        if (listing.isCancelled) revert ListingNotEnded(); // Cannot claim tokens if cancelled
+
+        uint256 amount = buyerTokens[listingId][msg.sender];
+        if (amount == 0) revert NoTokensToClaim();
+
+        // Clear state before transfer
+        buyerTokens[listingId][msg.sender] = 0;
+
+        // Transfer tokens
+        roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
+
+        emit TokensClaimed(listingId, msg.sender, amount);
+    }
+
+    /**
+     * @dev Claim refund (USDC) if a listing was cancelled.
+     */
+    function claimRefund(uint256 listingId) external nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (!listing.isCancelled) revert ListingNotCancelled();
+
+        uint256 refundAmount = buyerPayments[listingId][msg.sender];
+        if (refundAmount == 0) revert NoRefundToClaim();
+
+        // Clear state before transfer
+        buyerPayments[listingId][msg.sender] = 0;
+
+        // Transfer USDC refund
+        usdc.safeTransfer(msg.sender, refundAmount);
+
+        emit RefundClaimed(listingId, msg.sender, refundAmount);
+    }
+
+    /**
      * @dev Extend the duration of an active listing
      * @param listingId The listing ID to extend
      * @param additionalDuration Additional duration in seconds
