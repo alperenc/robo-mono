@@ -222,6 +222,13 @@ contract RegistryRouterIntegrationTest is BaseTest {
         marketplace.purchaseTokens(listingId, purchaseAmount);
         vm.stopPrank();
 
+        // 5. End Listing and Claim Tokens (New Escrow Flow)
+        vm.prank(partner1);
+        marketplace.endListing(listingId);
+
+        vm.prank(buyer);
+        marketplace.claimTokens(listingId);
+
         // Verify ownership transfer
         assertEq(roboshareTokens.balanceOf(buyer, mockTokenId), purchaseAmount);
     }

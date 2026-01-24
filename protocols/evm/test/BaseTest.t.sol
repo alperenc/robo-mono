@@ -23,6 +23,7 @@ contract BaseTest is Test {
         RevenueTokensMinted,
         AssetWithListing,
         AssetWithPurchase,
+        AssetWithClaimedTokens,
         AssetWithEarnings,
         AssetWithPartialCollateralRelease,
         AssetWithFullCollateralRelease
@@ -131,6 +132,18 @@ contract BaseTest is Test {
             marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
             vm.stopPrank();
             currentState = SetupState.AssetWithPurchase;
+        }
+
+        if (requiredState >= SetupState.AssetWithClaimedTokens && currentState < SetupState.AssetWithClaimedTokens) {
+            // Partner ends listing to release escrowed tokens
+            vm.prank(partner1);
+            marketplace.endListing(scenario.listingId);
+
+            // Buyer claims tokens from escrow
+            vm.prank(buyer);
+            marketplace.claimTokens(scenario.listingId);
+
+            currentState = SetupState.AssetWithClaimedTokens;
         }
 
         if (requiredState >= SetupState.AssetWithEarnings && currentState < SetupState.AssetWithEarnings) {
