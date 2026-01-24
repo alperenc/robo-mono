@@ -394,8 +394,10 @@ contract Marketplace is
         listingProceeds[listingId] += sellerReceives;
         listingProtocolFees[listingId] += totalFeesToTreasury;
 
-        // Transfer tokens to buyer
-        roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
+        // Update escrow tracking
+        listing.soldAmount += amount;
+        buyerTokens[listingId][msg.sender] += amount;
+        buyerPayments[listingId][msg.sender] += totalPayment;
 
         emit RevenueTokensTraded(listing.tokenId, listing.seller, msg.sender, amount, listingId, totalPrice);
         emit SalesProceedsRecorded(listingId, listing.seller, sellerReceives);
