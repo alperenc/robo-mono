@@ -10,7 +10,7 @@ import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaf
 interface BuyTokensModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPurchaseComplete?: () => void;
+  onPurchaseComplete?: (listingId: string) => void;
   listing: {
     id: string;
     tokenId: string;
@@ -52,13 +52,22 @@ export function BuyTokensModal({
     args: [address],
   });
 
-  // Read user's current revenue token balance
+  // Read user's current revenue token balance (wallet)
   const revenueTokenId = BigInt(listing.assetId) + 1n;
   const { data: userTokenBalance, refetch: refetchTokenBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "balanceOf",
     args: [address, revenueTokenId],
   });
+
+  // Read user's escrowed token balance (marketplace)
+  const { data: escrowedBalance, refetch: refetchEscrowedBalance } = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "buyerTokens",
+    args: [BigInt(listing.id), address],
+  });
+
+  const totalUserTokens = (userTokenBalance || 0n) + (escrowedBalance || 0n);
 
   // Read USDC allowance for Marketplace
   const { data: usdcAllowance, refetch: refetchAllowance } = useScaffoldReadContract({
@@ -151,8 +160,14 @@ export function BuyTokensModal({
   // Handle combined approve + purchase flow
   const handleBuy = async () => {
     if (!amount || BigInt(amount) === 0n) return;
-    if (!marketplaceAddress || expectedPayment === 0n) {
-      setError("Unable to calculate purchase amount");
+    if (!marketplaceAddress) {
+      setError("Marketplace address not found");
+      return;
+    }
+
+    // Ensure we have a valid payment amount
+    if (expectedPayment === 0n) {
+      setError("Calculating payment amount...");
       return;
     }
 
@@ -162,10 +177,17 @@ export function BuyTokensModal({
       // Step 1: Approve if needed
       if (needsApproval) {
         setStep("approving");
-        await approveUsdc({
-          functionName: "approve",
-          args: [marketplaceAddress as `0x${string}`, expectedPayment],
-        });
+
+        try {
+          await approveUsdc({
+            functionName: "approve",
+            args: [marketplaceAddress, expectedPayment],
+          });
+        } catch (approveError: any) {
+          console.error("Approval failed:", approveError);
+          throw new Error(`Approval failed: ${approveError.message || "Unknown error"}`);
+        }
+
         await refetchAllowance();
       }
 
@@ -175,14 +197,17 @@ export function BuyTokensModal({
         functionName: "purchaseTokens",
         args: [BigInt(listing.id), BigInt(amount)],
       });
+
       setStep("success");
-      // Refetch token balance to show updated holdings
-      await refetchTokenBalance();
+      // Refetch token balances to show updated holdings
+      await Promise.all([refetchTokenBalance(), refetchEscrowedBalance()]);
       // Trigger data refresh
-      onPurchaseComplete?.();
+      onPurchaseComplete?.(listing.id);
     } catch (e: any) {
       console.error("Transaction error:", e);
-      setError(e.message || "Transaction failed");
+      // Extract inner error message if possible
+      const message = e.message || e.shortMessage || "Transaction failed";
+      setError(message);
       setStep("error");
     }
   };
@@ -228,6 +253,26 @@ export function BuyTokensModal({
             <div className="text-center py-8">
               <div className="text-6xl mb-4">🎉</div>
               <h4 className="text-xl font-bold text-success mb-2">Purchase Complete!</h4>
+
+              <div className="alert alert-info text-sm mb-4 text-left">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  className="stroke-current shrink-0 w-6 h-6"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+                <span>
+                  Tokens are held in escrow. You can claim them once the listing ends or is finalized by the seller.
+                </span>
+              </div>
+
               <p className="opacity-70 mb-4">
                 You&apos;ve acquired <span className="font-bold">{Number(amount).toLocaleString()}</span> revenue rights
                 tokens for {vehicleName}.
@@ -245,13 +290,15 @@ export function BuyTokensModal({
               )}
 
               {/* Total holdings after purchase */}
-              {userTokenBalance !== undefined && totalSupply && (
+              {totalUserTokens !== undefined && totalSupply && (
                 <div className="bg-success/10 rounded-lg p-4">
-                  <div className="text-sm opacity-70 mb-1">Your Total Revenue Rights</div>
+                  <div className="text-sm opacity-70 mb-1">Your Cumulative Holdings</div>
                   <div className="text-2xl font-bold text-success">
-                    {((Number(userTokenBalance) / Number(totalSupply)) * 100).toFixed(2)}%
+                    {((Number(totalUserTokens) / Number(totalSupply)) * 100).toFixed(2)}%
                   </div>
-                  <div className="text-xs opacity-50">{Number(userTokenBalance).toLocaleString()} tokens</div>
+                  <div className="text-xs opacity-50">
+                    {Number(totalUserTokens).toLocaleString()} tokens (Wallet + Escrow)
+                  </div>
                 </div>
               )}
             </div>

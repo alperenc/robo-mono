@@ -1,34 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
-interface EndListingModalProps {
+interface CancelListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   listingId: string;
-  tokenAmount: string;
 }
 
-export const EndListingModal = ({ isOpen, onClose, listingId, tokenAmount }: EndListingModalProps) => {
+export const CancelListingModal = ({ isOpen, onClose, listingId }: CancelListingModalProps) => {
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
-
-  const formattedTokenAmount = Number(tokenAmount).toLocaleString();
+  const [confirmationText, setConfirmationText] = useState("");
 
   const handleConfirm = async () => {
     try {
       await writeMarketplace({
-        functionName: "endListing",
+        functionName: "cancelListing",
         args: [BigInt(listingId)],
       });
 
       onClose();
     } catch (e) {
-      console.error("Error ending listing:", e);
+      console.error("Error cancelling listing:", e);
     }
   };
 
+  // Reset state on close
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmationText("");
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const isConfirmed = confirmationText.toLowerCase() === "cancel";
 
   return (
     <div className="modal modal-open">
@@ -45,15 +53,15 @@ export const EndListingModal = ({ isOpen, onClose, listingId, tokenAmount }: End
 
         {/* Header */}
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl">End Listing</h3>
-          <p className="text-sm opacity-60 mt-1">Successfully end your active marketplace listing</p>
+          <h3 className="font-bold text-xl text-error">Cancel Listing</h3>
+          <p className="text-sm opacity-60 mt-1">Abort the sale and refund buyers</p>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {/* Warning Alert */}
-            <div className="alert alert-warning">
+            <div className="alert alert-error bg-error/10 border-error/20 text-error-content">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="stroke-current shrink-0 h-6 w-6"
@@ -68,19 +76,34 @@ export const EndListingModal = ({ isOpen, onClose, listingId, tokenAmount }: End
                 />
               </svg>
               <div>
-                <div className="font-semibold">Unsold tokens will be returned</div>
+                <div className="font-semibold">Full Refund Initiated</div>
                 <div className="text-sm">
-                  <span className="font-bold text-warning-content">{formattedTokenAmount}</span> unsold tokens will be
-                  transferred back to your wallet.
+                  All buyers will be refunded. All tokens (sold + unsold) will be returned to you.
                 </div>
               </div>
             </div>
 
             {/* Confirmation Text */}
             <p className="text-sm opacity-70">
-              Are you sure you want to end this listing? Unsold tokens will be returned to your wallet, and proceeds
-              will be settled to the Treasury for withdrawal.
+              Are you sure you want to cancel this listing? This action cannot be undone. All trades will be voided.
             </p>
+
+            {/* Safety Input */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text text-xs font-bold uppercase opacity-60">
+                  Type <span className="text-error">cancel</span> to confirm
+                </span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full input-sm"
+                placeholder="Type 'cancel' here"
+                value={confirmationText}
+                onChange={e => setConfirmationText(e.target.value)}
+                disabled={isPending}
+              />
+            </div>
           </div>
         </div>
 
@@ -88,16 +111,16 @@ export const EndListingModal = ({ isOpen, onClose, listingId, tokenAmount }: End
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
           <div className="flex gap-3 justify-end">
             <button className="btn btn-ghost" onClick={onClose} disabled={isPending}>
-              Keep Listing
+              Back
             </button>
-            <button className="btn btn-error" onClick={handleConfirm} disabled={isPending}>
+            <button className="btn btn-error" onClick={handleConfirm} disabled={isPending || !isConfirmed}>
               {isPending ? (
                 <>
                   <span className="loading loading-spinner loading-sm"></span>
-                  Ending...
+                  Cancelling...
                 </>
               ) : (
-                "End Listing"
+                "Confirm Cancellation"
               )}
             </button>
           </div>

@@ -45,10 +45,12 @@ contract Marketplace is
         uint256 listingId;
         uint256 tokenId;
         uint256 amount;
+        uint256 soldAmount; // Tokens sold and held in escrow
         uint256 pricePerToken; // Price in USDC (6 decimals)
         address seller;
         uint256 expiresAt;
         bool isActive;
+        bool isCancelled;
         uint256 createdAt;
         bool buyerPaysFee; // If true, buyer pays protocol fee; if false, seller absorbs fee
     }
@@ -59,6 +61,10 @@ contract Marketplace is
     // Deferred proceeds tracking (held until listing ends)
     mapping(uint256 => uint256) public listingProceeds; // listingId => seller proceeds
     mapping(uint256 => uint256) public listingProtocolFees; // listingId => protocol fees
+
+    // Escrow tracking
+    mapping(uint256 => mapping(address => uint256)) public buyerTokens; // listingId => buyer => tokenAmount
+    mapping(uint256 => mapping(address => uint256)) public buyerPayments; // listingId => buyer => usdcPaid
 
     // Errors
     error ZeroAddress();
@@ -75,6 +81,10 @@ contract Marketplace is
     error InsufficientPayment();
     error NotTokenOwner();
     error InvalidDuration();
+    error ListingNotEnded();
+    error ListingNotCancelled();
+    error NoTokensToClaim();
+    error NoRefundToClaim();
 
     // Events
     event ListingCreated(
@@ -100,6 +110,9 @@ contract Marketplace is
     );
 
     event ListingCancelled(uint256 indexed listingId, address indexed seller);
+    event ListingEnded(uint256 indexed listingId, address indexed seller);
+    event TokensClaimed(uint256 indexed listingId, address indexed buyer, uint256 amount);
+    event RefundClaimed(uint256 indexed listingId, address indexed buyer, uint256 amount);
 
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
@@ -287,10 +300,12 @@ contract Marketplace is
             listingId: listingId,
             tokenId: tokenId,
             amount: amount,
+            soldAmount: 0,
             pricePerToken: pricePerToken,
             seller: seller,
             expiresAt: expiresAt,
             isActive: true,
+            isCancelled: false,
             createdAt: block.timestamp,
             buyerPaysFee: buyerPaysFee
         });
@@ -379,8 +394,10 @@ contract Marketplace is
         listingProceeds[listingId] += sellerReceives;
         listingProtocolFees[listingId] += totalFeesToTreasury;
 
-        // Transfer tokens to buyer
-        roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
+        // Update escrow tracking
+        listing.soldAmount += amount;
+        buyerTokens[listingId][msg.sender] += amount;
+        buyerPayments[listingId][msg.sender] += totalPayment;
 
         emit RevenueTokensTraded(listing.tokenId, listing.seller, msg.sender, amount, listingId, totalPrice);
         emit SalesProceedsRecorded(listingId, listing.seller, sellerReceives);
@@ -388,8 +405,43 @@ contract Marketplace is
     }
 
     /**
-     * @dev Cancel a listing and return tokens to seller
-     * Also transfers accumulated proceeds to Treasury for withdrawal
+     * @dev Ends a listing: returns unsold tokens to seller, settles proceeds to Treasury.
+     * Tokens sold are kept in escrow for buyers to claim.
+     */
+    function endListing(uint256 listingId) public nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (listing.seller != msg.sender) revert NotTokenOwner();
+
+        // Allow ending if:
+        // 1. Active
+        // 2. Inactive but Sold Out (amount == 0) and Not Cancelled (needs settlement)
+        // 3. Expired (regardless of active state)
+        bool isSoldOut = (!listing.isActive && listing.amount == 0 && !listing.isCancelled);
+        bool isExpired = block.timestamp > listing.expiresAt;
+
+        if (!listing.isActive && !isSoldOut && !isExpired) {
+            revert ListingNotActive();
+        }
+
+        // Mark as inactive (successfully ended)
+        listing.isActive = false;
+
+        // Return *unsold* tokens to seller
+        if (listing.amount > 0) {
+            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+        }
+
+        // Transfer deferred proceeds to Treasury (making them withdrawable)
+        _settleListing(listingId, listing.seller);
+
+        emit ListingEnded(listingId, msg.sender);
+    }
+
+    /**
+     * @dev Cancel a listing and return ALL tokens (unsold + sold) to seller.
+     * Buyers must claim their refund manually.
      */
     function cancelListing(uint256 listingId) external nonReentrant {
         Listing storage listing = listings[listingId];
@@ -405,38 +457,36 @@ contract Marketplace is
             revert ListingNotActive();
         }
 
-        // Mark as inactive
+        // Mark as inactive AND cancelled
         listing.isActive = false;
+        listing.isCancelled = true;
 
-        // Return tokens to seller
-        roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+        // Return ALL tokens to seller (unsold + sold/escrowed)
+        uint256 totalReturn = listing.amount + listing.soldAmount;
+        if (totalReturn > 0) {
+            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, totalReturn, "");
+        }
 
-        // Transfer deferred proceeds to Treasury
-        _settleListing(listingId, listing.seller);
+        // Clear proceeds (void the sales)
+        listingProceeds[listingId] = 0;
+        listingProtocolFees[listingId] = 0;
 
         emit ListingCancelled(listingId, msg.sender);
     }
 
     /**
-     * @dev Finalize a listing: cancel if active, transfer proceeds to Treasury, and withdraw
+     * @dev Finalize a listing: ends listing (if active) and withdraws proceeds from Treasury.
+     * Convenience function combining endListing + withdraw.
      * @param listingId The listing ID to finalize
      * @return withdrawn Amount of USDC withdrawn
      */
-    function finalizeListing(uint256 listingId) external nonReentrant returns (uint256 withdrawn) {
+    function finalizeListing(uint256 listingId) external returns (uint256 withdrawn) {
         Listing storage listing = listings[listingId];
 
-        if (listing.listingId == 0) revert ListingNotFound();
-        if (listing.seller != msg.sender) revert NotTokenOwner();
-
-        // Cancel listing if still active (return escrowed tokens)
+        // Only attempt to end if it's still active or effectively active (expired but state true)
         if (listing.isActive) {
-            listing.isActive = false;
-            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
-            emit ListingCancelled(listingId, msg.sender);
+            endListing(listingId);
         }
-
-        // Transfer deferred proceeds to Treasury
-        _settleListing(listingId, listing.seller);
 
         // Withdraw all pending proceeds from Treasury (includes this listing's proceeds)
         withdrawn = treasury.processWithdrawalFor(msg.sender);
@@ -471,6 +521,49 @@ contract Marketplace is
         }
 
         emit ListingSettled(listingId, seller, sellerProceeds, protocolFees);
+    }
+
+    /**
+     * @dev Claim purchased tokens after a listing has successfully ended.
+     */
+    function claimTokens(uint256 listingId) external nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (listing.isActive) revert ListingNotEnded();
+        if (listing.isCancelled) revert ListingNotEnded(); // Cannot claim tokens if cancelled
+
+        uint256 amount = buyerTokens[listingId][msg.sender];
+        if (amount == 0) revert NoTokensToClaim();
+
+        // Clear state before transfer
+        buyerTokens[listingId][msg.sender] = 0;
+
+        // Transfer tokens
+        roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
+
+        emit TokensClaimed(listingId, msg.sender, amount);
+    }
+
+    /**
+     * @dev Claim refund (USDC) if a listing was cancelled.
+     */
+    function claimRefund(uint256 listingId) external nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (!listing.isCancelled) revert ListingNotCancelled();
+
+        uint256 refundAmount = buyerPayments[listingId][msg.sender];
+        if (refundAmount == 0) revert NoRefundToClaim();
+
+        // Clear state before transfer
+        buyerPayments[listingId][msg.sender] = 0;
+
+        // Transfer USDC refund
+        usdc.safeTransfer(msg.sender, refundAmount);
+
+        emit RefundClaimed(listingId, msg.sender, refundAmount);
     }
 
     /**

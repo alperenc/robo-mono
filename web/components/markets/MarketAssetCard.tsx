@@ -3,7 +3,9 @@
 import { useMemo } from "react";
 import Image from "next/image";
 import { formatUnits } from "viem";
+import { useAccount } from "wagmi";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 
 // Protocol constants (matching Libraries.sol)
 const BENCHMARK_EARNINGS_BP = 1000n; // 10% annually
@@ -16,8 +18,12 @@ interface MarketAssetCardProps {
     assetId: string;
     pricePerToken: string;
     amount: string;
+    amountSold?: string;
     expiresAt: string;
     seller: string;
+    status?: string;
+    isCancelled?: boolean;
+    isEnded?: boolean;
   };
   vehicle?: {
     id: string;
@@ -47,6 +53,8 @@ interface MarketAssetCardProps {
   networkName?: string;
   assetType?: AssetType;
   onBuyClick?: () => void;
+  onClaimTokensClick?: () => void;
+  onClaimRefundClick?: () => void;
 }
 
 export function MarketAssetCard({
@@ -59,7 +67,28 @@ export function MarketAssetCard({
   networkName = "Localhost",
   assetType = AssetType.VEHICLE,
   onBuyClick,
+  onClaimTokensClick,
+  onClaimRefundClick,
 }: MarketAssetCardProps) {
+  const { address } = useAccount();
+
+  // Read user's escrowed token balance (marketplace)
+  const { data: escrowedTokens } = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "buyerTokens",
+    args: [BigInt(listing.id), address],
+  });
+
+  // Read user's pending refund (marketplace)
+  const { data: pendingRefund } = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "buyerPayments",
+    args: [BigInt(listing.id), address],
+  });
+
+  const canClaimTokens = (escrowedTokens || 0n) > 0n && listing.isEnded && !listing.isCancelled;
+  const canClaimRefund = (pendingRefund || 0n) > 0n && listing.isCancelled;
+
   // Calculate display values
   const displayName = useMemo(() => {
     if (vehicle?.make && vehicle?.model && vehicle?.year) {
@@ -127,20 +156,27 @@ export function MarketAssetCard({
   // Format available tokens (available/total)
   const availableTokensDisplay = useMemo(() => {
     const availableNum = Number(listing.amount);
-    const totalNum = token ? Number(token.supply) : availableNum;
-    const soldNum = totalNum - availableNum;
+    // Use explicit amountSold if available, otherwise assume remaining vs supply (which might be inaccurate if burn happened)
+    // Actually, listing.amountSold is from subgraph which is accurate.
+    const soldNum = listing.amountSold ? Number(listing.amountSold) : token ? Number(token.supply) - availableNum : 0;
+    const totalNum = availableNum + soldNum;
+
     const soldPercentage = totalNum > 0 ? Math.round((soldNum / totalNum) * 100) : 0;
     return {
       available: formatCompact(availableNum),
       total: formatCompact(totalNum),
       soldPercentage,
     };
-  }, [listing.amount, token]);
+  }, [listing.amount, listing.amountSold, token]);
 
-  // Check if listing is expired
+  // Check statuses
   const isExpired = useMemo(() => {
     return Number(listing.expiresAt) * 1000 < Date.now();
   }, [listing.expiresAt]);
+
+  const isCancelled = listing.isCancelled;
+  const isEnded = listing.isEnded;
+  const isInactive = isCancelled || isEnded || isExpired;
 
   const registry = ASSET_REGISTRIES[assetType];
 
@@ -163,16 +199,32 @@ export function MarketAssetCard({
         )}
 
         {/* Badges - stacked to prevent overlap */}
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+        <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2 flex-wrap">
           <span className="badge badge-sm bg-base-100/90 backdrop-blur-sm border-0 shadow-md truncate max-w-[45%]">
             🔗 {networkName}
           </span>
-          <span className="badge badge-success font-bold shadow-md text-xs">{aprDisplay} APR</span>
+          <div className="flex flex-col items-end gap-1">
+            <span className="badge badge-success font-bold shadow-md text-xs">{aprDisplay} APR</span>
+            {(escrowedTokens || 0n) > 0n && (
+              <span className="badge badge-primary font-bold shadow-md text-[10px] animate-pulse">INVESTED</span>
+            )}
+          </div>
         </div>
 
-        {isExpired && (
-          <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center">
-            <span className="badge badge-warning badge-lg">Listing Expired</span>
+        {/* Status Overlays */}
+        {isCancelled && (
+          <div className="absolute inset-0 bg-error/80 flex items-center justify-center z-10">
+            <span className="badge badge-error badge-lg font-bold shadow-lg">CANCELLED</span>
+          </div>
+        )}
+        {isEnded && !isCancelled && (
+          <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center z-10">
+            <span className="badge badge-neutral badge-lg font-bold shadow-lg">SALE ENDED</span>
+          </div>
+        )}
+        {isExpired && !isEnded && !isCancelled && (
+          <div className="absolute inset-0 bg-warning/80 flex items-center justify-center z-10">
+            <span className="badge badge-warning badge-lg font-bold shadow-lg">EXPIRED</span>
           </div>
         )}
       </figure>
@@ -212,7 +264,7 @@ export function MarketAssetCard({
             <span className="font-semibold">{availableTokensDisplay.soldPercentage}%</span>
           </div>
           <progress
-            className="progress progress-primary w-full h-2"
+            className={`progress w-full h-2 ${isCancelled ? "progress-error" : "progress-primary"}`}
             value={availableTokensDisplay.soldPercentage}
             max="100"
           ></progress>
@@ -239,10 +291,21 @@ export function MarketAssetCard({
         </div>
 
         {/* Action Button */}
+
         <div className="card-actions mt-2">
-          <button className="btn btn-primary btn-block" onClick={onBuyClick} disabled={isExpired}>
-            {isExpired ? "Expired" : "Buy Tokens"}
-          </button>
+          {canClaimTokens ? (
+            <button className="btn btn-success btn-block" onClick={onClaimTokensClick}>
+              Claim Tokens
+            </button>
+          ) : canClaimRefund ? (
+            <button className="btn btn-error btn-block" onClick={onClaimRefundClick}>
+              Claim Refund
+            </button>
+          ) : (
+            <button className="btn btn-primary btn-block" onClick={onBuyClick} disabled={isInactive}>
+              {isCancelled ? "Cancelled" : isEnded ? "Ended" : isExpired ? "Expired" : "Buy Tokens"}
+            </button>
+          )}
         </div>
       </div>
     </div>

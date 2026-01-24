@@ -5,6 +5,7 @@ import Image from "next/image";
 import { NextPage } from "next";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
+import { CancelListingModal } from "~~/components/partner/CancelListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
@@ -78,6 +79,7 @@ const PartnerDashboard: NextPage = () => {
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
   const [extendListingModalOpen, setExtendListingModalOpen] = useState(false);
   const [endListingModalOpen, setEndListingModalOpen] = useState(false);
+  const [cancelListingModalOpen, setCancelListingModalOpen] = useState(false);
   const [finalizeListingModalOpen, setFinalizeListingModalOpen] = useState(false);
   const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
@@ -291,7 +293,9 @@ const PartnerDashboard: NextPage = () => {
       const status = assetStatuses?.[index]?.result as number | undefined;
       const assetListings = listings.filter(l => l.assetId === asset.id);
       const activeAssetListings = assetListings.filter(l => l.status === "active");
-      const totalSold = assetListings.reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
+      const totalSold = assetListings
+        .filter(l => l.status !== "cancelled") // Exclude cancelled listings from total sold
+        .reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
 
       const categorizedAsset: CategorizedAsset = {
         ...asset,
@@ -381,7 +385,7 @@ const PartnerDashboard: NextPage = () => {
     asset: CategorizedAsset;
     borderColor: string;
     primaryAction?: { label: string; onClick: () => void; className: string };
-    secondaryActions?: Array<{ label: string; onClick: () => void }>;
+    secondaryActions?: Array<{ label: string; onClick: () => void; className?: string }>;
     isGrid?: boolean;
   }) => (
     <div
@@ -440,7 +444,9 @@ const PartnerDashboard: NextPage = () => {
                 <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
                   {secondaryActions.map((action, idx) => (
                     <li key={idx}>
-                      <a onClick={action.onClick}>{action.label}</a>
+                      <a onClick={action.onClick} className={action.className || ""}>
+                        {action.label}
+                      </a>
                     </li>
                   ))}
                 </ul>
@@ -503,21 +509,11 @@ const PartnerDashboard: NextPage = () => {
             >
               List Vehicle
             </button>
-            <div className="dropdown dropdown-end">
+            <div className="dropdown sm:dropdown-end">
               <div tabIndex={0} role="button" className="btn btn-primary rounded-l-none px-2 min-h-0 h-full">
                 <ChevronDownIcon className="h-5 w-5" />
               </div>
               <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                <li>
-                  <a
-                    onClick={() => {
-                      setIsRegisterOpen(true);
-                      setMaxStep(3);
-                    }}
-                  >
-                    List Vehicle
-                  </a>
-                </li>
                 <li>
                   <a
                     onClick={() => {
@@ -695,7 +691,7 @@ const PartnerDashboard: NextPage = () => {
                 >
                   List Your First Vehicle
                 </button>
-                <div className="dropdown dropdown-end">
+                <div className="dropdown sm:dropdown-end">
                   <div
                     tabIndex={0}
                     role="button"
@@ -704,16 +700,6 @@ const PartnerDashboard: NextPage = () => {
                     <ChevronDownIcon className="h-5 w-5" />
                   </div>
                   <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                    <li>
-                      <a
-                        onClick={() => {
-                          setIsRegisterOpen(true);
-                          setMaxStep(3);
-                        }}
-                      >
-                        List Vehicle
-                      </a>
-                    </li>
                     <li>
                       <a
                         onClick={() => {
@@ -788,47 +774,76 @@ const PartnerDashboard: NextPage = () => {
               borderClass="border-info/30"
               viewMode={viewMode}
             >
-              {activeListingsAssets.map(asset => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  borderColor="border-info"
-                  isGrid={viewMode === "grid"}
-                  primaryAction={{
-                    label: "Extend Listing",
-                    onClick: () => {
-                      setSelectedCategorizedAsset(asset);
-                      if (asset.listings && asset.listings.length > 0) {
-                        setSelectedListing(asset.listings[0]);
-                      }
-                      setExtendListingModalOpen(true);
-                    },
+              {activeListingsAssets.map(asset => {
+                // Determine actions based on listing state
+                const listing = asset.listings && asset.listings.length > 0 ? asset.listings[0] : null;
+                if (!listing) return null;
+
+                const isSoldOut = listing.amount === "0";
+                const isExpired = Number(listing.expiresAt) * 1000 < Date.now();
+                const isUnsold = !listing.amountSold || listing.amountSold === "0";
+
+                let primaryAction;
+                const secondaryActions = [];
+
+                // Helper to set selected and open modal
+                const openModal = (modalSetter: (open: boolean) => void) => {
+                  setSelectedCategorizedAsset(asset);
+                  setSelectedListing(listing);
+                  modalSetter(true);
+                };
+
+                // Action definitions
+                const actionFinalize = {
+                  label: "Finalize Listing",
+                  onClick: () => openModal(setFinalizeListingModalOpen),
+                };
+                const actionEnd = { label: "End Listing", onClick: () => openModal(setEndListingModalOpen) };
+                const actionCancel = {
+                  label: "Cancel Listing",
+                  onClick: () => openModal(setCancelListingModalOpen),
+                  className: "text-error",
+                };
+                const actionExtend = { label: "Extend Listing", onClick: () => openModal(setExtendListingModalOpen) };
+
+                if (isSoldOut || isExpired) {
+                  // Case 1: Sold Out or Expired -> Priority is to Settle/Finalize
+                  primaryAction = {
+                    ...actionFinalize,
+                    className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
+                  };
+                  secondaryActions.push(actionEnd);
+                  secondaryActions.push(actionCancel);
+                } else {
+                  // Case 2: Active (regardless of sales) -> Priority is Extend Listing
+                  primaryAction = {
+                    ...actionExtend,
                     className: "btn btn-info bg-info/15 border-0 text-info hover:bg-info/25",
-                  }}
-                  secondaryActions={[
-                    {
-                      label: "Finalize Listing",
-                      onClick: () => {
-                        setSelectedCategorizedAsset(asset);
-                        if (asset.listings && asset.listings.length > 0) {
-                          setSelectedListing(asset.listings[0]);
-                        }
-                        setFinalizeListingModalOpen(true);
-                      },
-                    },
-                    {
-                      label: "End Listing",
-                      onClick: () => {
-                        setSelectedCategorizedAsset(asset);
-                        if (asset.listings && asset.listings.length > 0) {
-                          setSelectedListing(asset.listings[0]);
-                        }
-                        setEndListingModalOpen(true);
-                      },
-                    },
-                  ]}
-                />
-              ))}
+                  };
+
+                  if (isUnsold) {
+                    // No sales: End, Cancel
+                    secondaryActions.push(actionEnd);
+                    secondaryActions.push(actionCancel);
+                  } else {
+                    // Partial sales: Finalize, End, Cancel
+                    secondaryActions.push(actionFinalize);
+                    secondaryActions.push(actionEnd);
+                    secondaryActions.push(actionCancel);
+                  }
+                }
+
+                return (
+                  <AssetCard
+                    key={asset.id}
+                    asset={asset}
+                    borderColor="border-info"
+                    isGrid={viewMode === "grid"}
+                    primaryAction={primaryAction}
+                    secondaryActions={secondaryActions}
+                  />
+                );
+              })}
             </Section>
           )}
 
@@ -976,6 +991,15 @@ const PartnerDashboard: NextPage = () => {
             }}
             listingId={selectedListing.id}
             tokenAmount={selectedListing.amount}
+          />
+          <CancelListingModal
+            isOpen={cancelListingModalOpen}
+            onClose={() => {
+              setCancelListingModalOpen(false);
+              refetchPending();
+              triggerRefresh();
+            }}
+            listingId={selectedListing.id}
           />
           <FinalizeListingModal
             isOpen={finalizeListingModalOpen}

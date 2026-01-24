@@ -160,6 +160,12 @@ dataSources:
           handler: handleRevenueTokensTraded
         - event: ListingCancelled(indexed uint256,indexed address)
           handler: handleListingCancelled
+        - event: ListingEnded(indexed uint256,indexed address)
+          handler: handleListingEnded
+        - event: TokensClaimed(indexed uint256,indexed address,uint256)
+          handler: handleTokensClaimed
+        - event: RefundClaimed(indexed uint256,indexed address,uint256)
+          handler: handleRefundClaimed
         - event: ListingExtended(indexed uint256,uint256)
           handler: handleListingExtended
       file: ./src/mapping.ts
