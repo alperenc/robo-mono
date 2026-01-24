@@ -405,8 +405,37 @@ contract Marketplace is
     }
 
     /**
-     * @dev Cancel a listing and return tokens to seller
-     * Also transfers accumulated proceeds to Treasury for withdrawal
+     * @dev Ends a listing: returns unsold tokens to seller, settles proceeds to Treasury.
+     * Tokens sold are kept in escrow for buyers to claim.
+     */
+    function endListing(uint256 listingId) public nonReentrant {
+        Listing storage listing = listings[listingId];
+
+        if (listing.listingId == 0) revert ListingNotFound();
+        if (listing.seller != msg.sender) revert NotTokenOwner();
+
+        // Can only end if active or if it has expired (but still marked active)
+        if (!listing.isActive && block.timestamp <= listing.expiresAt) {
+            revert ListingNotActive();
+        }
+
+        // Mark as inactive (successfully ended)
+        listing.isActive = false;
+
+        // Return *unsold* tokens to seller
+        if (listing.amount > 0) {
+            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+        }
+
+        // Transfer deferred proceeds to Treasury (making them withdrawable)
+        _settleListing(listingId, listing.seller);
+
+        emit ListingEnded(listingId, msg.sender);
+    }
+
+    /**
+     * @dev Cancel a listing and return ALL tokens (unsold + sold) to seller.
+     * Buyers must claim their refund manually.
      */
     function cancelListing(uint256 listingId) external nonReentrant {
         Listing storage listing = listings[listingId];
@@ -422,38 +451,36 @@ contract Marketplace is
             revert ListingNotActive();
         }
 
-        // Mark as inactive
+        // Mark as inactive AND cancelled
         listing.isActive = false;
+        listing.isCancelled = true;
 
-        // Return tokens to seller
-        roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+        // Return ALL tokens to seller (unsold + sold/escrowed)
+        uint256 totalReturn = listing.amount + listing.soldAmount;
+        if (totalReturn > 0) {
+            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, totalReturn, "");
+        }
 
-        // Transfer deferred proceeds to Treasury
-        _settleListing(listingId, listing.seller);
+        // Clear proceeds (void the sales)
+        listingProceeds[listingId] = 0;
+        listingProtocolFees[listingId] = 0;
 
         emit ListingCancelled(listingId, msg.sender);
     }
 
     /**
-     * @dev Finalize a listing: cancel if active, transfer proceeds to Treasury, and withdraw
+     * @dev Finalize a listing: ends listing (if active) and withdraws proceeds from Treasury.
+     * Convenience function combining endListing + withdraw.
      * @param listingId The listing ID to finalize
      * @return withdrawn Amount of USDC withdrawn
      */
-    function finalizeListing(uint256 listingId) external nonReentrant returns (uint256 withdrawn) {
+    function finalizeListing(uint256 listingId) external returns (uint256 withdrawn) {
         Listing storage listing = listings[listingId];
 
-        if (listing.listingId == 0) revert ListingNotFound();
-        if (listing.seller != msg.sender) revert NotTokenOwner();
-
-        // Cancel listing if still active (return escrowed tokens)
+        // Only attempt to end if it's still active or effectively active (expired but state true)
         if (listing.isActive) {
-            listing.isActive = false;
-            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
-            emit ListingCancelled(listingId, msg.sender);
+            endListing(listingId);
         }
-
-        // Transfer deferred proceeds to Treasury
-        _settleListing(listingId, listing.seller);
 
         // Withdraw all pending proceeds from Treasury (includes this listing's proceeds)
         withdrawn = treasury.processWithdrawalFor(msg.sender);
