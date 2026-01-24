@@ -32,7 +32,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Create Listing Tests
 
-    function testCreateListingSuccess() public {
+    function testCreateListing() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         vm.startPrank(partner1);
@@ -115,7 +115,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Purchase Listing Tests
 
-    function testPurchaseListingBuyerPaysFee() public {
+    function testPurchaseTokensBuyerPaysFee() public {
         _ensureState(SetupState.AssetWithListing);
 
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
@@ -167,7 +167,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(marketplace.buyerTokens(scenario.listingId, buyer), PURCHASE_AMOUNT);
     }
 
-    function testPurchaseListingEarlySalePenalty() public {
+    function testPurchaseTokensEarlySalePenalty() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // 1. Transfer Asset NFT from partner1 to partner2, so partner1 is no longer the owner.
@@ -222,7 +222,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(marketplace.buyerTokens(newListingId, buyer), PURCHASE_AMOUNT);
     }
 
-    function testPurchaseListingSellerPaysFee() public {
+    function testPurchaseTokensSellerPaysFee() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Create a new listing with seller paying the fee
@@ -268,7 +268,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(marketplace.buyerTokens(newListingId, buyer), PURCHASE_AMOUNT);
     }
 
-    function testPurchaseListingCompletelyExhaustsListing() public {
+    function testPurchaseTokensCompletelyExhaustsListing() public {
         _ensureState(SetupState.AssetWithListing);
 
         uint256 totalPrice = LISTING_AMOUNT * REVENUE_TOKEN_PRICE;
@@ -300,7 +300,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
     }
 
-    function testPurchaseListingInsufficientPayment() public {
+    function testPurchaseTokensInsufficientPayment() public {
         _ensureState(SetupState.AssetWithListing);
 
         uint256 totalPrice = PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
@@ -318,7 +318,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testPurchaseListingExpired() public {
+    function testPurchaseTokensExpired() public {
         _ensureState(SetupState.AssetWithListing);
 
         setupExpiredListing(scenario.listingId);
@@ -328,7 +328,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(scenario.listingId, 100);
     }
 
-    function testPurchaseListingInvalidAmount() public {
+    function testPurchaseTokensInvalidAmount() public {
         _ensureState(SetupState.AssetWithListing);
 
         vm.expectRevert(Marketplace.InvalidAmount.selector);
@@ -338,7 +338,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Cancel Listing Tests
 
-    function testCancelListingSuccess() public {
+    function testCancelListing() public {
         _ensureState(SetupState.AssetWithListing);
 
         // 1. Purchase some tokens to have them in escrow
@@ -482,7 +482,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Extend Listing Tests
 
-    function testExtendListingSuccess() public {
+    function testExtendListing() public {
         _ensureState(SetupState.AssetWithListing);
 
         Marketplace.Listing memory listingBefore = marketplace.getListing(scenario.listingId);
@@ -575,7 +575,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
     }
 
-    function testEndListingActiveSuccess() public {
+    function testEndListing() public {
         _ensureState(SetupState.AssetWithListing);
 
         // Check it is active
@@ -677,7 +677,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     // Fuzz Tests
-    function testFuzzPurchaseListing(uint256 purchaseAmount) public {
+    function testFuzzPurchaseTokens(uint256 purchaseAmount) public {
         _ensureState(SetupState.AssetWithListing);
 
         vm.assume(purchaseAmount > 0 && purchaseAmount <= LISTING_AMOUNT);
@@ -734,7 +734,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.cancelListing(nonExistentListingId);
     }
 
-    function testCancelListing_RevertsForInactiveListing() public {
+    function testCancelListingInactive() public {
         _ensureState(SetupState.AssetWithListing);
 
         // Deactivate listing by cancelling it
@@ -803,7 +803,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(marketplace.buyerTokens(listingId, buyer), purchaseAmount);
     }
 
-    function testPurchaseListingFeesExceedPriceBuyerPays() public {
+    function testPurchaseTokensFeesExceedPriceBuyerPays() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Transfer asset so seller is not the owner and incurs a penalty
@@ -825,7 +825,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testPurchaseListingFeesExceedPriceSellerPays() public {
+    function testPurchaseTokensFeesExceedPriceSellerPays() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Transfer asset so seller is not the owner and incurs a penalty
@@ -849,7 +849,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Settlement Integration Tests
 
-    function testCreateListingRevertsWhenSettled() public {
+    function testCreateListingSettled() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Settle asset
@@ -863,7 +863,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testPurchaseRevertsWhenSettled() public {
+    function testPurchaseTokensSettled() public {
         _ensureState(SetupState.AssetWithListing);
 
         // Settle asset
@@ -879,7 +879,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // ============ createListingFor Tests ============
 
-    function testCreateListingForSuccess() public {
+    function testCreateListingFor() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Production flow: Router has AUTHORIZED_CONTRACT_ROLE on Marketplace (set during deploy)

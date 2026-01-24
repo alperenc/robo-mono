@@ -1664,7 +1664,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     /// @dev Test releaseAndWithdrawCollateral reverts when no new periods
-    function testReleaseAndWithdrawCollateralRevertsNoNewPeriods() public {
+    function testReleaseAndWithdrawCollateralNoNewPeriods() public {
         _ensureState(SetupState.AssetWithClaimedTokens);
 
         uint256 earningsAmount = 10_000e6;
@@ -1683,7 +1683,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     }
 
     /// @dev Test claimAndWithdrawEarnings reverts when no earnings
-    function testClaimAndWithdrawEarningsRevertsNoEarnings() public {
+    function testClaimAndWithdrawEarningsNoEarnings() public {
         _ensureState(SetupState.AssetWithClaimedTokens);
 
         // No earnings distributed - should revert
