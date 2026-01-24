@@ -31,7 +31,10 @@ import {
   ListingCreated as ListingCreatedEvent,
   RevenueTokensTraded as RevenueTokensTradedEvent,
   ListingCancelled as ListingCancelledEvent,
-  ListingExtended as ListingExtendedEvent
+  ListingExtended as ListingExtendedEvent,
+  ListingEnded as ListingEndedEvent,
+  TokensClaimed as TokensClaimedEvent,
+  RefundClaimed as RefundClaimedEvent
 } from "../generated/Marketplace/Marketplace"
 
 import {
@@ -52,7 +55,9 @@ import {
   Listing,
   TokenTrade,
   EarningsDistribution,
-  AssetEarnings
+  AssetEarnings,
+  TokenClaim,
+  RefundClaim
 } from "../generated/schema"
 
 export function handleMockUSDCTransfer(event: MockUSDCTransferEvent): void {
@@ -272,6 +277,10 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.expiresAt = event.params.expiresAt
   listing.buyerPaysFee = event.params.buyerPaysFee
   listing.status = "active"
+  listing.isCancelled = false
+  listing.isEnded = false
+  listing.claimedAmount = BigInt.fromI32(0)
+  listing.refundedUSDC = BigInt.fromI32(0)
   listing.createdAt = event.block.timestamp
   listing.blockNumber = event.block.number
   listing.blockTimestamp = event.block.timestamp
@@ -302,24 +311,14 @@ export function handleRevenueTokensTraded(event: RevenueTokensTradedEvent): void
   trade.transactionHash = event.transaction.hash
   trade.save()
 
-  // Update listing amountSold and status
+  // Update listing amountSold and remaining amount
   let listing = Listing.load(event.params.listingId.toString())
   if (listing) {
     listing.amountSold = listing.amountSold.plus(event.params.amount)
-    // If all tokens sold, mark as completed
-    if (listing.amountSold.equals(listing.amount.plus(listing.amountSold).minus(listing.amount))) {
-      // Check by loading fresh amount from remaining
-      let remaining = listing.amount.minus(event.params.amount)
-      listing.amount = remaining
-      if (remaining.equals(BigInt.fromI32(0))) {
-        listing.status = "completed"
-      }
-    } else {
-      listing.amount = listing.amount.minus(event.params.amount)
-      if (listing.amount.equals(BigInt.fromI32(0))) {
-        listing.status = "completed"
-      }
-    }
+    listing.amount = listing.amount.minus(event.params.amount)
+    // Status update is now handled by ListingEnded/ListingCancelled
+    // However, if amount reaches 0, it's effectively "Sold Out", but still "Active" until Ended.
+    // We'll keep status as "active" to reflect it hasn't been settled yet.
     listing.save()
   }
 }
@@ -328,6 +327,54 @@ export function handleListingCancelled(event: ListingCancelledEvent): void {
   let listing = Listing.load(event.params.listingId.toString())
   if (listing) {
     listing.status = "cancelled"
+    listing.isCancelled = true
+    listing.save()
+  }
+}
+
+export function handleListingEnded(event: ListingEndedEvent): void {
+  let listing = Listing.load(event.params.listingId.toString())
+  if (listing) {
+    listing.status = "ended"
+    listing.isEnded = true
+    listing.save()
+  }
+}
+
+export function handleTokensClaimed(event: TokensClaimedEvent): void {
+  let claim = new TokenClaim(
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
+  )
+  claim.listingId = event.params.listingId
+  claim.buyer = event.params.buyer
+  claim.amount = event.params.amount
+  claim.blockNumber = event.block.number
+  claim.blockTimestamp = event.block.timestamp
+  claim.transactionHash = event.transaction.hash
+  claim.save()
+
+  let listing = Listing.load(event.params.listingId.toString())
+  if (listing) {
+    listing.claimedAmount = listing.claimedAmount.plus(event.params.amount)
+    listing.save()
+  }
+}
+
+export function handleRefundClaimed(event: RefundClaimedEvent): void {
+  let refund = new RefundClaim(
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
+  )
+  refund.listingId = event.params.listingId
+  refund.buyer = event.params.buyer
+  refund.amount = event.params.amount // This is USDC amount
+  refund.blockNumber = event.block.number
+  refund.blockTimestamp = event.block.timestamp
+  refund.transactionHash = event.transaction.hash
+  refund.save()
+
+  let listing = Listing.load(event.params.listingId.toString())
+  if (listing) {
+    listing.refundedUSDC = listing.refundedUSDC.plus(event.params.amount)
     listing.save()
   }
 }
