@@ -357,10 +357,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testFuzzMintRevenueTokens(uint256 supply) public {
         vm.assume(supply > 0 && supply <= 1e18);
-        _deployContracts();
-        _setupInitialRolesAndAccounts();
+        _ensureState(SetupState.InitialAccountsSetup);
 
-        // Ensure partner1 has enough USDC and approves the treasury
+        // Ensure partner1 has enough USDC to cover any fuzz supply
         deal(address(usdc), partner1, type(uint256).max);
         vm.prank(partner1);
         usdc.approve(address(treasury), type(uint256).max);
