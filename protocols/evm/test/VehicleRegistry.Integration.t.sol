@@ -139,6 +139,52 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(locked, true);
     }
 
+    function testRegisterAssetMintAndList() public {
+        _ensureState(SetupState.PartnersAuthorized);
+
+        // Setup: Configure marketplace on Router and grant role to Router
+        vm.startPrank(admin);
+        router.setMarketplace(address(marketplace));
+        marketplace.grantRole(marketplace.AUTHORIZED_CONTRACT_ROLE(), address(router));
+        vm.stopPrank();
+
+        // Partner must approve marketplace for token transfers
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        // Prepare collateral
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        deal(address(usdc), partner1, requiredCollateral);
+        usdc.approve(address(treasury), requiredCollateral);
+
+        // Use a different VIN for this test
+        bytes memory vehicleData = abi.encode(
+            "UNIQUE123456789", // Different VIN
+            TEST_MAKE,
+            TEST_MODEL,
+            TEST_YEAR,
+            TEST_MANUFACTURER_ID,
+            TEST_OPTION_CODES,
+            TEST_METADATA_URI
+        );
+
+        // Execute: Register, mint, and list in one transaction!
+        (uint256 assetId, uint256 revenueTokenId, uint256 listingId) = assetRegistry.registerAssetMintAndList(
+            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days, 30 days, true
+        );
+        vm.stopPrank();
+
+        // Verify: Asset was registered and activated
+        assertTrue(assetRegistry.assetExists(assetId));
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+
+        // Verify: Revenue tokens were minted (but transferred to marketplace for escrow)
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), REVENUE_TOKEN_SUPPLY);
+
+        // Verify: Listing was created with full supply at face value
+        assertListingState(listingId, revenueTokenId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, partner1, true, true);
+    }
+
     // Metadata Update Tests
 
     function testUpdateVehicleMetadata() public {
