@@ -21,10 +21,10 @@ contract BaseTest is Test {
         AccountsFunded,
         AssetRegistered,
         RevenueTokensMinted,
-        AssetWithListing,
-        AssetWithPurchase,
-        AssetWithClaimedTokens,
-        AssetWithEarnings,
+        RevenueTokensListed,
+        RevenueTokensPurchased,
+        RevenueTokensClaimed,
+        EarningsDistributed,
         AssetWithPartialCollateralRelease,
         AssetWithFullCollateralRelease
     }
@@ -109,7 +109,7 @@ contract BaseTest is Test {
             currentState = SetupState.RevenueTokensMinted;
         }
 
-        if (requiredState >= SetupState.AssetWithListing && currentState < SetupState.AssetWithListing) {
+        if (requiredState >= SetupState.RevenueTokensListed && currentState < SetupState.RevenueTokensListed) {
             // Approve marketplace to transfer tokens on behalf of partner1
             vm.prank(partner1);
             roboshareTokens.setApprovalForAll(address(marketplace), true);
@@ -119,10 +119,10 @@ contract BaseTest is Test {
             scenario.listingId = marketplace.createListing(
                 scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
             );
-            currentState = SetupState.AssetWithListing;
+            currentState = SetupState.RevenueTokensListed;
         }
 
-        if (requiredState >= SetupState.AssetWithPurchase && currentState < SetupState.AssetWithPurchase) {
+        if (requiredState >= SetupState.RevenueTokensPurchased && currentState < SetupState.RevenueTokensPurchased) {
             // Buyer approves USDC for purchase
             (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
             vm.startPrank(buyer);
@@ -131,10 +131,10 @@ contract BaseTest is Test {
             // Buyer purchases tokens
             marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
             vm.stopPrank();
-            currentState = SetupState.AssetWithPurchase;
+            currentState = SetupState.RevenueTokensPurchased;
         }
 
-        if (requiredState >= SetupState.AssetWithClaimedTokens && currentState < SetupState.AssetWithClaimedTokens) {
+        if (requiredState >= SetupState.RevenueTokensClaimed && currentState < SetupState.RevenueTokensClaimed) {
             // Partner ends listing to release escrowed tokens
             vm.prank(partner1);
             marketplace.endListing(scenario.listingId);
@@ -143,12 +143,12 @@ contract BaseTest is Test {
             vm.prank(buyer);
             marketplace.claimTokens(scenario.listingId);
 
-            currentState = SetupState.AssetWithClaimedTokens;
+            currentState = SetupState.RevenueTokensClaimed;
         }
 
-        if (requiredState >= SetupState.AssetWithEarnings && currentState < SetupState.AssetWithEarnings) {
+        if (requiredState >= SetupState.EarningsDistributed && currentState < SetupState.EarningsDistributed) {
             setupEarningsScenario(scenario.assetId, 1000e6);
-            currentState = SetupState.AssetWithEarnings;
+            currentState = SetupState.EarningsDistributed;
         }
     }
 

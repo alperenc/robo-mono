@@ -116,7 +116,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     // Purchase Listing Tests
 
     function testPurchaseTokensBuyerPaysFee() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
@@ -269,7 +269,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensCompletelyExhaustsListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         uint256 totalPrice = LISTING_AMOUNT * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
@@ -301,7 +301,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensInsufficientPayment() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         uint256 totalPrice = PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
@@ -319,7 +319,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensExpired() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         setupExpiredListing(scenario.listingId);
 
@@ -329,7 +329,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensInvalidAmount() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.expectRevert(Marketplace.InvalidAmount.selector);
         vm.prank(buyer);
@@ -339,7 +339,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     // Cancel Listing Tests
 
     function testCancelListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // 1. Purchase some tokens to have them in escrow
         (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
@@ -393,7 +393,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     // Finalize Listing Tests
 
     function testFinalizeListingPendingProceeds() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // First, make a partial purchase to generate proceeds held in Marketplace
         (uint256 totalPrice,, uint256 expectedPayment) =
@@ -450,7 +450,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testFinalizeListingAlreadyCancelled() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // First cancel the listing
         vm.prank(partner1);
@@ -465,7 +465,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testFinalizeListingUnauthorized() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.expectRevert(Marketplace.NotTokenOwner.selector);
         vm.prank(unauthorized);
@@ -473,7 +473,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testCancelListingUnauthorized() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.expectRevert(Marketplace.NotTokenOwner.selector);
         vm.prank(unauthorized);
@@ -483,7 +483,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     // Extend Listing Tests
 
     function testExtendListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         Marketplace.Listing memory listingBefore = marketplace.getListing(scenario.listingId);
         uint256 additionalDuration = 7 days;
@@ -507,7 +507,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testExtendListingUnauthorized() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.expectRevert(Marketplace.NotTokenOwner.selector);
         vm.prank(unauthorized);
@@ -515,7 +515,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testExtendListingInactive() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.prank(partner1);
         marketplace.cancelListing(scenario.listingId);
@@ -526,7 +526,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testExtendListingZeroDuration() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.expectRevert(Marketplace.InvalidDuration.selector);
         vm.prank(partner1);
@@ -536,7 +536,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     // End Listing Tests
 
     function testEndListingSoldOut() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Buy all tokens
         (,, uint256 payment) = marketplace.calculatePurchaseCost(scenario.listingId, LISTING_AMOUNT);
@@ -560,7 +560,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testEndListingExpired() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Warping to future
         vm.warp(block.timestamp + LISTING_DURATION + 1);
@@ -576,7 +576,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testEndListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Check it is active
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
@@ -596,7 +596,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testEndListingUnauthorized() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Expire it so it's eligible to end
         vm.warp(block.timestamp + LISTING_DURATION + 1);
@@ -609,7 +609,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     // View Function Tests
 
     function testGetAssetListings() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
         assertEq(activeListings.length, 1);
@@ -624,7 +624,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testGetAssetListingsOnlyInactive() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Cancel the listing to make it inactive
         vm.prank(partner1);
@@ -635,7 +635,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testGetAssetListingsMixed() public {
-        _ensureState(SetupState.AssetWithListing); // Creates listing 1
+        _ensureState(SetupState.RevenueTokensListed); // Creates listing 1
 
         // Create a second listing
         vm.prank(partner1);
@@ -652,7 +652,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testCalculatePurchaseCost() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
@@ -678,7 +678,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Fuzz Tests
     function testFuzzPurchaseTokens(uint256 purchaseAmount) public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         vm.assume(purchaseAmount > 0 && purchaseAmount <= LISTING_AMOUNT);
 
@@ -704,7 +704,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensNonExistentListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
         uint256 nonExistentListingId = 999;
 
         vm.prank(buyer);
@@ -713,7 +713,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensInactiveListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Deactivate listing by cancelling it
         vm.prank(partner1);
@@ -726,7 +726,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testCancelListingNonExistentListing() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
         uint256 nonExistentListingId = 999;
 
         vm.prank(partner1);
@@ -735,7 +735,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testCancelListingInactive() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Deactivate listing by cancelling it
         vm.prank(partner1);
@@ -864,7 +864,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPurchaseTokensSettled() public {
-        _ensureState(SetupState.AssetWithListing);
+        _ensureState(SetupState.RevenueTokensListed);
 
         // Settle asset
         vm.prank(partner1);
