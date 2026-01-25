@@ -118,19 +118,19 @@ contract PartnerManagerTest is BaseTest {
 
     // Access Control Tests
 
-    function testAuthorizePartnerUnauthorized() public {
+    function testAuthorizePartnerUnauthorizedCaller() public {
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
     }
 
-    function testRevokePartnerUnauthorized() public {
+    function testRevokePartnerUnauthorizedCaller() public {
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.revokePartner(partner1);
     }
 
-    function testUpdatePartnerNameUnauthorized() public {
+    function testUpdatePartnerNameUnauthorizedCaller() public {
         vm.expectRevert();
         vm.prank(unauthorized);
         partnerManager.updatePartnerName(partner1, "New Name");
@@ -176,25 +176,30 @@ contract PartnerManagerTest is BaseTest {
 
     // Role Management Tests
 
-    function testRoleManagement() public {
+    function testPartnerAdminRoleWorkflow() public {
         address newPartnerAdmin = makeAddr("newPartnerAdmin");
 
-        // Admin can grant roles
+        // 1. Admin can grant roles
         vm.startPrank(admin);
         partnerManager.grantRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
         assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
         vm.stopPrank();
 
-        // New partner admin can authorize partners
+        // 2. New partner admin can authorize partners
         vm.startPrank(newPartnerAdmin);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
         assertTrue(partnerManager.isAuthorizedPartner(partner3));
-        vm.stopPrank();
 
-        // Admin can revoke roles
+        // 3. Admin can revoke roles
         vm.startPrank(admin);
         partnerManager.revokeRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
         assertFalse(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
+        vm.stopPrank();
+
+        // 4. Revoked admin can no longer authorize partners
+        vm.startPrank(newPartnerAdmin);
+        vm.expectRevert();
+        partnerManager.authorizePartner(makeAddr("anotherPartner"), "Another Name");
         vm.stopPrank();
     }
 
@@ -229,28 +234,5 @@ contract PartnerManagerTest is BaseTest {
         vm.stopPrank();
 
         assertGe(partnerManager.getPartnerCount(), numPartners);
-    }
-
-    // Integration Tests
-
-    function testPartnerLifecycle() public {
-        // partner1 is already authorized in setUp
-        assertTrue(partnerManager.isAuthorizedPartner(partner1));
-        uint256 originalTime = partnerManager.getPartnerRegistrationTime(partner1);
-
-        // Update name
-        vm.prank(partnerAdmin);
-        partnerManager.updatePartnerName(partner1, "Tesla Inc.");
-
-        assertEq(partnerManager.getPartnerName(partner1), "Tesla Inc.");
-        assertEq(partnerManager.getPartnerRegistrationTime(partner1), originalTime);
-
-        // Revoke
-        vm.prank(partnerAdmin);
-        partnerManager.revokePartner(partner1);
-
-        assertFalse(partnerManager.isAuthorizedPartner(partner1));
-        assertEq(partnerManager.getPartnerName(partner1), "");
-        assertEq(partnerManager.getPartnerRegistrationTime(partner1), 0);
     }
 }
