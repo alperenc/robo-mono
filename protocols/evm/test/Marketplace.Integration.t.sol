@@ -27,7 +27,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     );
 
     function setUp() public {
-        _ensureState(SetupState.AccountsFunded);
+        _ensureState(SetupState.InitialAccountsSetup);
     }
 
     // Create Listing Tests

@@ -116,7 +116,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleInvalidVINLength() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         string memory shortVin = "VIN123"; // <10 length
         vm.expectRevert(VehicleLib.InvalidVINLength.selector);
         vm.prank(partner1);
@@ -128,7 +128,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleEmptyMake() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidMake.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -137,7 +137,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleEmptyModel() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidModel.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -146,7 +146,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleInvalidYear() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -227,7 +227,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testBurnRevenueTokensAssetNotFound() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.prank(partner1);
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.burnRevenueTokens(999, 100);
@@ -264,7 +264,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRetireAssetAndBurnTokensAssetNotFound() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.prank(partner1);
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.retireAssetAndBurnTokens(999);

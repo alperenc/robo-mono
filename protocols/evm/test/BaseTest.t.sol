@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { ProtocolLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
@@ -17,8 +16,7 @@ contract BaseTest is Test {
     enum SetupState {
         None,
         ContractsDeployed,
-        PartnersAuthorized,
-        AccountsFunded,
+        InitialAccountsSetup,
         AssetRegistered,
         RevenueTokensMinted,
         RevenueTokensListed,
@@ -89,14 +87,9 @@ contract BaseTest is Test {
             currentState = SetupState.ContractsDeployed;
         }
 
-        if (requiredState >= SetupState.PartnersAuthorized && currentState < SetupState.PartnersAuthorized) {
-            _setupInitialRolesAndPartners();
-            currentState = SetupState.PartnersAuthorized;
-        }
-
-        if (requiredState >= SetupState.AccountsFunded && currentState < SetupState.AccountsFunded) {
-            _fundInitialAccounts();
-            currentState = SetupState.AccountsFunded;
+        if (requiredState >= SetupState.InitialAccountsSetup && currentState < SetupState.InitialAccountsSetup) {
+            _setupInitialRolesAndAccounts();
+            currentState = SetupState.InitialAccountsSetup;
         }
 
         if (requiredState >= SetupState.AssetRegistered && currentState < SetupState.AssetRegistered) {
@@ -160,26 +153,12 @@ contract BaseTest is Test {
         usdc = IERC20(config.usdcToken);
     }
 
-    function _setupInitialRolesAndPartners() internal {
-        // Authorize test partners (test-specific setup, not part of deployment)
-        vm.startPrank(admin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-        partnerManager.authorizePartner(partner2, PARTNER2_NAME);
-        vm.stopPrank();
-    }
+    function _setupInitialRolesAndAccounts() internal {
+        // Authorize and fund test partners
+        setupMultiplePartners(2);
 
-    function _fundInitialAccounts() private {
-        // Fund accounts with USDC for testing
-        if (deployer.isLocalOrTestNetwork()) {
-            MockUSDC mockUsdc = MockUSDC(address(usdc));
-            mockUsdc.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
-            mockUsdc.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
-            mockUsdc.mint(buyer, 1000000 * 10 ** 6); // 1M USDC
-        } else {
-            deal(address(usdc), partner1, 1000000 * 10 ** 6); // 1M USDC
-            deal(address(usdc), partner2, 1000000 * 10 ** 6); // 1M USDC
-            deal(address(usdc), buyer, 1000000 * 10 ** 6); // 1M USDC
-        }
+        // Fund the buyer
+        deal(address(usdc), buyer, 1000000 * 10 ** 6); // 1M USDC
     }
 
     function _setupAssetRegistered() internal returns (uint256 assetId) {
@@ -669,20 +648,19 @@ contract BaseTest is Test {
     }
 
     /**
-     * @dev Setup multiple partners with authorization
+     * @dev Setup multiple partners with authorization and funding
      */
     function setupMultiplePartners(uint256 count) internal returns (address[] memory partners) {
         partners = new address[](count);
 
         vm.startPrank(admin);
         for (uint256 i = 0; i < count; i++) {
-            partners[i] = makeAddr(string(abi.encodePacked("partner", vm.toString(i))));
-            partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i))));
+            // Naming convention: partner1, partner2, partner3...
+            partners[i] = makeAddr(string(abi.encodePacked("partner", vm.toString(i + 1))));
+            partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i + 1))));
 
-            // Fund partners if on local network
-            if (deployer.isLocalOrTestNetwork()) {
-                MockUSDC(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
-            }
+            // Fund partners with MockUSDC
+            deal(address(usdc), partners[i], 1000000 * 10 ** 6); // 1M USDC
         }
         vm.stopPrank();
 
@@ -697,9 +675,7 @@ contract BaseTest is Test {
      * @dev Fund an address with USDC (local network only)
      */
     function fundAddressWithUsdc(address account, uint256 amount) internal {
-        if (deployer.isLocalOrTestNetwork()) {
-            MockUSDC(address(usdc)).mint(account, amount);
-        }
+        deal(address(usdc), account, amount);
     }
 
     /**

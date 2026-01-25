@@ -15,7 +15,7 @@ contract PartnerManagerTest is BaseTest {
     event PartnerNameUpdated(address indexed partner, string newName);
 
     function setUp() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.startPrank(admin);
         partnerManager.grantRole(partnerManager.PARTNER_ADMIN_ROLE(), partnerAdmin);
         vm.stopPrank();
@@ -108,7 +108,7 @@ contract PartnerManagerTest is BaseTest {
     function testGetPartnerInfo() public view {
         (string memory name, uint256 registrationTime, bool isAuthorized) = partnerManager.getPartnerInfo(partner1);
 
-        assertEq(name, PARTNER1_NAME);
+        assertEq(name, "Partner 1");
         assertGt(registrationTime, 0);
         assertTrue(isAuthorized);
     }

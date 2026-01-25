@@ -31,7 +31,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     function setUp() public {
         // Integration tests need funded accounts and authorized partners as a baseline
-        _ensureState(SetupState.AccountsFunded);
+        _ensureState(SetupState.InitialAccountsSetup);
     }
 
     // Collateral Locking Tests

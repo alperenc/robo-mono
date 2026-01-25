@@ -10,7 +10,7 @@ import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
 contract VehicleRegistryIntegrationTest is BaseTest {
     function setUp() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
     }
 
     function testRetireAssetOutstandingTokens() public {
@@ -100,10 +100,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testRegisterAssetAndMintTokens() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
 
-        // Ensure partner1 has enough USDC and approves the treasury
-        deal(address(usdc), partner1, type(uint256).max);
+        // Ensure partner1 approves the treasury
         vm.prank(partner1);
         usdc.approve(address(treasury), type(uint256).max);
 
@@ -140,7 +139,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testRegisterAssetMintAndList() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
 
         // Setup: Configure marketplace on Router and grant role to Router
         vm.startPrank(admin);
@@ -154,7 +153,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Prepare collateral
         uint256 requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        deal(address(usdc), partner1, requiredCollateral);
         usdc.approve(address(treasury), requiredCollateral);
 
         // Use a different VIN for this test
@@ -360,7 +358,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testFuzzMintRevenueTokens(uint256 supply) public {
         vm.assume(supply > 0 && supply <= 1e18);
         _deployContracts();
-        _setupInitialRolesAndPartners();
+        _setupInitialRolesAndAccounts();
 
         // Ensure partner1 has enough USDC and approves the treasury
         deal(address(usdc), partner1, type(uint256).max);

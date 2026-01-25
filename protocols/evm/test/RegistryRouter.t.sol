@@ -13,7 +13,7 @@ contract RegistryRouterTest is BaseTest {
 
     function setUp() public {
         _deployContracts();
-        _setupInitialRolesAndPartners();
+        _setupInitialRolesAndAccounts();
     }
 
     function testInitialState() public view {
