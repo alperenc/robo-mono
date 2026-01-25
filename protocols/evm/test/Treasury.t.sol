@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
@@ -30,17 +31,66 @@ contract TreasuryTest is BaseTest {
         assertTrue(treasury.hasRole(treasury.TREASURER_ROLE(), admin));
     }
 
-    function testInitializationZeroAddresses() public {
+    function testInitializationZeroAdmin() public {
         Treasury newTreasury = new Treasury();
-
         vm.expectRevert(Treasury.ZeroAddress.selector);
         newTreasury.initialize(
             address(0),
+            address(roboshareTokens),
             address(partnerManager),
             address(router),
-            address(roboshareTokens),
             address(usdc),
             config.treasuryFeeRecipient
+        );
+    }
+
+    function testInitializationZeroTokens() public {
+        Treasury newTreasury = new Treasury();
+        vm.expectRevert(Treasury.ZeroAddress.selector);
+        newTreasury.initialize(
+            admin, address(0), address(partnerManager), address(router), address(usdc), config.treasuryFeeRecipient
+        );
+    }
+
+    function testInitializationZeroPartnerManager() public {
+        Treasury newTreasury = new Treasury();
+        vm.expectRevert(Treasury.ZeroAddress.selector);
+        newTreasury.initialize(
+            admin, address(roboshareTokens), address(0), address(router), address(usdc), config.treasuryFeeRecipient
+        );
+    }
+
+    function testInitializationZeroRouter() public {
+        Treasury newTreasury = new Treasury();
+        vm.expectRevert(Treasury.ZeroAddress.selector);
+        newTreasury.initialize(
+            admin,
+            address(roboshareTokens),
+            address(partnerManager),
+            address(0),
+            address(usdc),
+            config.treasuryFeeRecipient
+        );
+    }
+
+    function testInitializationZeroUSDC() public {
+        Treasury newTreasury = new Treasury();
+        vm.expectRevert(Treasury.ZeroAddress.selector);
+        newTreasury.initialize(
+            admin,
+            address(roboshareTokens),
+            address(partnerManager),
+            address(router),
+            address(0),
+            config.treasuryFeeRecipient
+        );
+    }
+
+    function testInitializationZeroFeeRecipient() public {
+        Treasury newTreasury = new Treasury();
+        vm.expectRevert(Treasury.ZeroAddress.selector);
+        newTreasury.initialize(
+            admin, address(roboshareTokens), address(partnerManager), address(router), address(usdc), address(0)
         );
     }
 
@@ -71,10 +121,14 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdatePartnerManagerUnauthorized() public {
+    function testUpdatePartnerManagerUnauthorizedCaller() public {
         PartnerManager newPartnerManager = new PartnerManager();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         treasury.updatePartnerManager(address(newPartnerManager));
     }
@@ -96,10 +150,14 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateRouterUnauthorized() public {
+    function testUpdateRouterUnauthorizedCaller() public {
         RegistryRouter newRouter = new RegistryRouter();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         treasury.updateRouter(address(newRouter));
     }
@@ -121,10 +179,14 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateUSDCUnauthorized() public {
+    function testUpdateUSDCUnauthorizedCaller() public {
         MockUSDC newUsdc = new MockUSDC();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         treasury.updateUSDC(address(newUsdc));
     }
@@ -146,10 +208,14 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateRoboshareTokensUnauthorized() public {
+    function testUpdateRoboshareTokensUnauthorizedCaller() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         treasury.updateRoboshareTokens(address(newRoboshareTokens));
     }
@@ -169,11 +235,15 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateTreasuryFeeRecipientUnauthorized() public {
+    function testUpdateTreasuryFeeRecipientUnauthorizedCaller() public {
         address newRecipient = makeAddr("treasuryFee");
 
         vm.startPrank(unauthorized);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.DEFAULT_ADMIN_ROLE()
+            )
+        );
         treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
     }

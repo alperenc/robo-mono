@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { TokenLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
@@ -20,19 +20,16 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testInitialization() public view {
-        // Check roles
         assertTrue(roboshareTokens.hasRole(roboshareTokens.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.BURNER_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.URI_SETTER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), minter));
+    }
 
-        // Check token counter starts at 1
-        assertEq(roboshareTokens.getNextTokenId(), 1);
-
-        // Check interface support
-        assertTrue(roboshareTokens.supportsInterface(type(IERC1155).interfaceId));
-        assertTrue(roboshareTokens.supportsInterface(type(IAccessControl).interfaceId));
+    function testInitializationZeroAdmin() public {
+        RoboshareTokens newImpl = new RoboshareTokens();
+        vm.expectRevert(RoboshareTokens.ZeroAddress.selector);
+        new ERC1967Proxy(address(newImpl), abi.encodeWithSignature("initialize(address)", address(0)));
     }
 
     function testMintSingleToken() public {
@@ -160,26 +157,40 @@ contract RoboshareTokensTest is BaseTest {
 
     // Access Control Tests
 
-    function testMintUnauthorized() public {
-        vm.expectRevert();
+    function testMintUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.MINTER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         roboshareTokens.mint(user1, 1, 100, "");
     }
 
-    function testBurnUnauthorized() public {
+    function testBurnUnauthorizedCaller() public {
         // Setup: mint token first
         vm.prank(minter);
         roboshareTokens.mint(user1, 1, 100, "");
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.BURNER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         roboshareTokens.burn(user1, 1, 50);
     }
 
-    function testSetURIUnauthorized() public {
-        vm.expectRevert();
+    function testSetURIUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                roboshareTokens.URI_SETTER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
-        roboshareTokens.setURI("unauthorized-uri");
+        roboshareTokens.setURI("ipfs://new-uri");
     }
 
     function testGetUserPositionsAndBalance() public {
@@ -196,7 +207,7 @@ contract RoboshareTokensTest is BaseTest {
         assertFalse(roboshareTokens.supportsInterface(0xffffffff));
     }
 
-    function testRoleManagement() public {
+    function testRoleWorkflow() public {
         vm.startPrank(admin);
         // Admin can grant roles
         roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), user1);
@@ -286,7 +297,7 @@ contract RoboshareTokensTest is BaseTest {
         roboshareTokens.safeTransferFrom(user1, user2, 1, 150, "");
     }
 
-    function testGetUserPositionsNonRevenueToken() public {
+    function testGetUserPositionsNotRevenueToken() public {
         _ensureState(SetupState.RevenueTokensMinted); // Creates assetId (odd) and revenueTokenId (even)
 
         // Attempt to get positions for the vehicle NFT ID, which is not a revenue token

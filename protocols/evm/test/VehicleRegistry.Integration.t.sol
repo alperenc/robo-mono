@@ -187,7 +187,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     // Access Control Tests
 
     function testRegisterAssetUnauthorizedPartner() public {
-        vm.expectRevert(PartnerManager.NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         assetRegistry.registerAsset(
             abi.encode(
@@ -198,7 +198,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testMintRevenueTokensUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(PartnerManager.NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         assetRegistry.mintRevenueTokens(
             scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days
@@ -207,7 +207,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testUpdateMetadataUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(PartnerManager.NotAuthorized.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         assetRegistry.updateVehicleMetadata(scenario.assetId, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
     }
@@ -230,7 +230,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.registerAsset(abi.encode(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI));
     }
 
-    function testMintRevenueTokensNonexistentVehicle() public {
+    function testMintRevenueTokensAssetNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         vm.prank(partner1);
         assetRegistry.mintRevenueTokens(999, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days);
@@ -246,7 +246,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
     }
 
-    function testUpdateMetadataNonexistentVehicle() public {
+    function testUpdateMetadataVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         vm.prank(partner1);
         assetRegistry.updateVehicleMetadata(999, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
@@ -263,7 +263,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
     }
 
-    function testGetAssetIdFromTokenIdError() public {
+    function testGetAssetIdFromTokenIdInvalidId() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Test revenueTokenId == 0
@@ -283,7 +283,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.getAssetIdFromTokenId(100);
     }
 
-    function testGetTokenIdFromAssetIdError() public {
+    function testGetTokenIdFromAssetIdInvalidId() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Test assetId == 0
@@ -432,7 +432,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertFalse(locked);
     }
 
-    function testRetireAssetNotOwner() public {
+    function testRetireAssetNotAssetOwner() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.prank(partner2);
         vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
@@ -502,7 +502,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
     // New Tests for Settlement and Liquidation Branches
 
-    function testSettleAssetNotOwner() public {
+    function testSettleAssetNotAssetOwner() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.prank(partner2); // partner2 is authorized but not owner
         vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
@@ -541,7 +541,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.liquidateAsset(scenario.assetId);
     }
 
-    function testClaimSettlementNotFound() public {
+    function testClaimSettlementAssetNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         vm.prank(partner1);
         assetRegistry.claimSettlement(999, false);

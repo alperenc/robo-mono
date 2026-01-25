@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 
@@ -32,6 +34,12 @@ contract PartnerManagerTest is BaseTest {
         assertEq(partnerManager.getPartnerCount(), 2);
         assertTrue(partnerManager.isAuthorizedPartner(partner1));
         assertTrue(partnerManager.isAuthorizedPartner(partner2));
+    }
+
+    function testInitializationZeroAdmin() public {
+        PartnerManager newImpl = new PartnerManager();
+        vm.expectRevert(PartnerManager.ZeroAddress.selector);
+        new ERC1967Proxy(address(newImpl), abi.encodeWithSignature("initialize(address)", address(0)));
     }
 
     function testAuthorizePartner() public {
@@ -119,19 +127,37 @@ contract PartnerManagerTest is BaseTest {
     // Access Control Tests
 
     function testAuthorizePartnerUnauthorizedCaller() public {
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                partnerManager.PARTNER_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
     }
 
     function testRevokePartnerUnauthorizedCaller() public {
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                partnerManager.PARTNER_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         partnerManager.revokePartner(partner1);
     }
 
     function testUpdatePartnerNameUnauthorizedCaller() public {
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                partnerManager.PARTNER_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         partnerManager.updatePartnerName(partner1, "New Name");
     }
@@ -156,14 +182,14 @@ contract PartnerManagerTest is BaseTest {
         partnerManager.authorizePartner(partner1, PARTNER1_NAME);
     }
 
-    function testRevokePartnerNotAuthorized() public {
-        vm.expectRevert(PartnerManager.NotAuthorized.selector);
+    function testRevokePartnerUnauthorizedPartner() public {
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(partnerAdmin);
         partnerManager.revokePartner(partner3);
     }
 
-    function testUpdatePartnerNameNotAuthorized() public {
-        vm.expectRevert(PartnerManager.NotAuthorized.selector);
+    function testUpdatePartnerNameUnauthorizedPartner() public {
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(partnerAdmin);
         partnerManager.updatePartnerName(partner3, "New Name");
     }
@@ -176,7 +202,7 @@ contract PartnerManagerTest is BaseTest {
 
     // Role Management Tests
 
-    function testPartnerAdminRoleWorkflow() public {
+    function testRoleWorkflow() public {
         address newPartnerAdmin = makeAddr("newPartnerAdmin");
 
         // 1. Admin can grant roles

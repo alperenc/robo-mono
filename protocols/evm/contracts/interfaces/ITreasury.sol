@@ -34,7 +34,6 @@ interface ITreasury {
      * @dev Shared Errors
      */
     error OutstandingRevenueTokens();
-    error UnauthorizedPartner();
     error NoCollateralLocked();
     error CollateralAlreadyLocked();
     error InsufficientCollateral();

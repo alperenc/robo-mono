@@ -8,6 +8,7 @@ import { BaseTest } from "./BaseTest.t.sol";
 import { ProtocolLib, EarningsLib, AssetLib, CollateralLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
 
 contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
@@ -81,7 +82,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
-    function testLockCollateralNonExistentAsset() public {
+    function testLockCollateralAssetNotFound() public {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1000 * 1e6);
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
@@ -246,16 +247,17 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     // Access Control
 
     function testLockCollateralUnauthorizedPartner() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-        vm.startPrank(unauthorized);
+        _ensureState(SetupState.AssetRegistered);
+        // address unauthorized is NOT a partner
+        vm.prank(unauthorized);
         usdc.approve(address(treasury), 1e9);
-        vm.expectRevert(ITreasury.UnauthorizedPartner.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         treasury.lockCollateral(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
     function testUnlockCollateralUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensClaimed);
-        vm.expectRevert(ITreasury.UnauthorizedPartner.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         treasury.releaseCollateral(scenario.assetId);
     }
@@ -384,9 +386,9 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
-    function testDistributeEarningsUnauthorized() public {
+    function testDistributeEarningsUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensClaimed);
-        vm.expectRevert(ITreasury.UnauthorizedPartner.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         treasury.distributeEarnings(scenario.assetId, 1000 * 1e6, 1000 * 1e6, false);
     }
@@ -398,7 +400,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.distributeEarnings(scenario.assetId, 0, 0, false);
     }
 
-    function testDistributeEarningsNonExistentAsset() public {
+    function testDistributeEarningsAssetNotFound() public {
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
         vm.prank(partner1);
         treasury.distributeEarnings(999, 1000 * 1e6, 1000 * 1e6, false);
@@ -455,13 +457,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     function testLockCollateralForUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        // The msg.sender (router) is authorized, but the `unauthorized` parameter is not.
         vm.prank(address(router));
-        vm.expectRevert(ITreasury.UnauthorizedPartner.selector);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        // address unauthorized is NOT a partner
         treasury.lockCollateralFor(unauthorized, scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
-    function testLockCollateralForNonExistentAsset() public {
+    function testLockCollateralForAssetNotFound() public {
         _ensureState(SetupState.RevenueTokensMinted);
         uint256 nonExistentAssetId = 999;
         vm.prank(address(router));
@@ -469,7 +471,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.lockCollateralFor(partner1, nonExistentAssetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
-    function testClaimEarningsNonExistentAsset() public {
+    function testClaimEarningsAssetNotFound() public {
         _ensureState(SetupState.EarningsDistributed);
         uint256 nonExistentAssetId = 999;
 
@@ -614,7 +616,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertGt(totalCollateral, 0);
     }
 
-    function testLockCollateralForUnauthorized() public {
+    function testLockCollateralForUnauthorizedCaller() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -627,7 +629,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.lockCollateralFor(partner1, scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
-    function testReleaseCollateralForUnauthorized() public {
+    function testReleaseCollateralForUnauthorizedCaller() public {
         _ensureState(SetupState.RevenueTokensMinted);
         vm.expectRevert(
             abi.encodeWithSelector(

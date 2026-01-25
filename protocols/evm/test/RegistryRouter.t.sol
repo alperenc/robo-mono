@@ -9,14 +9,12 @@ import { AssetLib } from "../contracts/Libraries.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 
 contract RegistryRouterTest is BaseTest {
-    RegistryRouter public newRouter;
-
     function setUp() public {
         _deployContracts();
         _setupInitialRolesAndAccounts();
     }
 
-    function testInitialState() public view {
+    function testInitialization() public view {
         assertEq(router.getRegistryType(), "RegistryRouter");
         assertEq(router.getRegistryVersion(), 1);
         assertEq(router.treasury(), address(treasury));
@@ -32,7 +30,7 @@ contract RegistryRouterTest is BaseTest {
         assertTrue(router.hasRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry));
     }
 
-    function testAuthorizeRegistryUnauthorized() public {
+    function testAuthorizeRegistryUnauthorizedCaller() public {
         address newRegistry = makeAddr("newRegistry");
 
         bytes32 registryManagerRole = router.REGISTRY_ADMIN_ROLE();
@@ -79,7 +77,7 @@ contract RegistryRouterTest is BaseTest {
         assertEq(router.treasury(), address(treasury));
     }
 
-    function testSetTreasuryUnauthorized() public {
+    function testSetTreasuryUnauthorizedCaller() public {
         address newTreasury = makeAddr("newTreasury");
 
         vm.startPrank(unauthorized);
@@ -109,6 +107,19 @@ contract RegistryRouterTest is BaseTest {
         vm.stopPrank();
     }
 
+    function testSetMarketplaceUnauthorizedCaller() public {
+        address newMarketplace = makeAddr("newMarketplace");
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, router.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        router.setMarketplace(newMarketplace);
+        vm.stopPrank();
+    }
+
     function testBindAsset() public {
         address newRegistry = makeAddr("newRegistry");
         uint256 assetId = 100;
@@ -124,7 +135,7 @@ contract RegistryRouterTest is BaseTest {
         assertEq(router.assetIdToRegistry(assetId), newRegistry);
     }
 
-    function testBindAssetUnauthorizedRegistry() public {
+    function testBindAssetUnauthorizedCaller() public {
         uint256 assetId = 100;
 
         vm.startPrank(unauthorized);
@@ -192,28 +203,32 @@ contract RegistryRouterTest is BaseTest {
     }
 
     function testInitializationZeroAdmin() public {
-        RegistryRouter newImplementation = new RegistryRouter();
-        bytes memory initData =
-            abi.encodeWithSignature("initialize(address,address)", address(0), address(roboshareTokens));
+        RegistryRouter routerImpl = new RegistryRouter();
+
         vm.expectRevert(RegistryRouter.ZeroAddress.selector);
-        new ERC1967Proxy(address(newImplementation), initData);
+
+        new ERC1967Proxy(
+            address(routerImpl),
+            abi.encodeWithSignature("initialize(address,address)", address(0), address(roboshareTokens))
+        );
     }
 
     function testInitializationZeroTokens() public {
-        RegistryRouter newImplementation = new RegistryRouter();
-        bytes memory initData = abi.encodeWithSignature("initialize(address,address)", admin, address(0));
+        RegistryRouter routerImpl = new RegistryRouter();
+
         vm.expectRevert(RegistryRouter.ZeroAddress.selector);
-        new ERC1967Proxy(address(newImplementation), initData);
+
+        new ERC1967Proxy(address(routerImpl), abi.encodeWithSignature("initialize(address,address)", admin, address(0)));
     }
 
-    function testGetAssetIdFromTokenIdError() public {
+    function testGetAssetIdFromTokenIdTokenNotFound() public {
         // Test getAssetIdFromTokenId with non-revenue token (e.g. asset ID itself)
         // Asset ID 1 is not a revenue token
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.TokenNotFound.selector, 1));
         router.getAssetIdFromTokenId(1);
     }
 
-    function testGetTokenIdFromAssetIdError() public {
+    function testGetTokenIdFromAssetIdAssetNotFound() public {
         // Test getTokenIdFromAssetId with revenue token ID
         // Revenue Token ID 2 is not an asset ID
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 2));
@@ -240,7 +255,7 @@ contract RegistryRouterTest is BaseTest {
         router.updateRoboshareTokens(address(0));
     }
 
-    function testUpdateRoboshareTokensUnauthorized() public {
+    function testUpdateRoboshareTokensUnauthorizedCaller() public {
         address newTokens = makeAddr("newRoboshareTokens");
 
         vm.startPrank(unauthorized);

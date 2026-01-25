@@ -34,6 +34,7 @@ contract RoboshareTokens is
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
 
     // Errors
+    error ZeroAddress();
     error NotRevenueToken();
     error RevenueTokenInfoAlreadySet();
 
@@ -49,6 +50,7 @@ contract RoboshareTokens is
     }
 
     function initialize(address defaultAdmin) public initializer {
+        if (defaultAdmin == address(0)) revert ZeroAddress();
         __ERC1155_init("");
         __ERC1155Holder_init();
         __AccessControl_init();

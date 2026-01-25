@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { BaseTest } from "./BaseTest.t.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ProtocolLib } from "../contracts/Libraries.sol";
+import { BaseTest } from "./BaseTest.t.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
 contract MarketplaceIntegrationTest is BaseTest {
@@ -463,18 +464,18 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(withdrawn, 0, "No withdrawal expected");
     }
 
-    function testFinalizeListingUnauthorized() public {
+    function testFinalizeListingNotListingOwner() public {
         _ensureState(SetupState.RevenueTokensListed);
 
-        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.expectRevert(Marketplace.NotListingOwner.selector);
         vm.prank(unauthorized);
         marketplace.finalizeListing(scenario.listingId);
     }
 
-    function testCancelListingUnauthorized() public {
+    function testCancelListingNotListingOwner() public {
         _ensureState(SetupState.RevenueTokensListed);
 
-        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.expectRevert(Marketplace.NotListingOwner.selector);
         vm.prank(unauthorized);
         marketplace.cancelListing(scenario.listingId);
     }
@@ -495,7 +496,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertTrue(listingAfter.isActive);
     }
 
-    function testExtendListingNonExistent() public {
+    function testExtendListingListingNotFound() public {
         _ensureState(SetupState.ContractsDeployed);
 
         uint256 nonExistentListingId = 999;
@@ -505,10 +506,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.extendListing(nonExistentListingId, 7 days);
     }
 
-    function testExtendListingUnauthorized() public {
+    function testExtendListingNotListingOwner() public {
         _ensureState(SetupState.RevenueTokensListed);
 
-        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.expectRevert(Marketplace.NotListingOwner.selector);
         vm.prank(unauthorized);
         marketplace.extendListing(scenario.listingId, 7 days);
     }
@@ -594,13 +595,13 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
     }
 
-    function testEndListingUnauthorized() public {
+    function testEndListingNotListingOwner() public {
         _ensureState(SetupState.RevenueTokensListed);
 
         // Expire it so it's eligible to end
         warpToTimeOffset(LISTING_DURATION + 1);
 
-        vm.expectRevert(Marketplace.NotTokenOwner.selector);
+        vm.expectRevert(Marketplace.NotListingOwner.selector);
         vm.prank(unauthorized);
         marketplace.endListing(scenario.listingId);
     }
@@ -615,7 +616,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(activeListings[0], scenario.listingId);
     }
 
-    function testGetAssetListingsNoListings() public {
+    function testGetAssetListingsNone() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
@@ -702,7 +703,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), purchaseAmount);
     }
 
-    function testPurchaseTokensNonExistentListing() public {
+    function testPurchaseTokensListingNotFound() public {
         _ensureState(SetupState.RevenueTokensListed);
         uint256 nonExistentListingId = 999;
 
@@ -724,7 +725,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(scenario.listingId, 1);
     }
 
-    function testCancelListingNonExistentListing() public {
+    function testCancelListingListingNotFound() public {
         _ensureState(SetupState.RevenueTokensListed);
         uint256 nonExistentListingId = 999;
 
@@ -848,7 +849,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Settlement Integration Tests
 
-    function testCreateListingSettled() public {
+    function testCreateListingAssetNotActive() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Settle asset
@@ -857,12 +858,12 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.startPrank(partner1);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        vm.expectRevert(Marketplace.ListingNotActive.selector);
+        vm.expectRevert(Marketplace.AssetNotActive.selector);
         marketplace.createListing(scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
         vm.stopPrank();
     }
 
-    function testPurchaseTokensSettled() public {
+    function testPurchaseTokensAssetNotActive() public {
         _ensureState(SetupState.RevenueTokensListed);
 
         // Settle asset
@@ -871,7 +872,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), 1e9);
-        vm.expectRevert(Marketplace.ListingNotActive.selector);
+        vm.expectRevert(Marketplace.AssetNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
     }
@@ -918,11 +919,17 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.amount, listingAmount);
     }
 
-    function testCreateListingForUnauthorized() public {
+    function testCreateListingForUnauthorizedCaller() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Without AUTHORIZED_CONTRACT_ROLE - should revert
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(this),
+                marketplace.AUTHORIZED_CONTRACT_ROLE()
+            )
+        );
         marketplace.createListingFor(partner1, scenario.revenueTokenId, 500, REVENUE_TOKEN_PRICE, 30 days, true);
     }
 

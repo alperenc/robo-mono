@@ -42,7 +42,7 @@ contract VehicleRegistryTest is BaseTest {
             address(partnerManager),
             address(router)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
@@ -51,7 +51,7 @@ contract VehicleRegistryTest is BaseTest {
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)", admin, address(0), address(partnerManager), address(router)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
@@ -60,7 +60,7 @@ contract VehicleRegistryTest is BaseTest {
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)", admin, address(roboshareTokens), address(0), address(router)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
@@ -73,33 +73,33 @@ contract VehicleRegistryTest is BaseTest {
             address(partnerManager),
             address(0)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
-    function testGetAssetInfoNonexistent() public {
+    function testGetAssetInfoAssetNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetInfo(999);
     }
 
-    function testGetAssetStatusNonexistent() public {
+    function testGetAssetStatusAssetNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetStatus(999);
     }
 
     // Error Case Tests
 
-    function testGetVehicleInfoNonexistentVehicle() public {
+    function testGetVehicleInfoVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         assetRegistry.getVehicleInfo(999);
     }
 
-    function testGetVehicleDisplayNameNonexistentVehicle() public {
+    function testGetVehicleDisplayNameVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         assetRegistry.getVehicleDisplayName(999);
     }
 
-    function testGetAssetIdFromTokenIdError() public {
+    function testGetAssetIdFromTokenIdInvalidId() public {
         vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
         assetRegistry.getAssetIdFromTokenId(1);
 
@@ -107,7 +107,7 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.getAssetIdFromTokenId(0);
     }
 
-    function testGetTokenIdFromAssetIdError() public {
+    function testGetTokenIdFromAssetIdInvalidId() public {
         vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(2);
 
@@ -175,7 +175,7 @@ contract VehicleRegistryTest is BaseTest {
     function testIsAuthorizedForAssetScenarios() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        // Unauthorized account: not a partner
+        // UnauthorizedCaller account: not a partner
         assertFalse(assetRegistry.isAuthorizedForAsset(unauthorized, scenario.assetId));
 
         // Authorized partner but no ownership
@@ -201,7 +201,7 @@ contract VehicleRegistryTest is BaseTest {
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
     }
 
-    function testSetAssetStatusUnauthorized() public {
+    function testSetAssetStatusUnauthorizedCaller() public {
         _ensureState(SetupState.AssetRegistered);
         uint256 assetId = scenario.assetId;
 
@@ -270,7 +270,7 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.retireAssetAndBurnTokens(999);
     }
 
-    function testRetireAssetNotOwner() public {
+    function testRetireAssetNotAssetOwner() public {
         _ensureState(SetupState.AssetRegistered);
         // partner2 is authorized but does not own scenario.assetId
         vm.prank(partner2);
@@ -320,7 +320,7 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.updateRoboshareTokens(address(0));
     }
 
-    function testUpdateRoboshareTokensUnauthorized() public {
+    function testUpdateRoboshareTokensUnauthorizedCaller() public {
         address newTokens = makeAddr("newRoboshareTokens");
 
         vm.startPrank(unauthorized);

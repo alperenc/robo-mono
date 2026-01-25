@@ -49,9 +49,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     // Internal Errors (not part of public API)
     error ZeroAddress();
-    /// Unused (why?)
-    error IncorrectCollateralAmount();
-    error TransferFailed();
 
     /**
      * @dev Modifier to restrict access to authorized partners
@@ -63,7 +60,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     function _onlyAuthorizedPartner() internal view {
         if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert UnauthorizedPartner();
+            revert PartnerManager.UnauthorizedPartner();
         }
     }
 
@@ -163,7 +160,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     {
         // Verify partner is authorized
         if (!partnerManager.isAuthorizedPartner(partner)) {
-            revert UnauthorizedPartner();
+            revert PartnerManager.UnauthorizedPartner();
         }
 
         // The balanceOf check is sufficient proof of existence, as NFTs are only minted upon registration.

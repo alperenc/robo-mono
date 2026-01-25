@@ -235,67 +235,67 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
     // RegistryNotFoundForAsset Tests
 
-    function testMintRevenueTokensRegistryNotFound() public {
+    function testMintRevenueTokensRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.mintRevenueTokens(nonExistentAssetId, 100, 100, block.timestamp + 365 days);
     }
 
-    function testGetAssetInfoRegistryNotFound() public {
+    function testGetAssetInfoRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.getAssetInfo(nonExistentAssetId);
     }
 
-    function testGetAssetStatusRegistryNotFound() public {
+    function testGetAssetStatusRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.getAssetStatus(nonExistentAssetId);
     }
 
-    function testSetAssetStatusRegistryNotFound() public {
+    function testSetAssetStatusRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.setAssetStatus(nonExistentAssetId, AssetLib.AssetStatus.Active);
     }
 
-    function testBurnRevenueTokensRegistryNotFound() public {
+    function testBurnRevenueTokensRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.burnRevenueTokens(nonExistentAssetId, 100);
     }
 
-    function testRetireAssetRegistryNotFound() public {
+    function testRetireAssetRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.retireAsset(nonExistentAssetId);
     }
 
-    function testRetireAssetAndBurnTokensRegistryNotFound() public {
+    function testRetireAssetAndBurnTokensRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.retireAssetAndBurnTokens(nonExistentAssetId);
     }
 
-    function testIsAuthorizedForAssetRegistryNotFound() public {
+    function testIsAuthorizedForAssetRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.isAuthorizedForAsset(partner1, nonExistentAssetId);
     }
 
-    function testSettleAssetRegistryNotFound() public {
+    function testSettleAssetRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.settleAsset(nonExistentAssetId, 0);
     }
 
-    function testLiquidateAssetRegistryNotFound() public {
+    function testLiquidateAssetRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.liquidateAsset(nonExistentAssetId);
     }
 
-    function testClaimSettlementRegistryNotFound() public {
+    function testClaimSettlementRegistryNotFoundForAsset() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
         router.claimSettlement(nonExistentAssetId, false);
@@ -303,7 +303,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
     // RegistryNotBoundToAsset Tests
 
-    function testLockCollateralForRegistryNotBound() public {
+    function testLockCollateralForRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
@@ -316,7 +316,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.lockCollateralFor(partner1, assetId, 100, 100);
     }
 
-    function testReleaseCollateralForRegistryNotBound() public {
+    function testReleaseCollateralForRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
@@ -329,7 +329,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.releaseCollateralFor(partner1, assetId);
     }
 
-    function testInitiateSettlementRegistryNotBound() public {
+    function testInitiateSettlementRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
@@ -342,7 +342,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.initiateSettlement(partner1, assetId, 100);
     }
 
-    function testExecuteLiquidationRegistryNotBound() public {
+    function testExecuteLiquidationRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
@@ -355,7 +355,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.executeLiquidation(assetId);
     }
 
-    function testProcessSettlementClaimRegistryNotBound() public {
+    function testProcessSettlementClaimRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 

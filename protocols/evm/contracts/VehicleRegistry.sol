@@ -91,7 +91,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     function _onlyAuthorizedPartner() internal view {
         if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.NotAuthorized();
+            revert PartnerManager.UnauthorizedPartner();
         }
     }
 
