@@ -35,6 +35,9 @@ contract PartnerManagerTest is BaseTest {
     }
 
     function testAuthorizePartner() public {
+        uint256 futureTime = block.timestamp + 100;
+        warpAndSaveTime(futureTime);
+
         vm.prank(partnerAdmin);
         vm.expectEmit(true, false, false, true);
         emit PartnerAuthorized(partner3, NEW_PARTNER_NAME);
@@ -43,7 +46,7 @@ contract PartnerManagerTest is BaseTest {
         assertTrue(partnerManager.isAuthorizedPartner(partner3));
         assertEq(partnerManager.getPartnerName(partner3), NEW_PARTNER_NAME);
         assertEq(partnerManager.getPartnerCount(), 3);
-        assertGt(partnerManager.getPartnerRegistrationTime(partner3), 0);
+        assertEq(partnerManager.getPartnerRegistrationTime(partner3), futureTime);
 
         address[] memory partners = partnerManager.getAllPartners();
         assertEq(partners.length, 3);

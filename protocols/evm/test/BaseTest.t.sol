@@ -158,7 +158,7 @@ contract BaseTest is Test {
         setupMultiplePartners(2);
 
         // Fund the buyer
-        deal(address(usdc), buyer, 1000000 * 10 ** 6); // 1M USDC
+        fundAddressWithUsdc(buyer, 1000000 * 10 ** 6); // 1M USDC
     }
 
     function _setupAssetRegistered() internal returns (uint256 assetId) {
@@ -266,7 +266,7 @@ contract BaseTest is Test {
     {
         assertAssetState(_assetId, expectedOwner, shouldExist);
 
-        if (shouldExist) {
+        if (shouldExist && bytes(expectedVin).length > 0) {
             // Check vehicle info stored in the registry
             (string memory vin,,,,,,) = assetRegistry.getVehicleInfo(_assetId);
             assertEq(vin, expectedVin, "Vehicle VIN mismatch");
@@ -552,51 +552,6 @@ contract BaseTest is Test {
     // ========================================
 
     /**
-     * @dev Create a test listing with custom parameters
-     */
-    function createTestListing(
-        address partner,
-        uint256 tokenPrice,
-        uint256 totalTokens,
-        uint256 tokensToList,
-        uint256 duration,
-        bool buyerPaysFee
-    ) internal returns (uint256, uint256, uint256) {
-        // Generate unique test data
-        uint256 seed = uint256(keccak256(abi.encodePacked(partner, tokenPrice, block.timestamp)));
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory metadataURI
-        ) = generateVehicleData(seed);
-
-        vm.startPrank(partner);
-
-        // Register asset and mint tokens in one go
-        uint256 maturityDate = block.timestamp + 365 days;
-        (scenario.assetId, scenario.revenueTokenId) = assetRegistry.registerAssetAndMintTokens(
-            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI),
-            tokenPrice,
-            totalTokens,
-            maturityDate
-        );
-
-        // Approve RoboshareTokens for Marketplace listing
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-
-        scenario.listingId =
-            marketplace.createListing(scenario.revenueTokenId, tokensToList, tokenPrice, duration, buyerPaysFee);
-
-        vm.stopPrank();
-
-        return (scenario.assetId, scenario.revenueTokenId, scenario.listingId);
-    }
-
-    /**
      * @dev Setup earnings distribution scenario
      * @param _assetId The asset ID
      * @param totalEarningsAmount Total revenue (for tracking)
@@ -660,7 +615,7 @@ contract BaseTest is Test {
             partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i + 1))));
 
             // Fund partners with MockUSDC
-            deal(address(usdc), partners[i], 1000000 * 10 ** 6); // 1M USDC
+            fundAddressWithUsdc(partners[i], 1000000 * 10 ** 6); // 1M USDC
         }
         vm.stopPrank();
 
@@ -672,17 +627,10 @@ contract BaseTest is Test {
     // ========================================
 
     /**
-     * @dev Fund an address with USDC (local network only)
+     * @dev Fund an address with USDC
      */
     function fundAddressWithUsdc(address account, uint256 amount) internal {
         deal(address(usdc), account, amount);
-    }
-
-    /**
-     * @dev Check if address is authorized partner
-     */
-    function isAuthorizedPartner(address account) internal view returns (bool) {
-        return partnerManager.isAuthorizedPartner(account);
     }
 
     /**

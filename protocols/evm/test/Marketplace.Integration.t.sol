@@ -128,8 +128,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
 
-        vm.expectEmit(true, true, true, true, address(marketplace));
-        emit RevenueTokensTraded(
+        expectRevenueTokensTradedEvent(
             scenario.revenueTokenId, partner1, buyer, PURCHASE_AMOUNT, scenario.listingId, totalPrice
         );
 
@@ -386,7 +385,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(buyer);
         marketplace.claimRefund(scenario.listingId);
 
-        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + expectedPayment, "Buyer refund mismatch");
+        assertUsdcBalance(buyer, buyerUsdcBefore + expectedPayment, "Buyer refund mismatch");
         assertEq(marketplace.buyerPayments(scenario.listingId, buyer), 0, "Buyer payment state mismatch");
     }
 
@@ -419,7 +418,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Verify withdrawal happened
         assertEq(withdrawn, sellerReceives, "Withdrawn amount mismatch");
-        assertEq(usdc.balanceOf(partner1), partnerUsdcBefore + sellerReceives, "Partner USDC after finalize");
+        assertUsdcBalance(partner1, partnerUsdcBefore + sellerReceives, "Partner USDC after finalize");
 
         // Verify listing was ended (not cancelled in the refund sense)
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
@@ -563,7 +562,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensListed);
 
         // Warping to future
-        vm.warp(block.timestamp + LISTING_DURATION + 1);
+        warpToTimeOffset(LISTING_DURATION + 1);
 
         vm.prank(partner1);
         marketplace.endListing(scenario.listingId);
@@ -599,7 +598,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensListed);
 
         // Expire it so it's eligible to end
-        vm.warp(block.timestamp + LISTING_DURATION + 1);
+        warpToTimeOffset(LISTING_DURATION + 1);
 
         vm.expectRevert(Marketplace.NotTokenOwner.selector);
         vm.prank(unauthorized);
@@ -611,8 +610,8 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testGetAssetListings() public {
         _ensureState(SetupState.RevenueTokensListed);
 
+        assertEq(getListingCount(scenario.assetId), 1);
         uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
-        assertEq(activeListings.length, 1);
         assertEq(activeListings[0], scenario.listingId);
     }
 
@@ -646,8 +645,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         marketplace.cancelListing(scenario.listingId);
 
+        assertEq(getListingCount(scenario.assetId), 1);
         uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
-        assertEq(activeListings.length, 1);
         assertEq(activeListings[0], listingId2);
     }
 
@@ -991,7 +990,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Settle the asset so it's not Active anymore
         // Partner must top up to cover total liability
         uint256 totalLiability = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
-        deal(address(usdc), partner1, totalLiability);
+        fundAddressWithUsdc(partner1, totalLiability);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), totalLiability);
         assetRegistry.settleAsset(scenario.assetId, totalLiability);

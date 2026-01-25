@@ -8,7 +8,6 @@ import { BaseTest } from "./BaseTest.t.sol";
 import { ProtocolLib, EarningsLib, AssetLib, CollateralLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
-import { Treasury } from "../contracts/Treasury.sol";
 
 contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
@@ -824,7 +823,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Capture the timestamp used by the prior release and warp from it
         uint256 tsAfterFirstRelease = block.timestamp;
         vm.warp(tsAfterFirstRelease + ProtocolLib.MIN_EVENT_INTERVAL + 1);
-        vm.expectRevert(Treasury.NoNewPeriodsToProcess.selector);
+        vm.expectRevert(ITreasury.NoNewPerformanceEvents.selector);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
     }
@@ -889,7 +888,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), insufficientEarningsAmount);
-        vm.expectRevert(Treasury.EarningsLessThanMinimumFee.selector);
+        vm.expectRevert(ITreasury.EarningsLessThanMinimumFee.selector);
         treasury.distributeEarnings(scenario.assetId, insufficientEarningsAmount, insufficientEarningsAmount, false);
         vm.stopPrank();
     }
@@ -1676,7 +1675,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.distributeEarnings(scenario.assetId, earningsAmount, earningsAmount, true);
 
         // Try to release again without new distribution
-        vm.expectRevert(Treasury.NoNewPeriodsToProcess.selector);
+        vm.expectRevert(ITreasury.NoNewPerformanceEvents.selector);
         treasury.releaseAndWithdrawCollateral(scenario.assetId);
 
         vm.stopPrank();

@@ -47,6 +47,16 @@ interface ITreasury {
     error NoPriorEarningsDistribution();
     error InsufficientTokenBalance();
     error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error AssetNotOperational(uint256 assetId, AssetLib.AssetStatus status);
+    error EarningsLessThanMinimumFee();
+    error NoNewPerformanceEvents();
+    error NoEarningsToDistribute();
+    error NotRouter();
+    error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error AssetNotOperationalForLiquidation(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error AssetNotEligibleForLiquidation(uint256 assetId);
+    error AssetNotOperationalForSettlement(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error NoUnclaimedEarnings();
 
     function lockCollateral(uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply) external;
     function lockCollateralFor(address partner, uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply)

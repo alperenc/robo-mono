@@ -49,13 +49,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     // Internal Errors (not part of public API)
     error ZeroAddress();
-    error EarningsLessThanMinimumFee();
-    error NoNewPeriodsToProcess();
     /// Unused (why?)
     error IncorrectCollateralAmount();
     error TransferFailed();
-    error NoEarningsToDistribute();
-    error NotRouter();
 
     /**
      * @dev Modifier to restrict access to authorized partners
@@ -393,7 +389,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         bool hasNewPeriods = earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod;
         if (!hasNewPeriods) {
-            revert NoNewPeriodsToProcess();
+            revert NoNewPerformanceEvents();
         }
 
         uint256 releaseAmount = _tryReleaseCollateral(assetId, partner);
