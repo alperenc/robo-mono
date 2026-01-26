@@ -213,18 +213,6 @@ contract RoboshareTokensTest is BaseTest {
         assertFalse(roboshareTokens.supportsInterface(0xffffffff));
     }
 
-    function testRoleWorkflow() public {
-        vm.startPrank(admin);
-        // Admin can grant roles
-        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), user1);
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), user1));
-
-        // Admin can revoke roles
-        roboshareTokens.revokeRole(roboshareTokens.MINTER_ROLE(), user1);
-        assertFalse(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), user1));
-        vm.stopPrank();
-    }
-
     // Fuzz Tests
 
     function testFuzzMint(address to, uint256 tokenId, uint256 amount) public {

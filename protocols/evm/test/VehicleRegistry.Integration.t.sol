@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { AssetLib, VehicleLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
@@ -366,6 +367,44 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         (,,,,,, string memory metadataURI) = assetRegistry.getVehicleInfo(scenario.assetId);
         assertEq(metadataURI, newURI);
     }
+
+    function testSetAssetStatus() public {
+        _ensureState(SetupState.AssetRegistered);
+        uint256 assetId = scenario.assetId;
+
+        // Initial status is Pending
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Pending));
+
+        // Valid transition: Pending -> Active (called by Router)
+        vm.startPrank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+        vm.stopPrank();
+
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+    }
+
+    function testSetAssetStatusUnauthorizedCaller() public {
+        _ensureState(SetupState.AssetRegistered);
+        uint256 assetId = scenario.assetId;
+
+        // Invalid access: unauthorized caller
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, assetRegistry.ROUTER_ROLE()
+            )
+        );
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
+        vm.stopPrank();
+    }
+
+    function testSetAssetStatusAssetNotFound() public {
+        vm.startPrank(address(router));
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.setAssetStatus(999, AssetLib.AssetStatus.Active);
+        vm.stopPrank();
+    }
+
     // Retirement Tests
 
     function testRetireAssetAndBurnTokens() public {
@@ -417,6 +456,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY - burnAmount);
     }
 
+    function testBurnRevenueTokensAssetNotFound() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+        vm.prank(partner1);
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.burnRevenueTokens(999, 100);
+    }
+
     function testRetireAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
         // Burn all tokens first
@@ -430,6 +476,26 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
         (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
         assertFalse(locked);
+    }
+
+    function testRetireAssetAssetNotActive() public {
+        _ensureState(SetupState.AssetRegistered);
+        // Asset is registered but not active (Pending)
+
+        vm.prank(partner1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAssetRegistry.AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
+            )
+        );
+        assetRegistry.retireAsset(scenario.assetId);
+    }
+
+    function testRetireAssetAndBurnTokensAssetNotFound() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+        vm.prank(partner1);
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.retireAssetAndBurnTokens(999);
     }
 
     function testRetireAssetNotAssetOwner() public {

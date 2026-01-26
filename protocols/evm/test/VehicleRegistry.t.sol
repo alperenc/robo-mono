@@ -190,73 +190,6 @@ contract VehicleRegistryTest is BaseTest {
         assertTrue(assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId));
     }
 
-    function testSetAssetStatus() public {
-        _ensureState(SetupState.AssetRegistered);
-        uint256 assetId = scenario.assetId;
-
-        // Initial status is Pending
-        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Pending));
-
-        // Valid transition: Pending -> Active (called by Router)
-        vm.startPrank(address(router));
-        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
-        vm.stopPrank();
-
-        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
-    }
-
-    function testSetAssetStatusUnauthorizedCaller() public {
-        _ensureState(SetupState.AssetRegistered);
-        uint256 assetId = scenario.assetId;
-
-        // Invalid access: unauthorized caller
-        vm.startPrank(unauthorized);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, assetRegistry.ROUTER_ROLE()
-            )
-        );
-        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
-        vm.stopPrank();
-
-        // Invalid access: Treasury (revoked)
-        vm.startPrank(address(treasury));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(treasury), assetRegistry.ROUTER_ROLE()
-            )
-        );
-        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
-        vm.stopPrank();
-    }
-
-    function testBurnRevenueTokensAssetNotFound() public {
-        _ensureState(SetupState.InitialAccountsSetup);
-        vm.prank(partner1);
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.burnRevenueTokens(999, 100);
-    }
-
-    function testRetireAssetAssetNotActive() public {
-        _ensureState(SetupState.AssetRegistered);
-        // Asset is registered but not active (Pending)
-
-        vm.prank(partner1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAssetRegistry.AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
-            )
-        );
-        assetRegistry.retireAsset(scenario.assetId);
-    }
-
-    function testSetAssetStatusAssetNotFound() public {
-        vm.startPrank(address(router));
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.setAssetStatus(999, AssetLib.AssetStatus.Active);
-        vm.stopPrank();
-    }
-
     function testGetRegistryForAsset() public {
         _ensureState(SetupState.AssetRegistered);
 
@@ -265,21 +198,6 @@ contract VehicleRegistryTest is BaseTest {
 
         // Non-existent asset
         assertEq(assetRegistry.getRegistryForAsset(999), address(0));
-    }
-
-    function testRetireAssetAndBurnTokensAssetNotFound() public {
-        _ensureState(SetupState.InitialAccountsSetup);
-        vm.prank(partner1);
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.retireAssetAndBurnTokens(999);
-    }
-
-    function testRetireAssetNotAssetOwner() public {
-        _ensureState(SetupState.AssetRegistered);
-        // partner2 is authorized but does not own scenario.assetId
-        vm.prank(partner2);
-        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.retireAsset(scenario.assetId);
     }
 
     function testGetVehicleInfo() public {

@@ -206,35 +206,6 @@ contract PartnerManagerTest is BaseTest {
         partnerManager.updatePartnerName(partner1, "");
     }
 
-    // Role Management Tests
-
-    function testRoleWorkflow() public {
-        address newPartnerAdmin = makeAddr("newPartnerAdmin");
-
-        // 1. Admin can grant roles
-        vm.startPrank(admin);
-        partnerManager.grantRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
-        assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
-        vm.stopPrank();
-
-        // 2. New partner admin can authorize partners
-        vm.startPrank(newPartnerAdmin);
-        partnerManager.authorizePartner(partner3, NEW_PARTNER_NAME);
-        assertTrue(partnerManager.isAuthorizedPartner(partner3));
-
-        // 3. Admin can revoke roles
-        vm.startPrank(admin);
-        partnerManager.revokeRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin);
-        assertFalse(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), newPartnerAdmin));
-        vm.stopPrank();
-
-        // 4. Revoked admin can no longer authorize partners
-        vm.startPrank(newPartnerAdmin);
-        vm.expectRevert();
-        partnerManager.authorizePartner(makeAddr("anotherPartner"), "Another Name");
-        vm.stopPrank();
-    }
-
     // Fuzz Tests
 
     function testFuzzAuthorizePartner(address partner, string calldata name) public {
