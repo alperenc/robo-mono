@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib, VehicleLib } from "../contracts/Libraries.sol";
+import { VehicleLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
