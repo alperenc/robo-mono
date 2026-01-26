@@ -24,6 +24,12 @@ contract RoboshareTokensTest is BaseTest {
         assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), minter));
+
+        // Verify role hashes
+        assertEq(roboshareTokens.MINTER_ROLE(), keccak256("MINTER_ROLE"), "Invalid MINTER_ROLE hash");
+        assertEq(roboshareTokens.BURNER_ROLE(), keccak256("BURNER_ROLE"), "Invalid BURNER_ROLE hash");
+        assertEq(roboshareTokens.URI_SETTER_ROLE(), keccak256("URI_SETTER_ROLE"), "Invalid URI_SETTER_ROLE hash");
+        assertEq(roboshareTokens.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
     }
 
     function testInitializationZeroAdmin() public {

@@ -21,16 +21,20 @@ contract VehicleRegistryTest is BaseTest {
         assertEq(address(assetRegistry.partnerManager()), address(partnerManager));
         assertEq(address(assetRegistry.router()), address(router));
 
-        // Check initial state
-        assertFalse(assetRegistry.assetExists(1));
-        assertFalse(assetRegistry.vinExists(TEST_VIN));
+        // Check initial state (no vehicles registered yet)
+        assertEq(roboshareTokens.getNextTokenId(), 1);
 
-        // Check admin roles
+        // Check roles
         assertTrue(assetRegistry.hasRole(assetRegistry.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(assetRegistry.hasRole(assetRegistry.UPGRADER_ROLE(), admin));
 
-        // Check router role
-        assertTrue(assetRegistry.hasRole(assetRegistry.ROUTER_ROLE(), address(router)));
+        // Verify role hashes
+        assertEq(assetRegistry.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+        assertEq(assetRegistry.ROUTER_ROLE(), keccak256("ROUTER_ROLE"), "Invalid ROUTER_ROLE hash");
+
+        // Verify hierarchy
+        assertEq(assetRegistry.getRoleAdmin(assetRegistry.UPGRADER_ROLE()), assetRegistry.DEFAULT_ADMIN_ROLE());
+        assertEq(assetRegistry.getRoleAdmin(assetRegistry.ROUTER_ROLE()), assetRegistry.DEFAULT_ADMIN_ROLE());
     }
 
     function testInitializationZeroAdmin() public {

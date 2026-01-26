@@ -30,6 +30,12 @@ contract PartnerManagerTest is BaseTest {
         assertTrue(partnerManager.hasRole(partnerManager.UPGRADER_ROLE(), admin));
         assertTrue(partnerManager.hasRole(partnerManager.PARTNER_ADMIN_ROLE(), partnerAdmin));
 
+        // Verify role hashes
+        assertEq(
+            partnerManager.PARTNER_ADMIN_ROLE(), keccak256("PARTNER_ADMIN_ROLE"), "Invalid PARTNER_ADMIN_ROLE hash"
+        );
+        assertEq(partnerManager.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+
         // Check initial state (BaseTest authorizes partner1 and partner2)
         assertEq(partnerManager.getPartnerCount(), 2);
         assertTrue(partnerManager.isAuthorizedPartner(partner1));
@@ -40,6 +46,12 @@ contract PartnerManagerTest is BaseTest {
         PartnerManager newImpl = new PartnerManager();
         vm.expectRevert(PartnerManager.ZeroAddress.selector);
         new ERC1967Proxy(address(newImpl), abi.encodeWithSignature("initialize(address)", address(0)));
+    }
+
+    function testAuthorizePartnerZeroAddress() public {
+        vm.expectRevert(PartnerManager.ZeroAddress.selector);
+        vm.prank(partnerAdmin);
+        partnerManager.authorizePartner(address(0), NEW_PARTNER_NAME);
     }
 
     function testAuthorizePartner() public {
@@ -163,12 +175,6 @@ contract PartnerManagerTest is BaseTest {
     }
 
     // Error Cases
-
-    function testAuthorizePartnerZeroAddress() public {
-        vm.expectRevert(PartnerManager.ZeroAddress.selector);
-        vm.prank(partnerAdmin);
-        partnerManager.authorizePartner(address(0), NEW_PARTNER_NAME);
-    }
 
     function testAuthorizePartnerEmptyName() public {
         vm.expectRevert(PartnerManager.EmptyName.selector);

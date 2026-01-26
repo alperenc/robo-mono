@@ -32,6 +32,14 @@ contract MarketplaceTest is BaseTest {
         // Check roles
         assertTrue(marketplace.hasRole(marketplace.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(marketplace.hasRole(marketplace.UPGRADER_ROLE(), admin));
+
+        // Verify role hashes
+        assertEq(marketplace.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+        assertEq(
+            marketplace.AUTHORIZED_CONTRACT_ROLE(),
+            keccak256("AUTHORIZED_CONTRACT_ROLE"),
+            "Invalid AUTHORIZED_CONTRACT_ROLE hash"
+        );
     }
 
     function testInitializationZeroAdmin() public {

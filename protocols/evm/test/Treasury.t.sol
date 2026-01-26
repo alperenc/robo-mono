@@ -29,6 +29,26 @@ contract TreasuryTest is BaseTest {
         assertTrue(treasury.hasRole(treasury.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(treasury.hasRole(treasury.UPGRADER_ROLE(), admin));
         assertTrue(treasury.hasRole(treasury.TREASURER_ROLE(), admin));
+
+        // Verify role hashes
+        assertEq(treasury.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+        assertEq(treasury.TREASURER_ROLE(), keccak256("TREASURER_ROLE"), "Invalid TREASURER_ROLE hash");
+        assertEq(
+            treasury.AUTHORIZED_CONTRACT_ROLE(),
+            keccak256("AUTHORIZED_CONTRACT_ROLE"),
+            "Invalid AUTHORIZED_CONTRACT_ROLE hash"
+        );
+        assertEq(
+            treasury.AUTHORIZED_ROUTER_ROLE(),
+            keccak256("AUTHORIZED_ROUTER_ROLE"),
+            "Invalid AUTHORIZED_ROUTER_ROLE hash"
+        );
+
+        // Verify hierarchy (all managed by default admin)
+        assertEq(treasury.getRoleAdmin(treasury.UPGRADER_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
+        assertEq(treasury.getRoleAdmin(treasury.TREASURER_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
+        assertEq(treasury.getRoleAdmin(treasury.AUTHORIZED_CONTRACT_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
+        assertEq(treasury.getRoleAdmin(treasury.AUTHORIZED_ROUTER_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
     }
 
     function testInitializationZeroAdmin() public {

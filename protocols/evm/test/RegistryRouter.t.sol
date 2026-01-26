@@ -18,6 +18,28 @@ contract RegistryRouterTest is BaseTest {
         assertEq(router.getRegistryType(), "RegistryRouter");
         assertEq(router.getRegistryVersion(), 1);
         assertEq(router.treasury(), address(treasury));
+
+        // Verify role hashes
+        assertEq(router.REGISTRY_ADMIN_ROLE(), keccak256("REGISTRY_ADMIN_ROLE"), "Invalid REGISTRY_ADMIN_ROLE hash");
+        assertEq(
+            router.AUTHORIZED_REGISTRY_ROLE(),
+            keccak256("AUTHORIZED_REGISTRY_ROLE"),
+            "Invalid AUTHORIZED_REGISTRY_ROLE hash"
+        );
+        assertEq(router.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+
+        // Verify role hierarchy (AUTHORIZED_REGISTRY_ROLE admin should be REGISTRY_ADMIN_ROLE)
+        assertEq(
+            router.getRoleAdmin(router.AUTHORIZED_REGISTRY_ROLE()),
+            router.REGISTRY_ADMIN_ROLE(),
+            "Invalid role admin for registry"
+        );
+        // Verify default admin for other roles
+        assertEq(
+            router.getRoleAdmin(router.REGISTRY_ADMIN_ROLE()),
+            router.DEFAULT_ADMIN_ROLE(),
+            "REGISTRY_ADMIN admin should be default"
+        );
     }
 
     function testAuthorizeRegistry() public {
@@ -200,6 +222,11 @@ contract RegistryRouterTest is BaseTest {
     function testRegisterAssetAndMintTokensDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.registerAssetAndMintTokens(bytes(""), 100, 100, block.timestamp + 365 days);
+    }
+
+    function testRegisterAssetMintAndListDirectCall() public {
+        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
+        router.registerAssetMintAndList(bytes(""), 100, 100, 100, 30 days, true);
     }
 
     function testInitializationZeroAdmin() public {
