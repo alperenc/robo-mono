@@ -10,8 +10,7 @@ import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 
 contract RegistryRouterTest is BaseTest {
     function setUp() public {
-        _deployContracts();
-        _setupInitialRolesAndAccounts();
+        _ensureState(SetupState.InitialAccountsSetup);
     }
 
     function testInitialization() public view {

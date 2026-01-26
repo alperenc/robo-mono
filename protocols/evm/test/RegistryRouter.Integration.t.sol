@@ -157,7 +157,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
     MockRegistry public mockRegistry;
 
     function setUp() public {
-        _ensureState(SetupState.ContractsDeployed);
+        _ensureState(SetupState.InitialAccountsSetup);
 
         // Get the router deployed in BaseTest
         // router is already set in BaseTest
@@ -165,7 +165,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Deploy MockRegistry
         mockRegistry = new MockRegistry(address(router), address(roboshareTokens), address(treasury));
 
-        // Setup Roles
+        // Setup Roles for MockRegistry
         vm.startPrank(admin);
 
         // 1. Grant AUTHORIZED_REGISTRY_ROLE to MockRegistry on Router
