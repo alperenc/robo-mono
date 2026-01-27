@@ -14,7 +14,7 @@ import {
 } from "../generated/PartnerManager/PartnerManager"
 import {
   RegistryRouter,
-  AssetRegistered as AssetRegisteredRouterEvent
+  IdBoundToRegistry as IdBoundToRegistryEvent
 } from "../generated/RegistryRouter/RegistryRouter"
 import {
   VehicleRegistry,
@@ -46,7 +46,7 @@ import {
   PartnerManagerContract,
   Partner,
   RegistryRouterContract,
-  RegisteredAssetRouter,
+  BoundId,
   VehicleRegistryContract,
   Vehicle,
   TreasuryContract,
@@ -129,15 +129,14 @@ export function handlePartnerAuthorized(event: PartnerAuthorizedEvent): void {
   }
 }
 
-export function handleAssetRegisteredRouter(event: AssetRegisteredRouterEvent): void {
-  let registeredAsset = new RegisteredAssetRouter(event.params.assetId.toString())
-  registeredAsset.assetId = event.params.assetId
-  registeredAsset.owner = event.params.owner
-  registeredAsset.status = event.params.status
-  registeredAsset.blockNumber = event.block.number
-  registeredAsset.blockTimestamp = event.block.timestamp
-  registeredAsset.transactionHash = event.transaction.hash
-  registeredAsset.save()
+export function handleIdBoundToRegistry(event: IdBoundToRegistryEvent): void {
+  let boundId = new BoundId(event.params.id.toString())
+  boundId.idValue = event.params.id
+  boundId.registry = event.params.registry
+  boundId.blockNumber = event.block.number
+  boundId.blockTimestamp = event.block.timestamp
+  boundId.transactionHash = event.transaction.hash
+  boundId.save()
 
   let contract = RegistryRouterContract.load("1")
   if (!contract) {

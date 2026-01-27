@@ -24,7 +24,7 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
     error ZeroAddress();
     error AlreadyAuthorized();
     error EmptyName();
-    error NotAuthorized();
+    error UnauthorizedPartner();
 
     // Events
     event PartnerAuthorized(address indexed partner, string name);
@@ -37,6 +37,7 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     function initialize(address defaultAdmin) public initializer {
+        if (defaultAdmin == address(0)) revert ZeroAddress();
         __AccessControl_init();
         __UUPSUpgradeable_init();
 
@@ -71,7 +72,7 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
      */
     function revokePartner(address partner) external onlyRole(PARTNER_ADMIN_ROLE) {
         if (!_authorizedPartners[partner]) {
-            revert NotAuthorized();
+            revert UnauthorizedPartner();
         }
 
         _authorizedPartners[partner] = false;
@@ -97,7 +98,7 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
      */
     function updatePartnerName(address partner, string calldata newName) external onlyRole(PARTNER_ADMIN_ROLE) {
         if (!_authorizedPartners[partner]) {
-            revert NotAuthorized();
+            revert UnauthorizedPartner();
         }
         if (bytes(newName).length == 0) revert EmptyName();
 
@@ -173,7 +174,7 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
     function _onlyAuthorizedPartner() internal view {
         if (!_authorizedPartners[msg.sender]) {
-            revert NotAuthorized();
+            revert UnauthorizedPartner();
         }
     }
 

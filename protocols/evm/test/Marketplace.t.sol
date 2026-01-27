@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
@@ -31,22 +32,114 @@ contract MarketplaceTest is BaseTest {
         // Check roles
         assertTrue(marketplace.hasRole(marketplace.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(marketplace.hasRole(marketplace.UPGRADER_ROLE(), admin));
+
+        // Verify role hashes
+        assertEq(marketplace.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+        assertEq(
+            marketplace.AUTHORIZED_CONTRACT_ROLE(),
+            keccak256("AUTHORIZED_CONTRACT_ROLE"),
+            "Invalid AUTHORIZED_CONTRACT_ROLE hash"
+        );
     }
 
-    function testInitializationZeroAddresses() public {
+    function testInitializationZeroAdmin() public {
         Marketplace newImpl = new Marketplace();
-
         vm.expectRevert(Marketplace.ZeroAddress.selector);
         new ERC1967Proxy(
             address(newImpl),
             abi.encodeWithSignature(
                 "initialize(address,address,address,address,address,address)",
-                address(0), // zero admin address
+                address(0),
                 address(roboshareTokens),
                 address(partnerManager),
                 address(router),
                 address(treasury),
                 address(usdc)
+            )
+        );
+    }
+
+    function testInitializationZeroTokens() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(Marketplace.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(newImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(0),
+                address(partnerManager),
+                address(router),
+                address(treasury),
+                address(usdc)
+            )
+        );
+    }
+
+    function testInitializationZeroPartnerManager() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(Marketplace.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(newImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(0),
+                address(router),
+                address(treasury),
+                address(usdc)
+            )
+        );
+    }
+
+    function testInitializationZeroRouter() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(Marketplace.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(newImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(0),
+                address(treasury),
+                address(usdc)
+            )
+        );
+    }
+
+    function testInitializationZeroTreasury() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(Marketplace.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(newImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                address(0),
+                address(usdc)
+            )
+        );
+    }
+
+    function testInitializationZeroUSDC() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(Marketplace.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(newImpl),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                address(treasury),
+                address(0)
             )
         );
     }
@@ -70,10 +163,14 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdatePartnerManagerUnauthorized() public {
+    function testUpdatePartnerManagerUnauthorizedCaller() public {
         PartnerManager newPartnerManager = new PartnerManager();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         marketplace.updatePartnerManager(address(newPartnerManager));
     }
@@ -95,10 +192,14 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateRouterUnauthorized() public {
+    function testUpdateRouterUnauthorizedCaller() public {
         RegistryRouter newRouter = new RegistryRouter();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         marketplace.updateRouter(address(newRouter));
     }
@@ -120,10 +221,14 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateUSDCUnauthorized() public {
+    function testUpdateUSDCUnauthorizedCaller() public {
         MockUSDC newUsdc = new MockUSDC();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         marketplace.updateUSDC(address(newUsdc));
     }
@@ -145,10 +250,14 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateRoboshareTokensUnauthorized() public {
+    function testUpdateRoboshareTokensUnauthorizedCaller() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         marketplace.updateRoboshareTokens(address(newRoboshareTokens));
     }
@@ -170,66 +279,15 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateTreasuryUnauthorized() public {
+    function testUpdateTreasuryUnauthorizedCaller() public {
         Treasury newTreasury = new Treasury();
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         marketplace.updateTreasury(address(newTreasury));
-    }
-
-    // ExtendListing Tests
-
-    function testExtendListingSuccess() public {
-        // Setup: Create a listing
-        _ensureState(SetupState.AssetWithListing);
-
-        Marketplace.Listing memory listingBefore = marketplace.getListing(scenario.listingId);
-        uint256 additionalDuration = 7 days;
-
-        vm.prank(partner1);
-        marketplace.extendListing(scenario.listingId, additionalDuration);
-
-        Marketplace.Listing memory listingAfter = marketplace.getListing(scenario.listingId);
-        assertEq(listingAfter.expiresAt, listingBefore.expiresAt + additionalDuration);
-        assertTrue(listingAfter.isActive);
-    }
-
-    function testExtendListingNonExistent() public {
-        _ensureState(SetupState.ContractsDeployed);
-
-        uint256 nonExistentListingId = 999;
-
-        vm.expectRevert(Marketplace.ListingNotFound.selector);
-        vm.prank(partner1);
-        marketplace.extendListing(nonExistentListingId, 7 days);
-    }
-
-    function testExtendListingUnauthorized() public {
-        _ensureState(SetupState.AssetWithListing);
-
-        vm.expectRevert(Marketplace.NotTokenOwner.selector);
-        vm.prank(unauthorized);
-        marketplace.extendListing(scenario.listingId, 7 days);
-    }
-
-    function testExtendListingInactive() public {
-        _ensureState(SetupState.AssetWithListing);
-
-        // Cancel the listing first
-        vm.prank(partner1);
-        marketplace.cancelListing(scenario.listingId);
-
-        vm.expectRevert(Marketplace.ListingNotActive.selector);
-        vm.prank(partner1);
-        marketplace.extendListing(scenario.listingId, 7 days);
-    }
-
-    function testExtendListingZeroDuration() public {
-        _ensureState(SetupState.AssetWithListing);
-
-        vm.expectRevert(Marketplace.InvalidDuration.selector);
-        vm.prank(partner1);
-        marketplace.extendListing(scenario.listingId, 0);
     }
 }

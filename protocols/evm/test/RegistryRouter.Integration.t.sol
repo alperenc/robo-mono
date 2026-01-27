@@ -74,14 +74,6 @@ contract MockRegistry is IAssetRegistry {
         return roboshareTokens.balanceOf(account, assetId) > 0;
     }
 
-    function getAssetIdFromTokenId(uint256 tokenId) external pure override returns (uint256) {
-        return tokenId - 1;
-    }
-
-    function getTokenIdFromAssetId(uint256 assetId) external pure override returns (uint256) {
-        return assetId + 1;
-    }
-
     // Stubs for other functions
     function registerAsset(bytes calldata) external pure override returns (uint256) {
         return 0;
@@ -157,7 +149,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
     MockRegistry public mockRegistry;
 
     function setUp() public {
-        _ensureState(SetupState.ContractsDeployed);
+        _ensureState(SetupState.InitialAccountsSetup);
 
         // Get the router deployed in BaseTest
         // router is already set in BaseTest
@@ -165,7 +157,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Deploy MockRegistry
         mockRegistry = new MockRegistry(address(router), address(roboshareTokens), address(treasury));
 
-        // Setup Roles
+        // Setup Roles for MockRegistry
         vm.startPrank(admin);
 
         // 1. Grant AUTHORIZED_REGISTRY_ROLE to MockRegistry on Router
@@ -233,152 +225,201 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(buyer, mockTokenId), purchaseAmount);
     }
 
-    function testRegistryNotFoundErrors() public {
+    // RegistryNotFound Tests
+
+    function testMintRevenueTokensRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-
-        // mintRevenueTokens (need maturityDate now)
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.mintRevenueTokens(nonExistentAssetId, 100, 100, block.timestamp + 365 days);
+    }
 
-        // getAssetInfo
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testGetAssetInfoRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.getAssetInfo(nonExistentAssetId);
+    }
 
-        // getAssetStatus
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testGetAssetStatusRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.getAssetStatus(nonExistentAssetId);
+    }
 
-        // setAssetStatus
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testSetAssetStatusRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.setAssetStatus(nonExistentAssetId, AssetLib.AssetStatus.Active);
+    }
 
-        // burnRevenueTokens
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testBurnRevenueTokensRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.burnRevenueTokens(nonExistentAssetId, 100);
+    }
 
-        // retireAsset
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testRetireAssetRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.retireAsset(nonExistentAssetId);
+    }
 
-        // retireAssetAndBurnTokens
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testRetireAssetAndBurnTokensRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.retireAssetAndBurnTokens(nonExistentAssetId);
+    }
 
-        // isAuthorizedForAsset
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+    function testIsAuthorizedForAssetRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.isAuthorizedForAsset(partner1, nonExistentAssetId);
     }
 
-    function testCollateralOperationsErrors() public {
+    function testSettleAssetRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
+        router.settleAsset(nonExistentAssetId, 0);
+    }
+
+    function testLiquidateAssetRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
+        router.liquidateAsset(nonExistentAssetId);
+    }
+
+    function testClaimSettlementRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
+        router.claimSettlement(nonExistentAssetId, false);
+    }
+
+    // RegistryNotBoundToAsset Tests
+
+    function testLockCollateralForRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
-        // 1. RegistryNotBoundToAsset
-        // Grant role but don't bind asset
         vm.startPrank(admin);
         router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
         vm.stopPrank();
 
-        vm.startPrank(unauthorizedRegistry);
+        vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.lockCollateralFor(partner1, assetId, 100, 100);
+    }
 
+    function testReleaseCollateralForRegistryNotBoundToAsset() public {
+        uint256 assetId = 100;
+        address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
+
+        vm.startPrank(admin);
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
+        vm.stopPrank();
+
+        vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.releaseCollateralFor(partner1, assetId);
+    }
 
+    function testInitiateSettlementRegistryNotBoundToAsset() public {
+        uint256 assetId = 100;
+        address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
+
+        vm.startPrank(admin);
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
+        vm.stopPrank();
+
+        vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.initiateSettlement(partner1, assetId, 100);
+    }
 
+    function testExecuteLiquidationRegistryNotBoundToAsset() public {
+        uint256 assetId = 100;
+        address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
+
+        vm.startPrank(admin);
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
+        vm.stopPrank();
+
+        vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.executeLiquidation(assetId);
+    }
 
+    function testProcessSettlementClaimRegistryNotBoundToAsset() public {
+        uint256 assetId = 100;
+        address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
+
+        vm.startPrank(admin);
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
+        vm.stopPrank();
+
+        vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.processSettlementClaim(partner1, assetId, 100);
-
-        vm.stopPrank();
-
-        // 2. TreasuryNotSet
-        // Unset treasury (requires admin)
-        vm.startPrank(admin);
-
-        // Deploy a fresh router without treasury set
-        RegistryRouter freshRouter = new RegistryRouter();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(freshRouter), "");
-        RegistryRouter(address(proxy)).initialize(admin, address(roboshareTokens));
-
-        // Grant AUTHORIZED_REGISTRY_ROLE to partner1
-        RegistryRouter(address(proxy)).grantRole(router.AUTHORIZED_REGISTRY_ROLE(), partner1);
-        vm.stopPrank();
-
-        vm.startPrank(partner1);
-        // Bind asset
-        RegistryRouter(address(proxy)).bindAsset(assetId);
-
-        // Now call lock/release - should revert with TreasuryNotSet
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).lockCollateralFor(partner1, assetId, 100, 100);
-
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).releaseCollateralFor(partner1, assetId);
-
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).initiateSettlement(partner1, assetId, 100);
-
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).executeLiquidation(assetId);
-
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).processSettlementClaim(partner1, assetId, 100);
-
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).isAssetSolvent(assetId);
-
-        vm.stopPrank();
     }
 
-    function testTreasuryNotSetErrors() public {
-        uint256 assetId = 100;
+    // TreasuryNotSet Tests
 
-        // Deploy a fresh router without treasury set
+    function _setupRouterWithoutTreasury() internal returns (RegistryRouter) {
         vm.startPrank(admin);
         RegistryRouter freshRouter = new RegistryRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(address(freshRouter), "");
-        RegistryRouter(address(proxy)).initialize(admin, address(roboshareTokens));
-        RegistryRouter(address(proxy)).grantRole(router.AUTHORIZED_REGISTRY_ROLE(), partner1);
+        RegistryRouter proxyRouter = RegistryRouter(address(proxy));
+        proxyRouter.initialize(admin, address(roboshareTokens));
+        proxyRouter.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), partner1);
         vm.stopPrank();
 
-        vm.startPrank(partner1);
-        RegistryRouter(address(proxy)).bindAsset(assetId);
+        vm.prank(partner1);
+        proxyRouter.bindId(100);
 
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).isAssetSolvent(assetId);
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).initiateSettlement(partner1, assetId, 100);
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).executeLiquidation(assetId);
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        RegistryRouter(address(proxy)).processSettlementClaim(partner1, assetId, 100);
-        vm.stopPrank();
+        return proxyRouter;
     }
 
-    function testSettlementAndLiquidationErrors() public {
-        uint256 nonExistentAssetId = 999;
-
-        // Assuming assetId 1 is already handled by assetRegistry
-        // Revert when calling through Router for non-existent registry
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
-        router.settleAsset(nonExistentAssetId, 0);
-
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
-        router.liquidateAsset(nonExistentAssetId);
-
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
-        router.claimSettlement(nonExistentAssetId, false);
-
-        // Test non-existent asset when calling processSettlementClaim/initiateSettlement/executeLiquidation
-        // These are handled by RegistryRouter.RegistryNotBoundToAsset, TreasuryNotSet, etc.
-        // Already covered in testCollateralOperationsErrors and testTreasuryNotSetErrors
+    function testLockCollateralForTreasuryNotSet() public {
+        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
+        vm.prank(partner1);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.lockCollateralFor(partner1, 100, 100, 100);
     }
+
+    function testReleaseCollateralForTreasuryNotSet() public {
+        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
+        vm.prank(partner1);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.releaseCollateralFor(partner1, 100);
+    }
+
+    function testIsAssetSolventTreasuryNotSet() public {
+        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
+        vm.prank(partner1);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.isAssetSolvent(100);
+    }
+
+    function testInitiateSettlementTreasuryNotSet() public {
+        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
+        vm.prank(partner1);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.initiateSettlement(partner1, 100, 100);
+    }
+
+    function testExecuteLiquidationTreasuryNotSet() public {
+        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
+        vm.prank(partner1);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.executeLiquidation(100);
+    }
+
+    function testProcessSettlementClaimTreasuryNotSet() public {
+        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
+        vm.prank(partner1);
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.processSettlementClaim(partner1, 100, 100);
+    }
+
+    // Solvency Tests
 
     function testIsAssetSolvent() public {
         _ensureState(SetupState.RevenueTokensMinted); // Asset 1 is active and solvent by default
@@ -398,7 +439,6 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assetRegistry.liquidateAsset(scenario.assetId);
 
         // After liquidation, Treasury should reflect non-solvency due to settlement (even if solvent before)
-        // The assetSettlements in Treasury marks it as settled, so isAssetSolvent should reflect that.
         assertFalse(router.isAssetSolvent(scenario.assetId));
     }
 }

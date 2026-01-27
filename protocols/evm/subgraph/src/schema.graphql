@@ -56,11 +56,10 @@ type RegistryRouterContract @entity(immutable: true) {
   address: Bytes!
 }
 
-type RegisteredAssetRouter @entity(immutable: true) {
-  id: ID! # assetId
-  assetId: BigInt!
-  owner: Bytes!
-  status: Int!
+type BoundId @entity(immutable: true) {
+  id: ID! # id (assetId or tokenId)
+  idValue: BigInt!
+  registry: Bytes!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!

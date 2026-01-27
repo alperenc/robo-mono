@@ -381,6 +381,32 @@ library TokenLib {
     }
 
     error InsufficientTokenBalance();
+    error InvalidAssetId();
+    error InvalidRevenueTokenId();
+
+    /**
+     * @dev Get asset ID from token ID
+     */
+    function getAssetIdFromTokenId(uint256 tokenId) internal pure returns (uint256) {
+        uint256 assetId = isRevenueToken(tokenId) ? tokenId - 1 : tokenId;
+
+        if (!isRevenueToken(tokenId)) {
+            revert InvalidRevenueTokenId();
+        }
+
+        return assetId;
+    }
+
+    /**
+     * @dev Get token ID from asset ID
+     */
+    function getTokenIdFromAssetId(uint256 assetId) internal pure returns (uint256) {
+        if (isRevenueToken(assetId) || assetId == 0) {
+            revert InvalidAssetId();
+        }
+
+        return assetId + 1;
+    }
 
     /**
      * @dev Initialize token info

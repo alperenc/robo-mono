@@ -307,7 +307,7 @@ contract LibrariesTest is Test {
         assertEq(replenished, 0);
     }
 
-    function testBenchmarkWithHigherBP() public pure {
+    function testBenchmarkHigherBP() public pure {
         uint256 principal = 1000e6;
         uint256 dt = 30 days;
         uint256 defaultBench = EarningsLib.calculateBenchmarkEarnings(principal, dt);

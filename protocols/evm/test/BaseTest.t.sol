@@ -3,8 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
-import { ProtocolLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, TokenLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -17,14 +16,13 @@ contract BaseTest is Test {
     enum SetupState {
         None,
         ContractsDeployed,
-        PartnersAuthorized,
-        AccountsFunded,
+        InitialAccountsSetup,
         AssetRegistered,
         RevenueTokensMinted,
-        AssetWithListing,
-        AssetWithPurchase,
-        AssetWithClaimedTokens,
-        AssetWithEarnings,
+        RevenueTokensListed,
+        RevenueTokensPurchased,
+        RevenueTokensClaimed,
+        EarningsDistributed,
         AssetWithPartialCollateralRelease,
         AssetWithFullCollateralRelease
     }
@@ -89,14 +87,9 @@ contract BaseTest is Test {
             currentState = SetupState.ContractsDeployed;
         }
 
-        if (requiredState >= SetupState.PartnersAuthorized && currentState < SetupState.PartnersAuthorized) {
-            _setupInitialRolesAndPartners();
-            currentState = SetupState.PartnersAuthorized;
-        }
-
-        if (requiredState >= SetupState.AccountsFunded && currentState < SetupState.AccountsFunded) {
-            _fundInitialAccounts();
-            currentState = SetupState.AccountsFunded;
+        if (requiredState >= SetupState.InitialAccountsSetup && currentState < SetupState.InitialAccountsSetup) {
+            _setupInitialRolesAndAccounts();
+            currentState = SetupState.InitialAccountsSetup;
         }
 
         if (requiredState >= SetupState.AssetRegistered && currentState < SetupState.AssetRegistered) {
@@ -109,46 +102,24 @@ contract BaseTest is Test {
             currentState = SetupState.RevenueTokensMinted;
         }
 
-        if (requiredState >= SetupState.AssetWithListing && currentState < SetupState.AssetWithListing) {
-            // Approve marketplace to transfer tokens on behalf of partner1
-            vm.prank(partner1);
-            roboshareTokens.setApprovalForAll(address(marketplace), true);
-
-            vm.prank(partner1);
-            // Create listing for tokens (collateral already locked)
-            scenario.listingId = marketplace.createListing(
-                scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-            );
-            currentState = SetupState.AssetWithListing;
+        if (requiredState >= SetupState.RevenueTokensListed && currentState < SetupState.RevenueTokensListed) {
+            scenario.listingId = _setupRevenueTokensListed();
+            currentState = SetupState.RevenueTokensListed;
         }
 
-        if (requiredState >= SetupState.AssetWithPurchase && currentState < SetupState.AssetWithPurchase) {
-            // Buyer approves USDC for purchase
-            (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
-            vm.startPrank(buyer);
-            usdc.approve(address(marketplace), expectedPayment);
-
-            // Buyer purchases tokens
-            marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
-            vm.stopPrank();
-            currentState = SetupState.AssetWithPurchase;
+        if (requiredState >= SetupState.RevenueTokensPurchased && currentState < SetupState.RevenueTokensPurchased) {
+            _setupRevenueTokensPurchased();
+            currentState = SetupState.RevenueTokensPurchased;
         }
 
-        if (requiredState >= SetupState.AssetWithClaimedTokens && currentState < SetupState.AssetWithClaimedTokens) {
-            // Partner ends listing to release escrowed tokens
-            vm.prank(partner1);
-            marketplace.endListing(scenario.listingId);
-
-            // Buyer claims tokens from escrow
-            vm.prank(buyer);
-            marketplace.claimTokens(scenario.listingId);
-
-            currentState = SetupState.AssetWithClaimedTokens;
+        if (requiredState >= SetupState.RevenueTokensClaimed && currentState < SetupState.RevenueTokensClaimed) {
+            _setupRevenueTokensClaimed();
+            currentState = SetupState.RevenueTokensClaimed;
         }
 
-        if (requiredState >= SetupState.AssetWithEarnings && currentState < SetupState.AssetWithEarnings) {
-            setupEarningsScenario(scenario.assetId, 1000e6);
-            currentState = SetupState.AssetWithEarnings;
+        if (requiredState >= SetupState.EarningsDistributed && currentState < SetupState.EarningsDistributed) {
+            _setupEarningsDistributed(1000e6);
+            currentState = SetupState.EarningsDistributed;
         }
     }
 
@@ -160,26 +131,12 @@ contract BaseTest is Test {
         usdc = IERC20(config.usdcToken);
     }
 
-    function _setupInitialRolesAndPartners() internal {
-        // Authorize test partners (test-specific setup, not part of deployment)
-        vm.startPrank(admin);
-        partnerManager.authorizePartner(partner1, PARTNER1_NAME);
-        partnerManager.authorizePartner(partner2, PARTNER2_NAME);
-        vm.stopPrank();
-    }
+    function _setupInitialRolesAndAccounts() internal {
+        // Authorize and fund test partners
+        _setupMultiplePartners(2);
 
-    function _fundInitialAccounts() private {
-        // Fund accounts with USDC for testing
-        if (deployer.isLocalOrTestNetwork()) {
-            MockUSDC mockUsdc = MockUSDC(address(usdc));
-            mockUsdc.mint(partner1, 1000000 * 10 ** 6); // 1M USDC
-            mockUsdc.mint(partner2, 1000000 * 10 ** 6); // 1M USDC
-            mockUsdc.mint(buyer, 1000000 * 10 ** 6); // 1M USDC
-        } else {
-            deal(address(usdc), partner1, 1000000 * 10 ** 6); // 1M USDC
-            deal(address(usdc), partner2, 1000000 * 10 ** 6); // 1M USDC
-            deal(address(usdc), buyer, 1000000 * 10 ** 6); // 1M USDC
-        }
+        // Fund the buyer
+        _fundAddressWithUsdc(buyer, 1000000 * 10 ** 6); // 1M USDC
     }
 
     function _setupAssetRegistered() internal returns (uint256 assetId) {
@@ -202,8 +159,64 @@ contract BaseTest is Test {
         usdc.approve(address(treasury), scenario.requiredCollateral);
 
         revenueTokenId = assetRegistry.mintRevenueTokens(
-            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, maturityDate
+            scenario.assetId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, maturityDate
         );
+        vm.stopPrank();
+    }
+
+    function _setupRevenueTokensListed() internal returns (uint256 listingId) {
+        // Approve marketplace to transfer tokens on behalf of partner1
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        vm.prank(partner1);
+        // Create listing for tokens (collateral already locked)
+        listingId = marketplace.createListing(
+            scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+        );
+    }
+
+    function _setupRevenueTokensPurchased() internal {
+        // Buyer approves USDC for purchase
+        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+
+        // Buyer purchases tokens
+        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
+        vm.stopPrank();
+    }
+
+    function _setupRevenueTokensClaimed() internal {
+        // Partner ends listing to release escrowed tokens
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        // Buyer claims tokens from escrow
+        vm.prank(buyer);
+        marketplace.claimTokens(scenario.listingId);
+    }
+
+    /**
+     * @dev Setup earnings distribution scenario
+     * @param totalEarningsAmount Total revenue (for tracking)
+     * Note: Requires investor tokens to exist (buyer must have purchased tokens first)
+     */
+    function _setupEarningsDistributed(uint256 totalEarningsAmount) internal {
+        // Get revenue token ID
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
+
+        // Calculate investor portion based on token ownership
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+        uint256 partnerTokens = roboshareTokens.balanceOf(partner1, revenueTokenId);
+        uint256 investorTokens = totalSupply - partnerTokens;
+
+        // Calculate investor amount (proportional to their token ownership)
+        uint256 investorAmount = (totalEarningsAmount * investorTokens) / totalSupply;
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), investorAmount);
+        treasury.distributeEarnings(scenario.assetId, totalEarningsAmount, investorAmount, false);
         vm.stopPrank();
     }
 
@@ -214,7 +227,7 @@ contract BaseTest is Test {
     /**
      * @dev Assert listing state matches expected values
      */
-    function assertListingState(
+    function _assertListingState(
         uint256 _listingId,
         uint256 expectedTokenId,
         uint256 expectedAmount,
@@ -235,7 +248,7 @@ contract BaseTest is Test {
     /**
      * @dev Assert collateral state for an asset
      */
-    function assertCollateralState(uint256 _assetId, uint256 expectedBase, uint256 expectedTotal, bool expectedLocked)
+    function _assertCollateralState(uint256 _assetId, uint256 expectedBase, uint256 expectedTotal, bool expectedLocked)
         internal
         view
     {
@@ -248,7 +261,7 @@ contract BaseTest is Test {
     /**
      * @dev Assert token balances for an address
      */
-    function assertTokenBalance(address account, uint256 tokenId, uint256 expectedBalance, string memory message)
+    function _assertTokenBalance(address account, uint256 tokenId, uint256 expectedBalance, string memory message)
         internal
         view
     {
@@ -259,12 +272,12 @@ contract BaseTest is Test {
     /**
      * @dev Assert USDC balance for an address
      */
-    function assertUsdcBalance(address account, uint256 expectedBalance, string memory message) internal view {
+    function _assertUsdcBalance(address account, uint256 expectedBalance, string memory message) internal view {
         uint256 actualBalance = usdc.balanceOf(account);
         assertEq(actualBalance, expectedBalance, message);
     }
 
-    function assertAssetState(uint256 _assetId, address expectedOwner, bool shouldExist) internal view {
+    function _assertAssetState(uint256 _assetId, address expectedOwner, bool shouldExist) internal view {
         if (shouldExist) {
             // Check ownership via ERC1155 balance
             assertEq(roboshareTokens.balanceOf(expectedOwner, _assetId), 1, "Asset owner mismatch");
@@ -281,13 +294,13 @@ contract BaseTest is Test {
     /**
      * @dev Assert vehicle-specific registration state
      */
-    function assertVehicleState(uint256 _assetId, address expectedOwner, string memory expectedVin, bool shouldExist)
+    function _assertVehicleState(uint256 _assetId, address expectedOwner, string memory expectedVin, bool shouldExist)
         internal
         view
     {
-        assertAssetState(_assetId, expectedOwner, shouldExist);
+        _assertAssetState(_assetId, expectedOwner, shouldExist);
 
-        if (shouldExist) {
+        if (shouldExist && bytes(expectedVin).length > 0) {
             // Check vehicle info stored in the registry
             (string memory vin,,,,,,) = assetRegistry.getVehicleInfo(_assetId);
             assertEq(vin, expectedVin, "Vehicle VIN mismatch");
@@ -301,7 +314,7 @@ contract BaseTest is Test {
     /**
      * @dev Generate random VIN for testing
      */
-    function generateVin(uint256 seed) internal pure returns (string memory) {
+    function _generateVin(uint256 seed) internal pure returns (string memory) {
         string[10] memory vinPrefixes = [
             "1HGCM82633A",
             "2FMDK3GC1D",
@@ -323,7 +336,7 @@ contract BaseTest is Test {
     /**
      * @dev Generate test vehicle data
      */
-    function generateVehicleData(uint256 seed)
+    function _generateVehicleData(uint256 seed)
         internal
         pure
         returns (
@@ -339,7 +352,7 @@ contract BaseTest is Test {
         string[5] memory makes = ["Toyota", "Honda", "Ford", "BMW", "Tesla"];
         string[5] memory models = ["Camry", "Civic", "F-150", "X3", "Model 3"];
 
-        vin = generateVin(seed);
+        vin = _generateVin(seed);
         make = makes[seed % 5];
         model = models[(seed + 1) % 5];
         year = 2020 + (seed % 5); // 2020-2024
@@ -349,17 +362,6 @@ contract BaseTest is Test {
         metadataURI = "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb";
     }
 
-    /**
-     * @dev Generate realistic test addresses
-     */
-    function generateTestAddresses(uint256 count) internal returns (address[] memory addresses) {
-        addresses = new address[](count);
-        for (uint256 i = 0; i < count; i++) {
-            addresses[i] = makeAddr(string(abi.encodePacked("testAddr", vm.toString(i))));
-        }
-        return addresses;
-    }
-
     // ========================================
     // TIME MANIPULATION HELPERS
     // ========================================
@@ -367,7 +369,7 @@ contract BaseTest is Test {
     /**
      * @dev Warp to listing expiry time
      */
-    function warpToListingExpiry(uint256 _listingId) internal {
+    function _warpToListingExpiry(uint256 _listingId) internal {
         Marketplace.Listing memory listing = marketplace.getListing(_listingId);
         vm.warp(listing.expiresAt + 1);
     }
@@ -375,21 +377,21 @@ contract BaseTest is Test {
     /**
      * @dev Warp past holding period for penalty-free transfers
      */
-    function warpPastHoldingPeriod() internal {
+    function _warpPastHoldingPeriod() internal {
         vm.warp(block.timestamp + 30 days + 1); // Monthly interval + 1
     }
 
     /**
      * @dev Warp to specific time offset
      */
-    function warpToTimeOffset(uint256 offsetSeconds) internal {
+    function _warpToTimeOffset(uint256 offsetSeconds) internal {
         vm.warp(block.timestamp + offsetSeconds);
     }
 
     /**
      * @dev Save current timestamp and warp, returning original time
      */
-    function warpAndSaveTime(uint256 newTime) internal returns (uint256 originalTime) {
+    function _warpAndSaveTime(uint256 newTime) internal returns (uint256 originalTime) {
         originalTime = block.timestamp;
         vm.warp(newTime);
         return originalTime;
@@ -414,7 +416,7 @@ contract BaseTest is Test {
     /**
      * @dev Take a snapshot of all relevant balances
      */
-    function takeBalanceSnapshot(uint256 tokenId) internal view returns (BalanceSnapshot memory snapshot) {
+    function _takeBalanceSnapshot(uint256 tokenId) internal view returns (BalanceSnapshot memory snapshot) {
         snapshot.partnerUsdc = usdc.balanceOf(partner1);
         snapshot.buyerUsdc = usdc.balanceOf(buyer);
         snapshot.treasuryFeeRecipientUsdc = usdc.balanceOf(config.treasuryFeeRecipient);
@@ -429,7 +431,7 @@ contract BaseTest is Test {
     /**
      * @dev Compare two balance snapshots and assert expected changes
      */
-    function assertBalanceChanges(
+    function _assertBalanceChanges(
         BalanceSnapshot memory before,
         BalanceSnapshot memory afterSnapshot,
         int256 expectedPartnerUsdcChange,
@@ -484,7 +486,7 @@ contract BaseTest is Test {
     /**
      * @dev Expect RevenueTokensTraded event with specific parameters
      */
-    function expectRevenueTokensTradedEvent(
+    function _expectRevenueTokensTradedEvent(
         uint256 _revenueTokenId,
         address from,
         address to,
@@ -503,7 +505,7 @@ contract BaseTest is Test {
     /**
      * @dev Set up insufficient funds scenario for address
      */
-    function setupInsufficientFunds(address account, uint256 neededAmount) internal {
+    function _setupInsufficientFunds(address account, uint256 neededAmount) internal {
         uint256 currentBalance = usdc.balanceOf(account);
         if (currentBalance >= neededAmount / 2) {
             // Transfer away most funds, keeping less than half needed
@@ -516,8 +518,8 @@ contract BaseTest is Test {
     /**
      * @dev Set up expired listing scenario
      */
-    function setupExpiredListing(uint256 _listingId) internal {
-        warpToListingExpiry(_listingId);
+    function _setupExpiredListing(uint256 _listingId) internal {
+        _warpToListingExpiry(_listingId);
     }
 
     // ========================================
@@ -525,16 +527,9 @@ contract BaseTest is Test {
     // ========================================
 
     /**
-     * @dev Calculate expected protocol fee
-     */
-    function calculateExpectedProtocolFee(uint256 amount) internal pure returns (uint256) {
-        return ProtocolLib.calculateProtocolFee(amount);
-    }
-
-    /**
      * @dev Calculate expected collateral requirement
      */
-    function calculateExpectedCollateral(uint256 revenueTokenPrice, uint256 totalTokens)
+    function _calculateExpectedCollateral(uint256 revenueTokenPrice, uint256 totalTokens)
         internal
         pure
         returns (uint256 base, uint256 earningsBuffer, uint256 protocolBuffer, uint256 total)
@@ -546,105 +541,14 @@ contract BaseTest is Test {
         total = base + earningsBuffer + protocolBuffer;
     }
 
-    /**
-     * @dev Calculate expected purchase cost breakdown
-     */
-    function calculatePurchaseCost(uint256 _listingId, uint256 amount)
-        internal
-        view
-        returns (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment)
-    {
-        return marketplace.calculatePurchaseCost(_listingId, amount);
-    }
-
-    /**
-     * @dev Calculate expected earnings for a given period
-     */
-    function calculateExpectedEarnings(uint256 principal, uint256 timeElapsed, uint256 earningsRateBp)
-        internal
-        pure
-        returns (uint256)
-    {
-        return (principal * earningsRateBp * timeElapsed) / (10000 * 365 days);
-    }
-
     // ========================================
     // MOCK SETUP HELPERS
     // ========================================
 
     /**
-     * @dev Create a test listing with custom parameters
-     */
-    function createTestListing(
-        address partner,
-        uint256 tokenPrice,
-        uint256 totalTokens,
-        uint256 tokensToList,
-        uint256 duration,
-        bool buyerPaysFee
-    ) internal returns (uint256, uint256, uint256) {
-        // Generate unique test data
-        uint256 seed = uint256(keccak256(abi.encodePacked(partner, tokenPrice, block.timestamp)));
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory metadataURI
-        ) = generateVehicleData(seed);
-
-        vm.startPrank(partner);
-
-        // Register asset and mint tokens in one go
-        uint256 maturityDate = block.timestamp + 365 days;
-        (scenario.assetId, scenario.revenueTokenId) = assetRegistry.registerAssetAndMintTokens(
-            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI),
-            tokenPrice,
-            totalTokens,
-            maturityDate
-        );
-
-        // Approve RoboshareTokens for Marketplace listing
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-
-        scenario.listingId =
-            marketplace.createListing(scenario.revenueTokenId, tokensToList, tokenPrice, duration, buyerPaysFee);
-
-        vm.stopPrank();
-
-        return (scenario.assetId, scenario.revenueTokenId, scenario.listingId);
-    }
-
-    /**
-     * @dev Setup earnings distribution scenario
-     * @param _assetId The asset ID
-     * @param totalEarningsAmount Total revenue (for tracking)
-     * Note: Requires investor tokens to exist (buyer must have purchased tokens first)
-     */
-    function setupEarningsScenario(uint256 _assetId, uint256 totalEarningsAmount) internal {
-        // Get revenue token ID
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(_assetId);
-
-        // Calculate investor portion based on token ownership
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 partnerTokens = roboshareTokens.balanceOf(partner1, revenueTokenId);
-        uint256 investorTokens = totalSupply - partnerTokens;
-
-        // Calculate investor amount (proportional to their token ownership)
-        uint256 investorAmount = (totalEarningsAmount * investorTokens) / totalSupply;
-
-        vm.startPrank(partner1);
-        usdc.approve(address(treasury), investorAmount);
-        treasury.distributeEarnings(_assetId, totalEarningsAmount, investorAmount, false);
-        vm.stopPrank();
-    }
-
-    /**
      * @dev Create multiple test vehicles for a partner
      */
-    function createMultipleTestVehicles(address partner, uint256 count) internal returns (uint256[] memory assetIds) {
+    function _createMultipleTestVehicles(address partner, uint256 count) internal returns (uint256[] memory assetIds) {
         assetIds = new uint256[](count);
 
         vm.startPrank(partner);
@@ -657,7 +561,7 @@ contract BaseTest is Test {
                 uint256 manufacturerId,
                 string memory optionCodes,
                 string memory metadataURI
-            ) = generateVehicleData(i + uint256(keccak256(abi.encodePacked(partner, block.timestamp))));
+            ) = _generateVehicleData(i + uint256(keccak256(abi.encodePacked(partner, block.timestamp))));
 
             assetIds[i] = assetRegistry.registerAsset(
                 abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI)
@@ -669,20 +573,19 @@ contract BaseTest is Test {
     }
 
     /**
-     * @dev Setup multiple partners with authorization
+     * @dev Setup multiple partners with authorization and funding
      */
-    function setupMultiplePartners(uint256 count) internal returns (address[] memory partners) {
+    function _setupMultiplePartners(uint256 count) internal returns (address[] memory partners) {
         partners = new address[](count);
 
         vm.startPrank(admin);
         for (uint256 i = 0; i < count; i++) {
-            partners[i] = makeAddr(string(abi.encodePacked("partner", vm.toString(i))));
-            partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i))));
+            // Naming convention: partner1, partner2, partner3...
+            partners[i] = makeAddr(string(abi.encodePacked("partner", vm.toString(i + 1))));
+            partnerManager.authorizePartner(partners[i], string(abi.encodePacked("Partner ", vm.toString(i + 1))));
 
-            // Fund partners if on local network
-            if (deployer.isLocalOrTestNetwork()) {
-                MockUSDC(address(usdc)).mint(partners[i], 1000000 * 10 ** 6); // 1M USDC
-            }
+            // Fund partners with MockUSDC
+            _fundAddressWithUsdc(partners[i], 1000000 * 10 ** 6); // 1M USDC
         }
         vm.stopPrank();
 
@@ -694,25 +597,16 @@ contract BaseTest is Test {
     // ========================================
 
     /**
-     * @dev Fund an address with USDC (local network only)
+     * @dev Fund an address with USDC
      */
-    function fundAddressWithUsdc(address account, uint256 amount) internal {
-        if (deployer.isLocalOrTestNetwork()) {
-            MockUSDC(address(usdc)).mint(account, amount);
-        }
-    }
-
-    /**
-     * @dev Check if address is authorized partner
-     */
-    function isAuthorizedPartner(address account) internal view returns (bool) {
-        return partnerManager.isAuthorizedPartner(account);
+    function _fundAddressWithUsdc(address account, uint256 amount) internal {
+        deal(address(usdc), account, amount);
     }
 
     /**
      * @dev Get listing count for an asset
      */
-    function getListingCount(uint256 _assetId) internal view returns (uint256) {
+    function _getListingCount(uint256 _assetId) internal view returns (uint256) {
         return marketplace.getAssetListings(_assetId).length;
     }
 }

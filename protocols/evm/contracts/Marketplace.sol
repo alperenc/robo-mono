@@ -79,7 +79,7 @@ contract Marketplace is
     error ListingExpired();
     error FeesExceedPrice();
     error InsufficientPayment();
-    error NotTokenOwner();
+    error NotListingOwner();
     error InvalidDuration();
     error ListingNotEnded();
     error ListingNotCancelled();
@@ -169,7 +169,7 @@ contract Marketplace is
 
     function _onlyAuthorizedPartner() internal view {
         if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.NotAuthorized();
+            revert PartnerManager.UnauthorizedPartner();
         }
     }
 
@@ -208,11 +208,11 @@ contract Marketplace is
         }
 
         // Get asset ID and check collateral is locked
-        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
 
         // Check asset status is Active
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert ListingNotActive();
+            revert AssetNotActive();
         }
 
         (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
@@ -263,7 +263,7 @@ contract Marketplace is
         }
 
         // Get asset ID and check collateral is locked
-        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
 
         // Check asset status is Active
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
@@ -290,7 +290,7 @@ contract Marketplace is
         bool buyerPaysFee
     ) internal returns (uint256 listingId) {
         // Get asset ID for indexing
-        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
 
         // Create listing
         listingId = _listingIdCounter++;
@@ -333,9 +333,9 @@ contract Marketplace is
         }
 
         // Check asset status
-        uint256 assetId = router.getAssetIdFromTokenId(listing.tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert ListingNotActive();
+            revert AssetNotActive();
         }
 
         if (!listing.isActive) {
@@ -412,7 +412,7 @@ contract Marketplace is
         Listing storage listing = listings[listingId];
 
         if (listing.listingId == 0) revert ListingNotFound();
-        if (listing.seller != msg.sender) revert NotTokenOwner();
+        if (listing.seller != msg.sender) revert NotListingOwner();
 
         // Allow ending if:
         // 1. Active
@@ -451,7 +451,7 @@ contract Marketplace is
             revert ListingNotFound();
         }
         if (listing.seller != msg.sender) {
-            revert NotTokenOwner();
+            revert NotListingOwner();
         }
         if (!listing.isActive) {
             revert ListingNotActive();
@@ -580,7 +580,7 @@ contract Marketplace is
         }
         // Validate caller is the seller
         if (listing.seller != msg.sender) {
-            revert NotTokenOwner();
+            revert NotListingOwner();
         }
         // Validate listing is active
         if (!listing.isActive) {

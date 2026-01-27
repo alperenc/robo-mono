@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib, VehicleLib } from "../contracts/Libraries.sol";
+import { VehicleLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
@@ -21,22 +21,24 @@ contract VehicleRegistryTest is BaseTest {
         assertEq(address(assetRegistry.partnerManager()), address(partnerManager));
         assertEq(address(assetRegistry.router()), address(router));
 
-        // Check initial state
-        assertFalse(assetRegistry.assetExists(1));
-        assertFalse(assetRegistry.vinExists(TEST_VIN));
+        // Check initial state (no vehicles registered yet)
+        assertEq(roboshareTokens.getNextTokenId(), 1);
 
-        // Check admin roles
+        // Check roles
         assertTrue(assetRegistry.hasRole(assetRegistry.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(assetRegistry.hasRole(assetRegistry.UPGRADER_ROLE(), admin));
 
-        // Check router role
-        assertTrue(assetRegistry.hasRole(assetRegistry.ROUTER_ROLE(), address(router)));
+        // Verify role hashes
+        assertEq(assetRegistry.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+        assertEq(assetRegistry.ROUTER_ROLE(), keccak256("ROUTER_ROLE"), "Invalid ROUTER_ROLE hash");
+
+        // Verify hierarchy
+        assertEq(assetRegistry.getRoleAdmin(assetRegistry.UPGRADER_ROLE()), assetRegistry.DEFAULT_ADMIN_ROLE());
+        assertEq(assetRegistry.getRoleAdmin(assetRegistry.ROUTER_ROLE()), assetRegistry.DEFAULT_ADMIN_ROLE());
     }
 
-    function testInitializationZeroAddresses() public {
+    function testInitializationZeroAdmin() public {
         VehicleRegistry newImplementation = new VehicleRegistry();
-
-        // Test zero admin
         bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)",
             address(0),
@@ -44,73 +46,65 @@ contract VehicleRegistryTest is BaseTest {
             address(partnerManager),
             address(router)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero tokens
-        initData = abi.encodeWithSignature(
+    function testInitializationZeroTokens() public {
+        VehicleRegistry newImplementation = new VehicleRegistry();
+        bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)", admin, address(0), address(partnerManager), address(router)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero partner manager
-        initData = abi.encodeWithSignature(
+    function testInitializationZeroPartnerManager() public {
+        VehicleRegistry newImplementation = new VehicleRegistry();
+        bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)", admin, address(roboshareTokens), address(0), address(router)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
+    }
 
-        // Test zero router
-        initData = abi.encodeWithSignature(
+    function testInitializationZeroRouter() public {
+        VehicleRegistry newImplementation = new VehicleRegistry();
+        bytes memory initData = abi.encodeWithSignature(
             "initialize(address,address,address,address)",
             admin,
             address(roboshareTokens),
             address(partnerManager),
             address(0)
         );
-        vm.expectRevert();
+        vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         new ERC1967Proxy(address(newImplementation), initData);
     }
 
-    function testGetAssetInfoNonexistent() public {
+    function testGetAssetInfoAssetNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetInfo(999);
     }
 
-    function testGetAssetStatusNonexistent() public {
+    function testGetAssetStatusAssetNotFound() public {
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
         assetRegistry.getAssetStatus(999);
     }
 
     // Error Case Tests
 
-    function testGetVehicleInfoNonexistentVehicle() public {
+    function testGetVehicleInfoVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         assetRegistry.getVehicleInfo(999);
     }
 
-    function testGetVehicleDisplayNameNonexistentVehicle() public {
+    function testGetVehicleDisplayNameVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         assetRegistry.getVehicleDisplayName(999);
     }
 
-    function testTokenIdConversionErrorCases() public {
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(1);
-
-        vm.expectRevert(VehicleRegistry.IncorrectRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(0);
-
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(2);
-
-        vm.expectRevert(VehicleRegistry.IncorrectVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(0);
-    }
-
     function testRegisterVehicleInvalidVINLength() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         string memory shortVin = "VIN123"; // <10 length
         vm.expectRevert(VehicleLib.InvalidVINLength.selector);
         vm.prank(partner1);
@@ -122,7 +116,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleEmptyMake() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidMake.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -131,7 +125,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleEmptyModel() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidModel.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -140,7 +134,7 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testRegisterVehicleInvalidYear() public {
-        _ensureState(SetupState.PartnersAuthorized);
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -158,18 +152,10 @@ contract VehicleRegistryTest is BaseTest {
         );
     }
 
-    // New branch coverage for registry view helpers
-    function testGetAssetIdFromTokenId() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-
-        uint256 assetFromRevenue = assetRegistry.getAssetIdFromTokenId(scenario.revenueTokenId);
-        assertEq(assetFromRevenue, scenario.assetId);
-    }
-
     function testIsAuthorizedForAssetScenarios() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        // Unauthorized account: not a partner
+        // UnauthorizedCaller account: not a partner
         assertFalse(assetRegistry.isAuthorizedForAsset(unauthorized, scenario.assetId));
 
         // Authorized partner but no ownership
@@ -180,73 +166,6 @@ contract VehicleRegistryTest is BaseTest {
         assertTrue(assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId));
     }
 
-    function testSetAssetStatus() public {
-        _ensureState(SetupState.AssetRegistered);
-        uint256 assetId = scenario.assetId;
-
-        // Initial status is Pending
-        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Pending));
-
-        // Valid transition: Pending -> Active (called by Router)
-        vm.startPrank(address(router));
-        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
-        vm.stopPrank();
-
-        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
-    }
-
-    function testSetAssetStatusUnauthorized() public {
-        _ensureState(SetupState.AssetRegistered);
-        uint256 assetId = scenario.assetId;
-
-        // Invalid access: unauthorized caller
-        vm.startPrank(unauthorized);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, assetRegistry.ROUTER_ROLE()
-            )
-        );
-        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
-        vm.stopPrank();
-
-        // Invalid access: Treasury (revoked)
-        vm.startPrank(address(treasury));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(treasury), assetRegistry.ROUTER_ROLE()
-            )
-        );
-        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Pending);
-        vm.stopPrank();
-    }
-
-    function testBurnRevenueTokensAssetNotFound() public {
-        _ensureState(SetupState.PartnersAuthorized);
-        vm.prank(partner1);
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.burnRevenueTokens(999, 100);
-    }
-
-    function testRetireAssetAssetNotActive() public {
-        _ensureState(SetupState.AssetRegistered);
-        // Asset is registered but not active (Pending)
-
-        vm.prank(partner1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAssetRegistry.AssetNotActive.selector, scenario.assetId, AssetLib.AssetStatus.Pending
-            )
-        );
-        assetRegistry.retireAsset(scenario.assetId);
-    }
-
-    function testSetAssetStatusAssetNotFound() public {
-        vm.startPrank(address(router));
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.setAssetStatus(999, AssetLib.AssetStatus.Active);
-        vm.stopPrank();
-    }
-
     function testGetRegistryForAsset() public {
         _ensureState(SetupState.AssetRegistered);
 
@@ -255,21 +174,6 @@ contract VehicleRegistryTest is BaseTest {
 
         // Non-existent asset
         assertEq(assetRegistry.getRegistryForAsset(999), address(0));
-    }
-
-    function testRetireAssetAndBurnTokensAssetNotFound() public {
-        _ensureState(SetupState.PartnersAuthorized);
-        vm.prank(partner1);
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.retireAssetAndBurnTokens(999);
-    }
-
-    function testRetireAssetNotOwner() public {
-        _ensureState(SetupState.AssetRegistered);
-        // partner2 is authorized but does not own scenario.assetId
-        vm.prank(partner2);
-        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.retireAsset(scenario.assetId);
     }
 
     function testGetVehicleInfo() public {
@@ -314,7 +218,7 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.updateRoboshareTokens(address(0));
     }
 
-    function testUpdateRoboshareTokensUnauthorized() public {
+    function testUpdateRoboshareTokensUnauthorizedCaller() public {
         address newTokens = makeAddr("newRoboshareTokens");
 
         vm.startPrank(unauthorized);

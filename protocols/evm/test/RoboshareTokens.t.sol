@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { TokenLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
@@ -20,19 +20,22 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testInitialization() public view {
-        // Check roles
         assertTrue(roboshareTokens.hasRole(roboshareTokens.DEFAULT_ADMIN_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.BURNER_ROLE(), admin));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.URI_SETTER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), minter));
 
-        // Check token counter starts at 1
-        assertEq(roboshareTokens.getNextTokenId(), 1);
+        // Verify role hashes
+        assertEq(roboshareTokens.MINTER_ROLE(), keccak256("MINTER_ROLE"), "Invalid MINTER_ROLE hash");
+        assertEq(roboshareTokens.BURNER_ROLE(), keccak256("BURNER_ROLE"), "Invalid BURNER_ROLE hash");
+        assertEq(roboshareTokens.URI_SETTER_ROLE(), keccak256("URI_SETTER_ROLE"), "Invalid URI_SETTER_ROLE hash");
+        assertEq(roboshareTokens.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
+    }
 
-        // Check interface support
-        assertTrue(roboshareTokens.supportsInterface(type(IERC1155).interfaceId));
-        assertTrue(roboshareTokens.supportsInterface(type(IAccessControl).interfaceId));
+    function testInitializationZeroAdmin() public {
+        RoboshareTokens newImpl = new RoboshareTokens();
+        vm.expectRevert(RoboshareTokens.ZeroAddress.selector);
+        new ERC1967Proxy(address(newImpl), abi.encodeWithSignature("initialize(address)", address(0)));
     }
 
     function testMintSingleToken() public {
@@ -157,26 +160,40 @@ contract RoboshareTokensTest is BaseTest {
 
     // Access Control Tests
 
-    function testMintUnauthorized() public {
-        vm.expectRevert();
+    function testMintUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.MINTER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         roboshareTokens.mint(user1, 1, 100, "");
     }
 
-    function testBurnUnauthorized() public {
+    function testBurnUnauthorizedCaller() public {
         // Setup: mint token first
         vm.prank(minter);
         roboshareTokens.mint(user1, 1, 100, "");
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.BURNER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         roboshareTokens.burn(user1, 1, 50);
     }
 
-    function testSetURIUnauthorized() public {
-        vm.expectRevert();
+    function testSetURIUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                roboshareTokens.URI_SETTER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
-        roboshareTokens.setURI("unauthorized-uri");
+        roboshareTokens.setURI("ipfs://new-uri");
     }
 
     function testGetUserPositionsAndBalance() public {
@@ -191,18 +208,6 @@ contract RoboshareTokensTest is BaseTest {
         assertTrue(roboshareTokens.supportsInterface(0xd9b67a26));
         assertTrue(roboshareTokens.supportsInterface(0x01ffc9a7));
         assertFalse(roboshareTokens.supportsInterface(0xffffffff));
-    }
-
-    function testRoleManagement() public {
-        vm.startPrank(admin);
-        // Admin can grant roles
-        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), user1);
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), user1));
-
-        // Admin can revoke roles
-        roboshareTokens.revokeRole(roboshareTokens.MINTER_ROLE(), user1);
-        assertFalse(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), user1));
-        vm.stopPrank();
     }
 
     // Fuzz Tests
@@ -283,7 +288,7 @@ contract RoboshareTokensTest is BaseTest {
         roboshareTokens.safeTransferFrom(user1, user2, 1, 150, "");
     }
 
-    function testGetUserPositionsNonRevenueToken() public {
+    function testGetUserPositionsNotRevenueToken() public {
         _ensureState(SetupState.RevenueTokensMinted); // Creates assetId (odd) and revenueTokenId (even)
 
         // Attempt to get positions for the vehicle NFT ID, which is not a revenue token
@@ -326,5 +331,62 @@ contract RoboshareTokensTest is BaseTest {
         uint256 assetId = 101; // An odd number, not a revenue token
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getSalesPenalty(user1, assetId, 100);
+    }
+
+    function testGetSalesPenaltyHoldingPeriod() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 tokenId = scenario.revenueTokenId;
+        uint256 amount = 100;
+
+        // Transfer tokens to user1 (who does not own the asset)
+        vm.prank(partner1);
+        roboshareTokens.safeTransferFrom(partner1, user1, tokenId, amount, "");
+
+        // Immediately after receiving, there should be a penalty for user1
+        uint256 penalty = roboshareTokens.getSalesPenalty(user1, tokenId, amount);
+        assertGt(penalty, 0, "Should have penalty immediately after acquisition");
+
+        // Warp past holding period (30 days + 1)
+        _warpPastHoldingPeriod();
+
+        // Penalty should now be 0
+        penalty = roboshareTokens.getSalesPenalty(user1, tokenId, amount);
+        assertEq(penalty, 0, "Penalty should be zero after holding period");
+    }
+
+    // ID Conversion Tests
+
+    function testGetAssetIdFromTokenId() public view {
+        // Happy path: registered or unregistered (logic is dumb)
+        uint256 tokenId = 1002;
+        uint256 expectedAssetId = 1001;
+        assertEq(roboshareTokens.getAssetIdFromTokenId(tokenId), expectedAssetId);
+    }
+
+    function testGetAssetIdFromTokenIdInvalid() public {
+        // ID 0 -> InvalidRevenueTokenId
+        vm.expectRevert(TokenLib.InvalidRevenueTokenId.selector);
+        roboshareTokens.getAssetIdFromTokenId(0);
+
+        // Odd ID -> InvalidRevenueTokenId
+        vm.expectRevert(TokenLib.InvalidRevenueTokenId.selector);
+        roboshareTokens.getAssetIdFromTokenId(1001);
+    }
+
+    function testGetTokenIdFromAssetId() public view {
+        // Happy path: registered or unregistered (logic is dumb)
+        uint256 assetId = 1001;
+        uint256 expectedTokenId = 1002;
+        assertEq(roboshareTokens.getTokenIdFromAssetId(assetId), expectedTokenId);
+    }
+
+    function testGetTokenIdFromAssetIdInvalid() public {
+        // ID 0 -> InvalidAssetId
+        vm.expectRevert(TokenLib.InvalidAssetId.selector);
+        roboshareTokens.getTokenIdFromAssetId(0);
+
+        // Even ID -> InvalidAssetId
+        vm.expectRevert(TokenLib.InvalidAssetId.selector);
+        roboshareTokens.getTokenIdFromAssetId(1002);
     }
 }

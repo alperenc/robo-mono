@@ -90,29 +90,10 @@
   },
   {
     "type": "function",
-    "name": "assetIdToRegistry",
+    "name": "bindId",
     "inputs": [
       {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "bindAsset",
-    "inputs": [
-      {
-        "name": "assetId",
+        "name": "id",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -252,7 +233,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -390,7 +371,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -430,6 +411,25 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "idToRegistry",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -1044,25 +1044,6 @@
   },
   {
     "type": "event",
-    "name": "AssetBoundToRegistry",
-    "inputs": [
-      {
-        "name": "assetId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "registry",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "AssetExpired",
     "inputs": [
       {
@@ -1194,6 +1175,25 @@
         "type": "uint8",
         "indexed": true,
         "internalType": "enum AssetLib.AssetStatus"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "IdBoundToRegistry",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "registry",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1520,7 +1520,18 @@
   },
   {
     "type": "error",
-    "name": "RegistryNotFoundForAsset",
+    "name": "RegistryNotFound",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RevenueTokensNotMinted",
     "inputs": [
       {
         "name": "assetId",

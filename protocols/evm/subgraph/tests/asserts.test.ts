@@ -1,6 +1,6 @@
 import { describe, test, assert, beforeAll } from "matchstick-as";
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { Partner, Vehicle, Listing, EarningsDistribution, AssetEarnings } from "../generated/schema";
+import { Partner, Vehicle, Listing, EarningsDistribution, AssetEarnings, BoundId } from "../generated/schema";
 
 describe("Asserts", () => {
     beforeAll(() => {
@@ -178,6 +178,30 @@ describe("Asserts", () => {
         assert.fieldEquals("AssetEarnings", assetId, "lastDistributionAt", "1712441870");
 
         assert.entityCount("AssetEarnings", 1);
+    });
+
+    test("BoundId entity", () => {
+        // Testing BoundId entity creation
+        let id = "1";
+        let registryAddress = "0xeD1DB453C3156Ff3155a97AD217b3087D5Dc5f6E";
+
+        let boundId = new BoundId(id);
+        boundId.idValue = BigInt.fromI32(1);
+        boundId.registry = Bytes.fromHexString(registryAddress);
+        boundId.blockNumber = BigInt.fromI32(12345);
+        boundId.blockTimestamp = BigInt.fromI32(1709849870);
+        boundId.transactionHash = Bytes.fromHexString(
+            "0x5909fcb0b41989e28308afcb0cf55adb6faba28e14fcbf66c489c69b8fe95dda"
+        );
+        boundId.save();
+
+        // Loading and asserting
+        let loaded = BoundId.load(id);
+        assert.assertNotNull(loaded, "BoundId should not be null");
+        assert.fieldEquals("BoundId", id, "idValue", "1");
+        assert.fieldEquals("BoundId", id, "registry", registryAddress.toLowerCase());
+
+        assert.entityCount("BoundId", 1);
     });
 });
 

@@ -36,8 +36,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     error VehicleDoesNotExist();
     error RevenueTokensAlreadyMinted();
     error OutstandingTokensHeldByOthers();
-    error IncorrectVehicleId();
-    error IncorrectRevenueTokenId();
 
     // Events
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
@@ -91,7 +89,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     function _onlyAuthorizedPartner() internal view {
         if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.NotAuthorized();
+            revert PartnerManager.UnauthorizedPartner();
         }
     }
 
@@ -185,21 +183,21 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return assetId;
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 price, uint256 supply, uint256 maturityDate)
+    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
         returns (uint256 revenueTokenId)
     {
-        VehicleLib.Vehicle storage vehicle = vehicles[assetId];
-        if (vehicle.vehicleId == 0) {
+        if (vehicles[assetId].vehicleId == 0) {
             revert AssetNotFound(assetId);
         }
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
             revert NotAssetOwner();
         }
 
-        revenueTokenId = assetId + 1; // Revenue token ID is one more than vehicle NFT ID
+        // Get token ID (pure conversion)
+        revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
 
         if (roboshareTokens.getRevenueTokenSupply(revenueTokenId) > 0) {
             revert RevenueTokensAlreadyMinted();
@@ -222,7 +220,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return revenueTokenId;
     }
 
-    function registerAssetAndMintTokens(bytes calldata data, uint256 price, uint256 supply, uint256 maturityDate)
+    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
@@ -277,8 +275,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function registerAssetMintAndList(
         bytes calldata data,
-        uint256 price,
         uint256 supply,
+        uint256 price,
         uint256 maturityDate,
         uint256 listingDuration,
         bool buyerPaysFee
@@ -348,7 +346,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotFound(assetId);
         }
 
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
 
         // Burn tokens
         roboshareTokens.burn(msg.sender, revenueTokenId, amount);
@@ -368,9 +366,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
             revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
-
-        // Update Status
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
 
         // Trigger Treasury Settlement via Router
         (uint256 settlementAmount, uint256 settlementPerToken) =
@@ -397,7 +392,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         // Check liquidation conditions: Maturity OR Insolvency
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
         bool isMatured = block.timestamp >= maturityDate;
         bool isSolvent = router.isAssetSolvent(assetId);
@@ -405,9 +400,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (!isMatured && isSolvent) {
             revert AssetNotEligibleForLiquidation(assetId);
         }
-
-        // Update Status
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
 
         // Trigger Treasury Liquidation via Router
         (uint256 liquidationAmount, uint256 settlementPerToken) = router.executeLiquidation(assetId);
@@ -440,7 +432,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotSettled(assetId, info.status);
         }
 
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
 
         if (balance == 0) {
@@ -493,7 +485,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert NotAssetOwner();
         }
 
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         uint256 burnedTokens = 0;
@@ -579,28 +571,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotFound(assetId);
         }
         return vehicles[assetId].assetInfo.status;
-    }
-
-    /**
-     * @dev Get asset ID from token ID
-     */
-    function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
-        if (!TokenLib.isRevenueToken(tokenId) || tokenId > roboshareTokens.getNextTokenId()) {
-            revert IncorrectRevenueTokenId();
-        }
-
-        return tokenId - 1; // Vehicle NFT has ID one less than revenue token ID
-    }
-
-    /**
-     * @dev Get token ID from asset ID
-     */
-    function getTokenIdFromAssetId(uint256 assetId) external view override returns (uint256) {
-        if (TokenLib.isRevenueToken(assetId) || assetId == 0 || assetId >= roboshareTokens.getNextTokenId()) {
-            revert IncorrectVehicleId();
-        }
-
-        return assetId + 1; // Revenue token ID is one more than vehicle NFT ID
     }
 
     /**

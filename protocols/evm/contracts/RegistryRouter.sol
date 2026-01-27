@@ -7,7 +7,7 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
-import { AssetLib, TokenLib } from "./Libraries.sol";
+import { AssetLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 
 /**
@@ -27,18 +27,18 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     address public marketplace;
 
     // Registry management
-    mapping(uint256 => address) public assetIdToRegistry;
+    mapping(uint256 => address) public idToRegistry;
 
     // Errors
     error ZeroAddress();
     error DirectCallNotAllowed();
-    error RegistryNotFoundForAsset(uint256 assetId);
+    error RegistryNotFound(uint256 id);
     error RegistryNotBoundToAsset();
     error TreasuryNotSet();
     error TokenNotFound(uint256 tokenId);
 
     // Events
-    event AssetBoundToRegistry(uint256 indexed assetId, address indexed registry);
+    event IdBoundToRegistry(uint256 indexed id, address indexed registry);
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -105,18 +105,18 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev Bind an asset ID to a registry. Must be called by an authorized registry.
+     * @dev Bind an ID to a registry. Must be called by an authorized registry.
      */
-    function bindAsset(uint256 assetId) external onlyRole(AUTHORIZED_REGISTRY_ROLE) {
-        _bindAsset(assetId, msg.sender);
+    function bindId(uint256 id) external onlyRole(AUTHORIZED_REGISTRY_ROLE) {
+        _bindId(id, msg.sender);
     }
 
     /**
-     * @dev Internal helper to bind asset to registry
+     * @dev Internal helper to bind ID to registry
      */
-    function _bindAsset(uint256 assetId, address registry) internal {
-        assetIdToRegistry[assetId] = registry;
-        emit AssetBoundToRegistry(assetId, registry);
+    function _bindId(uint256 id, address registry) internal {
+        idToRegistry[id] = registry;
+        emit IdBoundToRegistry(id, registry);
     }
 
     /**
@@ -131,8 +131,9 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         // Router must have MINTER_ROLE on RoboshareTokens
         (assetId, revenueTokenId) = roboshareTokens.reserveNextTokenIdPair();
 
-        // Automatically bind
-        _bindAsset(assetId, msg.sender);
+        // Automatically bind both IDs to the caller registry
+        _bindId(assetId, msg.sender);
+        _bindId(revenueTokenId, msg.sender);
     }
 
     // IAssetRegistry Implementation (Routing)
@@ -153,9 +154,9 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         override
         returns (uint256 tokenId)
     {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         return IAssetRegistry(registry).mintRevenueTokens(assetId, supply, price, maturityDate);
     }
@@ -179,31 +180,31 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     function assetExists(uint256 assetId) external view override returns (bool) {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) return false;
         return IAssetRegistry(registry).assetExists(assetId);
     }
 
     function getAssetInfo(uint256 assetId) external view override returns (AssetLib.AssetInfo memory) {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         return IAssetRegistry(registry).getAssetInfo(assetId);
     }
 
     function getAssetStatus(uint256 assetId) external view override returns (AssetLib.AssetStatus) {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         return IAssetRegistry(registry).getAssetStatus(assetId);
     }
 
     function setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) external override {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         // Router doesn't enforce access control here, the specific registry should.
         // However, usually only Treasury calls this.
@@ -220,7 +221,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         returns (uint256 settlementAmount, uint256 settlementPerToken)
     {
         // Verify this registry owns the asset
-        if (assetIdToRegistry[assetId] != msg.sender) {
+        if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 
@@ -241,7 +242,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         returns (uint256 liquidationAmount, uint256 settlementPerToken)
     {
         // Verify this registry owns the asset
-        if (assetIdToRegistry[assetId] != msg.sender) {
+        if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 
@@ -265,7 +266,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         returns (uint256 claimedAmount)
     {
         // Verify this registry owns the asset
-        if (assetIdToRegistry[assetId] != msg.sender) {
+        if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 
@@ -287,7 +288,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         returns (uint256 snapshotAmount)
     {
         // Verify this registry owns the asset
-        if (assetIdToRegistry[assetId] != msg.sender) {
+        if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 
@@ -306,17 +307,17 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     function settleAsset(uint256 assetId, uint256 topUpAmount) external override {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         IAssetRegistry(registry).settleAsset(assetId, topUpAmount);
     }
 
     function liquidateAsset(uint256 assetId) external override {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         IAssetRegistry(registry).liquidateAsset(assetId);
     }
@@ -326,33 +327,33 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         override
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         return IAssetRegistry(registry).claimSettlement(assetId, autoClaimEarnings);
     }
 
     function burnRevenueTokens(uint256 assetId, uint256 amount) external override {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         IAssetRegistry(registry).burnRevenueTokens(assetId, amount);
     }
 
     function retireAsset(uint256 assetId) external override {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         IAssetRegistry(registry).retireAsset(assetId);
     }
 
     function retireAssetAndBurnTokens(uint256 assetId) external override {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         IAssetRegistry(registry).retireAssetAndBurnTokens(assetId);
     }
@@ -367,7 +368,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         returns (uint256 releasedCollateral)
     {
         // Verify this registry owns the asset
-        if (assetIdToRegistry[assetId] != msg.sender) {
+        if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 
@@ -388,7 +389,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         onlyRole(AUTHORIZED_REGISTRY_ROLE)
     {
         // Verify this registry owns the asset
-        if (assetIdToRegistry[assetId] != msg.sender) {
+        if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 
@@ -400,32 +401,16 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         ITreasury(treasury).lockCollateralFor(partner, assetId, amount, supply);
     }
 
-    function getAssetIdFromTokenId(uint256 tokenId) external pure override returns (uint256) {
-        // Standard logic: revenue token ID - 1 = asset ID
-        if (!TokenLib.isRevenueToken(tokenId)) {
-            revert TokenNotFound(tokenId);
-        }
-        return tokenId - 1;
-    }
-
-    function getTokenIdFromAssetId(uint256 assetId) external pure override returns (uint256) {
-        // Standard logic: asset ID + 1 = revenue token ID
-        if (TokenLib.isRevenueToken(assetId)) {
-            revert AssetNotFound(assetId);
-        }
-        return assetId + 1;
-    }
-
     function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
-        address registry = assetIdToRegistry[assetId];
+        address registry = idToRegistry[assetId];
         if (registry == address(0)) {
-            revert RegistryNotFoundForAsset(assetId);
+            revert RegistryNotFound(assetId);
         }
         return IAssetRegistry(registry).isAuthorizedForAsset(account, assetId);
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {
-        return assetIdToRegistry[assetId];
+        return idToRegistry[assetId];
     }
 
     function getRegistryType() external pure override returns (string memory) {

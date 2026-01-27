@@ -459,12 +459,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "price",
+        "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "supply",
+        "name": "price",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -538,12 +538,12 @@
         "internalType": "bytes"
       },
       {
-        "name": "price",
+        "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "supply",
+        "name": "price",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -577,12 +577,12 @@
         "internalType": "bytes"
       },
       {
-        "name": "price",
+        "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "supply",
+        "name": "price",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -1498,16 +1498,6 @@
   },
   {
     "type": "error",
-    "name": "IncorrectRevenueTokenId",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "IncorrectVehicleId",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InsufficientTokenBalance",
     "inputs": [
       {
@@ -1560,6 +1550,11 @@
   },
   {
     "type": "error",
+    "name": "InvalidRevenueTokenId",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidStatusTransition",
     "inputs": [
       {
@@ -1581,17 +1576,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidVehicleId",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidYear",
     "inputs": []
   },
   {
     "type": "error",
     "name": "NotAssetOwner",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NotAuthorized",
     "inputs": []
   },
   {
@@ -1611,6 +1606,17 @@
   },
   {
     "type": "error",
+    "name": "RevenueTokensNotMinted",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UUPSUnauthorizedCallContext",
     "inputs": []
   },
@@ -1624,6 +1630,11 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedPartner",
+    "inputs": []
   },
   {
     "type": "error",
