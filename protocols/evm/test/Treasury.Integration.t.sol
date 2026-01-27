@@ -103,9 +103,9 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
-    // Collateral Unlocking Tests
+    // Collateral Releasing Tests
 
-    function testUnlockCollateral() public {
+    function testReleaseCollateralFor() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first
@@ -127,7 +127,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertFalse(isLocked);
     }
 
-    function testUnlockCollateralEmitsEvent() public {
+    function testReleaseCollateralForEmitsEvent() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first
@@ -149,7 +149,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.releaseCollateralFor(partner1, scenario.assetId);
     }
 
-    function testUnlockCollateralNotLocked() public {
+    function testReleaseCollateralNotLocked() public {
         _ensureState(SetupState.AssetRegistered);
         vm.expectRevert(ITreasury.NoCollateralLocked.selector);
         vm.prank(partner1);
@@ -157,7 +157,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
-    function testUnlockCollateralNotAssetOwner() public {
+    function testReleaseCollateralNotAssetOwner() public {
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
         vm.prank(partner1);
         treasury.releaseCollateral(999);
@@ -238,7 +238,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.lockCollateral(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
     }
 
-    function testUnlockCollateralUnauthorizedPartner() public {
+    function testReleaseCollateralUnauthorizedPartner() public {
         _ensureState(SetupState.RevenueTokensClaimed);
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);

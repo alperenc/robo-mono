@@ -140,7 +140,7 @@ contract RegistryRouterTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testBindAsset() public {
+    function testBindId() public {
         address newRegistry = makeAddr("newRegistry");
         uint256 assetId = 100;
 
@@ -157,7 +157,7 @@ contract RegistryRouterTest is BaseTest {
         assertEq(router.idToRegistry(assetId), newRegistry);
     }
 
-    function testBindAssetUnauthorizedCaller() public {
+    function testBindIdUnauthorizedCaller() public {
         uint256 assetId = 100;
 
         vm.startPrank(unauthorized);
