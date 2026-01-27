@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { AssetLib } from "../contracts/Libraries.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 
@@ -150,10 +149,12 @@ contract RegistryRouterTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(newRegistry);
-        router.bindAsset(assetId);
+        vm.expectEmit(true, true, false, false);
+        emit RegistryRouter.IdBoundToRegistry(assetId, newRegistry);
+        router.bindId(assetId);
         vm.stopPrank();
 
-        assertEq(router.assetIdToRegistry(assetId), newRegistry);
+        assertEq(router.idToRegistry(assetId), newRegistry);
     }
 
     function testBindAssetUnauthorizedCaller() public {
@@ -167,7 +168,7 @@ contract RegistryRouterTest is BaseTest {
                 router.AUTHORIZED_REGISTRY_ROLE()
             )
         );
-        router.bindAsset(assetId);
+        router.bindId(assetId);
         vm.stopPrank();
     }
 
@@ -184,7 +185,7 @@ contract RegistryRouterTest is BaseTest {
 
         assertGt(assetId, 0);
         assertEq(revenueTokenId, assetId + 1);
-        assertEq(router.assetIdToRegistry(assetId), newRegistry);
+        assertEq(router.idToRegistry(assetId), newRegistry);
     }
 
     function testRoutingGetAssetInfo() public {
@@ -247,18 +248,18 @@ contract RegistryRouterTest is BaseTest {
         new ERC1967Proxy(address(routerImpl), abi.encodeWithSignature("initialize(address,address)", admin, address(0)));
     }
 
-    function testGetAssetIdFromTokenIdTokenNotFound() public {
-        // Test getAssetIdFromTokenId with non-revenue token (e.g. asset ID itself)
-        // Asset ID 1 is not a revenue token
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.TokenNotFound.selector, 1));
-        router.getAssetIdFromTokenId(1);
+    function testGetAssetIdFromTokenIdRegistryNotFound() public {
+        // Test getAssetIdFromTokenId with ID that has no mapped registry
+        uint256 unmappedId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unmappedId));
+        router.getAssetIdFromTokenId(unmappedId);
     }
 
-    function testGetTokenIdFromAssetIdAssetNotFound() public {
-        // Test getTokenIdFromAssetId with revenue token ID
-        // Revenue Token ID 2 is not an asset ID
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 2));
-        router.getTokenIdFromAssetId(2);
+    function testGetTokenIdFromAssetIdRegistryNotFound() public {
+        // Test getTokenIdFromAssetId with ID that has no mapped registry
+        uint256 unmappedId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unmappedId));
+        router.getTokenIdFromAssetId(unmappedId);
     }
 
     // ============ Admin Function Tests ============

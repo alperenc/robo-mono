@@ -181,7 +181,7 @@ contract BaseTest is Test {
         usdc.approve(address(treasury), scenario.requiredCollateral);
 
         revenueTokenId = assetRegistry.mintRevenueTokens(
-            scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, maturityDate
+            scenario.assetId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, maturityDate
         );
         vm.stopPrank();
     }

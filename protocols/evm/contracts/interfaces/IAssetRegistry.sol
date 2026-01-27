@@ -29,9 +29,11 @@ interface IAssetRegistry {
     /**
      * @dev Shared Errors
      */
-    error AssetNotFound(uint256 assetId);
     error NotAssetOwner();
+    error AssetNotFound(uint256 assetId);
     error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
+    error RevenueTokensNotMinted(uint256 assetId);
+
     error AssetNotEligibleForLiquidation(uint256 assetId);
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetAlreadySettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
@@ -49,8 +51,8 @@ interface IAssetRegistry {
         returns (uint256 assetId, uint256 tokenId);
     function registerAssetMintAndList(
         bytes calldata data,
-        uint256 price,
         uint256 supply,
+        uint256 price,
         uint256 maturityDate,
         uint256 listingDuration,
         bool buyerPaysFee

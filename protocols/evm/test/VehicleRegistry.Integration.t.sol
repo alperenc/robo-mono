@@ -95,8 +95,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         (uint256 newAssetId, uint256 newRevenueTokenId) = assetRegistry.registerAssetAndMintTokens(
             abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI),
-            REVENUE_TOKEN_PRICE,
             REVENUE_TOKEN_SUPPLY,
+            REVENUE_TOKEN_PRICE,
             maturityDate
         );
 
@@ -143,7 +143,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Execute: Register, mint, and list in one transaction!
         (uint256 assetId, uint256 revenueTokenId, uint256 listingId) = assetRegistry.registerAssetMintAndList(
-            vehicleData, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days, 30 days, true
+            vehicleData, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 30 days, true
         );
         vm.stopPrank();
 
@@ -267,21 +267,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testGetAssetIdFromTokenIdInvalidId() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        // Test revenueTokenId == 0
-        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(0);
+        // Test with odd unregistered ID
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.getAssetIdFromTokenId(999);
 
-        // Test revenueTokenId % 2 != 0 (odd revenue token ID)
-        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(1); // 1 is an odd ID
-
-        // Test revenueTokenId >= _tokenIdCounter (non-existent revenue token ID)
-        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(999999);
-
-        // Test with non-existent but valid parity ID
-        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(100);
+        // Test with even unregistered ID
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 997));
+        assetRegistry.getAssetIdFromTokenId(998);
     }
 
     function testGetTokenIdFromAssetIdInvalidId() public {
@@ -291,13 +283,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(0);
 
-        // Test assetId >= nextTokenId
-        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(999999);
-
         // Test with revenue token ID (not an asset ID)
         vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(101);
+        assetRegistry.getTokenIdFromAssetId(scenario.revenueTokenId);
+
+        // Test unregistered asset ID
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.getTokenIdFromAssetId(999);
     }
 
     // View Function Tests
@@ -348,7 +340,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
 
         vm.prank(partner1);
-        uint256 revenueTokenId = assetRegistry.mintRevenueTokens(vehicleId, REVENUE_TOKEN_PRICE, supply, maturityDate);
+        uint256 revenueTokenId = assetRegistry.mintRevenueTokens(vehicleId, supply, REVENUE_TOKEN_PRICE, maturityDate);
 
         assertEq(roboshareTokens.balanceOf(partner1, revenueTokenId), supply);
     }
@@ -415,10 +407,24 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertCollateralState(scenario.assetId, 100000e6, expectedCollateral, true);
 
         // Partner retires asset
-        vm.prank(partner1);
-        vm.expectEmit(true, true, false, true);
+        vm.startPrank(partner1);
+
+        // Expect AssetStatusUpdated from VehicleRegistry
+        vm.expectEmit(true, true, true, true, address(assetRegistry));
+        emit IAssetRegistry.AssetStatusUpdated(
+            scenario.assetId, AssetLib.AssetStatus.Active, AssetLib.AssetStatus.Retired
+        );
+
+        // Expect CollateralReleased from Treasury
+        vm.expectEmit(true, true, true, true, address(treasury));
+        emit ITreasury.CollateralReleased(scenario.assetId, partner1, expectedCollateral);
+
+        // Expect AssetRetired from VehicleRegistry
+        vm.expectEmit(true, true, true, true, address(assetRegistry));
         emit IAssetRegistry.AssetRetired(scenario.assetId, partner1, REVENUE_TOKEN_SUPPLY, expectedCollateral);
+
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+        vm.stopPrank();
 
         // Verify tokens burned
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);

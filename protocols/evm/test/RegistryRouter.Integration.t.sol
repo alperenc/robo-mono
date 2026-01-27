@@ -233,71 +233,71 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(buyer, mockTokenId), purchaseAmount);
     }
 
-    // RegistryNotFoundForAsset Tests
+    // RegistryNotFound Tests
 
-    function testMintRevenueTokensRegistryNotFoundForAsset() public {
+    function testMintRevenueTokensRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.mintRevenueTokens(nonExistentAssetId, 100, 100, block.timestamp + 365 days);
     }
 
-    function testGetAssetInfoRegistryNotFoundForAsset() public {
+    function testGetAssetInfoRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.getAssetInfo(nonExistentAssetId);
     }
 
-    function testGetAssetStatusRegistryNotFoundForAsset() public {
+    function testGetAssetStatusRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.getAssetStatus(nonExistentAssetId);
     }
 
-    function testSetAssetStatusRegistryNotFoundForAsset() public {
+    function testSetAssetStatusRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.setAssetStatus(nonExistentAssetId, AssetLib.AssetStatus.Active);
     }
 
-    function testBurnRevenueTokensRegistryNotFoundForAsset() public {
+    function testBurnRevenueTokensRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.burnRevenueTokens(nonExistentAssetId, 100);
     }
 
-    function testRetireAssetRegistryNotFoundForAsset() public {
+    function testRetireAssetRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.retireAsset(nonExistentAssetId);
     }
 
-    function testRetireAssetAndBurnTokensRegistryNotFoundForAsset() public {
+    function testRetireAssetAndBurnTokensRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.retireAssetAndBurnTokens(nonExistentAssetId);
     }
 
-    function testIsAuthorizedForAssetRegistryNotFoundForAsset() public {
+    function testIsAuthorizedForAssetRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.isAuthorizedForAsset(partner1, nonExistentAssetId);
     }
 
-    function testSettleAssetRegistryNotFoundForAsset() public {
+    function testSettleAssetRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.settleAsset(nonExistentAssetId, 0);
     }
 
-    function testLiquidateAssetRegistryNotFoundForAsset() public {
+    function testLiquidateAssetRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.liquidateAsset(nonExistentAssetId);
     }
 
-    function testClaimSettlementRegistryNotFoundForAsset() public {
+    function testClaimSettlementRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFoundForAsset.selector, nonExistentAssetId));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.claimSettlement(nonExistentAssetId, false);
     }
 
@@ -380,7 +380,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(partner1);
-        proxyRouter.bindAsset(100);
+        proxyRouter.bindId(100);
 
         return proxyRouter;
     }

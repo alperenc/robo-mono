@@ -104,19 +104,29 @@ contract VehicleRegistryTest is BaseTest {
     }
 
     function testGetAssetIdFromTokenIdInvalidId() public {
-        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
-        assetRegistry.getAssetIdFromTokenId(1);
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 1));
+        assetRegistry.getAssetIdFromTokenId(2); // even unregistered is AssetNotFound
 
-        vm.expectRevert(VehicleRegistry.InvalidRevenueTokenId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 0));
         assetRegistry.getAssetIdFromTokenId(0);
+    }
+
+    function testGetAssetIdFromTokenIdAssetNotFound() public {
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 997));
+        assetRegistry.getAssetIdFromTokenId(998);
     }
 
     function testGetTokenIdFromAssetIdInvalidId() public {
         vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(2);
+        assetRegistry.getTokenIdFromAssetId(2); // even is token
 
         vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
         assetRegistry.getTokenIdFromAssetId(0);
+    }
+
+    function testGetTokenIdFromAssetIdAssetNotFound() public {
+        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        assetRegistry.getTokenIdFromAssetId(999);
     }
 
     function testRegisterVehicleInvalidVINLength() public {

@@ -185,7 +185,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return assetId;
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 price, uint256 supply, uint256 maturityDate)
+    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
@@ -222,7 +222,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return revenueTokenId;
     }
 
-    function registerAssetAndMintTokens(bytes calldata data, uint256 price, uint256 supply, uint256 maturityDate)
+    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
@@ -277,8 +277,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      */
     function registerAssetMintAndList(
         bytes calldata data,
-        uint256 price,
         uint256 supply,
+        uint256 price,
         uint256 maturityDate,
         uint256 listingDuration,
         bool buyerPaysFee
@@ -369,9 +369,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
-        // Update Status
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
-
         // Trigger Treasury Settlement via Router
         (uint256 settlementAmount, uint256 settlementPerToken) =
             router.initiateSettlement(msg.sender, assetId, topUpAmount);
@@ -405,9 +402,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (!isMatured && isSolvent) {
             revert AssetNotEligibleForLiquidation(assetId);
         }
-
-        // Update Status
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
 
         // Trigger Treasury Liquidation via Router
         (uint256 liquidationAmount, uint256 settlementPerToken) = router.executeLiquidation(assetId);
@@ -585,22 +579,31 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Get asset ID from token ID
      */
     function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
-        if (!TokenLib.isRevenueToken(tokenId) || tokenId > roboshareTokens.getNextTokenId()) {
+        uint256 assetId = TokenLib.isRevenueToken(tokenId) ? tokenId - 1 : tokenId;
+        if (vehicles[assetId].vehicleId == 0) {
+            revert AssetNotFound(assetId);
+        }
+
+        if (!TokenLib.isRevenueToken(tokenId)) {
             revert InvalidRevenueTokenId();
         }
 
-        return tokenId - 1; // Vehicle NFT has ID one less than revenue token ID
+        return assetId;
     }
 
     /**
      * @dev Get token ID from asset ID
      */
     function getTokenIdFromAssetId(uint256 assetId) external view override returns (uint256) {
-        if (TokenLib.isRevenueToken(assetId) || assetId == 0 || assetId >= roboshareTokens.getNextTokenId()) {
+        if (TokenLib.isRevenueToken(assetId) || assetId == 0) {
             revert InvalidVehicleId();
         }
 
-        return assetId + 1; // Revenue token ID is one more than vehicle NFT ID
+        if (vehicles[assetId].vehicleId == 0) {
+            revert AssetNotFound(assetId);
+        }
+
+        return assetId + 1;
     }
 
     /**
