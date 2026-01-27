@@ -18,6 +18,7 @@ import {
 } from "../generated/RegistryRouter/RegistryRouter"
 import {
   VehicleRegistry,
+  AssetRegistered as AssetRegisteredEvent,
   VehicleRegistered as VehicleRegisteredEvent,
   VehicleRegisteredAndRevenueTokensMinted as VehicleRegisteredAndMintedEvent
 } from "../generated/VehicleRegistry/VehicleRegistry"
@@ -146,6 +147,33 @@ export function handleIdBoundToRegistry(event: IdBoundToRegistryEvent): void {
   }
 }
 
+export function handleAssetRegistered(event: AssetRegisteredEvent): void {
+  let vehicle = Vehicle.load(event.params.assetId.toString())
+  if (!vehicle) {
+    vehicle = new Vehicle(event.params.assetId.toString())
+    vehicle.partner = event.params.owner
+    vehicle.blockNumber = event.block.number
+    vehicle.blockTimestamp = event.block.timestamp
+    vehicle.transactionHash = event.transaction.hash
+  }
+
+  // Fetch vehicle info from contract to ensure non-nullable fields (like vin) are populated
+  // This works whether event.address is the VehicleRegistry or the RegistryRouter
+  let contract = VehicleRegistry.bind(event.address)
+  let infoCall = contract.try_getVehicleInfo(event.params.assetId)
+  if (!infoCall.reverted) {
+    let info = infoCall.value
+    vehicle.vin = info.value0
+    vehicle.make = info.value1
+    vehicle.model = info.value2
+    vehicle.year = info.value3
+    vehicle.metadataURI = info.value6
+  }
+
+  vehicle.assetValue = event.params.assetValue
+  vehicle.save()
+}
+
 export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
   let vehicle = new Vehicle(event.params.vehicleId.toString())
   vehicle.partner = event.params.partner
@@ -197,6 +225,7 @@ export function handleVehicleRegisteredAndMinted(
     vehicle.metadataURI = info.value6 // dynamicMetadataURI
   }
 
+  vehicle.assetValue = event.params.assetValue
   vehicle.save()
 
   // Note: RoboshareToken entity is created by handleRevenueTokenInfoSet event

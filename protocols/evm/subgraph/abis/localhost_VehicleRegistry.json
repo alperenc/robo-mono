@@ -119,25 +119,6 @@
   },
   {
     "type": "function",
-    "name": "getAssetIdFromTokenId",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getAssetInfo",
     "inputs": [
       {
@@ -152,6 +133,11 @@
         "type": "tuple",
         "internalType": "struct AssetLib.AssetInfo",
         "components": [
+          {
+            "name": "assetValue",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
           {
             "name": "status",
             "type": "uint8",
@@ -251,25 +237,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getTokenIdFromAssetId",
-    "inputs": [
-      {
-        "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -459,12 +426,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "supply",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "price",
+        "name": "tokenPrice",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -477,6 +439,11 @@
     "outputs": [
       {
         "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -517,6 +484,11 @@
         "name": "data",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "assetValue",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -538,12 +510,12 @@
         "internalType": "bytes"
       },
       {
-        "name": "supply",
+        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "price",
+        "name": "tokenPrice",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -563,6 +535,11 @@
         "name": "revenueTokenId",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "supply",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "nonpayable"
@@ -577,12 +554,12 @@
         "internalType": "bytes"
       },
       {
-        "name": "supply",
+        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "price",
+        "name": "tokenPrice",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -610,6 +587,11 @@
       },
       {
         "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -861,6 +843,11 @@
         "internalType": "struct AssetLib.AssetInfo",
         "components": [
           {
+            "name": "assetValue",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "status",
             "type": "uint8",
             "internalType": "enum AssetLib.AssetStatus"
@@ -981,6 +968,12 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "assetValue",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "status",
@@ -1133,7 +1126,13 @@
         "internalType": "address"
       },
       {
-        "name": "totalSupply",
+        "name": "assetValue",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1365,7 +1364,13 @@
         "internalType": "address"
       },
       {
-        "name": "totalSupply",
+        "name": "assetValue",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1519,6 +1524,11 @@
   },
   {
     "type": "error",
+    "name": "InvalidAssetId",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidAssetStatus",
     "inputs": [
       {
@@ -1550,11 +1560,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidRevenueTokenId",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InvalidStatusTransition",
     "inputs": [
       {
@@ -1572,11 +1577,6 @@
   {
     "type": "error",
     "name": "InvalidVINLength",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidVehicleId",
     "inputs": []
   },
   {

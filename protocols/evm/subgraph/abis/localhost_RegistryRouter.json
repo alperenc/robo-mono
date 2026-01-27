@@ -218,25 +218,6 @@
   },
   {
     "type": "function",
-    "name": "getAssetIdFromTokenId",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getAssetInfo",
     "inputs": [
       {
@@ -251,6 +232,11 @@
         "type": "tuple",
         "internalType": "struct AssetLib.AssetInfo",
         "components": [
+          {
+            "name": "assetValue",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
           {
             "name": "status",
             "type": "uint8",
@@ -350,25 +336,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getTokenIdFromAssetId",
-    "inputs": [
-      {
-        "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -557,12 +524,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "supply",
+        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -593,12 +555,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "supply",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "price",
+        "name": "tokenPrice",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -611,6 +568,11 @@
     "outputs": [
       {
         "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -667,6 +629,11 @@
         "name": "",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -704,6 +671,11 @@
       }
     ],
     "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "",
         "type": "uint256",
@@ -753,6 +725,11 @@
       }
     ],
     "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "",
         "type": "uint256",
@@ -1082,6 +1059,12 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "assetValue",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "status",

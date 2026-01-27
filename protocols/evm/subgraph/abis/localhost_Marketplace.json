@@ -1545,6 +1545,11 @@
   },
   {
     "type": "error",
+    "name": "InvalidRevenueTokenId",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidTokenType",
     "inputs": []
   },

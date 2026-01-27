@@ -414,12 +414,7 @@
     "name": "getTotalCollateralRequirement",
     "inputs": [
       {
-        "name": "revenueTokenPrice",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "tokenSupply",
+        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -594,12 +589,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "revenueTokenPrice",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "tokenSupply",
+        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -622,12 +612,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "revenueTokenPrice",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "tokenSupply",
+        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1686,6 +1671,11 @@
   {
     "type": "error",
     "name": "InsufficientTokenBalance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAssetId",
     "inputs": []
   },
   {
