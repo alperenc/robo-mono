@@ -28,7 +28,7 @@ contract MockRegistry is IAssetRegistry {
         treasuryContract = Treasury(_treasury);
     }
 
-    function registerAndMint(address partner, uint256 supply, uint256 price)
+    function registerAndMint(address partner, uint256 assetValue, uint256 tokenPrice)
         external
         returns (uint256 assetId, uint256 revenueTokenId)
     {
@@ -37,19 +37,21 @@ contract MockRegistry is IAssetRegistry {
 
         // 2. Initialize local state
         assets[assetId].id = assetId;
+        assets[assetId].info.assetValue = assetValue;
         assets[assetId].info.status = AssetLib.AssetStatus.Active;
         assets[assetId].info.createdAt = block.timestamp;
         assets[assetId].info.updatedAt = block.timestamp;
 
         // 3. Setup Token Info & Lock Collateral
+        uint256 supply = assetValue / tokenPrice;
         uint256 maturityDate = block.timestamp + 365 days;
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
 
         // Mint Asset NFT first so partner owns it for collateral locking
         roboshareTokens.mint(partner, assetId, 1, "");
 
         // Lock Collateral (Requires partner to have approved Treasury)
-        router.lockCollateralFor(partner, assetId, price, supply);
+        router.lockCollateralFor(partner, assetId, assetValue);
 
         // 4. Mint revenue tokens
         roboshareTokens.mint(partner, revenueTokenId, supply, "");
@@ -75,30 +77,30 @@ contract MockRegistry is IAssetRegistry {
     }
 
     // Stubs for other functions
-    function registerAsset(bytes calldata) external pure override returns (uint256) {
+    function registerAsset(bytes calldata, uint256) external pure override returns (uint256) {
         return 0;
     }
 
-    function mintRevenueTokens(uint256, uint256, uint256, uint256) external pure override returns (uint256) {
-        return 0;
+    function mintRevenueTokens(uint256, uint256, uint256) external pure override returns (uint256, uint256) {
+        return (0, 0);
     }
 
     function registerAssetAndMintTokens(bytes calldata, uint256, uint256, uint256)
         external
         pure
         override
-        returns (uint256, uint256)
+        returns (uint256, uint256, uint256)
     {
-        return (0, 0);
+        return (0, 0, 0);
     }
 
     function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, bool)
         external
         pure
         override
-        returns (uint256, uint256, uint256)
+        returns (uint256, uint256, uint256, uint256)
     {
-        return (0, 0, 0);
+        return (0, 0, 0, 0);
     }
 
     function setAssetStatus(uint256, AssetLib.AssetStatus) external override { }
@@ -184,11 +186,11 @@ contract RegistryRouterIntegrationTest is BaseTest {
         vm.startPrank(partner1);
 
         // Approve Treasury to pull collateral
-        uint256 collateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        uint256 collateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
         usdc.approve(address(treasury), collateral);
 
         (uint256 mockAssetId, uint256 mockTokenId) =
-            mockRegistry.registerAndMint(partner1, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE);
+            mockRegistry.registerAndMint(partner1, ASSET_VALUE, REVENUE_TOKEN_PRICE);
         vm.stopPrank();
 
         // Verify IDs
@@ -230,7 +232,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
     function testMintRevenueTokensRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
-        router.mintRevenueTokens(nonExistentAssetId, 100, 100, block.timestamp + 365 days);
+        router.mintRevenueTokens(nonExistentAssetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days);
     }
 
     function testGetAssetInfoRegistryNotFound() public {
@@ -305,7 +307,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
-        router.lockCollateralFor(partner1, assetId, 100, 100);
+        router.lockCollateralFor(partner1, assetId, ASSET_VALUE);
     }
 
     function testReleaseCollateralForRegistryNotBoundToAsset() public {
@@ -381,7 +383,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
         vm.prank(partner1);
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.lockCollateralFor(partner1, 100, 100, 100);
+        proxyRouter.lockCollateralFor(partner1, 100, ASSET_VALUE);
     }
 
     function testReleaseCollateralForTreasuryNotSet() public {

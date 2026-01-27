@@ -194,7 +194,8 @@ contract RegistryRouterTest is BaseTest {
         uint256 assetId = assetRegistry.registerAsset(
             abi.encode(
                 TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            )
+            ),
+            ASSET_VALUE
         );
 
         // Call via Router
@@ -207,7 +208,8 @@ contract RegistryRouterTest is BaseTest {
         uint256 assetId = assetRegistry.registerAsset(
             abi.encode(
                 TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            )
+            ),
+            ASSET_VALUE
         );
 
         assertTrue(router.assetExists(assetId));
@@ -216,17 +218,19 @@ contract RegistryRouterTest is BaseTest {
 
     function testRegisterAssetDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAsset(bytes(""));
+        router.registerAsset(bytes(""), ASSET_VALUE);
     }
 
     function testRegisterAssetAndMintTokensDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetAndMintTokens(bytes(""), 100, 100, block.timestamp + 365 days);
+        router.registerAssetAndMintTokens(bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days);
     }
 
     function testRegisterAssetMintAndListDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetMintAndList(bytes(""), 100, 100, 100, 30 days, true);
+        router.registerAssetMintAndList(
+            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 30 days, true
+        );
     }
 
     function testInitializationZeroAdmin() public {

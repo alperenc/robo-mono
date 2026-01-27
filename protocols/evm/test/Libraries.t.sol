@@ -33,8 +33,8 @@ contract AssetHelper {
 
     AssetLib.AssetInfo internal info;
 
-    function init(AssetLib.AssetStatus s) external {
-        info.initializeAssetInfo();
+    function init(AssetLib.AssetStatus s, uint256 assetValue) external {
+        info.initializeAssetInfo(assetValue);
         if (s != AssetLib.AssetStatus.Pending) {
             info.updateAssetStatus(s);
         }
@@ -70,8 +70,8 @@ contract CollateralTokenEarningsHelper {
     EarningsLib.EarningsInfo internal e;
     TokenLib.TokenInfo internal t;
 
-    function initCollateral(uint256 price, uint256 total, uint256 interval) external {
-        c.initializeCollateralInfo(price, total, interval);
+    function initCollateral(uint256 assetValue, uint256 interval) external {
+        c.initializeCollateralInfo(assetValue, interval);
     }
 
     function collateralView()
@@ -95,12 +95,8 @@ contract CollateralTokenEarningsHelper {
         return c.getLockDuration();
     }
 
-    function calcReq(uint256 tokenPrice, uint256 tokenSupply, uint256 interval)
-        external
-        pure
-        returns (uint256, uint256, uint256, uint256)
-    {
-        return CollateralLib.calculateCollateralRequirements(tokenPrice, tokenSupply, interval);
+    function calcReq(uint256 assetValue, uint256 interval) external pure returns (uint256, uint256, uint256, uint256) {
+        return CollateralLib.calculateCollateralRequirements(assetValue, interval);
     }
 
     function depreciation(uint256 base, uint256 elapsed) external pure returns (uint256) {
@@ -197,7 +193,7 @@ contract LibrariesTest is Test {
 
     // AssetLib tests
     function testAssetsInitAndTransitions() public {
-        ah.init(AssetLib.AssetStatus.Pending);
+        ah.init(AssetLib.AssetStatus.Pending, 100000e6);
         assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Pending));
         assertFalse(ah.isOperational());
 
@@ -231,7 +227,7 @@ contract LibrariesTest is Test {
     }
 
     function testAssetsTimeViews() public {
-        ah.init(AssetLib.AssetStatus.Active);
+        ah.init(AssetLib.AssetStatus.Active, 100000e6);
         uint256 t0 = block.timestamp;
         vm.warp(t0 + 1 days);
         assertApproxEqAbs(ah.age(), 1 days, 2);
@@ -246,11 +242,11 @@ contract LibrariesTest is Test {
     function testCollateralInitAndView() public {
         // invalid input
         vm.expectRevert(CollateralLib.InvalidCollateralAmount.selector);
-        cteh.initCollateral(0, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.initCollateral(0, ProtocolLib.QUARTERLY_INTERVAL);
 
-        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
         (uint256 baseCol, uint256 earnBuf, uint256 protBuf, uint256 totalCol) = cteh.collateralView();
-        assertEq(baseCol, 100e9);
+        assertEq(baseCol, 100000e6);
         assertTrue(cteh.isCollateralInitialized());
         assertGt(earnBuf, 0);
         assertGt(protBuf, 0);
@@ -265,14 +261,14 @@ contract LibrariesTest is Test {
 
     function testCollateralRequirements() public pure {
         (uint256 baseAmt, uint256 eBuf, uint256 pBuf, uint256 tot) =
-            CollateralLib.calculateCollateralRequirements(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
-        assertEq(baseAmt, 100e9);
+            CollateralLib.calculateCollateralRequirements(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+        assertEq(baseAmt, 100000e6);
         assertEq(tot, baseAmt + eBuf + pBuf);
     }
 
     function testCollateralDepreciationAndBuffers() public {
-        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
-        uint256 dep = cteh.depreciation(100e9, 30 days);
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+        uint256 dep = cteh.depreciation(100000e6, 30 days);
         assertGt(dep, 0);
 
         // Setup buffers for processEarningsForBuffers
@@ -298,7 +294,7 @@ contract LibrariesTest is Test {
     }
 
     function testCollateralPerfectMatchBuffers() public {
-        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
         uint256 dt = 30 days;
         (uint256 baseCol,,,) = cteh.collateralView();
         uint256 baseEarnings = EarningsLib.calculateBenchmarkEarnings(baseCol, dt);
@@ -364,14 +360,14 @@ contract LibrariesTest is Test {
     }
 
     function testCollateralInitAlreadyLocked() public {
-        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
         cteh.lockNow();
         vm.expectRevert(CollateralLib.CollateralAlreadyInitialized.selector);
-        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
     }
 
     function testCollateralReleaseNoneDue() public {
-        cteh.initCollateral(100e6, 1000, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
         cteh.lockNow();
         // No time passed, release should be 0
         assertEq(cteh.calcRelease(), 0);
