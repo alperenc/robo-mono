@@ -56,7 +56,7 @@ contract PartnerManagerTest is BaseTest {
 
     function testAuthorizePartner() public {
         uint256 futureTime = block.timestamp + 100;
-        warpAndSaveTime(futureTime);
+        _warpAndSaveTime(futureTime);
 
         vm.prank(partnerAdmin);
         vm.expectEmit(true, false, false, true);

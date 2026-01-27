@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { console } from "forge-std/console.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1155Holder } from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import { BaseTest } from "./BaseTest.t.sol";
@@ -12,22 +11,6 @@ import { PartnerManager } from "../contracts/PartnerManager.sol";
 
 contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     uint256 constant BASE_COLLATERAL = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
-
-    /**
-     * @dev Helper to distribute earnings using new 3-arg signature
-     * Calculates investor portion based on current token ownership
-     */
-    function _distributeEarnings(uint256 assetId, uint256 totalAmount, address partner) internal {
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 partnerTokens = roboshareTokens.balanceOf(partner, revenueTokenId);
-        uint256 investorTokens = totalSupply - partnerTokens;
-
-        // Calculate investor portion (if no investors, use totalAmount for error testing)
-        uint256 investorAmount = investorTokens > 0 ? (totalAmount * investorTokens) / totalSupply : totalAmount;
-
-        treasury.distributeEarnings(assetId, totalAmount, investorAmount, false);
-    }
 
     function setUp() public {
         // Integration tests need funded accounts and authorized partners as a baseline
@@ -43,14 +26,14 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
 
-        BalanceSnapshot memory beforeSnapshot = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory beforeSnapshot = _takeBalanceSnapshot(scenario.revenueTokenId);
 
         treasury.lockCollateral(scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
 
-        BalanceSnapshot memory afterSnapshot = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory afterSnapshot = _takeBalanceSnapshot(scenario.revenueTokenId);
 
-        assertBalanceChanges(
+        _assertBalanceChanges(
             beforeSnapshot,
             afterSnapshot,
             // forge-lint: disable-next-line(unsafe-typecast)
@@ -64,7 +47,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
             0 // Buyer token change
         );
 
-        assertCollateralState(scenario.assetId, BASE_COLLATERAL, requiredCollateral, true);
+        _assertCollateralState(scenario.assetId, BASE_COLLATERAL, requiredCollateral, true);
         assertEq(treasury.totalCollateralDeposited(), requiredCollateral);
     }
 
@@ -307,7 +290,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.lockCollateral(vehicleId1, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         vm.stopPrank();
 
-        string memory vin = generateVin(1);
+        string memory vin = _generateVin(1);
         vm.prank(partner1);
         uint256 vehicleId2 = assetRegistry.registerAsset(
             abi.encode(
@@ -322,8 +305,8 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
 
         assertEq(treasury.totalCollateralDeposited(), requiredCollateral1 + requiredCollateral2);
-        assertCollateralState(vehicleId1, BASE_COLLATERAL, requiredCollateral1, true);
-        assertCollateralState(vehicleId2, BASE_COLLATERAL, requiredCollateral2, true);
+        _assertCollateralState(vehicleId1, BASE_COLLATERAL, requiredCollateral1, true);
+        _assertCollateralState(vehicleId2, BASE_COLLATERAL, requiredCollateral2, true);
     }
 
     function testCompleteCollateralLifecycle() public {
@@ -375,7 +358,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         uint256 investorTokens = REVENUE_TOKEN_SUPPLY - partnerTokens;
         uint256 investorAmount = (totalAmount * investorTokens) / REVENUE_TOKEN_SUPPLY;
 
-        uint256 protocolFee = calculateExpectedProtocolFee(investorAmount);
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(investorAmount);
         uint256 netEarnings = investorAmount - protocolFee;
 
         vm.startPrank(partner1);
@@ -484,18 +467,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
         uint256 earningsAmount = 1000 * 1e6;
 
-        console.log("partner1 balance:", usdc.balanceOf(partner1));
-        console.log("treasury allowance:", usdc.allowance(partner1, address(treasury)));
-        console.log("earningsAmount:", earningsAmount);
-
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        console.log("treasury allowance after approve:", usdc.allowance(partner1, address(treasury)));
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-        uint256 totalEarnings = earningsAmount - calculateExpectedProtocolFee(earningsAmount);
+        uint256 totalEarnings = earningsAmount - ProtocolLib.calculateProtocolFee(earningsAmount);
         uint256 buyerShare = (totalEarnings * buyerBalance) / REVENUE_TOKEN_SUPPLY;
 
         vm.startPrank(buyer);
@@ -511,13 +489,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         uint256 earnings2 = 500 * 1e6;
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earnings1 + earnings2);
-        _distributeEarnings(scenario.assetId, earnings1, partner1);
-        _distributeEarnings(scenario.assetId, earnings2, partner1);
+        _setupEarningsDistributed(earnings1);
+        _setupEarningsDistributed(earnings2);
         vm.stopPrank();
 
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-        uint256 totalNet = (earnings1 - calculateExpectedProtocolFee(earnings1))
-            + (earnings2 - calculateExpectedProtocolFee(earnings2));
+        uint256 totalNet = (earnings1 - ProtocolLib.calculateProtocolFee(earnings1))
+            + (earnings2 - ProtocolLib.calculateProtocolFee(earnings2));
         uint256 buyerShare = (totalNet * buyerBalance) / REVENUE_TOKEN_SUPPLY;
 
         uint256 initialPending = treasury.getPendingWithdrawal(buyer);
@@ -531,7 +509,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1000e6);
-        _distributeEarnings(scenario.assetId, 1000e6, partner1);
+        _setupEarningsDistributed(1000e6);
         vm.stopPrank();
 
         vm.expectRevert(ITreasury.InsufficientTokenBalance.selector);
@@ -543,7 +521,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1000e6);
-        _distributeEarnings(scenario.assetId, 1000e6, partner1);
+        _setupEarningsDistributed(1000e6);
         vm.stopPrank();
 
         vm.startPrank(buyer);
@@ -556,7 +534,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testReleasePartialCollateral() public {
         _ensureState(SetupState.RevenueTokensClaimed);
         vm.warp(block.timestamp + 30 days);
-        setupEarningsScenario(scenario.assetId, 1000e6);
+        _setupEarningsDistributed(1000e6);
         vm.startPrank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
         vm.stopPrank();
@@ -581,13 +559,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testCompleteEarningsLifecycle() public {
         _ensureState(SetupState.RevenueTokensClaimed);
         uint256 earningsAmount = 1000 * 1e6;
-        uint256 netEarnings = earningsAmount - calculateExpectedProtocolFee(earningsAmount);
+        uint256 netEarnings = earningsAmount - ProtocolLib.calculateProtocolFee(earningsAmount);
         uint256 buyerShare = (netEarnings * PURCHASE_AMOUNT) / REVENUE_TOKEN_SUPPLY;
         uint256 buyerInitialBalance = usdc.balanceOf(buyer);
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         vm.startPrank(buyer);
@@ -692,11 +670,11 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Distribute earnings to accrue protocol fee to fee recipient
         vm.startPrank(partner1);
         usdc.approve(address(treasury), totalAmount);
-        _distributeEarnings(scenario.assetId, totalAmount, partner1);
+        _setupEarningsDistributed(totalAmount);
         vm.stopPrank();
 
         // Fee is calculated on investor portion, not total amount
-        uint256 expectedFee = calculateExpectedProtocolFee(investorAmount);
+        uint256 expectedFee = ProtocolLib.calculateProtocolFee(investorAmount);
         uint256 newFeeBalance = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
         assertEq(newFeeBalance - initialFeeBalance, expectedFee, "Fee delta should match investor portion fee");
 
@@ -719,7 +697,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.warp(lockedAt + dt);
 
         // Compute target net = base * MIN_EARNINGS_BUFFER_BP * dt / (BP_PRECISION * YEARLY_INTERVAL)
-        (uint256 baseCollateral,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        (uint256 baseCollateral,,,) = _calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         uint256 targetNet = (baseCollateral * 1000 * dt) / (10000 * 365 days);
         // Compute gross so that net ~= targetNet (ceil to be safe): gross = ceil(targetNet * 10000 / 9750)
         uint256 gross = (targetNet * 10000 + 9749) / 9750;
@@ -727,7 +705,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, gross);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), gross);
-        _distributeEarnings(scenario.assetId, gross, partner1);
+        _setupEarningsDistributed(gross);
         vm.stopPrank();
 
         // Release; with near-perfect match no shortfall/excess branches should trigger
@@ -741,7 +719,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Satisfy performance gate with an earnings distribution
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1_000e6);
-        _distributeEarnings(scenario.assetId, 1_000e6, partner1);
+        _setupEarningsDistributed(1_000e6);
         vm.stopPrank();
 
         // Read initial lockedAt and base
@@ -774,7 +752,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // First distribution to enable first release
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 2_000e6);
-        _distributeEarnings(scenario.assetId, 1_000e6, partner1);
+        _setupEarningsDistributed(1_000e6);
         vm.stopPrank();
 
         (uint256 baseInitial,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
@@ -788,7 +766,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Second distribution to enable second release
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1_000e6);
-        _distributeEarnings(scenario.assetId, 1_000e6, partner1);
+        _setupEarningsDistributed(1_000e6);
         vm.stopPrank();
 
         // Second release after additional ~6 months from the last release timestamp
@@ -812,7 +790,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // First, initialize earnings
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 1000e6);
-        _distributeEarnings(scenario.assetId, 1000e6, partner1);
+        _setupEarningsDistributed(1000e6);
         vm.stopPrank();
 
         // Warp relative to the original lock timestamp before first release
@@ -837,7 +815,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Configure a shortfall: low earnings vs benchmark
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 100e6);
-        _distributeEarnings(scenario.assetId, 100e6, partner1); // small amount to trigger shortfall vs benchmark
+        _setupEarningsDistributed(100e6); // small amount to trigger shortfall vs benchmark
         vm.stopPrank();
 
         // Warp relative to the original lock timestamp and process first release
@@ -851,7 +829,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Now add excess earnings and process to replenish buffers
         vm.startPrank(partner1);
         usdc.approve(address(treasury), 10_000e6);
-        _distributeEarnings(scenario.assetId, 10_000e6, partner1);
+        _setupEarningsDistributed(10_000e6);
         vm.stopPrank();
 
         // Warp from the timestamp used in the prior release
@@ -872,7 +850,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), totalAmount);
-        _distributeEarnings(scenario.assetId, totalAmount, partner1);
+        _setupEarningsDistributed(totalAmount);
         vm.stopPrank();
 
         // Fee should be MIN_PROTOCOL_FEE since investor portion = MIN_PROTOCOL_FEE
@@ -899,7 +877,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.EarningsDistributed);
 
         (, uint256 earningsBuffer, uint256 protocolBuffer,) =
-            calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+            _calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
         assertTrue(isLocked);
@@ -917,7 +895,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
             uint256 grossEarnings = (benchmarkEarnings * 10000) / 9750; // Gross up to account for protocol fee
             // Scale up by token ratio since setupEarningsScenario uses investor portion
             uint256 scaledGrossEarnings = (grossEarnings * REVENUE_TOKEN_SUPPLY) / PURCHASE_AMOUNT;
-            setupEarningsScenario(scenario.assetId, scaledGrossEarnings + 10e6); // Add extra to ensure excess
+            _setupEarningsDistributed(scaledGrossEarnings + 10e6); // Add extra to ensure excess
 
             vm.prank(partner1);
             treasury.releasePartialCollateral(scenario.assetId);
@@ -935,7 +913,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         );
 
         // Attempt one final release in the 10th year
-        setupEarningsScenario(scenario.assetId, 10_000e6); // Scale up for investor ratio
+        _setupEarningsDistributed(10_000e6); // Scale up for investor ratio
         vm.warp(block.timestamp + 365 days);
 
         // Expect revert because releaseAmount will be 0
@@ -992,7 +970,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Get initial state
-        (,, uint256 protocolBuffer,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        (,, uint256 protocolBuffer,) = _calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         uint256 initialFeePending = treasury.getPendingWithdrawal(config.treasuryFeeRecipient);
 
         // Settle
@@ -1166,7 +1144,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Settle the asset
@@ -1174,10 +1152,10 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assetRegistry.settleAsset(scenario.assetId, 0);
 
         // Calculate expected earnings for buyer (100 tokens out of 1000 investor tokens)
-        // Partner owns 900, investor owns 100. investorAmount = 10_000 * 100 / 1000 = 1000
+        // Partner owns 900, investor owns 100. investorAmount = 10_000 * 100 / 1000 = 1000 for buyer
         // But partner is not an investor - earnings per token = investorAmount / investorSupply
         // Actually partner holds 900 so investor portion = 10_000 * 100 / 1000 = 1000 for buyer
-        // Wait, _distributeEarnings calculates investorTokens = totalSupply - partnerTokens
+        // Note: _setupEarningsDistributed calculates investorTokens = totalSupply - partnerTokens
         // So with partner1 holding 900 after selling 100 to buyer:
         // investorTokens = 1000 - 900 = 100
         // investorAmount = 10_000 * 100 / 1000 = 1000
@@ -1225,7 +1203,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Settle the asset
@@ -1261,7 +1239,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Settle asset and claim settlement (without auto-claim earnings)
@@ -1317,7 +1295,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Settle
@@ -1356,7 +1334,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Buyer claims earnings now
@@ -1384,7 +1362,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Settle and claim settlement (snapshot created)
@@ -1413,7 +1391,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Asset NOT settled - claim should use normal position-based approach
@@ -1439,7 +1417,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
             deal(address(usdc), partner1, earningsAmount);
             vm.startPrank(partner1);
             usdc.approve(address(treasury), earningsAmount);
-            _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+            _setupEarningsDistributed(earningsAmount);
             vm.stopPrank();
 
             // Advance time between distributions
@@ -1619,7 +1597,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Buyer claims with convenience function
@@ -1642,7 +1620,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
-        _distributeEarnings(scenario.assetId, earningsAmount, partner1);
+        _setupEarningsDistributed(earningsAmount);
         vm.stopPrank();
 
         // Settle the asset (without auto-claiming earnings)

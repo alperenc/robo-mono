@@ -34,7 +34,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             uint256 manufacturerId,
             string memory optionCodes,
             string memory metadataURI
-        ) = generateVehicleData(1);
+        ) = _generateVehicleData(1);
 
         vm.expectEmit(true, true, false, true);
         emit VehicleRegistry.VehicleRegistered(1, partner1, vin);
@@ -44,18 +44,18 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             assetRegistry.registerAsset(abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI));
 
         assertEq(newVehicleId, 1);
-        assertVehicleState(newVehicleId, partner1, vin, true);
+        _assertVehicleState(newVehicleId, partner1, vin, true);
         assertEq(roboshareTokens.getNextTokenId(), 3);
     }
 
     function testRegisterMultipleVehicles() public {
-        uint256[] memory p1Assets = createMultipleTestVehicles(partner1, 1);
-        uint256[] memory p2Assets = createMultipleTestVehicles(partner2, 1);
+        uint256[] memory p1Assets = _createMultipleTestVehicles(partner1, 1);
+        uint256[] memory p2Assets = _createMultipleTestVehicles(partner2, 1);
 
         assertEq(p1Assets[0], 1);
         assertEq(p2Assets[0], 3);
-        assertVehicleState(p1Assets[0], partner1, "", true); // Skip exact VIN check
-        assertVehicleState(p2Assets[0], partner2, "", true);
+        _assertVehicleState(p1Assets[0], partner1, "", true); // Skip exact VIN check
+        _assertVehicleState(p2Assets[0], partner2, "", true);
         assertEq(roboshareTokens.getNextTokenId(), 5);
     }
 
@@ -89,7 +89,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             uint256 manufacturerId,
             string memory optionCodes,
             string memory metadataURI
-        ) = generateVehicleData(1);
+        ) = _generateVehicleData(1);
         uint256 maturityDate = block.timestamp + 365 days;
 
         vm.prank(partner1);
@@ -155,7 +155,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), REVENUE_TOKEN_SUPPLY);
 
         // Verify: Listing was created with full supply at face value
-        assertListingState(listingId, revenueTokenId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, partner1, true, true);
+        _assertListingState(listingId, revenueTokenId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, partner1, true, true);
     }
 
     // Metadata Update Tests
@@ -219,7 +219,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
             uint256 manufacturerId,
             string memory optionCodes,
             string memory metadataURI
-        ) = generateVehicleData(3);
+        ) = _generateVehicleData(3);
         vm.expectRevert(VehicleRegistry.VehicleAlreadyExists.selector);
         vm.prank(partner2);
         assetRegistry.registerAsset(abi.encode(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI));
@@ -293,7 +293,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.InitialAccountsSetup);
 
         // Ensure partner1 has enough USDC to cover any fuzz supply
-        fundAddressWithUsdc(partner1, type(uint256).max);
+        _fundAddressWithUsdc(partner1, type(uint256).max);
         vm.prank(partner1);
         usdc.approve(address(treasury), type(uint256).max);
         uint256 maturityDate = block.timestamp + 365 days;
@@ -370,7 +370,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Verify initial state
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
         uint256 expectedCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        assertCollateralState(scenario.assetId, 100000e6, expectedCollateral, true);
+        _assertCollateralState(scenario.assetId, 100000e6, expectedCollateral, true);
 
         // Partner retires asset
         vm.startPrank(partner1);
@@ -484,13 +484,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         uint256 topUpAmount = 1000e6;
 
         // Partner approves top-up
-        fundAddressWithUsdc(partner1, topUpAmount);
+        _fundAddressWithUsdc(partner1, topUpAmount);
         vm.prank(partner1);
         usdc.approve(address(treasury), topUpAmount);
 
         // Calculate expected settlement amounts
         (uint256 base, uint256 earningsBuffer,,) =
-            calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+            _calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         uint256 investorPool = base + earningsBuffer;
         uint256 expectedSettlementAmount = investorPool + topUpAmount;
         uint256 expectedPerToken = expectedSettlementAmount / REVENUE_TOKEN_SUPPLY;
@@ -513,7 +513,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.warp(maturityDate + 1);
 
         // Calculate expected liquidation amounts (Investor Pool = Base + Earnings Buffer)
-        (uint256 base,,,) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        (uint256 base,,,) = _calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
 
         // In the new logic, if matured, earningsBuffer is separated from investorPool.
         // In executeLiquidation, the partnerRefund (earningsBuffer) is ignored/lost if it exists.

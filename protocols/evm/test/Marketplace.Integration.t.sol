@@ -59,14 +59,14 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
 
         assertEq(newListingId, expectedListingId);
-        assertListingState(
+        _assertListingState(
             newListingId, scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, partner1, true, true
         );
 
-        assertTokenBalance(
+        _assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, LISTING_AMOUNT, "Marketplace token balance mismatch"
         );
-        assertTokenBalance(
+        _assertTokenBalance(
             partner1, scenario.revenueTokenId, REVENUE_TOKEN_SUPPLY - LISTING_AMOUNT, "Partner token balance mismatch"
         );
     }
@@ -127,19 +127,19 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
 
-        BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
-        expectRevenueTokensTradedEvent(
+        _expectRevenueTokensTradedEvent(
             scenario.revenueTokenId, partner1, buyer, PURCHASE_AMOUNT, scenario.listingId, totalPrice
         );
 
         marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
 
-        BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
         // Deferred proceeds: USDC held in Marketplace until listing ends
-        assertBalanceChanges(
+        _assertBalanceChanges(
             beforeBalance,
             afterBalance,
             0, // Partner USDC change (deferred - no transfer yet)
@@ -195,15 +195,15 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
 
-        BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
         marketplace.purchaseTokens(newListingId, PURCHASE_AMOUNT);
         vm.stopPrank();
 
-        BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
         // 5. Deferred proceeds: USDC held in Marketplace until listing ends
-        assertBalanceChanges(
+        _assertBalanceChanges(
             beforeBalance,
             afterBalance,
             0, // Partner USDC change (deferred)
@@ -241,15 +241,15 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
 
-        BalanceSnapshot memory beforeBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
         marketplace.purchaseTokens(newListingId, PURCHASE_AMOUNT);
         vm.stopPrank();
 
-        BalanceSnapshot memory afterBalance = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
         // Deferred proceeds: USDC held in Marketplace until listing ends
-        assertBalanceChanges(
+        _assertBalanceChanges(
             beforeBalance,
             afterBalance,
             0, // Partner USDC change (deferred)
@@ -297,7 +297,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.claimTokens(scenario.listingId);
 
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), LISTING_AMOUNT);
-        assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
+        _assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
     }
 
     function testPurchaseTokensInsufficientPayment() public {
@@ -308,7 +308,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 requiredPayment = totalPrice + protocolFee;
 
         address poorBuyer = makeAddr("poorBuyer");
-        setupInsufficientFunds(poorBuyer, requiredPayment);
+        _setupInsufficientFunds(poorBuyer, requiredPayment);
 
         vm.startPrank(poorBuyer);
         usdc.approve(address(marketplace), requiredPayment);
@@ -321,7 +321,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testPurchaseTokensExpired() public {
         _ensureState(SetupState.RevenueTokensListed);
 
-        setupExpiredListing(scenario.listingId);
+        _setupExpiredListing(scenario.listingId);
 
         vm.expectRevert(Marketplace.ListingExpired.selector);
         vm.prank(buyer);
@@ -367,13 +367,13 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Listing has ListingAmount - PurchaseAmount (unsold) + PurchaseAmount (sold).
         // Return = ListingAmount.
         // Result: Seller has Total.
-        assertTokenBalance(
+        _assertTokenBalance(
             partner1,
             scenario.revenueTokenId,
             partnerBalanceBefore + LISTING_AMOUNT, // Returns everything
             "Partner token balance mismatch after cancellation"
         );
-        assertTokenBalance(
+        _assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after cancellation"
         );
 
@@ -386,7 +386,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(buyer);
         marketplace.claimRefund(scenario.listingId);
 
-        assertUsdcBalance(buyer, buyerUsdcBefore + expectedPayment, "Buyer refund mismatch");
+        _assertUsdcBalance(buyer, buyerUsdcBefore + expectedPayment, "Buyer refund mismatch");
         assertEq(marketplace.buyerPayments(scenario.listingId, buyer), 0, "Buyer payment state mismatch");
     }
 
@@ -419,7 +419,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Verify withdrawal happened
         assertEq(withdrawn, sellerReceives, "Withdrawn amount mismatch");
-        assertUsdcBalance(partner1, partnerUsdcBefore + sellerReceives, "Partner USDC after finalize");
+        _assertUsdcBalance(partner1, partnerUsdcBefore + sellerReceives, "Partner USDC after finalize");
 
         // Verify listing was ended (not cancelled in the refund sense)
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
@@ -563,7 +563,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensListed);
 
         // Warping to future
-        warpToTimeOffset(LISTING_DURATION + 1);
+        _warpToTimeOffset(LISTING_DURATION + 1);
 
         vm.prank(partner1);
         marketplace.endListing(scenario.listingId);
@@ -599,7 +599,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensListed);
 
         // Expire it so it's eligible to end
-        warpToTimeOffset(LISTING_DURATION + 1);
+        _warpToTimeOffset(LISTING_DURATION + 1);
 
         vm.expectRevert(Marketplace.NotListingOwner.selector);
         vm.prank(unauthorized);
@@ -611,7 +611,7 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testGetAssetListings() public {
         _ensureState(SetupState.RevenueTokensListed);
 
-        assertEq(getListingCount(scenario.assetId), 1);
+        assertEq(_getListingCount(scenario.assetId), 1);
         uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
         assertEq(activeListings[0], scenario.listingId);
     }
@@ -646,7 +646,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         marketplace.cancelListing(scenario.listingId);
 
-        assertEq(getListingCount(scenario.assetId), 1);
+        assertEq(_getListingCount(scenario.assetId), 1);
         uint256[] memory activeListings = marketplace.getAssetListings(scenario.assetId);
         assertEq(activeListings[0], listingId2);
     }
@@ -778,13 +778,13 @@ contract MarketplaceIntegrationTest is BaseTest {
         // 3. Execute purchase
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        BalanceSnapshot memory beforePurchase = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory beforePurchase = _takeBalanceSnapshot(scenario.revenueTokenId);
         marketplace.purchaseTokens(listingId, purchaseAmount);
-        BalanceSnapshot memory afterPurchase = takeBalanceSnapshot(scenario.revenueTokenId);
+        BalanceSnapshot memory afterPurchase = _takeBalanceSnapshot(scenario.revenueTokenId);
         vm.stopPrank();
 
         // 4. Deferred proceeds: USDC held in Marketplace until listing ends
-        assertBalanceChanges(
+        _assertBalanceChanges(
             beforePurchase,
             afterPurchase,
             0, // Partner USDC change (deferred)
@@ -997,7 +997,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Settle the asset so it's not Active anymore
         // Partner must top up to cover total liability
         uint256 totalLiability = REVENUE_TOKEN_PRICE * REVENUE_TOKEN_SUPPLY;
-        fundAddressWithUsdc(partner1, totalLiability);
+        _fundAddressWithUsdc(partner1, totalLiability);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), totalLiability);
         assetRegistry.settleAsset(scenario.assetId, totalLiability);

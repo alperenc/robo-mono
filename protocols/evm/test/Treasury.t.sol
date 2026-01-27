@@ -118,7 +118,7 @@ contract TreasuryTest is BaseTest {
 
     function testGetTotalCollateralRequirement() public view {
         uint256 requirement = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
-        (,,, uint256 expectedTotal) = calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        (,,, uint256 expectedTotal) = _calculateExpectedCollateral(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
         assertEq(requirement, expectedTotal);
     }
 

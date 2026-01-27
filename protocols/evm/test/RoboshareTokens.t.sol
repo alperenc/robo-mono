@@ -133,9 +133,6 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testBatchTransfers() public {
-        address[] memory users = generateTestAddresses(1);
-        address userA = users[0];
-
         // Setup: mint multiple tokens to user1
         uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
@@ -153,12 +150,12 @@ contract RoboshareTokensTest is BaseTest {
         transferAmounts[1] = 50;
 
         vm.prank(user1);
-        roboshareTokens.safeBatchTransferFrom(user1, userA, ids, transferAmounts, "");
+        roboshareTokens.safeBatchTransferFrom(user1, user2, ids, transferAmounts, "");
 
         assertEq(roboshareTokens.balanceOf(user1, 101), 70);
         assertEq(roboshareTokens.balanceOf(user1, 102), 150);
-        assertEq(roboshareTokens.balanceOf(userA, 101), 30);
-        assertEq(roboshareTokens.balanceOf(userA, 102), 50);
+        assertEq(roboshareTokens.balanceOf(user2, 101), 30);
+        assertEq(roboshareTokens.balanceOf(user2, 102), 50);
     }
 
     // Access Control Tests
@@ -350,7 +347,7 @@ contract RoboshareTokensTest is BaseTest {
         assertGt(penalty, 0, "Should have penalty immediately after acquisition");
 
         // Warp past holding period (30 days + 1)
-        warpPastHoldingPeriod();
+        _warpPastHoldingPeriod();
 
         // Penalty should now be 0
         penalty = roboshareTokens.getSalesPenalty(user1, tokenId, amount);
