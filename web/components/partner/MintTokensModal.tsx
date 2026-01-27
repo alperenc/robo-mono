@@ -13,13 +13,13 @@ interface MintTokensModalProps {
   onClose: () => void;
   vehicleId: string;
   vin: string;
+  assetValue: string;
 }
 
-export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensModalProps) => {
+export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin, assetValue }: MintTokensModalProps) => {
   const { address: connectedAddress } = useAccount();
   const [formData, setFormData] = useState({
     tokenPrice: "",
-    tokenSupply: "",
     maturityMonths: "36",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,12 +31,12 @@ export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensM
 
   // Use parseUnits for USDC (6 decimals)
   const tokenPriceBigInt = formData.tokenPrice ? parseUnits(formData.tokenPrice, 6) : 0n;
-  const tokenSupplyBigInt = formData.tokenSupply ? BigInt(formData.tokenSupply) : 0n;
+  const assetValueBigInt = BigInt(assetValue);
 
   const { data: requiredCollateral } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "getTotalCollateralRequirement",
-    args: [tokenPriceBigInt, tokenSupplyBigInt],
+    args: [assetValueBigInt],
     watch: true,
   });
 
@@ -70,7 +70,7 @@ export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensM
 
       await writeVehicleRegistry({
         functionName: "mintRevenueTokens",
-        args: [BigInt(vehicleId), tokenPriceBigInt, tokenSupplyBigInt, maturityTimestamp],
+        args: [BigInt(vehicleId), tokenPriceBigInt, maturityTimestamp],
       });
 
       onClose();
@@ -82,6 +82,9 @@ export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensM
   };
 
   const needsApproval = requiredCollateral && (!allowance || allowance < requiredCollateral);
+
+  // Calculate projected supply based on asset value and token price
+  const projectedSupply = tokenPriceBigInt > 0n ? assetValueBigInt / tokenPriceBigInt : 0n;
 
   if (!isOpen) return null;
 
@@ -114,7 +117,7 @@ export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensM
               <div className="divider text-xs opacity-50 my-0">Financial Terms</div>
 
               <div className="bg-base-200 p-4 rounded-lg border border-primary/20">
-                {/* Row 1: Price and Supply */}
+                {/* Row 1: Price and Projected Supply */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="form-control">
                     <label className="label py-0">
@@ -134,19 +137,9 @@ export const MintTokensModal = ({ isOpen, onClose, vehicleId, vin }: MintTokensM
                       />
                     </div>
                   </div>
-                  <div className="form-control">
-                    <label className="label py-0">
-                      <span className="label-text text-xs font-bold uppercase opacity-60">Total Supply</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="tokenSupply"
-                      className="input input-bordered input-sm w-full"
-                      value={formData.tokenSupply}
-                      onChange={handleInputChange}
-                      placeholder="e.g. 10000"
-                      required
-                    />
+                  <div className="flex flex-col items-end justify-center pb-1">
+                    <span className="text-[10px] uppercase opacity-50 font-bold">Total Supply</span>
+                    <span className="text-sm font-bold">{projectedSupply.toLocaleString()} Tokens</span>
                   </div>
                 </div>
 
