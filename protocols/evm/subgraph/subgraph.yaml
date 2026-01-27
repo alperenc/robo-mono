@@ -85,8 +85,8 @@ dataSources:
         - name: RegistryRouter
           file: ./abis/localhost_RegistryRouter.json
       eventHandlers:
-        - event: AssetRegistered(indexed uint256,indexed address,uint8)
-          handler: handleAssetRegisteredRouter
+        - event: IdBoundToRegistry(indexed uint256,indexed address)
+          handler: handleIdBoundToRegistry
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: VehicleRegistry

@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1650,9 +1650,14 @@ const deployedContracts = {
             },
           ],
         },
+        {
+          type: "error",
+          name: "ZeroAddress",
+          inputs: [],
+        },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1725,7 +1730,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2331,11 +2336,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "NotAuthorized",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "NotInitializing",
           inputs: [],
         },
@@ -2357,12 +2357,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "UnauthorizedPartner",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ZeroAddress",
           inputs: [],
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2459,29 +2464,10 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "assetIdToRegistry",
+          name: "bindId",
           inputs: [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "bindAsset",
-          inputs: [
-            {
-              name: "assetId",
+              name: "id",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2621,7 +2607,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          stateMutability: "pure",
+          stateMutability: "view",
         },
         {
           type: "function",
@@ -2759,7 +2745,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          stateMutability: "pure",
+          stateMutability: "view",
         },
         {
           type: "function",
@@ -2799,6 +2785,25 @@ const deployedContracts = {
               name: "",
               type: "bool",
               internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "idToRegistry",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
             },
           ],
           stateMutability: "view",
@@ -3413,25 +3418,6 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "AssetBoundToRegistry",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "registry",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
           name: "AssetExpired",
           inputs: [
             {
@@ -3563,6 +3549,25 @@ const deployedContracts = {
               type: "uint8",
               indexed: true,
               internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "IdBoundToRegistry",
+          inputs: [
+            {
+              name: "id",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "registry",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
           ],
           anonymous: false,
@@ -3889,7 +3894,18 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "RegistryNotFoundForAsset",
+          name: "RegistryNotFound",
+          inputs: [
+            {
+              name: "id",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "RevenueTokensNotMinted",
           inputs: [
             {
               name: "assetId",
@@ -3937,7 +3953,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -4403,12 +4419,12 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "price",
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "supply",
+              name: "price",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4482,12 +4498,12 @@ const deployedContracts = {
               internalType: "bytes",
             },
             {
-              name: "price",
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "supply",
+              name: "price",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4521,12 +4537,12 @@ const deployedContracts = {
               internalType: "bytes",
             },
             {
-              name: "price",
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "supply",
+              name: "price",
               type: "uint256",
               internalType: "uint256",
             },
@@ -5442,16 +5458,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "IncorrectRevenueTokenId",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "IncorrectVehicleId",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InsufficientTokenBalance",
           inputs: [
             {
@@ -5504,6 +5510,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidRevenueTokenId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidStatusTransition",
           inputs: [
             {
@@ -5525,17 +5536,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidVehicleId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidYear",
           inputs: [],
         },
         {
           type: "error",
           name: "NotAssetOwner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotAuthorized",
           inputs: [],
         },
         {
@@ -5555,6 +5566,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "RevenueTokensNotMinted",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "UUPSUnauthorizedCallContext",
           inputs: [],
         },
@@ -5568,6 +5590,11 @@ const deployedContracts = {
               internalType: "bytes32",
             },
           ],
+        },
+        {
+          type: "error",
+          name: "UnauthorizedPartner",
+          inputs: [],
         },
         {
           type: "error",
@@ -5586,7 +5613,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -7141,8 +7168,83 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "AssetNotEligibleForLiquidation",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "AssetNotFound",
           inputs: [],
+        },
+        {
+          type: "error",
+          name: "AssetNotOperational",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotOperationalForLiquidation",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotOperationalForSettlement",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssetNotSettled",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "currentStatus",
+              type: "uint8",
+              internalType: "enum AssetLib.AssetStatus",
+            },
+          ],
         },
         {
           type: "error",
@@ -7198,11 +7300,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "IncorrectCollateralAmount",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InsufficientCollateral",
           inputs: [],
         },
@@ -7243,7 +7340,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "NoNewPeriodsToProcess",
+          name: "NoNewPerformanceEvents",
           inputs: [],
         },
         {
@@ -7259,6 +7356,11 @@ const deployedContracts = {
         {
           type: "error",
           name: "NoRevenueTokensIssued",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoUnclaimedEarnings",
           inputs: [],
         },
         {
@@ -7321,11 +7423,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "TransferFailed",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "UUPSUnauthorizedCallContext",
           inputs: [],
         },
@@ -7352,7 +7449,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -8954,7 +9051,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "NotTokenOwner",
+          name: "NotListingOwner",
           inputs: [],
         },
         {
@@ -8996,7 +9093,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769259495283.json",
+      deploymentFile: "run-1769498490307.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

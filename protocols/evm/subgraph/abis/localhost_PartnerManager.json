@@ -599,11 +599,6 @@
   },
   {
     "type": "error",
-    "name": "NotAuthorized",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
@@ -622,6 +617,11 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedPartner",
+    "inputs": []
   },
   {
     "type": "error",

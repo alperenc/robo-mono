@@ -1548,8 +1548,83 @@
   },
   {
     "type": "error",
+    "name": "AssetNotEligibleForLiquidation",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "AssetNotFound",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AssetNotOperational",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum AssetLib.AssetStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AssetNotOperationalForLiquidation",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentStatus",
+        "type": "uint8",
+        "internalType": "enum AssetLib.AssetStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AssetNotOperationalForSettlement",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentStatus",
+        "type": "uint8",
+        "internalType": "enum AssetLib.AssetStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AssetNotSettled",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentStatus",
+        "type": "uint8",
+        "internalType": "enum AssetLib.AssetStatus"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1605,11 +1680,6 @@
   },
   {
     "type": "error",
-    "name": "IncorrectCollateralAmount",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InsufficientCollateral",
     "inputs": []
   },
@@ -1650,7 +1720,7 @@
   },
   {
     "type": "error",
-    "name": "NoNewPeriodsToProcess",
+    "name": "NoNewPerformanceEvents",
     "inputs": []
   },
   {
@@ -1666,6 +1736,11 @@
   {
     "type": "error",
     "name": "NoRevenueTokensIssued",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoUnclaimedEarnings",
     "inputs": []
   },
   {
@@ -1725,11 +1800,6 @@
         "internalType": "address"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "TransferFailed",
-    "inputs": []
   },
   {
     "type": "error",
