@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ProtocolLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, TokenLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -559,7 +559,7 @@ contract BaseTest is Test {
      */
     function setupEarningsScenario(uint256 _assetId, uint256 totalEarningsAmount) internal {
         // Get revenue token ID
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(_assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(_assetId);
 
         // Calculate investor portion based on token ownership
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);

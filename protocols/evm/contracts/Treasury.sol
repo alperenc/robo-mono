@@ -237,7 +237,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     function _releaseCollateral(uint256 assetId, address recipient) internal {
         // Ensure no outstanding revenue tokens
         // Registry is responsible for burning tokens before calling retirement
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         if (totalSupply > 0) {
@@ -417,7 +417,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         if (isSettled) {
             unclaimedAmount = EarningsLib.claimSettledEarnings(earningsInfo, holder);
         } else {
-            uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+            uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
             uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
             if (tokenBalance == 0) {
                 revert InsufficientTokenBalance();
@@ -475,7 +475,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert AssetNotActive(assetId, status);
         }
 
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         // Note: tokenTotalSupply > 0 is guaranteed for Active assets since
         // assets can only become Active after minting tokens and locking collateral.
@@ -561,7 +561,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         // Get holder's positions before they are burned
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
 
         // Snapshot their unclaimed earnings
@@ -710,7 +710,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             pendingWithdrawals[partner] += partnerRefund;
         }
 
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         if (totalSupply > 0) {
@@ -743,7 +743,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Settle asset (Liquidation)
         (liquidationAmount,) = _settleAsset(assetId, 0, true);
 
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         if (totalSupply > 0) {
@@ -780,7 +780,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _clearCollateral(assetId);
 
         // Check for maturity
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
         bool isMatured = block.timestamp >= maturityDate;
 

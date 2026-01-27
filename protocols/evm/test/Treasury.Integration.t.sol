@@ -5,7 +5,7 @@ import { console } from "forge-std/console.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1155Holder } from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { ProtocolLib, EarningsLib, AssetLib, CollateralLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, EarningsLib, AssetLib, CollateralLib, TokenLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
@@ -18,7 +18,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
      * Calculates investor portion based on current token ownership
      */
     function _distributeEarnings(uint256 assetId, uint256 totalAmount, address partner) internal {
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         uint256 partnerTokens = roboshareTokens.balanceOf(partner, revenueTokenId);
         uint256 investorTokens = totalSupply - partnerTokens;
@@ -126,7 +126,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         vm.startPrank(admin);
@@ -148,7 +148,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         vm.startPrank(admin);
@@ -187,7 +187,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         vm.startPrank(admin);
@@ -215,7 +215,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         vm.startPrank(admin);
@@ -334,7 +334,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertTrue(isLocked);
 
         // 2. Burn tokens
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         vm.startPrank(admin);
@@ -653,7 +653,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn tokens first to allow retirement
-        uint256 revenueTokenId = router.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         // Give burner role to this test contract to burn tokens

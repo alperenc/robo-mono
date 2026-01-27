@@ -401,22 +401,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         ITreasury(treasury).lockCollateralFor(partner, assetId, amount, supply);
     }
 
-    function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
-        address registry = idToRegistry[tokenId];
-        if (registry == address(0)) {
-            revert RegistryNotFound(tokenId);
-        }
-        return IAssetRegistry(registry).getAssetIdFromTokenId(tokenId);
-    }
-
-    function getTokenIdFromAssetId(uint256 assetId) external view override returns (uint256) {
-        address registry = idToRegistry[assetId];
-        if (registry == address(0)) {
-            revert RegistryNotFound(assetId);
-        }
-        return IAssetRegistry(registry).getTokenIdFromAssetId(assetId);
-    }
-
     function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
         address registry = idToRegistry[assetId];
         if (registry == address(0)) {

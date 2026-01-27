@@ -356,4 +356,40 @@ contract RoboshareTokensTest is BaseTest {
         penalty = roboshareTokens.getSalesPenalty(user1, tokenId, amount);
         assertEq(penalty, 0, "Penalty should be zero after holding period");
     }
+
+    // ID Conversion Tests
+
+    function testGetAssetIdFromTokenId() public view {
+        // Happy path: registered or unregistered (logic is dumb)
+        uint256 tokenId = 1002;
+        uint256 expectedAssetId = 1001;
+        assertEq(roboshareTokens.getAssetIdFromTokenId(tokenId), expectedAssetId);
+    }
+
+    function testGetAssetIdFromTokenIdInvalid() public {
+        // ID 0 -> InvalidRevenueTokenId
+        vm.expectRevert(TokenLib.InvalidRevenueTokenId.selector);
+        roboshareTokens.getAssetIdFromTokenId(0);
+
+        // Odd ID -> InvalidRevenueTokenId
+        vm.expectRevert(TokenLib.InvalidRevenueTokenId.selector);
+        roboshareTokens.getAssetIdFromTokenId(1001);
+    }
+
+    function testGetTokenIdFromAssetId() public view {
+        // Happy path: registered or unregistered (logic is dumb)
+        uint256 assetId = 1001;
+        uint256 expectedTokenId = 1002;
+        assertEq(roboshareTokens.getTokenIdFromAssetId(assetId), expectedTokenId);
+    }
+
+    function testGetTokenIdFromAssetIdInvalid() public {
+        // ID 0 -> InvalidAssetId
+        vm.expectRevert(TokenLib.InvalidAssetId.selector);
+        roboshareTokens.getTokenIdFromAssetId(0);
+
+        // Even ID -> InvalidAssetId
+        vm.expectRevert(TokenLib.InvalidAssetId.selector);
+        roboshareTokens.getTokenIdFromAssetId(1002);
+    }
 }

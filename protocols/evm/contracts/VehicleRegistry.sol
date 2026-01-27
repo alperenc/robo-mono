@@ -36,8 +36,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     error VehicleDoesNotExist();
     error RevenueTokensAlreadyMinted();
     error OutstandingTokensHeldByOthers();
-    error InvalidVehicleId();
-    error InvalidRevenueTokenId();
 
     // Events
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
@@ -191,15 +189,15 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         onlyAuthorizedPartner
         returns (uint256 revenueTokenId)
     {
-        VehicleLib.Vehicle storage vehicle = vehicles[assetId];
-        if (vehicle.vehicleId == 0) {
+        if (vehicles[assetId].vehicleId == 0) {
             revert AssetNotFound(assetId);
         }
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
             revert NotAssetOwner();
         }
 
-        revenueTokenId = assetId + 1; // Revenue token ID is one more than vehicle NFT ID
+        // Get token ID (pure conversion)
+        revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
 
         if (roboshareTokens.getRevenueTokenSupply(revenueTokenId) > 0) {
             revert RevenueTokensAlreadyMinted();
@@ -348,7 +346,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotFound(assetId);
         }
 
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
 
         // Burn tokens
         roboshareTokens.burn(msg.sender, revenueTokenId, amount);
@@ -394,7 +392,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         // Check liquidation conditions: Maturity OR Insolvency
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
         bool isMatured = block.timestamp >= maturityDate;
         bool isSolvent = router.isAssetSolvent(assetId);
@@ -434,7 +432,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotSettled(assetId, info.status);
         }
 
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
 
         if (balance == 0) {
@@ -487,7 +485,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert NotAssetOwner();
         }
 
-        uint256 revenueTokenId = assetId + 1;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
 
         uint256 burnedTokens = 0;
@@ -573,37 +571,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotFound(assetId);
         }
         return vehicles[assetId].assetInfo.status;
-    }
-
-    /**
-     * @dev Get asset ID from token ID
-     */
-    function getAssetIdFromTokenId(uint256 tokenId) external view override returns (uint256) {
-        uint256 assetId = TokenLib.isRevenueToken(tokenId) ? tokenId - 1 : tokenId;
-        if (vehicles[assetId].vehicleId == 0) {
-            revert AssetNotFound(assetId);
-        }
-
-        if (!TokenLib.isRevenueToken(tokenId)) {
-            revert InvalidRevenueTokenId();
-        }
-
-        return assetId;
-    }
-
-    /**
-     * @dev Get token ID from asset ID
-     */
-    function getTokenIdFromAssetId(uint256 assetId) external view override returns (uint256) {
-        if (TokenLib.isRevenueToken(assetId) || assetId == 0) {
-            revert InvalidVehicleId();
-        }
-
-        if (vehicles[assetId].vehicleId == 0) {
-            revert AssetNotFound(assetId);
-        }
-
-        return assetId + 1;
     }
 
     /**

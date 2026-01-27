@@ -170,6 +170,20 @@ contract RoboshareTokens is
     }
 
     /**
+     * @dev Get asset ID from token ID
+     */
+    function getAssetIdFromTokenId(uint256 tokenId) external pure returns (uint256) {
+        return TokenLib.getAssetIdFromTokenId(tokenId);
+    }
+
+    /**
+     * @dev Get token ID from asset ID
+     */
+    function getTokenIdFromAssetId(uint256 assetId) external pure returns (uint256) {
+        return TokenLib.getTokenIdFromAssetId(assetId);
+    }
+
+    /**
      * @dev Gets the total supply tracked in positions for a specific token ID.
      * @param revenueTokenId The ID of the token.
      * @return The total supply tracked in positions.
@@ -250,8 +264,7 @@ contract RoboshareTokens is
         }
 
         // If the seller is the current owner of the corresponding Asset NFT, they are exempt from the penalty.
-        // The assetId is always tokenId - 1 for revenue tokens.
-        uint256 assetId = revenueTokenId - 1;
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(revenueTokenId);
         if (balanceOf(seller, assetId) > 0) {
             penaltyAmount = 0;
         } else {

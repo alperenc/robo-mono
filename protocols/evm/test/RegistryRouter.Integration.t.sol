@@ -74,14 +74,6 @@ contract MockRegistry is IAssetRegistry {
         return roboshareTokens.balanceOf(account, assetId) > 0;
     }
 
-    function getAssetIdFromTokenId(uint256 tokenId) external pure override returns (uint256) {
-        return tokenId - 1;
-    }
-
-    function getTokenIdFromAssetId(uint256 assetId) external pure override returns (uint256) {
-        return assetId + 1;
-    }
-
     // Stubs for other functions
     function registerAsset(bytes calldata) external pure override returns (uint256) {
         return 0;

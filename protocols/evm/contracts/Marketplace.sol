@@ -208,7 +208,7 @@ contract Marketplace is
         }
 
         // Get asset ID and check collateral is locked
-        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
 
         // Check asset status is Active
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
@@ -263,7 +263,7 @@ contract Marketplace is
         }
 
         // Get asset ID and check collateral is locked
-        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
 
         // Check asset status is Active
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
@@ -290,7 +290,7 @@ contract Marketplace is
         bool buyerPaysFee
     ) internal returns (uint256 listingId) {
         // Get asset ID for indexing
-        uint256 assetId = router.getAssetIdFromTokenId(tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
 
         // Create listing
         listingId = _listingIdCounter++;
@@ -333,7 +333,7 @@ contract Marketplace is
         }
 
         // Check asset status
-        uint256 assetId = router.getAssetIdFromTokenId(listing.tokenId);
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
             revert AssetNotActive();
         }

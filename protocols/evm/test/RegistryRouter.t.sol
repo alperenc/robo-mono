@@ -248,20 +248,6 @@ contract RegistryRouterTest is BaseTest {
         new ERC1967Proxy(address(routerImpl), abi.encodeWithSignature("initialize(address,address)", admin, address(0)));
     }
 
-    function testGetAssetIdFromTokenIdRegistryNotFound() public {
-        // Test getAssetIdFromTokenId with ID that has no mapped registry
-        uint256 unmappedId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unmappedId));
-        router.getAssetIdFromTokenId(unmappedId);
-    }
-
-    function testGetTokenIdFromAssetIdRegistryNotFound() public {
-        // Test getTokenIdFromAssetId with ID that has no mapped registry
-        uint256 unmappedId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unmappedId));
-        router.getTokenIdFromAssetId(unmappedId);
-    }
-
     // ============ Admin Function Tests ============
 
     function testUpdateRoboshareTokens() public {

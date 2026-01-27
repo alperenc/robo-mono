@@ -83,13 +83,6 @@ interface IAssetRegistry {
     function getAssetStatus(uint256 assetId) external view returns (AssetLib.AssetStatus);
 
     /**
-     * @dev Token mapping and relationships
-     * Each asset can have multiple token types (ownership, revenue share, etc.)
-     */
-    function getAssetIdFromTokenId(uint256 tokenId) external view returns (uint256);
-    function getTokenIdFromAssetId(uint256 assetId) external view returns (uint256);
-
-    /**
      * @dev Access control and permissions
      */
     function isAuthorizedForAsset(address account, uint256 assetId) external view returns (bool);

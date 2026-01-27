@@ -103,32 +103,6 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.getVehicleDisplayName(999);
     }
 
-    function testGetAssetIdFromTokenIdInvalidId() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 1));
-        assetRegistry.getAssetIdFromTokenId(2); // even unregistered is AssetNotFound
-
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 0));
-        assetRegistry.getAssetIdFromTokenId(0);
-    }
-
-    function testGetAssetIdFromTokenIdAssetNotFound() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 997));
-        assetRegistry.getAssetIdFromTokenId(998);
-    }
-
-    function testGetTokenIdFromAssetIdInvalidId() public {
-        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(2); // even is token
-
-        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(0);
-    }
-
-    function testGetTokenIdFromAssetIdAssetNotFound() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.getTokenIdFromAssetId(999);
-    }
-
     function testRegisterVehicleInvalidVINLength() public {
         _ensureState(SetupState.InitialAccountsSetup);
         string memory shortVin = "VIN123"; // <10 length
@@ -176,14 +150,6 @@ contract VehicleRegistryTest is BaseTest {
                 TEST_VIN, TEST_MAKE, TEST_MODEL, 2040, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             )
         );
-    }
-
-    // New branch coverage for registry view helpers
-    function testGetAssetIdFromTokenId() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-
-        uint256 assetFromRevenue = assetRegistry.getAssetIdFromTokenId(scenario.revenueTokenId);
-        assertEq(assetFromRevenue, scenario.assetId);
     }
 
     function testIsAuthorizedForAssetScenarios() public {

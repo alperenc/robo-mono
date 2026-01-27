@@ -179,12 +179,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.updateVehicleMetadata(scenario.assetId, "http://not-ipfs");
     }
 
-    function testTokenIdConversions() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-        assertEq(assetRegistry.getTokenIdFromAssetId(scenario.assetId), scenario.revenueTokenId);
-        assertEq(assetRegistry.getAssetIdFromTokenId(scenario.revenueTokenId), scenario.assetId);
-    }
-
     // Access Control Tests
 
     function testRegisterAssetUnauthorizedPartner() public {
@@ -262,34 +256,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.mintRevenueTokens(
             scenario.assetId, REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY, block.timestamp + 365 days
         );
-    }
-
-    function testGetAssetIdFromTokenIdInvalidId() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-
-        // Test with odd unregistered ID
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.getAssetIdFromTokenId(999);
-
-        // Test with even unregistered ID
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 997));
-        assetRegistry.getAssetIdFromTokenId(998);
-    }
-
-    function testGetTokenIdFromAssetIdInvalidId() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-
-        // Test assetId == 0
-        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(0);
-
-        // Test with revenue token ID (not an asset ID)
-        vm.expectRevert(VehicleRegistry.InvalidVehicleId.selector);
-        assetRegistry.getTokenIdFromAssetId(scenario.revenueTokenId);
-
-        // Test unregistered asset ID
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.getTokenIdFromAssetId(999);
     }
 
     // View Function Tests
