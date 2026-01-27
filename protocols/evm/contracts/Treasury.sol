@@ -104,14 +104,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Lock USDC collateral for asset registration
      * Note: Partner must approve Treasury to spend USDC before calling this function
      * @param assetId The ID of the asset to lock collateral for
-     * @param revenueTokenPrice Price per revenue share token in USDC (with decimals)
-     * @param tokenSupply Total number of revenue share tokens to be issued
+     * @param assetValue Total value of the asset in USDC
      */
-    function lockCollateral(uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply)
-        external
-        onlyAuthorizedPartner
-        nonReentrant
-    {
+    function lockCollateral(uint256 assetId, uint256 assetValue) external onlyAuthorizedPartner nonReentrant {
         // The balanceOf check is sufficient proof of existence, as NFTs are only minted upon registration.
         if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
             revert NotAssetOwner();
@@ -126,9 +121,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         // Initialize or update collateral info
         if (!CollateralLib.isInitialized(collateralInfo)) {
-            CollateralLib.initializeCollateralInfo(
-                collateralInfo, revenueTokenPrice, tokenSupply, ProtocolLib.QUARTERLY_INTERVAL
-            );
+            CollateralLib.initializeCollateralInfo(collateralInfo, assetValue, ProtocolLib.QUARTERLY_INTERVAL);
         }
 
         uint256 requiredCollateral = collateralInfo.totalCollateral;
@@ -150,10 +143,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Lock USDC collateral for asset registration (delegated call by authorized contracts)
      * @param partner The partner who owns the asset
      * @param assetId The ID of the asset to lock collateral for
-     * @param revenueTokenPrice Price per revenue share token in USDC (with decimals)
-     * @param tokenSupply Total number of revenue share tokens to be issued
+     * @param assetValue Total value of the asset in USDC
      */
-    function lockCollateralFor(address partner, uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply)
+    function lockCollateralFor(address partner, uint256 assetId, uint256 assetValue)
         external
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         nonReentrant
@@ -177,9 +169,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         // Initialize or update collateral info
         if (!CollateralLib.isInitialized(collateralInfo)) {
-            CollateralLib.initializeCollateralInfo(
-                collateralInfo, revenueTokenPrice, tokenSupply, ProtocolLib.QUARTERLY_INTERVAL
-            );
+            CollateralLib.initializeCollateralInfo(collateralInfo, assetValue, ProtocolLib.QUARTERLY_INTERVAL);
         }
 
         uint256 requiredCollateral = collateralInfo.totalCollateral;
@@ -840,19 +830,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     // View Functions
 
     /**
-     * @dev Get collateral requirement for specific revenue token parameters
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param tokenSupply Total number of revenue share tokens
+     * @dev Get total collateral requirement for an asset based on its value
+     * @param assetValue Total value of the asset in USDC
      * @return Total collateral requirement in USDC
      */
-    function getTotalCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply)
-        external
-        pure
-        returns (uint256)
-    {
-        (,,, uint256 totalCollateral) = CollateralLib.calculateCollateralRequirements(
-            revenueTokenPrice, tokenSupply, ProtocolLib.QUARTERLY_INTERVAL
-        );
+    function getTotalCollateralRequirement(uint256 assetValue) external pure returns (uint256) {
+        (,,, uint256 totalCollateral) =
+            CollateralLib.calculateCollateralRequirements(assetValue, ProtocolLib.QUARTERLY_INTERVAL);
         return totalCollateral;
     }
 

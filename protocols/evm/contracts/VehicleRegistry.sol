@@ -41,11 +41,19 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
 
     event RevenueTokensMinted(
-        uint256 indexed vehicleId, uint256 indexed revenueTokenId, address indexed partner, uint256 totalSupply
+        uint256 indexed vehicleId,
+        uint256 indexed revenueTokenId,
+        address indexed partner,
+        uint256 assetValue,
+        uint256 supply
     );
 
     event VehicleRegisteredAndRevenueTokensMinted(
-        uint256 indexed vehicleId, uint256 indexed revenueTokenId, address indexed partner, uint256 totalSupply
+        uint256 indexed vehicleId,
+        uint256 indexed revenueTokenId,
+        address indexed partner,
+        uint256 assetValue,
+        uint256 supply
     );
 
     event VehicleMetadataUpdated(uint256 indexed vehicleId, string newMetadataURI);
@@ -96,15 +104,20 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     /**
      * @dev Internal function to register vehicle data only
      */
-    function _registerVehicle(
-        string memory vin,
-        string memory make,
-        string memory model,
-        uint256 year,
-        uint256 manufacturerId,
-        string memory optionCodes,
-        string memory dynamicMetadataURI
-    ) internal returns (uint256 vehicleId, uint256 revenueTokenId) {
+    function _registerVehicle(bytes calldata data, uint256 assetValue)
+        internal
+        returns (uint256 vehicleId, uint256 revenueTokenId)
+    {
+        (
+            string memory vin,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory dynamicMetadataURI
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+
         if (vinExists[vin]) revert VehicleAlreadyExists();
 
         // Get a unique pair of IDs from the Router (which calls RoboshareTokens)
@@ -113,13 +126,13 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Initialize vehicle data using new VehicleLib structure
         VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
         VehicleLib.initializeVehicle(
-            vehicle, vehicleId, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
+            vehicle, vehicleId, assetValue, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
         );
 
         // Mark VIN as used
         vinExists[vin] = true;
 
-        emit AssetRegistered(vehicleId, msg.sender, vehicle.assetInfo.status);
+        emit AssetRegistered(vehicleId, msg.sender, assetValue, vehicle.assetInfo.status);
         emit VehicleRegistered(vehicleId, msg.sender, vin);
     }
 
@@ -165,29 +178,24 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     // IAssetsRegistry implementation
 
-    function registerAsset(bytes calldata data) external override onlyAuthorizedPartner returns (uint256 assetId) {
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory dynamicMetadataURI
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
-
-        (assetId,) = _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+    function registerAsset(bytes calldata data, uint256 assetValue)
+        external
+        override
+        onlyAuthorizedPartner
+        returns (uint256 assetId)
+    {
+        (assetId,) = _registerVehicle(data, assetValue);
 
         roboshareTokens.mint(msg.sender, assetId, 1, ""); // Mint 1 vehicle NFT to partner
 
         return assetId;
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
+    function mintRevenueTokens(uint256 assetId, uint256 tokenPrice, uint256 maturityDate)
         external
         override
         onlyAuthorizedPartner
-        returns (uint256 revenueTokenId)
+        returns (uint256 revenueTokenId, uint256 supply)
     {
         if (vehicles[assetId].vehicleId == 0) {
             revert AssetNotFound(assetId);
@@ -203,11 +211,15 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert RevenueTokensAlreadyMinted();
         }
 
+        // Calculate supply based on asset value and token price
+        uint256 assetValue = vehicles[assetId].assetInfo.assetValue;
+        supply = assetValue / tokenPrice;
+
         // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
 
         // Lock Collateral via Router
-        router.lockCollateralFor(msg.sender, assetId, price, supply);
+        router.lockCollateralFor(msg.sender, assetId, assetValue);
 
         // Mint Revenue Tokens
         roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
@@ -215,48 +227,46 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Activate asset
         _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
-        emit RevenueTokensMinted(assetId, revenueTokenId, msg.sender, supply);
+        emit RevenueTokensMinted(assetId, revenueTokenId, msg.sender, assetValue, supply);
 
-        return revenueTokenId;
+        return (revenueTokenId, supply);
     }
 
-    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price, uint256 maturityDate)
-        external
-        override
-        onlyAuthorizedPartner
-        returns (uint256 assetId, uint256 revenueTokenId)
-    {
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory dynamicMetadataURI
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+    function registerAssetAndMintTokens(
+        bytes calldata data,
+        uint256 assetValue,
+        uint256 tokenPrice,
+        uint256 maturityDate
+    ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 supply) {
+        (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
 
-        (assetId, revenueTokenId) =
-            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        // Calculate supply based on asset value and token price
+
+        supply = assetValue / tokenPrice;
 
         // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
+
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
 
         // Mint Asset NFT
+
         roboshareTokens.mint(msg.sender, assetId, 1, "");
 
         // Lock Collateral via Router
-        router.lockCollateralFor(msg.sender, assetId, price, supply);
+
+        router.lockCollateralFor(msg.sender, assetId, assetValue);
 
         // Mint Revenue Tokens
+
         roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
 
         // Activate asset
+
         _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
-        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, supply);
+        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, assetValue, supply);
 
-        return (assetId, revenueTokenId);
+        return (assetId, revenueTokenId, supply);
     }
 
     /**
@@ -264,45 +274,43 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Combines registerAssetAndMintTokens + router.createListingFor for better UX.
      * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
      * @param data Encoded vehicle data (same as registerAsset)
-     * @param price Price per revenue token in USDC
-     * @param supply Total supply of revenue tokens
+     * @param assetValue Total value of the asset in USDC
+     * @param tokenPrice Price per revenue token in USDC
      * @param maturityDate Maturity date for the revenue tokens
      * @param listingDuration Duration of the marketplace listing in seconds
      * @param buyerPaysFee If true, buyer pays protocol fee
      * @return assetId The registered asset ID
      * @return revenueTokenId The minted revenue token ID
+     * @return supply The minted revenue token supply
      * @return listingId The created marketplace listing ID
      */
     function registerAssetMintAndList(
         bytes calldata data,
-        uint256 supply,
-        uint256 price,
+        uint256 assetValue,
+        uint256 tokenPrice,
         uint256 maturityDate,
         uint256 listingDuration,
         bool buyerPaysFee
-    ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId) {
+    )
+        external
+        override
+        onlyAuthorizedPartner
+        returns (uint256 assetId, uint256 revenueTokenId, uint256 supply, uint256 listingId)
+    {
         // Step 1: Register and mint (reuses existing logic)
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory dynamicMetadataURI
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+        (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
 
-        (assetId, revenueTokenId) =
-            _registerVehicle(vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI);
+        // Calculate supply based on asset value and token price
+        supply = assetValue / tokenPrice;
 
         // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, maturityDate);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
 
         // Mint Asset NFT
         roboshareTokens.mint(msg.sender, assetId, 1, "");
 
         // Lock Collateral via Router
-        router.lockCollateralFor(msg.sender, assetId, price, supply);
+        router.lockCollateralFor(msg.sender, assetId, assetValue);
 
         // Mint Revenue Tokens
         roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
@@ -310,14 +318,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Activate asset
         _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
-        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, supply);
+        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, assetValue, supply);
 
         // Step 2: Create listing at face value with full supply via Router
         listingId = router.createListingFor(
             msg.sender,
             revenueTokenId,
             supply, // Full supply
-            price, // Face value
+            tokenPrice, // Face value
             listingDuration,
             buyerPaysFee
         );

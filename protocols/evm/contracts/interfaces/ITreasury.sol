@@ -57,9 +57,8 @@ interface ITreasury {
     error AssetNotOperationalForSettlement(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error NoUnclaimedEarnings();
 
-    function lockCollateral(uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply) external;
-    function lockCollateralFor(address partner, uint256 assetId, uint256 revenueTokenPrice, uint256 tokenSupply)
-        external;
+    function lockCollateral(uint256 assetId, uint256 assetValue) external;
+    function lockCollateralFor(address partner, uint256 assetId, uint256 assetValue) external;
     function releaseCollateral(uint256 assetId) external;
     function releaseCollateralFor(address partner, uint256 assetId) external returns (uint256 releasedCollateral);
     function initiateSettlement(address partner, uint256 assetId, uint256 topUpAmount)
@@ -83,10 +82,7 @@ interface ITreasury {
     function releasePartialCollateral(uint256 assetId) external;
     function releaseAndWithdrawCollateral(uint256 assetId) external returns (uint256 withdrawn);
     function claimAndWithdrawEarnings(uint256 assetId) external returns (uint256 withdrawn);
-    function getTotalCollateralRequirement(uint256 revenueTokenPrice, uint256 tokenSupply)
-        external
-        pure
-        returns (uint256);
+    function getTotalCollateralRequirement(uint256 assetValue) external pure returns (uint256);
     function getAssetCollateralInfo(uint256 assetId)
         external
         view
