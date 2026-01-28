@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ProtocolLib, TokenLib } from "../contracts/Libraries.sol";
+import { ProtocolLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -64,6 +64,8 @@ contract BaseTest is Test {
     uint256 constant LISTING_AMOUNT = 500;
     uint256 constant LISTING_DURATION = 30 days;
     uint256 constant PURCHASE_AMOUNT = 100;
+    uint256 constant EARNINGS_AMOUNT = 1000 * 1e6;
+    uint256 constant LARGE_EARNINGS_AMOUNT = 10000 * 1e6;
 
     // Storage for test scenario states
     struct TestScenario {
@@ -119,7 +121,7 @@ contract BaseTest is Test {
         }
 
         if (requiredState >= SetupState.EarningsDistributed && currentState < SetupState.EarningsDistributed) {
-            _setupEarningsDistributed(1000e6);
+            _setupEarningsDistributed(EARNINGS_AMOUNT);
             currentState = SetupState.EarningsDistributed;
         }
     }
@@ -205,7 +207,7 @@ contract BaseTest is Test {
      */
     function _setupEarningsDistributed(uint256 totalEarningsAmount) internal {
         // Get revenue token ID
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = scenario.revenueTokenId;
 
         // Calculate investor portion based on token ownership
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);

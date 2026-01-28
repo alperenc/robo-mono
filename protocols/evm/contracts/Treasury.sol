@@ -376,7 +376,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         bool hasNewPeriods = earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod;
         if (!hasNewPeriods) {
-            revert NoNewPerformanceEvents();
+            revert NoNewEarningsPeriods();
         }
 
         uint256 releaseAmount = _tryReleaseCollateral(assetId, partner);
@@ -446,12 +446,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         nonReentrant
         returns (uint256 collateralReleased)
     {
-        if (investorAmount == 0) revert InvalidEarningsAmount();
+        if (investorAmount == 0 || totalRevenue < investorAmount) revert InvalidEarningsAmount(); // totalRevenue must be >= investorAmount
         if (investorAmount < ProtocolLib.MIN_PROTOCOL_FEE) {
             revert EarningsLessThanMinimumFee();
-        }
-        if (totalRevenue < investorAmount) {
-            revert InvalidEarningsAmount(); // totalRevenue must be >= investorAmount
         }
 
         // Verify partner owns the asset

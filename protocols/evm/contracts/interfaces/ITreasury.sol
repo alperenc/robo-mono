@@ -48,7 +48,7 @@ interface ITreasury {
     error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetNotOperational(uint256 assetId, AssetLib.AssetStatus status);
     error EarningsLessThanMinimumFee();
-    error NoNewPerformanceEvents();
+    error NoNewEarningsPeriods();
     error NoEarningsToDistribute();
     error NotRouter();
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
