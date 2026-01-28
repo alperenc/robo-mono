@@ -42,7 +42,7 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
     // Step 2: Financial Terms
     maturityMonths: "36",
     tokenPrice: "",
-    tokenSupply: "",
+    assetValue: "",
     // Step 3: Listing
     listingDurationDays: "30",
     buyerPaysFee: false,
@@ -58,12 +58,12 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
   const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
 
   const tokenPriceBigInt = formData.tokenPrice ? parseUnits(formData.tokenPrice, 6) : 0n;
-  const tokenSupplyBigInt = formData.tokenSupply ? BigInt(formData.tokenSupply) : 0n;
+  const assetValueBigInt = formData.assetValue ? parseUnits(formData.assetValue, 6) : 0n;
 
   const { data: requiredCollateral } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "getTotalCollateralRequirement",
-    args: [tokenPriceBigInt, tokenSupplyBigInt],
+    args: [assetValueBigInt],
     watch: true,
     query: { enabled: currentStep >= 2 },
   });
@@ -158,7 +158,7 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
 
       await writeVehicleRegistry({
         functionName: "registerAsset",
-        args: [encodedData],
+        args: [encodedData, assetValueBigInt],
       });
       onClose();
     } catch (e) {
@@ -193,7 +193,7 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
 
       await writeVehicleRegistry({
         functionName: "registerAssetAndMintTokens",
-        args: [encodedData, tokenPriceBigInt, tokenSupplyBigInt, maturityTimestamp],
+        args: [encodedData, assetValueBigInt, tokenPriceBigInt, maturityTimestamp],
       });
       onClose();
     } catch (e) {
@@ -244,8 +244,8 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
         functionName: "registerAssetMintAndList",
         args: [
           encodedData,
+          assetValueBigInt,
           tokenPriceBigInt,
-          tokenSupplyBigInt,
           maturityTimestamp,
           listingDurationSeconds,
           formData.buyerPaysFee,
@@ -368,8 +368,26 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
 
             {/* Vehicle Identification */}
             <div className="bg-base-200 rounded-xl p-4 space-y-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Vehicle Identification</h4>
+              <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Asset Information</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="form-control">
+                  <label className="label pb-1">
+                    <span className="label-text font-medium">Asset Value (USDC)</span>
+                  </label>
+                  <div className="join w-full">
+                    <span className="join-item flex items-center px-4 bg-base-300 font-medium">$</span>
+                    <input
+                      type="number"
+                      name="assetValue"
+                      className="input input-bordered join-item w-full"
+                      value={formData.assetValue}
+                      onChange={handleInputChange}
+                      placeholder="e.g. 50000"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                </div>
                 <div className="form-control">
                   <label className="label pb-1">
                     <span className="label-text font-medium">VIN</span>
@@ -384,6 +402,8 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
                     required
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-control">
                   <label className="label pb-1">
                     <span className="label-text font-medium">Manufacturer ID</span>
@@ -516,20 +536,6 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
                     />
                   </div>
                 </div>
-                <div className="form-control">
-                  <label className="label pb-1">
-                    <span className="label-text font-medium">Total Supply</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="tokenSupply"
-                    className="input input-bordered w-full"
-                    value={formData.tokenSupply}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 10000"
-                    required
-                  />
-                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <div className="form-control">
@@ -547,9 +553,17 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
                     <option value="60">60 Months (5 years)</option>
                   </select>
                 </div>
-                <div className="bg-primary/10 rounded-lg p-3 text-center">
-                  <span className="text-xs uppercase opacity-60 font-bold block">Required Collateral</span>
-                  <span className="text-xl font-bold text-primary">{formatUsdc(requiredCollateral)} USDC</span>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="bg-primary/10 rounded-lg p-2 text-center w-full">
+                    <span className="text-[10px] uppercase opacity-60 font-bold block">Projected Supply</span>
+                    <span className="text-md font-bold text-primary">
+                      {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "0"} Tokens
+                    </span>
+                  </div>
+                  <div className="bg-primary/10 rounded-lg p-2 text-center w-full">
+                    <span className="text-[10px] uppercase opacity-60 font-bold block">Required Collateral</span>
+                    <span className="text-md font-bold text-primary">{formatUsdc(requiredCollateral)} USDC</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -572,9 +586,9 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
               <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70 mb-4">Listing Summary</h4>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="opacity-70">Tokens to List</span>
+                  <span className="opacity-70">Total Supply</span>
                   <span className="font-bold text-lg">
-                    {formData.tokenSupply ? Number(formData.tokenSupply).toLocaleString() : "—"}
+                    {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "—"} Tokens
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -583,13 +597,11 @@ export const RegisterVehicleForm = ({ onClose, maxStep, onBack }: RegisterVehicl
                     {formData.tokenPrice ? `$${Number(formData.tokenPrice).toLocaleString()}` : "—"}
                   </span>
                 </div>
-                <div className="divider my-1"></div>
+                <div className="divider my-1 opacity-20"></div>
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Total Listing Value</span>
+                  <span className="font-medium">Total Valuation</span>
                   <span className="font-bold text-primary text-2xl">
-                    {formData.tokenSupply && formData.tokenPrice
-                      ? `$${(parseFloat(formData.tokenSupply) * parseFloat(formData.tokenPrice)).toLocaleString()}`
-                      : "—"}
+                    {formData.assetValue ? `$${Number(formData.assetValue).toLocaleString()}` : "—"}
                   </span>
                 </div>
               </div>

@@ -13,7 +13,9 @@ interface IAssetRegistry {
     /**
      * @dev Events for cross-contract communication and indexing
      */
-    event AssetRegistered(uint256 indexed assetId, address indexed owner, AssetLib.AssetStatus status);
+    event AssetRegistered(
+        uint256 indexed assetId, address indexed owner, uint256 assetValue, AssetLib.AssetStatus status
+    );
     event AssetStatusUpdated(
         uint256 indexed assetId, AssetLib.AssetStatus indexed oldStatus, AssetLib.AssetStatus indexed newStatus
     );
@@ -40,23 +42,32 @@ interface IAssetRegistry {
     error InsufficientTokenBalance(uint256 tokenId, uint256 required, uint256 available);
 
     /**
-     * @dev Asset registration and token minting
+     *
+     * @dev Asset registration and revenue token minting
+     *
      */
-    function registerAsset(bytes calldata data) external returns (uint256 assetId);
-    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
+
+    function registerAsset(bytes calldata data, uint256 assetValue) external returns (uint256 assetId);
+
+    function mintRevenueTokens(uint256 assetId, uint256 tokenPrice, uint256 maturityDate)
         external
-        returns (uint256 tokenId);
-    function registerAssetAndMintTokens(bytes calldata data, uint256 supply, uint256 price, uint256 maturityDate)
-        external
-        returns (uint256 assetId, uint256 tokenId);
+        returns (uint256 tokenId, uint256 supply);
+
+    function registerAssetAndMintTokens(
+        bytes calldata data,
+        uint256 assetValue,
+        uint256 tokenPrice,
+        uint256 maturityDate
+    ) external returns (uint256 assetId, uint256 tokenId, uint256 supply);
+
     function registerAssetMintAndList(
         bytes calldata data,
-        uint256 supply,
-        uint256 price,
+        uint256 assetValue,
+        uint256 tokenPrice,
         uint256 maturityDate,
         uint256 listingDuration,
         bool buyerPaysFee
-    ) external returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId);
+    ) external returns (uint256 assetId, uint256 tokenId, uint256 supply, uint256 listingId);
 
     /**
      * @dev Asset Lifecycle

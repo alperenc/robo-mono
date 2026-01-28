@@ -60,7 +60,7 @@ contract BaseTest is Test {
 
     // Test marketplace parameters
     uint256 constant REVENUE_TOKEN_PRICE = 100 * 10 ** 6; // $100 USDC
-    uint256 constant REVENUE_TOKEN_SUPPLY = 1000;
+    uint256 constant ASSET_VALUE = 100000 * 10 ** 6; // $100,000 USDC
     uint256 constant LISTING_AMOUNT = 500;
     uint256 constant LISTING_DURATION = 30 days;
     uint256 constant PURCHASE_AMOUNT = 100;
@@ -69,6 +69,7 @@ contract BaseTest is Test {
     struct TestScenario {
         uint256 assetId;
         uint256 revenueTokenId;
+        uint256 revenueTokenSupply;
         uint256 requiredCollateral;
         uint256 listingId;
         uint256 initialProtocolBalance;
@@ -98,7 +99,7 @@ contract BaseTest is Test {
         }
 
         if (requiredState >= SetupState.RevenueTokensMinted && currentState < SetupState.RevenueTokensMinted) {
-            scenario.revenueTokenId = _setupRevenueTokensMinted();
+            (scenario.revenueTokenId, scenario.revenueTokenSupply) = _setupRevenueTokensMinted();
             currentState = SetupState.RevenueTokensMinted;
         }
 
@@ -144,13 +145,14 @@ contract BaseTest is Test {
         assetId = assetRegistry.registerAsset(
             abi.encode(
                 TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            )
+            ),
+            ASSET_VALUE
         );
     }
 
-    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
+    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId, uint256 tokenSupply) {
         // Calculate required collateral
-        scenario.requiredCollateral = treasury.getTotalCollateralRequirement(REVENUE_TOKEN_PRICE, REVENUE_TOKEN_SUPPLY);
+        scenario.requiredCollateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
 
         uint256 maturityDate = block.timestamp + 365 days;
 
@@ -158,9 +160,8 @@ contract BaseTest is Test {
         // Approve USDC for collateral
         usdc.approve(address(treasury), scenario.requiredCollateral);
 
-        revenueTokenId = assetRegistry.mintRevenueTokens(
-            scenario.assetId, REVENUE_TOKEN_SUPPLY, REVENUE_TOKEN_PRICE, maturityDate
-        );
+        (revenueTokenId, tokenSupply) =
+            assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate);
         vm.stopPrank();
     }
 
@@ -529,12 +530,12 @@ contract BaseTest is Test {
     /**
      * @dev Calculate expected collateral requirement
      */
-    function _calculateExpectedCollateral(uint256 revenueTokenPrice, uint256 totalTokens)
+    function _calculateExpectedCollateral(uint256 assetValue)
         internal
         pure
         returns (uint256 base, uint256 earningsBuffer, uint256 protocolBuffer, uint256 total)
     {
-        base = revenueTokenPrice * totalTokens;
+        base = assetValue;
         uint256 expectedQuarterlyEarnings = (base * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
         earningsBuffer = (expectedQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
         protocolBuffer = (expectedQuarterlyEarnings * ProtocolLib.PROTOCOL_FEE_BP) / ProtocolLib.BP_PRECISION;
@@ -564,7 +565,7 @@ contract BaseTest is Test {
             ) = _generateVehicleData(i + uint256(keccak256(abi.encodePacked(partner, block.timestamp))));
 
             assetIds[i] = assetRegistry.registerAsset(
-                abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI)
+                abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI), ASSET_VALUE
             );
         }
         vm.stopPrank();

@@ -87,6 +87,8 @@ dataSources:
       eventHandlers:
         - event: IdBoundToRegistry(indexed uint256,indexed address)
           handler: handleIdBoundToRegistry
+        - event: AssetRegistered(indexed uint256,indexed address,uint256,uint8)
+          handler: handleAssetRegistered
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: VehicleRegistry
@@ -106,10 +108,12 @@ dataSources:
         - name: VehicleRegistry
           file: ./abis/localhost_VehicleRegistry.json
       eventHandlers:
+        - event: AssetRegistered(indexed uint256,indexed address,uint256,uint8)
+          handler: handleAssetRegistered
         - event: VehicleRegistered(indexed uint256,indexed address,string)
           handler: handleVehicleRegistered
         - event: VehicleRegisteredAndRevenueTokensMinted(indexed uint256,indexed
-            uint256,indexed address,uint256)
+            uint256,indexed address,uint256,uint256)
           handler: handleVehicleRegisteredAndMinted
       file: ./src/mapping.ts
   - kind: ethereum/contract

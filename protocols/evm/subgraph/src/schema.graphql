@@ -77,6 +77,7 @@ type Vehicle @entity(immutable: true) {
   make: String
   model: String
   year: BigInt
+  assetValue: BigInt!
   metadataURI: String
   blockNumber: BigInt!
   blockTimestamp: BigInt!

@@ -93,6 +93,7 @@ library AssetLib {
 
     // Generic asset information structure
     struct AssetInfo {
+        uint256 assetValue; // Total value of the asset in USDC
         AssetStatus status; // Current asset status
         uint256 createdAt; // Asset registration timestamp
         uint256 updatedAt; // Last status/metadata update
@@ -101,8 +102,10 @@ library AssetLib {
     /**
      * @dev Initialize asset info
      * @param info Storage reference to asset info
+     * @param assetValue Total value of the asset in USDC
      */
-    function initializeAssetInfo(AssetInfo storage info) internal {
+    function initializeAssetInfo(AssetInfo storage info, uint256 assetValue) internal {
+        info.assetValue = assetValue;
         info.status = AssetStatus.Pending;
         info.createdAt = block.timestamp;
         info.updatedAt = block.timestamp;
@@ -241,6 +244,7 @@ library VehicleLib {
     function initializeVehicle(
         Vehicle storage vehicle,
         uint256 vehicleId,
+        uint256 assetValue,
         string memory vin,
         string memory make,
         string memory model,
@@ -253,7 +257,7 @@ library VehicleLib {
         vehicle.vehicleId = vehicleId;
 
         // Initialize asset info
-        AssetLib.initializeAssetInfo(vehicle.assetInfo);
+        AssetLib.initializeAssetInfo(vehicle.assetInfo, assetValue);
 
         // Initialize vehicle-specific info
         initializeVehicleInfo(
@@ -626,25 +630,21 @@ library CollateralLib {
     /**
      * @dev Initialize collateral info for a vehicle
      * @param info Collateral info storage reference
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param tokenSupply Total number of revenue share tokens
+     * @param assetValue Total value of the asset in USDC
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
      */
-    function initializeCollateralInfo(
-        CollateralInfo storage info,
-        uint256 revenueTokenPrice,
-        uint256 tokenSupply,
-        uint256 bufferTimeInterval
-    ) internal {
+    function initializeCollateralInfo(CollateralInfo storage info, uint256 assetValue, uint256 bufferTimeInterval)
+        internal
+    {
         if (info.isLocked) {
             revert CollateralAlreadyInitialized();
         }
-        if (revenueTokenPrice == 0 || tokenSupply == 0) {
+        if (assetValue == 0) {
             revert InvalidCollateralAmount();
         }
 
         (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
-            calculateCollateralRequirements(revenueTokenPrice, tokenSupply, bufferTimeInterval);
+            calculateCollateralRequirements(assetValue, bufferTimeInterval);
 
         info.initialBaseCollateral = baseAmount;
         info.baseCollateral = baseAmount;
@@ -661,21 +661,20 @@ library CollateralLib {
 
     /**
      * @dev Calculate collateral requirements with separate buffer components
-     * @param revenueTokenPrice Price per revenue share token in USDC
-     * @param tokenSupply Total number of revenue share tokens
+     * @param assetValue Total value of the asset in USDC
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
      * @return baseAmount Base collateral amount
      * @return earningsBuffer Earnings buffer amount
      * @return protocolBuffer Protocol buffer amount
      * @return totalCollateral Total collateral requirement
      */
-    function calculateCollateralRequirements(uint256 revenueTokenPrice, uint256 tokenSupply, uint256 bufferTimeInterval)
+    function calculateCollateralRequirements(uint256 assetValue, uint256 bufferTimeInterval)
         internal
         pure
         returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
     {
-        // Calculate base collateral amount
-        baseAmount = revenueTokenPrice * tokenSupply;
+        // Base collateral amount is the asset value
+        baseAmount = assetValue;
 
         // Calculate buffers for investor protection over the time interval
         earningsBuffer = EarningsLib.calculateBenchmarkEarnings(baseAmount, bufferTimeInterval);

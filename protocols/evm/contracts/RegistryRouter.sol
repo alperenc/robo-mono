@@ -143,29 +143,29 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * Note: Specific registries should use their own typed register functions and call bindAsset/reserveNextTokenIdPair.
      * This function is here for interface compliance but might not be the primary entry point.
      */
-    function registerAsset(bytes calldata) external pure override returns (uint256) {
+    function registerAsset(bytes calldata, uint256) external pure override returns (uint256) {
         // If called directly, we don't know which registry to use unless encoded in data or we have a default.
         // For now, we revert as this should be called on specific registries.
         revert DirectCallNotAllowed();
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 supply, uint256 price, uint256 maturityDate)
+    function mintRevenueTokens(uint256 assetId, uint256 tokenPrice, uint256 maturityDate)
         external
         override
-        returns (uint256 tokenId)
+        returns (uint256 tokenId, uint256 supply)
     {
         address registry = idToRegistry[assetId];
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        return IAssetRegistry(registry).mintRevenueTokens(assetId, supply, price, maturityDate);
+        return IAssetRegistry(registry).mintRevenueTokens(assetId, tokenPrice, maturityDate);
     }
 
     function registerAssetAndMintTokens(bytes calldata, uint256, uint256, uint256)
         external
         pure
         override
-        returns (uint256, uint256)
+        returns (uint256, uint256, uint256)
     {
         revert DirectCallNotAllowed();
     }
@@ -174,7 +174,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         external
         pure
         override
-        returns (uint256, uint256, uint256)
+        returns (uint256, uint256, uint256, uint256)
     {
         revert DirectCallNotAllowed();
     }
@@ -254,9 +254,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev Check asset solvency via Treasury.
-     */
-    /**
      * @dev Forward settlement claim processing from Registry to Treasury.
      * Callable only by authorized registries.
      */
@@ -299,6 +296,9 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         return ITreasury(treasury).snapshotAndClaimEarnings(assetId, holder, autoClaim);
     }
 
+    /**
+     * @dev Check asset solvency via Treasury.
+     */
     function isAssetSolvent(uint256 assetId) external view returns (bool) {
         if (treasury == address(0)) {
             revert TreasuryNotSet();
@@ -384,7 +384,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * @dev Forward collateral lock request from Registry to Treasury.
      * Callable only by authorized registries.
      */
-    function lockCollateralFor(address partner, uint256 assetId, uint256 amount, uint256 supply)
+    function lockCollateralFor(address partner, uint256 assetId, uint256 assetValue)
         external
         onlyRole(AUTHORIZED_REGISTRY_ROLE)
     {
@@ -398,7 +398,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert TreasuryNotSet();
         }
 
-        ITreasury(treasury).lockCollateralFor(partner, assetId, amount, supply);
+        ITreasury(treasury).lockCollateralFor(partner, assetId, assetValue);
     }
 
     function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {

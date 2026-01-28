@@ -28,6 +28,7 @@ interface DashboardAsset {
   make?: string;
   model?: string;
   year?: string | bigint;
+  assetValue?: string;
   partner: string;
   blockNumber: string;
   type: AssetType;
@@ -122,6 +123,7 @@ const PartnerDashboard: NextPage = () => {
                     make
                     model
                     year
+                    assetValue
                     metadataURI
                     blockNumber
                     blockTimestamp
@@ -934,6 +936,7 @@ const PartnerDashboard: NextPage = () => {
             }}
             vehicleId={selectedAsset.id}
             vin={selectedAsset.vin || ""}
+            assetValue={selectedAsset.assetValue || "0"}
           />
           <ListVehicleModal
             isOpen={listModalOpen}

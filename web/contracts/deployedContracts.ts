@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -545,6 +545,25 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "getAssetIdFromTokenId",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
           name: "getNextTokenId",
           inputs: [],
           outputs: [
@@ -622,6 +641,25 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getTokenIdFromAssetId",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
         },
         {
           type: "function",
@@ -1616,7 +1654,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidAssetId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidRevenueTokenId",
           inputs: [],
         },
         {
@@ -1657,7 +1705,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1730,7 +1778,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2367,7 +2415,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2592,25 +2640,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getAssetIdFromTokenId",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "getAssetInfo",
           inputs: [
             {
@@ -2625,6 +2654,11 @@ const deployedContracts = {
               type: "tuple",
               internalType: "struct AssetLib.AssetInfo",
               components: [
+                {
+                  name: "assetValue",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
                 {
                   name: "status",
                   type: "uint8",
@@ -2724,25 +2758,6 @@ const deployedContracts = {
               name: "",
               type: "bytes32",
               internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getTokenIdFromAssetId",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
             },
           ],
           stateMutability: "view",
@@ -2931,12 +2946,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
+              name: "assetValue",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2967,12 +2977,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "price",
+              name: "tokenPrice",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2985,6 +2990,11 @@ const deployedContracts = {
           outputs: [
             {
               name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
@@ -3042,6 +3052,11 @@ const deployedContracts = {
               type: "bytes",
               internalType: "bytes",
             },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           outputs: [
             {
@@ -3078,6 +3093,11 @@ const deployedContracts = {
             },
           ],
           outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
             {
               name: "",
               type: "uint256",
@@ -3127,6 +3147,11 @@ const deployedContracts = {
             },
           ],
           outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
             {
               name: "",
               type: "uint256",
@@ -3456,6 +3481,12 @@ const deployedContracts = {
               type: "address",
               indexed: true,
               internalType: "address",
+            },
+            {
+              name: "assetValue",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
             {
               name: "status",
@@ -3953,7 +3984,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -4079,25 +4110,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getAssetIdFromTokenId",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "getAssetInfo",
           inputs: [
             {
@@ -4112,6 +4124,11 @@ const deployedContracts = {
               type: "tuple",
               internalType: "struct AssetLib.AssetInfo",
               components: [
+                {
+                  name: "assetValue",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
                 {
                   name: "status",
                   type: "uint8",
@@ -4211,25 +4228,6 @@ const deployedContracts = {
               name: "",
               type: "bytes32",
               internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getTokenIdFromAssetId",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
             },
           ],
           stateMutability: "view",
@@ -4419,12 +4417,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "price",
+              name: "tokenPrice",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4437,6 +4430,11 @@ const deployedContracts = {
           outputs: [
             {
               name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4478,6 +4476,11 @@ const deployedContracts = {
               type: "bytes",
               internalType: "bytes",
             },
+            {
+              name: "assetValue",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           outputs: [
             {
@@ -4498,12 +4501,12 @@ const deployedContracts = {
               internalType: "bytes",
             },
             {
-              name: "supply",
+              name: "assetValue",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "price",
+              name: "tokenPrice",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4524,6 +4527,11 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           stateMutability: "nonpayable",
         },
@@ -4537,12 +4545,12 @@ const deployedContracts = {
               internalType: "bytes",
             },
             {
-              name: "supply",
+              name: "assetValue",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "price",
+              name: "tokenPrice",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4570,6 +4578,11 @@ const deployedContracts = {
             },
             {
               name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4821,6 +4834,11 @@ const deployedContracts = {
               internalType: "struct AssetLib.AssetInfo",
               components: [
                 {
+                  name: "assetValue",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
                   name: "status",
                   type: "uint8",
                   internalType: "enum AssetLib.AssetStatus",
@@ -4941,6 +4959,12 @@ const deployedContracts = {
               type: "address",
               indexed: true,
               internalType: "address",
+            },
+            {
+              name: "assetValue",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
             {
               name: "status",
@@ -5093,7 +5117,13 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "totalSupply",
+              name: "assetValue",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -5325,7 +5355,13 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "totalSupply",
+              name: "assetValue",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -5479,6 +5515,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidAssetId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidAssetStatus",
           inputs: [
             {
@@ -5510,11 +5551,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "InvalidRevenueTokenId",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InvalidStatusTransition",
           inputs: [
             {
@@ -5532,11 +5568,6 @@ const deployedContracts = {
         {
           type: "error",
           name: "InvalidVINLength",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidVehicleId",
           inputs: [],
         },
         {
@@ -5613,7 +5644,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6034,12 +6065,7 @@ const deployedContracts = {
           name: "getTotalCollateralRequirement",
           inputs: [
             {
-              name: "revenueTokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenSupply",
+              name: "assetValue",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6214,12 +6240,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "revenueTokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenSupply",
+              name: "assetValue",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6242,12 +6263,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "revenueTokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenSupply",
+              name: "assetValue",
               type: "uint256",
               internalType: "uint256",
             },
@@ -7310,6 +7326,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidAssetId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidCollateralAmount",
           inputs: [],
         },
@@ -7449,7 +7470,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -9001,6 +9022,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidRevenueTokenId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidTokenType",
           inputs: [],
         },
@@ -9093,7 +9119,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769498490307.json",
+      deploymentFile: "run-1769546347751.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

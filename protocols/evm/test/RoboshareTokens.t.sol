@@ -200,7 +200,7 @@ contract RoboshareTokensTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
         TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, partner1);
         assertGt(positions.length, 0);
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), REVENUE_TOKEN_SUPPLY);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
     }
 
     function testSupportsInterface() public view {
