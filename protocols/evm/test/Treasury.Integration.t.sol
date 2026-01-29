@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1155Holder } from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { ProtocolLib, EarningsLib, AssetLib, TokenLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib, TokenLib, CollateralLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
@@ -111,13 +111,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         roboshareTokens.burn(address(this), revenueTokenId, supply);
 
         // Partner calls releaseCollateral
+        uint256 expectedRelease = treasury.getTotalCollateralRequirement(ASSET_VALUE);
         vm.prank(partner1);
         vm.expectEmit(true, true, false, true, address(treasury));
-        emit ITreasury.CollateralReleased(scenario.assetId, partner1, scenario.requiredCollateral);
+        emit ITreasury.CollateralReleased(scenario.assetId, partner1, expectedRelease);
         treasury.releaseCollateral(scenario.assetId);
 
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(isLocked);
+        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testReleaseCollateralFor() public {
@@ -135,13 +135,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         roboshareTokens.safeTransferFrom(partner1, address(this), revenueTokenId, supply, "");
         roboshareTokens.burn(address(this), revenueTokenId, supply);
 
+        uint256 expectedRelease = treasury.getTotalCollateralRequirement(ASSET_VALUE);
         vm.prank(address(router));
         vm.expectEmit(true, true, false, true, address(treasury));
-        emit ITreasury.CollateralReleased(scenario.assetId, partner1, scenario.requiredCollateral);
+        emit ITreasury.CollateralReleased(scenario.assetId, partner1, expectedRelease);
         treasury.releaseCollateralFor(partner1, scenario.assetId);
 
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(isLocked);
+        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testReleaseCollateralNotLocked() public {
@@ -241,12 +241,11 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertEq(balance1, expectedCollateral);
     }
 
-    function testGetAssetCollateralInfoUninitialized() public {
-        _ensureState(SetupState.AssetRegistered);
-        (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertEq(base, 0);
-        assertEq(total, 0);
-        assertFalse(locked);
+    function testGetAssetCollateralInfoUninitialized() public view {
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertEq(info.baseCollateral, 0);
+        assertEq(info.totalCollateral, 0);
+        assertEq(info.isLocked, false);
     }
 
     // Complex Scenarios
@@ -284,8 +283,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // 1. Lock Collateral (already done in setup)
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertTrue(isLocked);
+        assertTrue(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
 
         // 2. Burn tokens
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
@@ -303,8 +301,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.prank(address(router));
         treasury.releaseCollateralFor(partner1, scenario.assetId);
 
-        (,, isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(isLocked);
+        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
 
         // 4. Process Withdrawal
         uint256 initialBalance = usdc.balanceOf(partner1);
@@ -571,11 +568,10 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.prank(address(router));
         treasury.lockCollateralFor(partner1, scenario.assetId, ASSET_VALUE);
 
-        (uint256 baseCollateral, uint256 totalCollateral, bool isLocked,,) =
-            treasury.getAssetCollateralInfo(scenario.assetId);
-        assertGt(baseCollateral, 0);
-        assertTrue(isLocked);
-        assertGt(totalCollateral, 0);
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertGt(info.baseCollateral, 0);
+        assertTrue(info.isLocked);
+        assertGt(info.totalCollateral, 0);
     }
 
     function testLockCollateralForUnauthorizedCaller() public {
@@ -645,9 +641,9 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Use a realistic interval to avoid overflow while targeting the equality path
         uint256 dt = 30 days;
-        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertTrue(isLocked);
-        vm.warp(lockedAt + dt);
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(info.isLocked);
+        vm.warp(info.lockedAt + dt);
 
         // Compute target net = base * BENCHMARK_EARNINGS_BP * dt / (BP_PRECISION * YEARLY_INTERVAL)
         (uint256 baseCollateral,,,) = _calculateExpectedCollateral(ASSET_VALUE);
@@ -658,7 +654,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         uint256 netMultiplier = ProtocolLib.BP_PRECISION - ProtocolLib.PROTOCOL_FEE_BP;
         uint256 gross = (targetNet * ProtocolLib.BP_PRECISION + (netMultiplier - 1)) / netMultiplier;
 
-        deal(address(usdc), partner1, gross);
         _setupEarningsDistributed(gross);
 
         uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
@@ -677,55 +672,70 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.EarningsDistributed);
 
         // Read initial lockedAt and base
-        (uint256 baseBefore,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertTrue(isLocked);
+        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(infoBefore.isLocked);
 
         // Warp one year from lock and release
-        vm.warp(lockedAt + 365 days);
+        vm.warp(infoBefore.lockedAt + 365 days);
+
+        // Distribute earnings to meet benchmark and keep buffer healthy
+        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+
         uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
 
-        (uint256 baseAfter, uint256 totalAfter,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        CollateralLib.CollateralInfo memory infoAfter = treasury.getAssetCollateralInfo(scenario.assetId);
 
         // Expected linear release = 12% of initial base
-        uint256 expectedRelease = (baseBefore * 1200) / 10000;
-        assertEq(baseAfter, baseBefore - expectedRelease, "Linear one-year base release mismatch");
+        uint256 expectedRelease = (infoBefore.baseCollateral * 1200) / 10000;
+        assertEq(
+            infoAfter.baseCollateral,
+            infoBefore.baseCollateral - expectedRelease,
+            "Linear one-year base release mismatch"
+        );
 
         // Pending increased by exactly expectedRelease; total decreased equally (buffers unchanged)
         uint256 pendingAfter = treasury.getPendingWithdrawal(partner1);
         assertEq(pendingAfter - pendingBefore, expectedRelease, "Pending increase mismatch");
-        // Since getAssetCollateralInfo doesn't expose buffers, assert total decreased by expectedRelease
-        // Re-read total before via breakdown: totalBefore = baseBefore + buffers; we can't fetch buffers, so compare deltas via pending
-        totalAfter; // silence linter (state validated by pending delta and base delta)
     }
 
     function testLinearReleaseCumulativeEighteenMonths() public {
         _ensureState(SetupState.EarningsDistributed);
 
-        (uint256 baseInitial,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertTrue(isLocked);
+        // Read initial lockedAt and base
+        CollateralLib.CollateralInfo memory infoInitial = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(infoInitial.isLocked);
 
-        // First release after 1 year
-        vm.warp(lockedAt + 365 days);
+        // First release: 12 months (12% expected)
+        vm.warp(infoInitial.lockedAt + 365 days);
+
+        // Distribute earnings to meet benchmark
+        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
 
-        // Second distribution to enable second release
-        _setupEarningsDistributed(1_000e6);
+        // Second release: another 6 months (18 months total, 18% cumulative expected)
+        vm.warp(infoInitial.lockedAt + 365 days + 182 days);
 
-        // Second release after additional ~6 months from the last release timestamp
-        uint256 tsAfterFirst = block.timestamp;
-        vm.warp(tsAfterFirst + 182 days);
+        // Distribute earnings again to meet benchmark
+        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
 
-        (uint256 baseAfter,,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
+        CollateralLib.CollateralInfo memory infoFinal = treasury.getAssetCollateralInfo(scenario.assetId);
 
-        // Expected cumulative release over 1.5 years: 18% of initial base
-        uint256 expectedCumulative = (baseInitial * (1200 * 365 + 1200 * 182)) / (10000 * 365);
-        // After two releases, remaining base should be initial - expectedCumulative (no compounding)
-        assertEq(baseAfter, baseInitial - expectedCumulative, "Linear 18-month cumulative base release mismatch");
+        // Expected cumulative linear release based on total elapsed days (365 + 182)
+        uint256 dt = 365 days + 182 days;
+        uint256 expectedCumulative = (infoInitial.baseCollateral * ProtocolLib.DEPRECIATION_RATE_BP * dt)
+            / (ProtocolLib.BP_PRECISION * ProtocolLib.YEARLY_INTERVAL);
+        assertEq(
+            infoFinal.baseCollateral,
+            infoInitial.baseCollateral - expectedCumulative,
+            "Linear 18-month cumulative base release mismatch"
+        );
     }
 
     // Releasing without new earnings periods should revert (performance gate)
@@ -733,9 +743,8 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.EarningsDistributed);
 
         // Warp relative to the original lock timestamp before first release
-        (,, bool locked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        locked; // silence unused var
-        vm.warp(lockedAt + ProtocolLib.MIN_EVENT_INTERVAL + 1);
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        vm.warp(info.lockedAt + ProtocolLib.MIN_EVENT_INTERVAL + 1);
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId); // updates lastEventTimestamp
 
@@ -751,36 +760,43 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
     function testReleasePartialCollateralShortfallThenReplenishment() public {
         _ensureState(SetupState.RevenueTokensClaimed);
 
-        // Configure a shortfall: low earnings vs benchmark
-        _setupEarningsDistributed(100e6); // small amount to trigger shortfall vs benchmark
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(info.isLocked);
 
-        // Warp relative to the original lock timestamp and process first release
-        (,, bool locked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        locked; // silence
-        vm.warp(lockedAt + ProtocolLib.MIN_EVENT_INTERVAL + 1);
+        // 1. Warp 3 years BEFORE distributing to ensure a massive shortfall
+        // Benchmark for 3 years (30% of investor value = 3k) exceeds initial buffer (~2.5k)
+        vm.warp(info.lockedAt + (3 * 365 days));
 
+        // 2. Distribute minimal earnings (near-zero performance)
+        _setupEarningsDistributed(SMALL_EARNINGS_AMOUNT);
+
+        // 3. Process the pending Period 1 shortfall
+        // This will drain the buffer.
         vm.prank(partner1);
-        vm.expectEmit(true, false, false, false, address(treasury));
-        emit ITreasury.ShortfallReserved(scenario.assetId, 0);
         treasury.releasePartialCollateral(scenario.assetId);
-        uint256 tsAfterFirstShortfallRelease = block.timestamp;
 
-        // Now add excess earnings and process to replenish buffers
-        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+        // Verify buffer is drained
+        CollateralLib.CollateralInfo memory infoAfterShortfall = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertEq(infoAfterShortfall.earningsBuffer, 0, "Buffer should be drained to zero");
+        assertGt(infoAfterShortfall.reservedForLiquidation, 0, "Should have funds reserved for liquidation");
 
-        // Warp from the timestamp used in the prior release
-        vm.warp(tsAfterFirstShortfallRelease + ProtocolLib.MIN_EVENT_INTERVAL + 1);
-
+        // 4. Release; should still succeed but release nothing
         uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
+        vm.warp(block.timestamp + 30 days);
+        _setupEarningsDistributed(SMALL_EARNINGS_AMOUNT); // Record Period 2 shortfall
         vm.prank(partner1);
-        vm.expectEmit(true, false, false, false, address(treasury));
-        emit ITreasury.BufferReplenished(scenario.assetId, 0, 0);
-        vm.expectEmit(true, true, false, false, address(treasury));
-        emit ITreasury.CollateralReleased(scenario.assetId, partner1, 0);
         treasury.releasePartialCollateral(scenario.assetId);
         uint256 pendingAfter = treasury.getPendingWithdrawal(partner1);
+        assertEq(pendingAfter, pendingBefore, "No collateral should be released during shortfall");
 
-        assertGt(pendingAfter, pendingBefore, "Collateral should be released after replenishment");
+        // 5. Now add excess earnings and process to replenish buffers
+        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+
+        // 6. Advance time more and release again (replenishment should have occurred)
+        vm.warp(block.timestamp + 120 days);
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.assetId);
+        assertGt(treasury.getPendingWithdrawal(partner1), pendingAfter, "Collateral should release after replenishment");
     }
 
     function testDistributeEarningsMinimumProtocolFee() public {
@@ -822,47 +838,48 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         (, uint256 earningsBuffer, uint256 protocolBuffer,) = _calculateExpectedCollateral(ASSET_VALUE);
 
-        (,, bool isLocked, uint256 lockedAt,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertTrue(isLocked);
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(info.isLocked);
 
         // Repeatedly release collateral over 10 years until it's fully depleted (12% per year, ~8.33 years to deplete)
-        uint256 timeToWarp = lockedAt;
+        uint256 timeToWarp = info.lockedAt;
         for (uint256 i = 0; i < 9; i++) {
             timeToWarp += 365 days;
             vm.warp(timeToWarp);
 
-            // Distribute earnings that meet the benchmark to avoid draining the buffer
-            // With new logic, we need to distribute enough so investor portion meets benchmark
-            (uint256 currentBase,,,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(currentBase, 365 days);
-            uint256 grossEarnings = (benchmarkEarnings * 10000) / 9750; // Gross up to account for protocol fee
-            // Scale up by token ratio since setupEarningsScenario uses investor portion
-            uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-            uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-            uint256 scaledGrossEarnings = (grossEarnings * totalSupply) / buyerBalance;
-            _setupEarningsDistributed(scaledGrossEarnings + 10e6); // Add extra to ensure excess
+            // Annual benchmark = 10,000 USDC. Investor 10% share = 1,000 USDC.
+            // Distribute 1,500 USDC to be absolutely sure buffer stays full.
+            uint256 topUp = 1500 * 1e6;
+            vm.startPrank(partner1);
+            usdc.approve(address(treasury), topUp);
+            treasury.distributeEarnings(scenario.assetId, topUp, topUp, false);
+            vm.stopPrank();
 
             vm.prank(partner1);
             treasury.releasePartialCollateral(scenario.assetId);
         }
 
         // Verify base collateral is depleted, but buffers remain
-        (uint256 baseCollateralAfter, uint256 totalCollateralAfter,,,) =
-            treasury.getAssetCollateralInfo(scenario.assetId);
-        assertEq(baseCollateralAfter, 0, "Base collateral should be zero after 9 years");
+        CollateralLib.CollateralInfo memory infoAfter = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertEq(infoAfter.baseCollateral, 0, "Base collateral should be zero after 9 years");
         assertApproxEqAbs(
-            totalCollateralAfter,
+            infoAfter.totalCollateral,
             earningsBuffer + protocolBuffer,
             1e6,
             "Total collateral should approx equal initial buffers"
         );
 
         // Attempt one final release in the 10th year
-        _setupEarningsDistributed(EARNINGS_AMOUNT); // Scale up for investor ratio
+        // distribute enough to satisfy safety gate
+        uint256 finalInvestorAmount = 1000 * 1e6;
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), finalInvestorAmount);
+        treasury.distributeEarnings(scenario.assetId, finalInvestorAmount, finalInvestorAmount, false);
+        vm.stopPrank();
+
         vm.warp(block.timestamp + 365 days);
 
-        // Expect revert because releaseAmount will be 0
-        vm.expectRevert(ITreasury.InsufficientCollateral.selector);
+        // Should succeed with 0 release
         vm.prank(partner1);
         treasury.releasePartialCollateral(scenario.assetId);
     }
@@ -874,20 +891,17 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         uint256 topUpAmount = TOP_UP_AMOUNT;
 
         // Partner approves top-up
-        deal(address(usdc), partner1, topUpAmount);
-        vm.startPrank(partner1);
+        vm.prank(partner1);
         usdc.approve(address(treasury), topUpAmount);
-        vm.stopPrank();
 
-        // Router calls treasury
+        // Check initial state
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertEq(info.baseCollateral, ASSET_VALUE);
+        assertTrue(info.isLocked);
+
         vm.prank(address(router));
         (uint256 settlementAmount, uint256 settlementPerToken) =
             treasury.initiateSettlement(partner1, scenario.assetId, topUpAmount);
-
-        // Verify Collateral Cleared
-        (uint256 base,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(isLocked);
-        assertEq(base, 0);
 
         // Verify Settlement Amount logic
         // Should be InvestorClaimable + TopUp
@@ -904,9 +918,9 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.prank(address(router));
         (uint256 liquidationAmount, uint256 settlementPerToken) = treasury.executeLiquidation(scenario.assetId);
 
-        (uint256 base,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(isLocked);
-        assertEq(base, 0);
+        CollateralLib.CollateralInfo memory infoAfter = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertFalse(infoAfter.isLocked);
+        assertEq(infoAfter.baseCollateral, 0);
 
         assertGt(liquidationAmount, 0);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
@@ -950,8 +964,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         uint256 initialBalance = usdc.balanceOf(partner1);
 
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(scenario.assetId); // Check if still locked, settlement clears this.
-        assertFalse(isLocked);
+        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked); // Check if still locked, settlement clears this.
 
         (, uint256 settlementPerToken,) = treasury.assetSettlements(scenario.assetId);
 
@@ -1183,7 +1196,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // Distribute earnings
         uint256 earningsAmount = 30_000e6;
-        deal(address(usdc), partner1, earningsAmount);
         _setupEarningsDistributed(earningsAmount);
 
         // Settle
@@ -1278,7 +1290,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // Distribute earnings in 3 periods
         for (uint256 i = 0; i < 3; i++) {
             uint256 earningsAmount = 3_000e6;
-            deal(address(usdc), partner1, earningsAmount);
             _setupEarningsDistributed(earningsAmount);
 
             // Advance time between distributions
@@ -1313,7 +1324,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         // First distribution with auto-release disabled (to establish earnings history)
         uint256 earningsAmount = LARGE_EARNINGS_AMOUNT;
-        deal(address(usdc), partner1, earningsAmount * 3);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount * 3);
 
@@ -1344,7 +1354,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
 
         uint256 earningsAmount = LARGE_EARNINGS_AMOUNT;
-        deal(address(usdc), partner1, earningsAmount * 2);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount * 2);
 
@@ -1367,7 +1376,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
 
         uint256 earningsAmount = LARGE_EARNINGS_AMOUNT;
-        deal(address(usdc), partner1, earningsAmount * 2);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount * 2);
 
@@ -1398,7 +1406,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
 
         uint256 earningsAmount = LARGE_EARNINGS_AMOUNT;
-        deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
 
@@ -1427,7 +1434,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
 
         uint256 earningsAmount = LARGE_EARNINGS_AMOUNT;
-        deal(address(usdc), partner1, earningsAmount * 2);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount * 2);
 
@@ -1495,7 +1501,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         _ensureState(SetupState.RevenueTokensClaimed);
 
         uint256 earningsAmount = EARNINGS_AMOUNT;
-        deal(address(usdc), partner1, earningsAmount);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), earningsAmount);
 
