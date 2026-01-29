@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1705,7 +1705,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1778,7 +1778,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2415,7 +2415,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -3984,7 +3984,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5644,7 +5644,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -5982,29 +5982,66 @@ const deployedContracts = {
           ],
           outputs: [
             {
-              name: "baseCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isLocked",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "lockedAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "lockDuration",
-              type: "uint256",
-              internalType: "uint256",
+              name: "",
+              type: "tuple",
+              internalType: "struct CollateralLib.CollateralInfo",
+              components: [
+                {
+                  name: "initialBaseCollateral",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "baseCollateral",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "earningsBuffer",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "protocolBuffer",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "totalCollateral",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "isLocked",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "lockedAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "lastEventTimestamp",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "reservedForLiquidation",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "liquidationThreshold",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "createdAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
             },
           ],
           stateMutability: "view",
@@ -7361,7 +7398,12 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "NoNewPerformanceEvents",
+          name: "NoInvestors",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoNewEarningsPeriods",
           inputs: [],
         },
         {
@@ -7372,11 +7414,6 @@ const deployedContracts = {
         {
           type: "error",
           name: "NoPriorEarningsDistribution",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NoRevenueTokensIssued",
           inputs: [],
         },
         {
@@ -7470,7 +7507,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -9119,7 +9156,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1769546347751.json",
+      deploymentFile: "run-1769725423730.json",
       deploymentScript: "Deploy.s.sol",
     },
   },
