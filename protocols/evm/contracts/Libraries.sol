@@ -711,6 +711,12 @@ library CollateralLib {
      *      Buffers are not considered here; caller is responsible for gating and buffer processing.
      */
     function calculateCollateralRelease(CollateralInfo storage info) internal view returns (uint256 releaseAmount) {
+        // Performance gate: Don't release base collateral if the protection buffer is empty
+        // and there is an outstanding deficit reserved for liquidation.
+        if (info.earningsBuffer == 0 && info.reservedForLiquidation > 0) {
+            return 0;
+        }
+
         // Cumulative allowed release from initial base
         uint256 elapsedSinceLock = block.timestamp - info.lockedAt;
         uint256 cumulativeAllowed = calculateDepreciation(info.initialBaseCollateral, elapsedSinceLock);

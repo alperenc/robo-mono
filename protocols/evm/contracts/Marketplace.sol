@@ -215,8 +215,7 @@ contract Marketplace is
             revert AssetNotActive();
         }
 
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
-        if (!isLocked) {
+        if (!treasury.getAssetCollateralInfo(assetId).isLocked) {
             revert NoCollateralLocked();
         }
 
@@ -270,8 +269,7 @@ contract Marketplace is
             revert AssetNotActive();
         }
 
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
-        if (!isLocked) {
+        if (!treasury.getAssetCollateralInfo(assetId).isLocked) {
             revert NoCollateralLocked();
         }
 
@@ -662,9 +660,20 @@ contract Marketplace is
     /**
      * @dev Check if asset has locked collateral (required for listing)
      */
-    function isAssetEligibleForListing(uint256 assetId) external view returns (bool) {
-        (,, bool isLocked,,) = treasury.getAssetCollateralInfo(assetId);
-        return isLocked;
+    function isAssetEligibleForListing(uint256 assetId) public view override returns (bool) {
+        if (!router.assetExists(assetId)) {
+            return false;
+        }
+
+        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
+            return false;
+        }
+
+        if (!treasury.getAssetCollateralInfo(assetId).isLocked) {
+            return false;
+        }
+
+        return true;
     }
 
     // Admin Functions
