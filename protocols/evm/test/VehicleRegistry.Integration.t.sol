@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib, VehicleLib } from "../contracts/Libraries.sol";
+import { AssetLib, VehicleLib, CollateralLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
@@ -70,10 +70,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), totalSupply);
 
         // Verify collateral is locked
-        (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertEq(base, ASSET_VALUE);
-        assertGt(total, base);
-        assertEq(locked, true);
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertEq(info.baseCollateral, ASSET_VALUE);
+        assertGt(info.totalCollateral, info.baseCollateral);
+        assertEq(info.isLocked, true);
     }
 
     function testRegisterAssetAndMintTokens() public {
@@ -109,10 +109,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, newRevenueTokenId), newTokenSupply);
 
         // Verify collateral is locked
-        (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(newAssetId);
-        assertEq(base, ASSET_VALUE);
-        assertGt(total, base);
-        assertEq(locked, true);
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(newAssetId);
+        assertEq(info.baseCollateral, ASSET_VALUE);
+        assertGt(info.totalCollateral, info.baseCollateral);
+        assertEq(info.isLocked, true);
     }
 
     function testRegisterAssetMintAndList() public {
@@ -287,29 +287,83 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     // Fuzz Tests
 
-    function testFuzzMintRevenueTokens(uint256 supply) public {
-        vm.assume(supply > 0 && supply <= 1e18);
+    function testFuzzMintRevenueTokens(uint256 assetValue, uint256 tokenPrice) public {
+        // Constraints:
+        // 1. tokenPrice > 0 (avoid div by zero)
+        // 2. assetValue >= tokenPrice (to ensure supply >= 1)
+        // 3. Cap assetValue at 1B USDC to avoid overflow/unrealistic scenarios
+        vm.assume(tokenPrice > 0);
+        vm.assume(assetValue >= tokenPrice && assetValue <= 1_000_000_000 * 1e6);
+
         _ensureState(SetupState.InitialAccountsSetup);
 
-        // Ensure partner1 has enough USDC to cover any fuzz supply
-        _fundAddressWithUsdc(partner1, type(uint256).max);
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
+        // Ensure partner1 has enough USDC to cover the specific asset value plus buffers
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(assetValue);
+        _fundAddressWithUsdc(partner1, requiredCollateral);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
         uint256 maturityDate = block.timestamp + 365 days;
 
-        vm.prank(partner1);
         uint256 vehicleId = assetRegistry.registerAsset(
             abi.encode(
                 TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             ),
-            ASSET_VALUE
+            assetValue
         );
 
-        vm.prank(partner1);
         (uint256 revenueTokenId, uint256 actualSupply) =
-            assetRegistry.mintRevenueTokens(vehicleId, REVENUE_TOKEN_PRICE, maturityDate);
+            assetRegistry.mintRevenueTokens(vehicleId, tokenPrice, maturityDate);
+        vm.stopPrank();
 
         assertEq(roboshareTokens.balanceOf(partner1, revenueTokenId), actualSupply);
+        assertEq(actualSupply, assetValue / tokenPrice, "Supply should be derived from asset value and price");
+    }
+
+    function testFuzzRegisterAssetMintAndList(uint256 assetValue, uint256 tokenPrice) public {
+        // Constraints:
+        // 1. tokenPrice >= 1 USDC (1e6)
+        // 2. assetValue >= tokenPrice (to ensure supply >= 1)
+        // 3. Cap assetValue at 1B USDC to avoid overflow/unrealistic scenarios
+        vm.assume(tokenPrice >= 1e6);
+        vm.assume(assetValue >= tokenPrice && assetValue <= 1_000_000_000 * 1e6);
+
+        _ensureState(SetupState.InitialAccountsSetup);
+
+        // Setup: Configure marketplace on Router and grant role to Router
+        vm.startPrank(admin);
+        router.setMarketplace(address(marketplace));
+        marketplace.grantRole(marketplace.AUTHORIZED_CONTRACT_ROLE(), address(router));
+        vm.stopPrank();
+
+        // Partner must approve marketplace for token transfers
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        // Prepare collateral
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(assetValue);
+        _fundAddressWithUsdc(partner1, requiredCollateral);
+        usdc.approve(address(treasury), requiredCollateral);
+
+        // Use dynamic data
+        bytes memory vehicleData = abi.encode(
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+
+        // Execute
+        (, uint256 revenueTokenId, uint256 tokenSupply, uint256 listingId) = assetRegistry.registerAssetMintAndList(
+            vehicleData, assetValue, tokenPrice, block.timestamp + 365 days, 30 days, true
+        );
+        vm.stopPrank();
+
+        // Verify supply calculation
+        uint256 expectedSupply = assetValue / tokenPrice;
+        assertEq(tokenSupply, expectedSupply, "Supply should match calculated value");
+
+        // Verify: Revenue tokens were minted and transferred to marketplace
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), tokenSupply);
+
+        // Verify: Listing was created with full supply
+        _assertListingState(listingId, revenueTokenId, tokenSupply, tokenPrice, partner1, true, true);
     }
 
     // Lifecycle Test
@@ -403,8 +457,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Verify collateral released
         // Collateral should be unlocked (locked = false)
-        (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(locked);
+        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testRetireAssetAndBurnTokensPartialHolding() public {
@@ -422,7 +475,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testBurnRevenueTokens() public {
         _ensureState(SetupState.RevenueTokensMinted);
         uint256 initialSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-        uint256 burnAmount = 500;
+        uint256 burnAmount = initialSupply / 2;
 
         vm.prank(partner1);
         assetRegistry.burnRevenueTokens(scenario.assetId, burnAmount);
@@ -450,8 +503,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.retireAsset(scenario.assetId);
 
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
-        (,, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
-        assertFalse(locked);
+        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testRetireAssetAssetNotActive() public {
@@ -488,7 +540,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         uint256 topUpAmount = TOP_UP_AMOUNT;
 
         // Partner approves top-up
-        _fundAddressWithUsdc(partner1, topUpAmount);
         vm.prank(partner1);
         usdc.approve(address(treasury), topUpAmount);
 
@@ -516,13 +567,14 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Warp to maturity
         vm.warp(maturityDate + 1);
 
-        // Calculate expected liquidation amounts (Investor Pool = Base + Earnings Buffer)
-        (uint256 base,,,) = _calculateExpectedCollateral(ASSET_VALUE);
+        // Calculate expected liquidation amounts (Investor Pool = Base + Reserved For Liquidation)
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        assertTrue(info.isLocked);
 
         // In the new logic, if matured, earningsBuffer is separated from investorPool.
         // In executeLiquidation, the partnerRefund (earningsBuffer) is ignored/lost if it exists.
-        // So investors only get Base + Reserved.
-        uint256 expectedLiquidationAmount = base;
+        // So investors get Base + Reserved.
+        uint256 expectedLiquidationAmount = info.baseCollateral + info.reservedForLiquidation;
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         uint256 expectedPerToken = expectedLiquidationAmount / totalSupply;
 
