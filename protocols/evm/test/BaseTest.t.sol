@@ -72,7 +72,6 @@ contract BaseTest is Test {
     struct TestScenario {
         uint256 assetId;
         uint256 revenueTokenId;
-        uint256 revenueTokenSupply;
         uint256 requiredCollateral;
         uint256 listingId;
         uint256 initialProtocolBalance;
@@ -102,7 +101,7 @@ contract BaseTest is Test {
         }
 
         if (requiredState >= SetupState.RevenueTokensMinted && currentState < SetupState.RevenueTokensMinted) {
-            (scenario.revenueTokenId, scenario.revenueTokenSupply) = _setupRevenueTokensMinted();
+            scenario.revenueTokenId = _setupRevenueTokensMinted();
             currentState = SetupState.RevenueTokensMinted;
         }
 
@@ -153,7 +152,7 @@ contract BaseTest is Test {
         );
     }
 
-    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId, uint256 tokenSupply) {
+    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
         // Calculate required collateral
         scenario.requiredCollateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
 
@@ -163,8 +162,7 @@ contract BaseTest is Test {
         // Approve USDC for collateral
         usdc.approve(address(treasury), scenario.requiredCollateral);
 
-        (revenueTokenId, tokenSupply) =
-            assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate);
+        (revenueTokenId,) = assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate);
         vm.stopPrank();
     }
 

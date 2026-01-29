@@ -576,7 +576,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(listing.isActive);
 
         // Unsold tokens should be returned
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        assertEq(
+            roboshareTokens.balanceOf(partner1, scenario.revenueTokenId),
+            roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId)
+        );
     }
 
     function testEndListing() public {
@@ -596,7 +599,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(listing.isCancelled);
 
         // Unsold tokens returned
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        assertEq(
+            roboshareTokens.balanceOf(partner1, scenario.revenueTokenId),
+            roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId)
+        );
     }
 
     function testEndListingNotListingOwner() public {
