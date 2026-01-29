@@ -66,6 +66,7 @@ contract BaseTest is Test {
     uint256 constant PURCHASE_AMOUNT = 100;
     uint256 constant EARNINGS_AMOUNT = 1000 * 1e6;
     uint256 constant LARGE_EARNINGS_AMOUNT = 10000 * 1e6;
+    uint256 constant TOP_UP_AMOUNT = 1000 * 1e6;
 
     // Storage for test scenario states
     struct TestScenario {

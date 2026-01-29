@@ -871,7 +871,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
     function testInitiateSettlementTopUp() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        uint256 topUpAmount = 1000e6;
+        uint256 topUpAmount = TOP_UP_AMOUNT;
 
         // Partner approves top-up
         deal(address(usdc), partner1, topUpAmount);

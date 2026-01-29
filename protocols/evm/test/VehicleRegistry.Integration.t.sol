@@ -66,7 +66,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         assertGt(scenario.revenueTokenId, scenario.assetId);
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), totalSupply);
 
         // Verify collateral is locked
         (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(scenario.assetId);
@@ -367,8 +368,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRetireAssetAndBurnTokens() public {
         _ensureState(SetupState.RevenueTokensMinted);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         // Verify initial state
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), totalSupply);
         uint256 expectedCollateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
         _assertCollateralState(scenario.assetId, ASSET_VALUE, expectedCollateral, true);
 
@@ -387,7 +389,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Expect AssetRetired from VehicleRegistry
         vm.expectEmit(true, true, true, true, address(assetRegistry));
-        emit IAssetRegistry.AssetRetired(scenario.assetId, partner1, scenario.revenueTokenSupply, expectedCollateral);
+        emit IAssetRegistry.AssetRetired(scenario.assetId, partner1, totalSupply, expectedCollateral);
 
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
         vm.stopPrank();
@@ -419,15 +421,14 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testBurnRevenueTokens() public {
         _ensureState(SetupState.RevenueTokensMinted);
+        uint256 initialSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         uint256 burnAmount = 500;
 
         vm.prank(partner1);
         assetRegistry.burnRevenueTokens(scenario.assetId, burnAmount);
 
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply - burnAmount);
-        assertEq(
-            roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), scenario.revenueTokenSupply - burnAmount
-        );
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), initialSupply - burnAmount);
+        assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), initialSupply - burnAmount);
     }
 
     function testBurnRevenueTokensAssetNotFound() public {
@@ -439,9 +440,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRetireAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         // Burn all tokens first
         vm.prank(partner1);
-        assetRegistry.burnRevenueTokens(scenario.assetId, scenario.revenueTokenSupply);
+        assetRegistry.burnRevenueTokens(scenario.assetId, totalSupply);
 
         // Now retire
         vm.prank(partner1);
@@ -483,7 +485,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testSettleAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        uint256 topUpAmount = 1000e6;
+        uint256 topUpAmount = TOP_UP_AMOUNT;
 
         // Partner approves top-up
         _fundAddressWithUsdc(partner1, topUpAmount);
@@ -494,7 +496,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         (uint256 base, uint256 earningsBuffer,,) = _calculateExpectedCollateral(ASSET_VALUE);
         uint256 investorPool = base + earningsBuffer;
         uint256 expectedSettlementAmount = investorPool + topUpAmount;
-        uint256 expectedPerToken = expectedSettlementAmount / scenario.revenueTokenSupply;
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 expectedPerToken = expectedSettlementAmount / totalSupply;
 
         vm.prank(partner1);
         vm.expectEmit(true, true, false, true);
@@ -520,7 +523,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // In executeLiquidation, the partnerRefund (earningsBuffer) is ignored/lost if it exists.
         // So investors only get Base + Reserved.
         uint256 expectedLiquidationAmount = base;
-        uint256 expectedPerToken = expectedLiquidationAmount / scenario.revenueTokenSupply;
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 expectedPerToken = expectedLiquidationAmount / totalSupply;
 
         vm.expectEmit(true, true, false, true);
         emit IAssetRegistry.AssetExpired(scenario.assetId, expectedLiquidationAmount, expectedPerToken);
@@ -622,8 +626,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.RevenueTokensMinted);
 
         // Burn all tokens first using the public burn function
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         vm.prank(partner1);
-        assetRegistry.burnRevenueTokens(scenario.assetId, scenario.revenueTokenSupply);
+        assetRegistry.burnRevenueTokens(scenario.assetId, totalSupply);
 
         // Now call retireAssetAndBurnTokens with 0 supply
         // This exercises the `if (totalSupply > 0)` else branch
