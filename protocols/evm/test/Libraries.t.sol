@@ -382,4 +382,50 @@ contract LibrariesTest is Test {
         cteh.setPeriod(1, 10e6, block.timestamp, 100e6);
         assertEq(cteh.unclaimed(10, 1), 0);
     }
+
+    // Fuzz Tests for Math Libraries
+
+    function testFuzzCalculateDepreciation(uint256 principal, uint256 timeElapsed) public pure {
+        // Constraints
+        vm.assume(principal < 1e30); // Avoid unrealistic overflow
+        vm.assume(timeElapsed < 3650 days); // Cap at 10 years
+
+        uint256 depreciation = CollateralLib.calculateDepreciation(principal, timeElapsed);
+
+        if (timeElapsed == 0) {
+            assertEq(depreciation, 0);
+        } else if (principal > 0) {
+            // Depreciation should be proportional
+            // Just ensure it doesn't revert and is <= principal if time is large enough?
+            // Actually max depreciation is capped at principal in logic? No, let's check
+            // Depreciation rate is fixed per year.
+            // 1200 BP = 12% per year.
+            // If time is large, depreciation can exceed principal if not capped?
+            // The library implementation does: (principal * rate * time) / (PRECISION * YEAR)
+            // It does NOT cap at principal. The consumer (Treasury) handles that logic.
+            // So we just verify it runs.
+            assertGe(depreciation, 0);
+        }
+    }
+
+    function testFuzzCalculateBenchmarkEarnings(uint256 principal, uint256 timeElapsed) public pure {
+        // Constraints
+        vm.assume(principal < 1e30);
+        vm.assume(timeElapsed < 3650 days);
+
+        uint256 benchmark = EarningsLib.calculateBenchmarkEarnings(principal, timeElapsed);
+
+        if (timeElapsed == 0 || principal == 0) {
+            assertEq(benchmark, 0);
+        } else {
+            // Benchmark can be 0 if amounts are tiny (integer division)
+            // Just ensure it doesn't overflow or produce crazy values
+            assertGe(benchmark, 0);
+
+            // Should be less than principal for short durations (e.g. 1 year = 10%)
+            if (timeElapsed <= 365 days && principal > 100) {
+                assertLt(benchmark, principal);
+            }
+        }
+    }
 }

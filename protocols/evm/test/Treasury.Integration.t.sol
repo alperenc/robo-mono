@@ -1425,6 +1425,49 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
+    function testFuzzDistributeEarnings(uint256 totalEarnings, uint256 investorPortion) public {
+        // Constraints
+        vm.assume(totalEarnings > 10 * 1e6 && totalEarnings < 1e12); // >10 USDC
+        vm.assume(investorPortion >= 2500000 && investorPortion <= totalEarnings); // >= 2.5 USDC (min fee)
+
+        _ensureState(SetupState.RevenueTokensClaimed);
+
+        // Ensure partner has funds
+        _fundAddressWithUsdc(partner1, totalEarnings * 2);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), totalEarnings);
+
+        // Capture state before
+        uint256 treasuryBalanceBefore = usdc.balanceOf(address(treasury));
+
+        treasury.distributeEarnings(scenario.assetId, totalEarnings, investorPortion, false);
+
+        // Verify balances
+        uint256 treasuryBalanceAfter = usdc.balanceOf(address(treasury));
+        assertEq(
+            treasuryBalanceAfter,
+            treasuryBalanceBefore + investorPortion,
+            "Only investor portion should remain in Treasury"
+        );
+
+        // Verify partner got remainder back immediately
+        // Note: distributeEarnings transfers 'amount' FROM partner, then sends (amount - investorAmount) back to partner?
+        // Let's check contract logic.
+        // Actually distributeEarnings takes 'amount' from sender.
+        // If investorAmount < amount, the difference is kept by partner?
+        // No, `distributeEarnings` usually assumes the `amount` is total revenue, and `investorAmount` is what is sent to the contract.
+        // Wait, looking at Treasury.sol:
+        // function distributeEarnings(..., uint256 amount, uint256 investorAmount, ...)
+        //   IERC20(usdc).safeTransferFrom(msg.sender, address(this), investorAmount);
+        // It only transfers `investorAmount`!
+        // The `amount` param is just for record keeping (total revenue).
+
+        // So my assertion `treasuryBalanceAfter == treasuryBalanceBefore + investorPortion` is correct.
+
+        vm.stopPrank();
+    }
+
     // ============================================
     // Convenience Withdrawal Function Tests
     // ============================================

@@ -729,6 +729,26 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.purchaseTokens(scenario.listingId, 1);
     }
 
+    function testFuzzCreateListing(uint256 amount, uint256 price, uint256 duration) public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Constraints
+        vm.assume(amount > 0 && amount <= 1000); // Supply is 1000
+        vm.assume(price > 0 && price < 1e12); // Reasonable price range
+        vm.assume(duration > 0 && duration < 3650 days);
+
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        uint256 listingId = marketplace.createListing(scenario.revenueTokenId, amount, price, duration, true);
+        vm.stopPrank();
+
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.amount, amount);
+        assertEq(listing.pricePerToken, price);
+        assertEq(listing.expiresAt, block.timestamp + duration);
+    }
+
     function testCancelListingListingNotFound() public {
         _ensureState(SetupState.RevenueTokensListed);
         uint256 nonExistentListingId = 999;

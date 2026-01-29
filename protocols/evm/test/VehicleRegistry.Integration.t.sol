@@ -319,6 +319,40 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(actualSupply, assetValue / tokenPrice, "Supply should be derived from asset value and price");
     }
 
+    function testFuzzRegisterAssetAndMintTokens(uint256 assetValue, uint256 tokenPrice) public {
+        // Constraints:
+        // 1. tokenPrice > 0 (avoid div by zero)
+        // 2. assetValue >= tokenPrice (to ensure supply >= 1)
+        // 3. Cap assetValue at 1B USDC to avoid overflow/unrealistic scenarios
+        vm.assume(tokenPrice > 0);
+        vm.assume(assetValue >= tokenPrice && assetValue <= 1_000_000_000 * 1e6);
+
+        _ensureState(SetupState.InitialAccountsSetup);
+
+        // Ensure partner1 has enough USDC to cover the specific asset value plus buffers
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(assetValue);
+        _fundAddressWithUsdc(partner1, requiredCollateral);
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        bytes memory vehicleData = abi.encode(
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+
+        (uint256 assetId, uint256 revenueTokenId, uint256 actualSupply) =
+            assetRegistry.registerAssetAndMintTokens(vehicleData, assetValue, tokenPrice, maturityDate);
+        vm.stopPrank();
+
+        assertEq(roboshareTokens.balanceOf(partner1, revenueTokenId), actualSupply);
+        assertEq(actualSupply, assetValue / tokenPrice, "Supply should be derived from asset value and price");
+
+        // Verify collateral lock
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(assetId);
+        assertEq(info.baseCollateral, assetValue);
+        assertEq(info.isLocked, true);
+    }
+
     function testFuzzRegisterAssetMintAndList(uint256 assetValue, uint256 tokenPrice) public {
         // Constraints:
         // 1. tokenPrice >= 1 USDC (1e6)
