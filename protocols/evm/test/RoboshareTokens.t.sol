@@ -199,8 +199,12 @@ contract RoboshareTokensTest is BaseTest {
     function testGetUserPositionsAndBalance() public {
         _ensureState(SetupState.RevenueTokensMinted);
         TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, partner1);
-        assertGt(positions.length, 0);
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        uint256 expectedBalance = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+
+        assertEq(positions.length, 1, "Should have exactly one position");
+        assertEq(positions[0].tokenId, scenario.revenueTokenId, "Token ID mismatch in position");
+        assertEq(positions[0].amount, expectedBalance, "Position amount mismatch");
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), expectedBalance);
     }
 
     function testSupportsInterface() public view {

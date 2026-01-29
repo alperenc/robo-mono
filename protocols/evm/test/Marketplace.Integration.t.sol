@@ -66,11 +66,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         _assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, LISTING_AMOUNT, "Marketplace token balance mismatch"
         );
+
+        uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         _assertTokenBalance(
-            partner1,
-            scenario.revenueTokenId,
-            scenario.revenueTokenSupply - LISTING_AMOUNT,
-            "Partner token balance mismatch"
+            partner1, scenario.revenueTokenId, currentSupply - LISTING_AMOUNT, "Partner token balance mismatch"
         );
     }
 
@@ -89,9 +88,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.expectRevert(Marketplace.InvalidAmount.selector);
         marketplace.createListing(scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
 
+        uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         vm.expectRevert(Marketplace.InvalidAmount.selector);
         marketplace.createListing(
-            scenario.revenueTokenId, scenario.revenueTokenSupply + 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+            scenario.revenueTokenId, currentSupply + 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
         vm.stopPrank();
     }
@@ -107,15 +107,14 @@ contract MarketplaceIntegrationTest is BaseTest {
     function testCreateListingInsufficientTokenBalance() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        uint256 transferAmount = scenario.revenueTokenSupply / 2;
+        uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 transferAmount = currentSupply / 2;
 
         vm.startPrank(partner1);
         roboshareTokens.safeTransferFrom(partner1, partner2, scenario.revenueTokenId, transferAmount, "");
 
         vm.expectRevert(Marketplace.InsufficientTokenBalance.selector);
-        marketplace.createListing(
-            scenario.revenueTokenId, scenario.revenueTokenSupply, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
+        marketplace.createListing(scenario.revenueTokenId, currentSupply, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
         vm.stopPrank();
     }
 
@@ -577,7 +576,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(listing.isActive);
 
         // Unsold tokens should be returned
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        assertEq(
+            roboshareTokens.balanceOf(partner1, scenario.revenueTokenId),
+            roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId)
+        );
     }
 
     function testEndListing() public {
@@ -597,7 +599,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(listing.isCancelled);
 
         // Unsold tokens returned
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), scenario.revenueTokenSupply);
+        assertEq(
+            roboshareTokens.balanceOf(partner1, scenario.revenueTokenId),
+            roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId)
+        );
     }
 
     function testEndListingNotListingOwner() public {
@@ -671,11 +676,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.AssetRegistered);
         assertFalse(marketplace.isAssetEligibleForListing(scenario.assetId));
 
-        vm.startPrank(partner1);
-        usdc.approve(address(treasury), treasury.getTotalCollateralRequirement(ASSET_VALUE));
-        treasury.lockCollateral(scenario.assetId, ASSET_VALUE);
-        vm.stopPrank();
-
+        _ensureState(SetupState.RevenueTokensMinted);
         assertTrue(marketplace.isAssetEligibleForListing(scenario.assetId));
     }
 
@@ -726,6 +727,26 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(buyer);
         vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, 1);
+    }
+
+    function testFuzzCreateListing(uint256 amount, uint256 price, uint256 duration) public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        // Constraints
+        vm.assume(amount > 0 && amount <= 1000); // Supply is 1000
+        vm.assume(price > 0 && price < 1e12); // Reasonable price range
+        vm.assume(duration > 0 && duration < 3650 days);
+
+        vm.startPrank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+
+        uint256 listingId = marketplace.createListing(scenario.revenueTokenId, amount, price, duration, true);
+        vm.stopPrank();
+
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.amount, amount);
+        assertEq(listing.pricePerToken, price);
+        assertEq(listing.expiresAt, block.timestamp + duration);
     }
 
     function testCancelListingListingNotFound() public {
@@ -873,8 +894,9 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
+        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
         vm.startPrank(buyer);
-        usdc.approve(address(marketplace), 1e9);
+        usdc.approve(address(marketplace), expectedPayment);
         vm.expectRevert(Marketplace.AssetNotActive.selector);
         marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
         vm.stopPrank();
@@ -972,9 +994,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.createListingFor(partner1, scenario.revenueTokenId, 0, REVENUE_TOKEN_PRICE, 30 days, true);
 
         // Amount greater than total supply is invalid
+        uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         vm.expectRevert(Marketplace.InvalidAmount.selector);
         marketplace.createListingFor(
-            partner1, scenario.revenueTokenId, scenario.revenueTokenSupply + 1, REVENUE_TOKEN_PRICE, 30 days, true
+            partner1, scenario.revenueTokenId, currentSupply + 1, REVENUE_TOKEN_PRICE, 30 days, true
         );
     }
 
@@ -999,7 +1022,8 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // Settle the asset so it's not Active anymore
         // Partner must top up to cover total liability
-        uint256 totalLiability = REVENUE_TOKEN_PRICE * scenario.revenueTokenSupply;
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 totalLiability = REVENUE_TOKEN_PRICE * totalSupply;
         _fundAddressWithUsdc(partner1, totalLiability);
         vm.startPrank(partner1);
         usdc.approve(address(treasury), totalLiability);

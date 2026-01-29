@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { AssetLib } from "../Libraries.sol";
+import { AssetLib, CollateralLib } from "../Libraries.sol";
 
 /**
  * @title ITreasury
@@ -42,13 +42,13 @@ interface ITreasury {
     error NotAssetOwner();
     error InvalidEarningsAmount();
     error NoEarningsToClaim();
-    error NoRevenueTokensIssued();
+    error NoInvestors();
     error NoPriorEarningsDistribution();
     error InsufficientTokenBalance();
     error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetNotOperational(uint256 assetId, AssetLib.AssetStatus status);
     error EarningsLessThanMinimumFee();
-    error NoNewPerformanceEvents();
+    error NoNewEarningsPeriods();
     error NoEarningsToDistribute();
     error NotRouter();
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
@@ -83,10 +83,7 @@ interface ITreasury {
     function releaseAndWithdrawCollateral(uint256 assetId) external returns (uint256 withdrawn);
     function claimAndWithdrawEarnings(uint256 assetId) external returns (uint256 withdrawn);
     function getTotalCollateralRequirement(uint256 assetValue) external pure returns (uint256);
-    function getAssetCollateralInfo(uint256 assetId)
-        external
-        view
-        returns (uint256 baseCollateral, uint256 totalCollateral, bool isLocked, uint256 lockedAt, uint256 lockDuration);
+    function getAssetCollateralInfo(uint256 assetId) external view returns (CollateralLib.CollateralInfo memory);
     function getPendingWithdrawal(address account) external view returns (uint256);
     function getTreasuryStats() external view returns (uint256 totalDeposited, uint256 treasuryBalance);
     function updateRouter(address _newRouter) external;

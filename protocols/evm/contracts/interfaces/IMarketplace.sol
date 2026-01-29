@@ -23,4 +23,6 @@ interface IMarketplace {
         uint256 duration,
         bool buyerPaysFee
     ) external returns (uint256 listingId);
+
+    function isAssetEligibleForListing(uint256 assetId) external view returns (bool);
 }

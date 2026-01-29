@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ProtocolLib, TokenLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, CollateralLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -61,19 +61,19 @@ contract BaseTest is Test {
     // Test marketplace parameters
     uint256 constant REVENUE_TOKEN_PRICE = 100 * 10 ** 6; // $100 USDC
     uint256 constant ASSET_VALUE = 100000 * 10 ** 6; // $100,000 USDC
-    uint256 constant LISTING_AMOUNT = 500;
+    uint256 constant LISTING_AMOUNT = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
     uint256 constant LISTING_DURATION = 30 days;
-    uint256 constant PURCHASE_AMOUNT = 100;
+    uint256 constant PURCHASE_AMOUNT = LISTING_AMOUNT / 5;
+    uint256 constant EARNINGS_AMOUNT = 1000 * 1e6;
+    uint256 constant SMALL_EARNINGS_AMOUNT = 100 * 1e6;
+    uint256 constant LARGE_EARNINGS_AMOUNT = 10000 * 1e6;
+    uint256 constant TOP_UP_AMOUNT = 1000 * 1e6;
 
     // Storage for test scenario states
     struct TestScenario {
         uint256 assetId;
         uint256 revenueTokenId;
-        uint256 revenueTokenSupply;
-        uint256 requiredCollateral;
         uint256 listingId;
-        uint256 initialProtocolBalance;
-        uint256 earnings;
     }
 
     TestScenario public scenario;
@@ -99,7 +99,7 @@ contract BaseTest is Test {
         }
 
         if (requiredState >= SetupState.RevenueTokensMinted && currentState < SetupState.RevenueTokensMinted) {
-            (scenario.revenueTokenId, scenario.revenueTokenSupply) = _setupRevenueTokensMinted();
+            scenario.revenueTokenId = _setupRevenueTokensMinted();
             currentState = SetupState.RevenueTokensMinted;
         }
 
@@ -119,7 +119,7 @@ contract BaseTest is Test {
         }
 
         if (requiredState >= SetupState.EarningsDistributed && currentState < SetupState.EarningsDistributed) {
-            _setupEarningsDistributed(1000e6);
+            _setupEarningsDistributed(EARNINGS_AMOUNT);
             currentState = SetupState.EarningsDistributed;
         }
     }
@@ -150,18 +150,17 @@ contract BaseTest is Test {
         );
     }
 
-    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId, uint256 tokenSupply) {
+    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
         // Calculate required collateral
-        scenario.requiredCollateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
+        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
 
         uint256 maturityDate = block.timestamp + 365 days;
 
         vm.startPrank(partner1);
         // Approve USDC for collateral
-        usdc.approve(address(treasury), scenario.requiredCollateral);
+        usdc.approve(address(treasury), requiredCollateral);
 
-        (revenueTokenId, tokenSupply) =
-            assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate);
+        (revenueTokenId,) = assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate);
         vm.stopPrank();
     }
 
@@ -205,7 +204,7 @@ contract BaseTest is Test {
      */
     function _setupEarningsDistributed(uint256 totalEarningsAmount) internal {
         // Get revenue token ID
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
+        uint256 revenueTokenId = scenario.revenueTokenId;
 
         // Calculate investor portion based on token ownership
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
@@ -253,10 +252,10 @@ contract BaseTest is Test {
         internal
         view
     {
-        (uint256 base, uint256 total, bool locked,,) = treasury.getAssetCollateralInfo(_assetId);
-        assertEq(base, expectedBase, "Base collateral mismatch");
-        assertEq(total, expectedTotal, "Total collateral mismatch");
-        assertEq(locked, expectedLocked, "Collateral locked state mismatch");
+        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(_assetId);
+        assertEq(info.baseCollateral, expectedBase, "Base collateral mismatch");
+        assertEq(info.totalCollateral, expectedTotal, "Total collateral mismatch");
+        assertEq(info.isLocked, expectedLocked, "Collateral locked state mismatch");
     }
 
     /**

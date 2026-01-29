@@ -376,13 +376,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         bool hasNewPeriods = earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod;
         if (!hasNewPeriods) {
-            revert NoNewPerformanceEvents();
+            revert NoNewEarningsPeriods();
         }
 
-        uint256 releaseAmount = _tryReleaseCollateral(assetId, partner);
-        if (releaseAmount == 0) {
-            revert InsufficientCollateral();
-        }
+        _tryReleaseCollateral(assetId, partner);
     }
 
     /**
@@ -446,12 +443,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         nonReentrant
         returns (uint256 collateralReleased)
     {
-        if (investorAmount == 0) revert InvalidEarningsAmount();
+        if (investorAmount == 0 || totalRevenue < investorAmount) revert InvalidEarningsAmount(); // totalRevenue must be >= investorAmount
         if (investorAmount < ProtocolLib.MIN_PROTOCOL_FEE) {
             revert EarningsLessThanMinimumFee();
-        }
-        if (totalRevenue < investorAmount) {
-            revert InvalidEarningsAmount(); // totalRevenue must be >= investorAmount
         }
 
         // Verify partner owns the asset
@@ -476,7 +470,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         // If no investor tokens exist, cannot distribute
         if (investorTokenCount == 0) {
-            revert NoRevenueTokensIssued();
+            revert NoInvestors();
         }
 
         // Calculate protocol fee and net earnings (fee only on investor portion)
@@ -600,17 +594,24 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             uint256 startPeriod = earningsInfo.lastProcessedPeriod;
             uint256 endPeriod = earningsInfo.currentPeriod;
 
-            uint256 aggregatedBenchmarkEarnings =
-                EarningsLib.calculateBenchmarkEarnings(collateralInfo.baseCollateral, timeSinceLastEvent);
+            uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+            uint256 partnerBalance = roboshareTokens.balanceOf(partner, revenueTokenId);
+            uint256 investorSupply = totalSupply - partnerBalance;
 
-            uint256 aggregatedNetEarnings = 0;
+            // Scale INITIAL base collateral to the investor portion for benchmark calculation
+            // This ensures benchmark is based on the full value, not depreciating base.
+            uint256 investorAssetValue = (collateralInfo.initialBaseCollateral * investorSupply) / totalSupply;
+
+            uint256 benchmarkEarnings = EarningsLib.calculateBenchmarkEarnings(investorAssetValue, timeSinceLastEvent);
+
+            uint256 realizedEarnings = 0;
             for (uint256 i = startPeriod + 1; i <= endPeriod; i++) {
-                aggregatedNetEarnings += earningsInfo.periods[i].totalEarnings;
+                realizedEarnings += earningsInfo.periods[i].totalEarnings;
             }
 
-            (int256 earningsResult, uint256 replenishmentAmount) = CollateralLib.processEarningsForBuffers(
-                collateralInfo, aggregatedNetEarnings, aggregatedBenchmarkEarnings
-            );
+            (int256 earningsResult, uint256 replenishmentAmount) =
+                CollateralLib.processEarningsForBuffers(collateralInfo, realizedEarnings, benchmarkEarnings);
 
             if (earningsResult < 0) {
                 uint256 shortfallAmount = (-earningsResult).toUint256();
@@ -629,6 +630,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         emit CollateralBuffersUpdated(assetId, collateralInfo.earningsBuffer, collateralInfo.reservedForLiquidation);
 
+        // Update timestamps to mark that these periods and their time duration have been processed
+        collateralInfo.lastEventTimestamp = block.timestamp;
+        earningsInfo.lastEventTimestamp = block.timestamp;
+
         // Calculate release amount
         releasedAmount = CollateralLib.calculateCollateralRelease(collateralInfo);
         if (releasedAmount == 0) {
@@ -642,10 +647,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Update collateral info
         collateralInfo.baseCollateral -= releasedAmount;
         collateralInfo.totalCollateral -= releasedAmount;
-        collateralInfo.lastEventTimestamp = block.timestamp;
-
-        // Update earnings info timestamps
-        earningsInfo.lastEventTimestamp = block.timestamp;
 
         // Update treasury totals
         totalCollateralDeposited -= releasedAmount;
@@ -841,23 +842,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Get asset's collateral information
-     * @param assetId The ID of the asset
-     * @return baseCollateral Base collateral amount
-     * @return totalCollateral Total collateral amount
-     * @return isLocked Whether collateral is locked
-     * @return lockedAt Timestamp when locked
-     * @return lockDuration Duration since lock in seconds
+     * @dev Get collateral info for an asset
+     * @param assetId The ID of the asset to check
+     * @return Collateral info struct
      */
-    function getAssetCollateralInfo(uint256 assetId)
-        external
-        view
-        returns (uint256 baseCollateral, uint256 totalCollateral, bool isLocked, uint256 lockedAt, uint256 lockDuration)
-    {
-        CollateralLib.CollateralInfo storage info = assetCollateral[assetId];
-        return (
-            info.baseCollateral, info.totalCollateral, info.isLocked, info.lockedAt, CollateralLib.getLockDuration(info)
-        );
+    function getAssetCollateralInfo(uint256 assetId) external view returns (CollateralLib.CollateralInfo memory) {
+        return assetCollateral[assetId];
     }
 
     /**
