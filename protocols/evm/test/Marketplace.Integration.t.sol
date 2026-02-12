@@ -15,7 +15,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 amount,
         uint256 pricePerToken,
         uint256 expiresAt,
-        bool buyerPaysFee
+        bool buyerPaysFee,
+        bool isPrimary
     );
 
     event RevenueTokensTraded(
@@ -50,6 +51,7 @@ contract MarketplaceIntegrationTest is BaseTest {
             LISTING_AMOUNT,
             REVENUE_TOKEN_PRICE,
             block.timestamp + LISTING_DURATION,
+            true,
             true
         );
 
@@ -1374,6 +1376,7 @@ contract MarketplaceIntegrationTest is BaseTest {
             listingAmount,
             REVENUE_TOKEN_PRICE,
             block.timestamp + duration,
+            true,
             true
         );
 

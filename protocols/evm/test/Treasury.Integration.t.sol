@@ -704,6 +704,95 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.claimEarnings(nonExistentAssetId);
     }
 
+    function testPreviewClaimEarningsAssetNotFound() public {
+        _ensureState(SetupState.EarningsDistributed);
+        uint256 nonExistentAssetId = 999;
+
+        vm.expectRevert(ITreasury.AssetNotFound.selector);
+        treasury.previewClaimEarnings(nonExistentAssetId, buyer);
+    }
+
+    function testPreviewSettlementClaimAssetNotFound() public {
+        _ensureState(SetupState.EarningsDistributed);
+        uint256 nonExistentAssetId = 999;
+
+        vm.expectRevert(ITreasury.AssetNotFound.selector);
+        treasury.previewSettlementClaim(nonExistentAssetId, buyer);
+    }
+
+    function testPreviewSettlementClaimNotSettledReturnsZero() public {
+        _ensureState(SetupState.EarningsDistributed);
+        assertEq(treasury.previewSettlementClaim(scenario.assetId, buyer), 0, "Not settled should preview zero");
+    }
+
+    function testPreviewSettlementClaimSettledMatchesClaim() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        uint256 previewAmount = treasury.previewSettlementClaim(scenario.assetId, buyer);
+        assertGt(previewAmount, 0, "Settled preview should be positive");
+
+        vm.prank(buyer);
+        (uint256 settlementClaimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
+
+        assertEq(settlementClaimed, previewAmount, "Preview should match settlement claimed");
+        assertEq(treasury.previewSettlementClaim(scenario.assetId, buyer), 0, "Preview should be zero after claim");
+    }
+
+    function testPreviewClaimEarningsActiveMatchesClaim() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        uint256 previewAmount = treasury.previewClaimEarnings(scenario.assetId, buyer);
+        assertGt(previewAmount, 0, "Preview should show claimable earnings");
+
+        uint256 pendingBefore = treasury.getPendingWithdrawal(buyer);
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+        uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
+
+        assertEq(pendingAfter - pendingBefore, previewAmount, "Preview should match claimed amount");
+        assertEq(treasury.previewClaimEarnings(scenario.assetId, buyer), 0, "Preview should be zero after claim");
+    }
+
+    function testPreviewClaimEarningsNoTokenBalanceReturnsZero() public {
+        _ensureState(SetupState.EarningsDistributed);
+        assertEq(treasury.previewClaimEarnings(scenario.assetId, unauthorized), 0, "No balance should preview zero");
+    }
+
+    function testPreviewClaimEarningsNoEarningsInitialized() public {
+        _ensureState(SetupState.RevenueTokensClaimed);
+        assertEq(treasury.previewClaimEarnings(scenario.assetId, buyer), 0, "No earnings should preview zero");
+    }
+
+    function testPreviewClaimEarningsAssetOwner() public {
+        _ensureState(SetupState.EarningsDistributed);
+        assertEq(treasury.previewClaimEarnings(scenario.assetId, partner1), 0, "Asset owner should preview zero");
+    }
+
+    function testPreviewClaimEarningsSettledSnapshotLifecycle() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        vm.prank(buyer);
+        assetRegistry.claimSettlement(scenario.assetId, false);
+
+        uint256 previewAmount = treasury.previewClaimEarnings(scenario.assetId, buyer);
+        assertGt(previewAmount, 0, "Settled preview should come from snapshot");
+
+        uint256 pendingBefore = treasury.getPendingWithdrawal(buyer);
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+        uint256 pendingAfter = treasury.getPendingWithdrawal(buyer);
+
+        assertEq(pendingAfter - pendingBefore, previewAmount, "Settled preview should match claimed amount");
+        assertEq(
+            treasury.previewClaimEarnings(scenario.assetId, buyer), 0, "Settled preview should be zero after claim"
+        );
+    }
     function testClaimEarnings() public {
         _ensureState(SetupState.EarningsDistributed);
         uint256 earningsAmount = EARNINGS_AMOUNT;

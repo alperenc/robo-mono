@@ -74,7 +74,22 @@ interface ITreasury {
     function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
         external
         returns (uint256 collateralReleased);
-    function getMinProtocolFee() external pure returns (uint256);
+    function getProtocolConfig()
+        external
+        pure
+        returns (
+            uint256 bpPrecision,
+            uint256 benchmarkYieldBP,
+            uint256 protocolFeeBP,
+            uint256 earlySalePenaltyBP,
+            uint256 depreciationRateBP,
+            uint256 minProtocolFee,
+            uint256 minEarlySalePenalty
+        );
+    function getMarketProjectionConstants()
+        external
+        pure
+        returns (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision);
     function claimEarnings(uint256 assetId) external;
     function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
         external
@@ -93,6 +108,8 @@ interface ITreasury {
         view
         returns (uint256 releasedAmount);
     function getPendingWithdrawal(address account) external view returns (uint256);
+    function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256);
+    function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256);
     function getTreasuryStats() external view returns (uint256 totalDeposited, uint256 treasuryBalance);
     function updateRouter(address _newRouter) external;
     function updatePartnerManager(address _partnerManager) external;

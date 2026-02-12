@@ -1060,6 +1060,70 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
+     * @dev Preview claimable settlement amount for a holder.
+     * Returns 0 when asset is not settled or holder has no settlement-eligible tokens.
+     * @param assetId The ID of the asset
+     * @param holder The address to preview for
+     */
+    function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256) {
+        if (!router.assetExists(assetId)) {
+            revert AssetNotFound();
+        }
+
+        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
+        if (!settlement.isSettled) {
+            return 0;
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
+        if (tokenBalance == 0) {
+            return 0;
+        }
+
+        return tokenBalance * settlement.settlementPerToken;
+    }
+
+    /**
+     * @dev Preview claimable earnings for a holder without changing state.
+     * Returns 0 when the holder has no claimable earnings.
+     * @param assetId The ID of the asset
+     * @param holder The address to preview for
+     */
+    function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256) {
+        if (!router.assetExists(assetId)) {
+            revert AssetNotFound();
+        }
+
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            return 0;
+        }
+
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        bool isSettled = (status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired);
+
+        if (isSettled) {
+            if (earningsInfo.hasClaimedSettledEarnings[holder]) {
+                return 0;
+            }
+            return earningsInfo.settledEarningsSnapshot[holder];
+        }
+
+        if (roboshareTokens.balanceOf(holder, assetId) > 0) {
+            return 0;
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        if (roboshareTokens.balanceOf(holder, revenueTokenId) == 0) {
+            return 0;
+        }
+
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+        return EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
+    }
+
+    /**
      * @dev Get treasury statistics
      * @return totalDeposited Total collateral deposited
      * @return treasuryBalance Current USDC balance
@@ -1068,12 +1132,36 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         return (totalCollateralDeposited, usdc.balanceOf(address(this)));
     }
 
-    /**
-     * @dev Get the minimum protocol fee for earnings distribution
-     * @return Minimum protocol fee in USDC (6 decimals)
-     */
-    function getMinProtocolFee() external pure returns (uint256) {
-        return ProtocolLib.MIN_PROTOCOL_FEE;
+    function getProtocolConfig()
+        external
+        pure
+        returns (
+            uint256 bpPrecision,
+            uint256 benchmarkYieldBP,
+            uint256 protocolFeeBP,
+            uint256 earlySalePenaltyBP,
+            uint256 depreciationRateBP,
+            uint256 minProtocolFee,
+            uint256 minEarlySalePenalty
+        )
+    {
+        return (
+            ProtocolLib.BP_PRECISION,
+            ProtocolLib.BENCHMARK_YIELD_BP,
+            ProtocolLib.PROTOCOL_FEE_BP,
+            ProtocolLib.EARLY_SALE_PENALTY_BP,
+            ProtocolLib.DEPRECIATION_RATE_BP,
+            ProtocolLib.MIN_PROTOCOL_FEE,
+            ProtocolLib.MIN_EARLY_SALE_PENALTY
+        );
+    }
+
+    function getMarketProjectionConstants()
+        external
+        pure
+        returns (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision)
+    {
+        return (ProtocolLib.BENCHMARK_YIELD_BP, ProtocolLib.DEPRECIATION_RATE_BP, ProtocolLib.BP_PRECISION);
     }
 
     // Admin Functions

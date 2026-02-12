@@ -123,8 +123,33 @@ contract TreasuryTest is BaseTest {
         assertEq(requirement, expectedTotal);
     }
 
-    function testGetMinProtocolFee() public view {
-        assertEq(treasury.getMinProtocolFee(), ProtocolLib.MIN_PROTOCOL_FEE);
+    function testGetProtocolConfig() public view {
+        (
+            uint256 bpPrecision,
+            uint256 benchmarkYieldBP,
+            uint256 protocolFeeBP,
+            uint256 earlySalePenaltyBP,
+            uint256 depreciationRateBP,
+            uint256 minProtocolFee,
+            uint256 minEarlySalePenalty
+        ) = treasury.getProtocolConfig();
+
+        assertEq(bpPrecision, ProtocolLib.BP_PRECISION);
+        assertEq(benchmarkYieldBP, ProtocolLib.BENCHMARK_YIELD_BP);
+        assertEq(protocolFeeBP, ProtocolLib.PROTOCOL_FEE_BP);
+        assertEq(earlySalePenaltyBP, ProtocolLib.EARLY_SALE_PENALTY_BP);
+        assertEq(depreciationRateBP, ProtocolLib.DEPRECIATION_RATE_BP);
+        assertEq(minProtocolFee, ProtocolLib.MIN_PROTOCOL_FEE);
+        assertEq(minEarlySalePenalty, ProtocolLib.MIN_EARLY_SALE_PENALTY);
+    }
+
+    function testGetMarketProjectionConstants() public view {
+        (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision) =
+            treasury.getMarketProjectionConstants();
+
+        assertEq(benchmarkYieldBP, ProtocolLib.BENCHMARK_YIELD_BP);
+        assertEq(depreciationRateBP, ProtocolLib.DEPRECIATION_RATE_BP);
+        assertEq(bpPrecision, ProtocolLib.BP_PRECISION);
     }
 
     // Admin Functions Tests
