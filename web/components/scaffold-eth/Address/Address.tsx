@@ -73,6 +73,7 @@ type AddressProps = {
   format?: "short" | "long";
   size?: "xs" | "sm" | "base" | "lg" | "xl" | "2xl" | "3xl";
   onlyEnsOrAddress?: boolean;
+  disableEns?: boolean;
 };
 
 export const Address = ({
@@ -81,6 +82,7 @@ export const Address = ({
   format,
   size = "base",
   onlyEnsOrAddress = false,
+  disableEns = false,
 }: AddressProps) => {
   const checkSumAddress = address ? getAddress(address) : undefined;
 
@@ -90,14 +92,14 @@ export const Address = ({
     address: checkSumAddress,
     chainId: 1,
     query: {
-      enabled: isAddress(checkSumAddress ?? ""),
+      enabled: !disableEns && isAddress(checkSumAddress ?? ""),
     },
   });
   const { data: ensAvatar } = useEnsAvatar({
     name: ens ? normalize(ens) : undefined,
     chainId: 1,
     query: {
-      enabled: Boolean(ens),
+      enabled: !disableEns && Boolean(ens),
       gcTime: 30_000,
     },
   });

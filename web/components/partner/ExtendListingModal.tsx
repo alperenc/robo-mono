@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEscClose } from "./useEscClose";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
@@ -15,6 +16,8 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
   const [durationDays, setDurationDays] = useState("7");
 
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
+
+  useEscClose(isOpen, onClose);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

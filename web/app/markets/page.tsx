@@ -2,15 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NextPage } from "next";
-import { useAccount, useChainId, useChains, useReadContracts } from "wagmi";
+import { useAccount, useChainId, useChains, useReadContracts, useSwitchChain } from "wagmi";
 import { AdjustmentsHorizontalIcon, ArrowsUpDownIcon, BriefcaseIcon } from "@heroicons/react/24/outline";
 import { BuyTokensModal } from "~~/components/markets/BuyTokensModal";
+import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimRefundModal } from "~~/components/markets/ClaimRefundModal";
+import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
 import { ClaimTokensModal } from "~~/components/markets/ClaimTokensModal";
 import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
+import { CancelListingModal } from "~~/components/partner/CancelListingModal";
+import { EndListingModal } from "~~/components/partner/EndListingModal";
+import { FinalizeListingModal } from "~~/components/partner/FinalizeListingModal";
+import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
+import { getTargetNetworks } from "~~/utils/scaffold-eth";
 
 // Types for subgraph data
 interface SubgraphListing {
@@ -23,11 +30,12 @@ interface SubgraphListing {
   pricePerToken: string;
   expiresAt: string;
   buyerPaysFee: boolean;
+  isPrimary: boolean;
   status: string;
   isCancelled: boolean;
   isEnded: boolean;
   claimedAmount: string;
-  refundedUSDC: string;
+  refundedAmount: string;
   createdAt: string;
 }
 
@@ -46,6 +54,7 @@ interface SubgraphToken {
   revenueTokenId: string;
   price: string;
   supply: string;
+  targetYieldBP?: string;
   maturityDate: string;
 }
 
@@ -80,6 +89,7 @@ const MarketsPage: NextPage = () => {
   const [assetEarnings, setAssetEarnings] = useState<SubgraphAssetEarnings[]>([]);
   const [partners, setPartners] = useState<SubgraphPartner[]>([]);
   const [userListingIds, setUserListingIds] = useState<Set<string>>(new Set());
+  const [userRefundedListingIds, setUserRefundedListingIds] = useState<Set<string>>(new Set());
   const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -95,12 +105,21 @@ const MarketsPage: NextPage = () => {
   const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
   const [isClaimTokensOpen, setIsClaimTokensOpen] = useState(false);
   const [isClaimRefundOpen, setIsClaimRefundOpen] = useState(false);
+  const [isClaimEarningsOpen, setIsClaimEarningsOpen] = useState(false);
+  const [isClaimSettlementOpen, setIsClaimSettlementOpen] = useState(false);
+  const [isListTokensOpen, setIsListTokensOpen] = useState(false);
+  const [isFinalizeListingOpen, setIsFinalizeListingOpen] = useState(false);
+  const [isEndListingOpen, setIsEndListingOpen] = useState(false);
+  const [isCancelListingOpen, setIsCancelListingOpen] = useState(false);
+  const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
 
   // Network info
   const chainId = useChainId();
   const chains = useChains();
   const currentChain = chains.find(c => c.id === chainId);
   const networkName = currentChain?.name || "Localhost";
+  const { switchChain } = useSwitchChain();
+  const targetNetworks = getTargetNetworks();
 
   // Fetch data from subgraph
   const fetchData = useCallback(
@@ -113,6 +132,9 @@ const MarketsPage: NextPage = () => {
         const userQueryPart = address
           ? `
         tokenTrades(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
+          listingId
+        }
+        refundClaims(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
           listingId
         }
       `
@@ -129,6 +151,7 @@ const MarketsPage: NextPage = () => {
                 tokenId
                 assetId
                 seller
+                isPrimary
                 amount
                 amountSold
                 pricePerToken
@@ -138,7 +161,7 @@ const MarketsPage: NextPage = () => {
                 isCancelled
                 isEnded
                 claimedAmount
-                refundedUSDC
+                refundedAmount
                 createdAt
               }
               vehicles(first: 100) {
@@ -155,12 +178,22 @@ const MarketsPage: NextPage = () => {
                 revenueTokenId
                 price
                 supply
+                targetYieldBP
                 maturityDate
               }
               partners(first: 100) {
                 id
                 name
                 address
+              }
+              assetEarnings(first: 100) {
+                id
+                assetId
+                totalRevenue
+                totalEarnings
+                distributionCount
+                firstDistributionAt
+                lastDistributionAt
               }
               ${userQueryPart}
             }
@@ -190,6 +223,13 @@ const MarketsPage: NextPage = () => {
         } else {
           setUserListingIds(new Set());
         }
+
+        if (data?.refundClaims) {
+          const ids = new Set<string>(data.refundClaims.map((c: any) => c.listingId));
+          setUserRefundedListingIds(ids);
+        } else {
+          setUserRefundedListingIds(new Set());
+        }
       } catch (e: any) {
         console.error("Error fetching market data:", e);
         setError(e.message || "Failed to fetch market data");
@@ -199,11 +239,6 @@ const MarketsPage: NextPage = () => {
     },
     [address],
   );
-
-  // Initial fetch
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   // Fetch Holdings (Escrow + Wallet) for "Your Holdings" filter
   const {
@@ -227,6 +262,25 @@ const MarketsPage: NextPage = () => {
     ]) as any,
     query: { enabled: !!address && listings.length > 0 && showOnlyHoldings },
   });
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Reset user-specific filters when the account changes
+  useEffect(() => {
+    setUserListingIds(new Set());
+    setUserRefundedListingIds(new Set());
+    setRecentPurchases(new Set());
+  }, [address]);
+
+  // Refetch holdings when the account or holdings filter changes
+  useEffect(() => {
+    if (showOnlyHoldings && address) {
+      refetchHoldings?.();
+    }
+  }, [address, showOnlyHoldings, refetchHoldings]);
 
   // Extract listing IDs where user has tokens or escrow
   const userHoldingsIds = useMemo(() => {
@@ -275,7 +329,7 @@ const MarketsPage: NextPage = () => {
     fetchImages();
   }, [vehicles, imageUrls]);
 
-  // Helper to calculate APR for sorting
+  // Helper to calculate APR for sorting (match card display logic)
   const calculateApr = useCallback(
     (assetId: string): number => {
       const tokenId = (BigInt(assetId) + 1n).toString();
@@ -302,7 +356,8 @@ const MarketsPage: NextPage = () => {
         }
       }
 
-      return Number(BENCHMARK_EARNINGS_BP) / 100;
+      const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
+      return targetYieldBp / 100;
     },
     [tokens, assetEarnings],
   );
@@ -320,7 +375,14 @@ const MarketsPage: NextPage = () => {
 
     // Filter by Holdings
     if (showOnlyHoldings) {
+      if (!address) return [];
       filtered = filtered.filter(l => {
+        const isCancelled = l.isCancelled || l.status === "cancelled";
+        if (isCancelled) {
+          const hasTokens = userHoldingsIds.has(l.id);
+          const hasUserRefund = userRefundedListingIds.has(l.id);
+          if (hasUserRefund && !hasTokens) return false;
+        }
         // Include if user traded in this listing (subgraph)
         if (userListingIds.has(l.id)) return true;
         // Include if user recently purchased (optimistic)
@@ -333,8 +395,11 @@ const MarketsPage: NextPage = () => {
       });
     }
 
-    // Sort
+    // Sort (active listings first)
     filtered.sort((a, b) => {
+      const aInactive = a.isCancelled || a.isEnded || a.status === "expired";
+      const bInactive = b.isCancelled || b.isEnded || b.status === "expired";
+      if (aInactive !== bInactive) return aInactive ? 1 : -1;
       switch (sortBy) {
         case "apr_desc":
           return calculateApr(b.assetId) - calculateApr(a.assetId);
@@ -372,8 +437,15 @@ const MarketsPage: NextPage = () => {
     userListingIds,
     recentPurchases,
     userHoldingsIds,
+    userRefundedListingIds,
     address,
   ]);
+
+  const sellerTokenIdSet = useMemo(() => {
+    if (!address) return new Set<string>();
+    const lower = address.toLowerCase();
+    return new Set(listings.filter(l => l.seller.toLowerCase() === lower && l.isPrimary === false).map(l => l.tokenId));
+  }, [address, listings]);
 
   // Get active registries for filter tabs
   const activeRegistries = Object.entries(ASSET_REGISTRIES).filter(([, r]) => r.active);
@@ -382,19 +454,37 @@ const MarketsPage: NextPage = () => {
     <div className="flex flex-col gap-8 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full lg:max-w-[75%] 2xl:max-w-[80%] mx-auto overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+        <div>
+          <div className="flex items-center gap-3">
             <h1 className="text-3xl lg:text-4xl font-bold">Explore Markets</h1>
-            <p className="text-lg opacity-70 mt-2">Discover and invest in tokenized real-world assets</p>
+            <div className="dropdown dropdown-end">
+              <div
+                tabIndex={0}
+                role="button"
+                className="flex items-center gap-2 text-sm opacity-70 px-2 py-1 rounded-full border border-base-300 hover:border-base-400 transition-colors"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse"></span>
+                <span>{networkName}</span>
+                <span className="ml-1">▾</span>
+              </div>
+              <ul tabIndex={0} className="dropdown-content z-[10] menu p-2 shadow bg-base-100 rounded-box w-56 mt-2">
+                {targetNetworks
+                  .filter(net => net.id !== chainId)
+                  .map(net => (
+                    <li key={net.id}>
+                      <button
+                        type="button"
+                        className="menu-item btn-sm rounded-xl flex gap-3 py-3 whitespace-nowrap"
+                        onClick={() => switchChain?.({ chainId: net.id })}
+                      >
+                        Switch to {net.name}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </div>
           </div>
-
-          {/* Network Badge */}
-          <div className="flex items-center gap-2">
-            <span className="badge badge-lg badge-outline gap-2">
-              <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-              {networkName}
-            </span>
-          </div>
+          <p className="text-lg opacity-70 mt-2">Discover and invest in tokenized real-world assets</p>
         </div>
 
         {/* Filters & Sort */}
@@ -481,7 +571,7 @@ const MarketsPage: NextPage = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-          {displayListings.map(listing => {
+          {displayListings.map((listing, index) => {
             const vehicle = vehicles.find(v => v.id === listing.assetId);
             const tokenId = (BigInt(listing.assetId) + 1n).toString();
             const token = tokens.find(t => t.revenueTokenId === tokenId);
@@ -501,6 +591,8 @@ const MarketsPage: NextPage = () => {
                 imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
                 networkName={networkName}
                 assetType={AssetType.VEHICLE}
+                priority={index < 4}
+                hasSellerListingForTokenId={sellerTokenIdSet.has(listing.tokenId)}
                 onBuyClick={() => {
                   setSelectedListing(listing);
                   setIsBuyModalOpen(true);
@@ -512,6 +604,31 @@ const MarketsPage: NextPage = () => {
                 onClaimRefundClick={() => {
                   setSelectedListing(listing);
                   setIsClaimRefundOpen(true);
+                }}
+                onClaimEarningsClick={() => {
+                  setSelectedListing(listing);
+                  setIsClaimEarningsOpen(true);
+                }}
+                onClaimSettlementClick={() => {
+                  setSelectedListing(listing);
+                  setIsClaimSettlementOpen(true);
+                }}
+                onListTokensClick={amount => {
+                  setSelectedListing(listing);
+                  setPrefillListAmount(amount);
+                  setIsListTokensOpen(true);
+                }}
+                onFinalizeListingClick={() => {
+                  setSelectedListing(listing);
+                  setIsFinalizeListingOpen(true);
+                }}
+                onEndListingClick={() => {
+                  setSelectedListing(listing);
+                  setIsEndListingOpen(true);
+                }}
+                onCancelListingClick={() => {
+                  setSelectedListing(listing);
+                  setIsCancelListingOpen(true);
                 }}
               />
             );
@@ -555,6 +672,16 @@ const MarketsPage: NextPage = () => {
             fetchData(false);
           }}
           listing={selectedListing}
+          listedTokens={(() => {
+            if (!address) return "0";
+            const tokenId = selectedListing.tokenId;
+            const sellerListings = listings.filter(l => {
+              const isActive = !l.isCancelled && !l.isEnded && l.status !== "expired";
+              return isActive && l.tokenId === tokenId && l.seller.toLowerCase() === address.toLowerCase();
+            });
+            const total = sellerListings.reduce((sum, l) => sum + BigInt(l.amount), 0n);
+            return total.toString();
+          })()}
           vehicleName={(() => {
             const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
             if (vehicle?.make && vehicle?.model && vehicle?.year) {
@@ -619,7 +746,106 @@ const MarketsPage: NextPage = () => {
               return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
             })()}
           />
+          <ClaimEarningsModal
+            isOpen={isClaimEarningsOpen}
+            onClose={() => {
+              setIsClaimEarningsOpen(false);
+              setSelectedListing(null);
+              fetchData(false);
+              refetchHoldings();
+            }}
+            assetId={selectedListing.assetId}
+            vehicleName={(() => {
+              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+            })()}
+          />
+          <ClaimSettlementModal
+            isOpen={isClaimSettlementOpen}
+            onClose={() => {
+              setIsClaimSettlementOpen(false);
+              setSelectedListing(null);
+              fetchData(false);
+              refetchHoldings();
+            }}
+            assetId={selectedListing.assetId}
+            vehicleName={(() => {
+              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+            })()}
+          />
         </>
+      )}
+
+      {selectedListing && (
+        <ListVehicleModal
+          isOpen={isListTokensOpen}
+          onClose={() => {
+            setIsListTokensOpen(false);
+            setSelectedListing(null);
+            setPrefillListAmount(undefined);
+            fetchData(false);
+          }}
+          vehicleId={selectedListing.assetId}
+          vin={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle?.vin || "";
+          })()}
+          assetName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
+          prefillAmount={prefillListAmount}
+          isPrimaryListing={false}
+        />
+      )}
+
+      {selectedListing && (
+        <FinalizeListingModal
+          isOpen={isFinalizeListingOpen}
+          onSuccess={() => {
+            fetchData(false);
+            refetchHoldings();
+          }}
+          onClose={() => {
+            setIsFinalizeListingOpen(false);
+            setSelectedListing(null);
+            fetchData(false);
+            refetchHoldings();
+          }}
+          listingId={selectedListing.id}
+          tokenAmount={selectedListing.amount}
+        />
+      )}
+
+      {selectedListing && (
+        <EndListingModal
+          isOpen={isEndListingOpen}
+          onClose={() => {
+            setIsEndListingOpen(false);
+            setSelectedListing(null);
+            fetchData(false);
+          }}
+          listingId={selectedListing.id}
+          tokenAmount={selectedListing.amount}
+          tokenId={selectedListing.tokenId}
+          amountSold={selectedListing.amountSold}
+          pricePerToken={selectedListing.pricePerToken}
+          isPrimary={selectedListing.isPrimary}
+        />
+      )}
+
+      {selectedListing && (
+        <CancelListingModal
+          isOpen={isCancelListingOpen}
+          onClose={() => {
+            setIsCancelListingOpen(false);
+            setSelectedListing(null);
+            fetchData(false);
+          }}
+          listingId={selectedListing.id}
+          isPrimary={selectedListing.isPrimary}
+        />
       )}
     </div>
   );

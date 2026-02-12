@@ -51,7 +51,7 @@ export const ClaimTokensModal = ({ isOpen, onClose, listingId, vehicleName }: Cl
         </button>
 
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl text-success">Claim Revenue Tokens</h3>
+          <h3 className="font-bold text-xl">Claim Revenue Tokens</h3>
           <p className="text-sm opacity-60 mt-1">{vehicleName}</p>
         </div>
 

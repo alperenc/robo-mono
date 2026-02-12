@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { RegisterVehicleForm } from "./forms/RegisterVehicleForm";
+import { useEscClose } from "./useEscClose";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 
 interface RegisterAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  maxStep: 1 | 2 | 3; // 1=Register, 2=Register&Mint, 3=List
+  maxStep: 1 | 3;
 }
 
 export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetModalProps) => {
@@ -18,6 +19,8 @@ export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetMo
 
   // Auto-select if only one type is active, otherwise start null
   const [selectedType, setSelectedType] = useState<AssetType | null>(singleActiveType);
+
+  useEscClose(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -71,7 +74,7 @@ export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetMo
           /* Polymorphic Form Rendering - flex-1 to fill modal */
           <div className="flex-1 flex flex-col overflow-hidden">
             {selectedType === AssetType.VEHICLE && (
-              <RegisterVehicleForm onClose={onClose} maxStep={maxStep} onBack={handleBack} />
+              <RegisterVehicleForm onClose={onClose} maxStep={maxStep} onBack={handleBack} isPrimaryListing />
             )}
             {selectedType === AssetType.REAL_ESTATE && (
               <div className="text-center py-10 p-6">

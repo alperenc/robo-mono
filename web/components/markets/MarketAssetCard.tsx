@@ -37,6 +37,8 @@ interface MarketAssetCardProps {
     price: string;
     supply: string;
     maturityDate: string;
+    targetYieldBP?: string;
+    soldSupply?: string;
   };
   earnings?: {
     totalEarnings: string;
@@ -52,9 +54,17 @@ interface MarketAssetCardProps {
   imageUrl?: string;
   networkName?: string;
   assetType?: AssetType;
+  priority?: boolean;
+  hasSellerListingForTokenId?: boolean;
   onBuyClick?: () => void;
   onClaimTokensClick?: () => void;
   onClaimRefundClick?: () => void;
+  onClaimEarningsClick?: () => void;
+  onClaimSettlementClick?: () => void;
+  onListTokensClick?: (amount: string) => void;
+  onFinalizeListingClick?: () => void;
+  onEndListingClick?: () => void;
+  onCancelListingClick?: () => void;
 }
 
 export function MarketAssetCard({
@@ -66,9 +76,22 @@ export function MarketAssetCard({
   imageUrl,
   networkName = "Localhost",
   assetType = AssetType.VEHICLE,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  priority: _priority,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  hasSellerListingForTokenId: _hasSellerListingForTokenId,
   onBuyClick,
   onClaimTokensClick,
   onClaimRefundClick,
+  onClaimEarningsClick,
+  onClaimSettlementClick,
+  onListTokensClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onFinalizeListingClick: _onFinalizeListingClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onEndListingClick: _onEndListingClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onCancelListingClick: _onCancelListingClick,
 }: MarketAssetCardProps) {
   const { address } = useAccount();
 
@@ -86,8 +109,22 @@ export function MarketAssetCard({
     args: [BigInt(listing.id), address],
   });
 
+  const { data: walletTokenBalance } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "balanceOf",
+    args: [address, BigInt(listing.tokenId)],
+  });
+
   const canClaimTokens = (escrowedTokens || 0n) > 0n && listing.isEnded && !listing.isCancelled;
   const canClaimRefund = (pendingRefund || 0n) > 0n && listing.isCancelled;
+  const hasEarnings = Boolean(earnings && (earnings.distributionCount !== "0" || earnings.totalEarnings !== "0"));
+  const hasHoldings = (walletTokenBalance || 0n) > 0n || (escrowedTokens || 0n) > 0n;
+  const canClaimEarnings = hasEarnings && hasHoldings;
+  const holdingsAmount = (walletTokenBalance || 0n) + (escrowedTokens || 0n);
+  const canListTokens = holdingsAmount > 0n;
+  const maturityMs = token ? Number(token.maturityDate) * 1000 : 0;
+  const canClaimSettlement =
+    hasHoldings && listing.isEnded && !listing.isCancelled && maturityMs > 0 && Date.now() >= maturityMs;
 
   // Calculate display values
   const displayName = useMemo(() => {
@@ -98,16 +135,22 @@ export function MarketAssetCard({
     return `Asset #${listing.assetId}`;
   }, [vehicle, listing.assetId]);
 
-  // Calculate APR - use realized if available, otherwise benchmark
-  const aprDisplay = useMemo(() => {
+  // Calculate APY - use realized if available, otherwise target yield
+  const apyDisplay = useMemo(() => {
     if (!token) return "10.00%"; // Default benchmark
 
     const tokenPrice = BigInt(token.price);
+    const soldSupply =
+      token.soldSupply && token.soldSupply !== "0"
+        ? BigInt(token.soldSupply)
+        : listing.amountSold
+          ? BigInt(listing.amountSold)
+          : 0n;
     const tokenSupply = BigInt(token.supply);
-    const totalValue = tokenPrice * tokenSupply;
+    const totalValue = soldSupply > 0n ? tokenPrice * soldSupply : tokenPrice * tokenSupply;
 
     if (earnings && earnings.firstDistributionAt !== "0") {
-      // Calculate realized APR from actual earnings
+      // Calculate realized APY from actual earnings
       const totalEarnings = BigInt(earnings.totalEarnings);
       const firstDistAt = BigInt(earnings.firstDistributionAt);
       const lastDistAt = BigInt(earnings.lastDistributionAt);
@@ -123,10 +166,11 @@ export function MarketAssetCard({
       }
     }
 
-    // Fallback to benchmark APR (10%)
-    const benchmarkApr = Number(BENCHMARK_EARNINGS_BP) / 100;
-    return `${benchmarkApr.toFixed(2)}%`;
-  }, [token, earnings]);
+    // Fallback to target yield APY (or benchmark if unavailable)
+    const targetYieldBps = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
+    const targetYieldPercent = targetYieldBps / 100;
+    return `${targetYieldPercent.toFixed(2)}%`;
+  }, [token, earnings, listing.amountSold]);
 
   // Format total earnings
   const totalEarningsDisplay = useMemo(() => {
@@ -177,11 +221,18 @@ export function MarketAssetCard({
   const isCancelled = listing.isCancelled;
   const isEnded = listing.isEnded;
   const isInactive = isCancelled || isEnded || isExpired;
+  const isNewlyListed = !earnings || earnings.distributionCount === "0";
 
   const registry = ASSET_REGISTRIES[assetType];
 
   return (
     <div className="card bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+      {isNewlyListed && (
+        <div className="absolute top-0 left-0 right-0 z-20 bg-success py-2 text-center text-sm font-bold tracking-wide text-success-content rounded-t-2xl">
+          ✨ Newly Listed
+        </div>
+      )}
+
       {/* Image Section */}
       <figure className="relative h-48 bg-gradient-to-br from-base-200 to-base-300 overflow-hidden">
         {imageUrl ? (
@@ -199,12 +250,12 @@ export function MarketAssetCard({
         )}
 
         {/* Badges - stacked to prevent overlap */}
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2 flex-wrap">
+        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end gap-2 flex-wrap">
           <span className="badge badge-sm bg-base-100/90 backdrop-blur-sm border-0 shadow-md truncate max-w-[45%]">
             🔗 {networkName}
           </span>
           <div className="flex flex-col items-end gap-1">
-            <span className="badge badge-success font-bold shadow-md text-xs">{aprDisplay} APR</span>
+            <span className="badge badge-success font-bold shadow-md text-xs">{apyDisplay} APY</span>
             {(escrowedTokens || 0n) > 0n && (
               <span className="badge badge-primary font-bold shadow-md text-[10px] animate-pulse">INVESTED</span>
             )}
@@ -271,41 +322,109 @@ export function MarketAssetCard({
         </div>
 
         {/* Earnings Row */}
-        <div className="grid grid-cols-2 gap-3 py-2">
-          {earnings && earnings.distributionCount !== "0" ? (
-            <>
-              <div className="flex flex-col">
-                <span className="text-xs opacity-50 uppercase tracking-wide">Total Earns</span>
-                <span className="font-semibold text-success">{totalEarningsDisplay}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs opacity-50 uppercase tracking-wide">Distributions</span>
-                <span className="font-semibold">{earnings.distributionCount}</span>
-              </div>
-            </>
-          ) : (
-            <div className="col-span-2 flex items-center justify-center py-1">
-              <span className="badge badge-success text-success-content gap-1">✨ Newly Listed</span>
+        {earnings && earnings.distributionCount !== "0" && (
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="flex flex-col">
+              <span className="text-xs opacity-50 uppercase tracking-wide">Total Earns</span>
+              <span className="font-semibold text-success">{totalEarningsDisplay}</span>
             </div>
-          )}
-        </div>
+            <div className="flex flex-col">
+              <span className="text-xs opacity-50 uppercase tracking-wide">Distributions</span>
+              <span className="font-semibold">{earnings.distributionCount}</span>
+            </div>
+          </div>
+        )}
 
         {/* Action Button */}
-
         <div className="card-actions mt-2">
-          {canClaimTokens ? (
-            <button className="btn btn-success btn-block" onClick={onClaimTokensClick}>
-              Claim Tokens
-            </button>
-          ) : canClaimRefund ? (
-            <button className="btn btn-error btn-block" onClick={onClaimRefundClick}>
-              Claim Refund
-            </button>
-          ) : (
-            <button className="btn btn-primary btn-block" onClick={onBuyClick} disabled={isInactive}>
-              {isCancelled ? "Cancelled" : isEnded ? "Ended" : isExpired ? "Expired" : "Buy Tokens"}
-            </button>
-          )}
+          {(() => {
+            let primaryLabel = "Buy Tokens";
+            let primaryClass = "btn-primary";
+            let primaryDisabled = isInactive;
+            let primaryOnClick = onBuyClick;
+            const secondaryActions: { label: string; onClick?: () => void; className?: string }[] = [];
+
+            if (canClaimRefund) {
+              primaryLabel = "Claim Refund";
+              primaryClass = "btn-error";
+              primaryDisabled = false;
+              primaryOnClick = onClaimRefundClick;
+            } else if (canClaimEarnings) {
+              primaryLabel = "Claim Earnings";
+              primaryClass = "btn-success";
+              primaryDisabled = false;
+              primaryOnClick = onClaimEarningsClick;
+              if (canClaimSettlement) {
+                secondaryActions.push({ label: "Claim Settlement", onClick: onClaimSettlementClick });
+              }
+              if (canListTokens) {
+                secondaryActions.push({
+                  label: "List Tokens",
+                  onClick: () => onListTokensClick?.(holdingsAmount.toString()),
+                });
+              }
+            } else if (canClaimTokens) {
+              primaryLabel = "Claim Tokens";
+              primaryClass = "btn-success";
+              primaryDisabled = false;
+              primaryOnClick = onClaimTokensClick;
+            } else if (canListTokens && listing.isEnded) {
+              primaryLabel = "List Tokens";
+              primaryClass = "btn-primary";
+              primaryDisabled = false;
+              primaryOnClick = () => onListTokensClick?.(holdingsAmount.toString());
+            } else {
+              primaryLabel = isCancelled ? "Cancelled" : isEnded ? "Ended" : isExpired ? "Expired" : "Buy Tokens";
+            }
+
+            if (secondaryActions.length > 0) {
+              return (
+                <div className="dropdown dropdown-end w-full">
+                  <div className="flex w-full">
+                    <button
+                      className={`btn ${primaryClass} rounded-r-none flex-1`}
+                      onClick={primaryOnClick}
+                      disabled={primaryDisabled}
+                    >
+                      {primaryLabel}
+                    </button>
+                    <div tabIndex={0} role="button" className={`btn ${primaryClass} rounded-l-none px-3`}>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                        data-slot="icon"
+                        className="h-5 w-5"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </div>
+                  </div>
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content z-[60] menu p-2 shadow bg-base-100 rounded-box w-full mt-2"
+                  >
+                    {secondaryActions.map(action => (
+                      <li key={action.label}>
+                        <button onClick={action.onClick} className="w-full text-left">
+                          {action.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+
+            return (
+              <button className={`btn ${primaryClass} btn-block`} onClick={primaryOnClick} disabled={primaryDisabled}>
+                {primaryLabel}
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>

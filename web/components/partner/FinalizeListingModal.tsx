@@ -9,11 +9,18 @@ import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 interface FinalizeListingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   listingId: string;
   tokenAmount: string;
 }
 
-export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }: FinalizeListingModalProps) => {
+export const FinalizeListingModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  listingId,
+  tokenAmount,
+}: FinalizeListingModalProps) => {
   const { address } = useAccount();
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
 
@@ -53,6 +60,7 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
         functionName: "finalizeListing",
         args: [BigInt(listingId)],
       });
+      onSuccess?.();
       onClose();
     } catch (e) {
       console.error("Error finalizing listing:", e);

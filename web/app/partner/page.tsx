@@ -3,23 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { NextPage } from "next";
-import { useAccount, useReadContract, useReadContracts } from "wagmi";
+import { formatUnits } from "viem";
+import { useAccount, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { CancelListingModal } from "~~/components/partner/CancelListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
-import { FinalizeListingModal } from "~~/components/partner/FinalizeListingModal";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
-import { MintTokensModal } from "~~/components/partner/MintTokensModal";
+import { MintAndListModal } from "~~/components/partner/MintAndListModal";
 import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
-
-// maxStep: 1=Register Only, 2=Register&Mint, 3=List Vehicle
+import { getTargetNetworks } from "~~/utils/scaffold-eth";
 
 // Unified Asset Interface for Dashboard logic
 interface DashboardAsset {
@@ -46,42 +46,60 @@ interface SubgraphListing {
   seller: string;
   amount: string;
   amountSold: string;
+  claimedAmount: string;
   pricePerToken: string;
   expiresAt: string;
+  isPrimary: boolean;
   status: string;
   createdAt: string;
 }
 
 // Asset state enum for the 5 lifecycle states
-type AssetState = "ACTIVE_FLEET" | "ACTIVE_LISTINGS" | "PENDING_LISTINGS" | "PENDING_TOKENIZATION" | "SETTLED";
+type AssetState = "ACTIVE_FLEET" | "ACTIVE_LISTINGS" | "PENDING_LISTINGS" | "SETTLED";
 
 interface CategorizedAsset extends DashboardAsset {
   state: AssetState;
   listings?: SubgraphListing[];
   totalSold?: bigint;
+  totalClaimed?: bigint;
 }
 
 const PartnerDashboard: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+  const chainId = useChainId();
+  const chains = useChains();
+  const currentChain = chains.find(c => c.id === chainId);
+  const networkName = currentChain?.name || "Localhost";
+  const { switchChain } = useSwitchChain();
+  const { symbol, decimals } = usePaymentToken();
+  const targetNetworks = getTargetNetworks();
   const [allAssets, setAllAssets] = useState<DashboardAsset[]>([]);
   const [listings, setListings] = useState<SubgraphListing[]>([]);
   const [filterType, setFilterType] = useState<AssetType | "ALL">("ALL");
   const [filterState, setFilterState] = useState<AssetState | "ALL">("ALL");
 
+  const { data: isAuthorizedPartner, isLoading: isCheckingPartner } = useReadContract({
+    address: deployedContracts[31337]?.PartnerManager?.address,
+    abi: deployedContracts[31337]?.PartnerManager?.abi,
+    functionName: "isAuthorizedPartner",
+    args: [connectedAddress as string],
+    query: { enabled: !!connectedAddress },
+  });
+
   // Modal States
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [maxStep, setMaxStep] = useState<1 | 2 | 3>(3);
+  const [maxStep, setMaxStep] = useState<1 | 3>(3);
   const [selectedAsset, setSelectedAsset] = useState<DashboardAsset | null>(null);
   const [selectedCategorizedAsset, setSelectedCategorizedAsset] = useState<CategorizedAsset | null>(null);
-  const [mintModalOpen, setMintModalOpen] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
+  const [listPrefillAmount, setListPrefillAmount] = useState<string | undefined>(undefined);
+  const [mintAndListModalOpen, setMintAndListModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [distributeEarningsModalOpen, setDistributeEarningsModalOpen] = useState(false);
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
   const [extendListingModalOpen, setExtendListingModalOpen] = useState(false);
   const [endListingModalOpen, setEndListingModalOpen] = useState(false);
   const [cancelListingModalOpen, setCancelListingModalOpen] = useState(false);
-  const [finalizeListingModalOpen, setFinalizeListingModalOpen] = useState(false);
   const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
@@ -136,8 +154,10 @@ const PartnerDashboard: NextPage = () => {
                     seller
                     amount
                     amountSold
+                    claimedAmount
                     pricePerToken
                     expiresAt
+                    isPrimary
                     status
                     createdAt
                   }
@@ -271,19 +291,18 @@ const PartnerDashboard: NextPage = () => {
     query: { enabled: !!connectedAddress },
   });
   const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
+  const pendingWithdrawalDisplay = pendingWithdrawal ? formatUnits(pendingWithdrawal as bigint, decimals) : "0";
 
   // Categorize assets into 5 states
   const categorizeAssets = (): {
     activeFleet: CategorizedAsset[];
     activeListings: CategorizedAsset[];
     pendingListings: CategorizedAsset[];
-    pendingTokenization: CategorizedAsset[];
     settledAssets: CategorizedAsset[];
   } => {
     const activeFleet: CategorizedAsset[] = [];
     const activeListings: CategorizedAsset[] = [];
     const pendingListings: CategorizedAsset[] = [];
-    const pendingTokenization: CategorizedAsset[] = [];
     const settledAssets: CategorizedAsset[] = [];
 
     allAssets.forEach((asset, index) => {
@@ -298,6 +317,7 @@ const PartnerDashboard: NextPage = () => {
       const totalSold = assetListings
         .filter(l => l.status !== "cancelled") // Exclude cancelled listings from total sold
         .reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
+      const totalClaimed = assetListings.reduce((acc, l) => acc + BigInt(l.claimedAmount || "0"), 0n);
 
       const categorizedAsset: CategorizedAsset = {
         ...asset,
@@ -305,12 +325,13 @@ const PartnerDashboard: NextPage = () => {
         assetStatus: status,
         listings: assetListings,
         totalSold,
-        state: "PENDING_TOKENIZATION",
+        totalClaimed,
+        state: "PENDING_LISTINGS",
       };
 
       // State determination logic:
       // 0. Check if asset is settled (status 3=Retired or 4=Expired) - takes priority
-      // 1. No supply = PENDING_TOKENIZATION
+      // 1. No supply = PENDING_LISTINGS (mint & list required)
       // 2. Has supply, has active listings = ACTIVE_LISTINGS
       // 3. Has supply, no active listings, and tokens sold = ACTIVE_FLEET
       // 4. Has supply, no active listings, no tokens sold = PENDING_LISTINGS
@@ -320,8 +341,8 @@ const PartnerDashboard: NextPage = () => {
         categorizedAsset.state = "SETTLED";
         settledAssets.push(categorizedAsset);
       } else if (!supply || supply === 0n) {
-        categorizedAsset.state = "PENDING_TOKENIZATION";
-        pendingTokenization.push(categorizedAsset);
+        categorizedAsset.state = "PENDING_LISTINGS";
+        pendingListings.push(categorizedAsset);
       } else if (activeAssetListings.length > 0) {
         categorizedAsset.state = "ACTIVE_LISTINGS";
         activeListings.push(categorizedAsset);
@@ -334,22 +355,11 @@ const PartnerDashboard: NextPage = () => {
       }
     });
 
-    return { activeFleet, activeListings, pendingListings, pendingTokenization, settledAssets };
+    return { activeFleet, activeListings, pendingListings, settledAssets };
   };
 
-  const {
-    activeFleet,
-    activeListings: activeListingsAssets,
-    pendingListings,
-    pendingTokenization,
-    settledAssets,
-  } = categorizeAssets();
-  const totalAssets =
-    activeFleet.length +
-    activeListingsAssets.length +
-    pendingListings.length +
-    pendingTokenization.length +
-    settledAssets.length;
+  const { activeFleet, activeListings: activeListingsAssets, pendingListings, settledAssets } = categorizeAssets();
+  const totalAssets = activeFleet.length + activeListingsAssets.length + pendingListings.length + settledAssets.length;
 
   // Helper functions
   const getAssetDisplayName = (asset: DashboardAsset) => {
@@ -358,20 +368,43 @@ const PartnerDashboard: NextPage = () => {
     return `Asset #${asset.id}`;
   };
 
-  const openMintModal = (asset: DashboardAsset) => {
+  const openListModal = (asset: DashboardAsset, prefillAmount?: string) => {
     setSelectedAsset(asset);
-    setMintModalOpen(true);
+    setListPrefillAmount(prefillAmount);
+    setListModalOpen(true);
   };
 
-  const openListModal = (asset: DashboardAsset) => {
+  const openMintAndListModal = (asset: DashboardAsset) => {
     setSelectedAsset(asset);
-    setListModalOpen(true);
+    setMintAndListModalOpen(true);
   };
 
   if (!connectedAddress) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center py-20 text-xl opacity-70">Please connect your wallet to access the dashboard.</div>
+      </div>
+    );
+  }
+
+  if (isCheckingPartner) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    );
+  }
+
+  if (!isAuthorizedPartner) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center py-16 px-6 max-w-xl">
+          <h2 className="text-2xl font-bold">Partner Access Required</h2>
+          <p className="mt-3 opacity-70">
+            This dashboard is only available to authorized partners. If you believe this is an error, please contact the
+            Roboshare team.
+          </p>
+        </div>
       </div>
     );
   }
@@ -389,45 +422,60 @@ const PartnerDashboard: NextPage = () => {
     primaryAction?: { label: string; onClick: () => void; className: string };
     secondaryActions?: Array<{ label: string; onClick: () => void; className?: string }>;
     isGrid?: boolean;
-  }) => (
-    <div
-      className={`card bg-base-100 shadow-sm border-l-4 ${borderColor} p-4 sm:p-6 hover:shadow-md transition-shadow h-full`}
-    >
-      <div className={`flex flex-col ${isGrid ? "gap-4" : "sm:flex-row sm:items-center gap-4"}`}>
-        {/* Asset Image */}
-        <div
-          className={`relative w-full aspect-video ${
-            isGrid ? "sm:aspect-video sm:w-full sm:h-auto" : "sm:w-20 sm:h-20 sm:aspect-auto"
-          } flex-shrink-0 rounded-lg bg-base-200 overflow-hidden`}
-        >
-          {asset.imageUrl ? (
-            <Image src={asset.imageUrl} alt={getAssetDisplayName(asset)} fill className="object-cover" unoptimized />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-base-content/30">
-              <span className="text-2xl sm:text-3xl">{ASSET_REGISTRIES[asset.type].icon}</span>
+  }) => {
+    const dropdownRef = useRef<HTMLDivElement | null>(null);
+    const hasSupply =
+      asset.supply !== undefined &&
+      asset.supply !== null &&
+      (typeof asset.supply === "bigint" ? asset.supply > 0n : asset.supply > 0);
+
+    return (
+      <div
+        className={`card bg-base-100 shadow-sm border-l-4 ${borderColor} p-4 sm:p-6 hover:shadow-md transition-shadow h-full`}
+      >
+        <div className={`flex flex-col ${isGrid ? "gap-4" : "sm:flex-row sm:items-center gap-4"}`}>
+          {/* Asset Image */}
+          <div
+            className={`relative w-full aspect-video ${
+              isGrid ? "sm:aspect-video sm:w-full sm:h-auto" : "sm:w-20 sm:h-20 sm:aspect-auto"
+            } flex-shrink-0 rounded-lg bg-base-200 overflow-hidden`}
+          >
+            {asset.imageUrl ? (
+              <Image src={asset.imageUrl} alt={getAssetDisplayName(asset)} fill className="object-cover" unoptimized />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-base-content/30">
+                <span className="text-2xl sm:text-3xl">{ASSET_REGISTRIES[asset.type].icon}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Asset Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="text-xs sm:text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
+              {asset.assetStatus === 3 && <span className="badge badge-sm badge-ghost">Retired</span>}
+              {asset.assetStatus === 4 && <span className="badge badge-sm badge-warning">Expired</span>}
             </div>
-          )}
-        </div>
-
-        {/* Asset Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="text-xs sm:text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
-            {asset.assetStatus === 3 && <span className="badge badge-sm badge-ghost">Retired</span>}
-            {asset.assetStatus === 4 && <span className="badge badge-sm badge-warning">Expired</span>}
+            <div className={`font-bold text-lg sm:text-xl ${isGrid ? "line-clamp-2" : "truncate"}`}>
+              {getAssetDisplayName(asset)}
+            </div>
+            {isGrid ? (
+              <div className="text-xs opacity-60 space-y-1">
+                {asset.vin && <div className="truncate">{`VIN: ${asset.vin}`}</div>}
+                {hasSupply && <div className="truncate">{`Supply: ${asset.supply!.toLocaleString()} tokens`}</div>}
+              </div>
+            ) : (
+              <div className="text-xs opacity-60 truncate">
+                {asset.vin ? `VIN: ${asset.vin}` : ""}
+                {hasSupply ? `${asset.vin ? " • " : ""}Supply: ${asset.supply!.toLocaleString()} tokens` : ""}
+              </div>
+            )}
           </div>
-          <div className="font-bold text-lg sm:text-xl truncate">{getAssetDisplayName(asset)}</div>
-          <div className="text-xs opacity-60 truncate">
-            ID: {asset.id} {asset.vin ? `• VIN: ${asset.vin}` : ""}
-            {asset.supply ? ` • Supply: ${asset.supply.toLocaleString()} tokens` : ""}
-          </div>
-        </div>
 
-        {/* Actions - only render if primaryAction is provided */}
-        {primaryAction && (
-          <div className="flex-shrink-0 flex gap-2 mt-2 sm:mt-0">
-            {secondaryActions && secondaryActions.length > 0 ? (
-              <div className="dropdown dropdown-end w-full sm:w-auto">
+          {/* Actions - only render if primaryAction is provided */}
+          {primaryAction && (
+            <div className="flex-shrink-0 flex gap-2 mt-2 sm:mt-0">
+              {secondaryActions && secondaryActions.length > 0 ? (
                 <div className="flex items-stretch w-full sm:w-auto">
                   <button
                     className={`${primaryAction.className} rounded-r-none border-r-base-100 flex-1 sm:flex-none`}
@@ -435,34 +483,39 @@ const PartnerDashboard: NextPage = () => {
                   >
                     {primaryAction.label}
                   </button>
-                  <div
-                    tabIndex={0}
-                    role="button"
-                    className={`${primaryAction.className} rounded-l-none px-2 flex items-center`}
-                  >
-                    <ChevronDownIcon className="h-5 w-5" />
+                  <div ref={dropdownRef} className="dropdown dropdown-end">
+                    <div
+                      tabIndex={0}
+                      role="button"
+                      className={`${primaryAction.className} rounded-l-none px-2 flex items-center`}
+                    >
+                      <ChevronDownIcon className="h-5 w-5" />
+                    </div>
+                    <ul
+                      tabIndex={0}
+                      className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2"
+                    >
+                      {secondaryActions.map((action, idx) => (
+                        <li key={idx}>
+                          <a onClick={action.onClick} className={action.className || ""}>
+                            {action.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
-                <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                  {secondaryActions.map((action, idx) => (
-                    <li key={idx}>
-                      <a onClick={action.onClick} className={action.className || ""}>
-                        {action.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <button className={`${primaryAction.className} w-full sm:w-auto`} onClick={primaryAction.onClick}>
-                {primaryAction.label}
-              </button>
-            )}
-          </div>
-        )}
+              ) : (
+                <button className={`${primaryAction.className} w-full sm:w-auto`} onClick={primaryAction.onClick}>
+                  {primaryAction.label}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Section Component
   const Section = ({
@@ -485,7 +538,9 @@ const PartnerDashboard: NextPage = () => {
         {title} <span className={`badge ${badgeClass} badge-md`}>{count}</span>
       </h2>
       <div
-        className={`grid gap-3 sm:gap-4 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}
+        className={`grid gap-3 sm:gap-4 w-full ${
+          viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"
+        }`}
       >
         {children}
       </div>
@@ -493,14 +548,44 @@ const PartnerDashboard: NextPage = () => {
   );
 
   return (
-    <div className="flex flex-col gap-8 sm:gap-12 py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-8 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full lg:max-w-[75%] 2xl:max-w-[80%] mx-auto">
       {/* Header & Global Actions */}
-      <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="flex flex-col gap-3 sm:gap-4">
         {/* Title row with CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary">Partner Dashboard</h1>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">Partner Dashboard</h1>
+              <div className="dropdown dropdown-end">
+                <div
+                  tabIndex={0}
+                  role="button"
+                  className="flex items-center gap-2 text-sm opacity-70 px-2 py-1 rounded-full border border-base-300 hover:border-base-400 transition-colors"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-success"></span>
+                  <span>{networkName}</span>
+                  <span className="ml-1">▾</span>
+                </div>
+                <ul tabIndex={0} className="dropdown-content z-[10] menu p-2 shadow bg-base-100 rounded-box w-56 mt-2">
+                  {targetNetworks
+                    .filter(net => net.id !== chainId)
+                    .map(net => (
+                      <li key={net.id}>
+                        <button
+                          type="button"
+                          className="menu-item btn-sm rounded-xl flex gap-3 py-3 whitespace-nowrap"
+                          onClick={() => switchChain?.({ chainId: net.id })}
+                        >
+                          Switch to {net.name}
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+            <p className="opacity-70 text-lg mt-2">{dashboardSubtitle}</p>
+          </div>
 
-          {/* Split Register Button - List Vehicle is primary action */}
           <div className="flex">
             <button
               className="btn btn-primary rounded-r-none border-r-base-100"
@@ -520,16 +605,6 @@ const PartnerDashboard: NextPage = () => {
                   <a
                     onClick={() => {
                       setIsRegisterOpen(true);
-                      setMaxStep(2);
-                    }}
-                  >
-                    Register & Mint
-                  </a>
-                </li>
-                <li>
-                  <a
-                    onClick={() => {
-                      setIsRegisterOpen(true);
                       setMaxStep(1);
                     }}
                   >
@@ -541,11 +616,8 @@ const PartnerDashboard: NextPage = () => {
           </div>
         </div>
 
-        {/* Subtitle and filters row - responsive: stacked on mobile, inline on desktop */}
-        <div className="flex flex-col gap-4">
-          <p className="opacity-70 text-lg">{dashboardSubtitle}</p>
-
-          {/* Filters container - stacked on mobile, inline on desktop, wraps if needed */}
+        {/* Filters container - stacked on mobile, inline on desktop, wraps if needed */}
+        <div className="flex flex-col gap-3 bg-base-200 rounded-xl p-4">
           <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-center lg:justify-between gap-3 lg:gap-6">
             {/* Asset Type Filter */}
             {!isSingleAssetType && (
@@ -605,12 +677,6 @@ const PartnerDashboard: NextPage = () => {
                   Ready
                 </button>
                 <button
-                  className={`btn btn-sm join-item ${filterState === "PENDING_TOKENIZATION" ? "btn-primary" : "btn-ghost"}`}
-                  onClick={() => setFilterState("PENDING_TOKENIZATION")}
-                >
-                  Setup
-                </button>
-                <button
                   className={`btn btn-sm join-item ${filterState === "SETTLED" ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => setFilterState("SETTLED")}
                 >
@@ -650,11 +716,11 @@ const PartnerDashboard: NextPage = () => {
             <div>
               <div className="text-sm font-medium opacity-60">Pending Sales Proceeds</div>
               <div className="text-2xl font-bold flex items-baseline gap-1.5">
-                {(Number(pendingWithdrawal) / 1e6).toLocaleString(undefined, {
+                {Number(pendingWithdrawalDisplay).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
-                <span className="text-base font-semibold text-success">USDC</span>
+                <span className="text-base font-semibold text-success">({symbol})</span>
               </div>
             </div>
           </div>
@@ -706,16 +772,6 @@ const PartnerDashboard: NextPage = () => {
                       <a
                         onClick={() => {
                           setIsRegisterOpen(true);
-                          setMaxStep(2);
-                        }}
-                      >
-                        Register & Mint
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        onClick={() => {
-                          setIsRegisterOpen(true);
                           setMaxStep(1);
                         }}
                       >
@@ -754,6 +810,14 @@ const PartnerDashboard: NextPage = () => {
                     className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
                   }}
                   secondaryActions={[
+                    ...(asset.supply && asset.totalSold !== undefined && asset.supply > asset.totalSold
+                      ? [
+                          {
+                            label: "List Tokens",
+                            onClick: () => openListModal(asset, (asset.supply! - asset.totalSold!).toString()),
+                          },
+                        ]
+                      : []),
                     {
                       label: "Settle Asset",
                       onClick: () => {
@@ -784,6 +848,7 @@ const PartnerDashboard: NextPage = () => {
                 const isSoldOut = listing.amount === "0";
                 const isExpired = Number(listing.expiresAt) * 1000 < Date.now();
                 const isUnsold = !listing.amountSold || listing.amountSold === "0";
+                const hasClaimedTokens = (asset.totalClaimed ?? 0n) > 0n;
 
                 let primaryAction;
                 const secondaryActions = [];
@@ -796,10 +861,6 @@ const PartnerDashboard: NextPage = () => {
                 };
 
                 // Action definitions
-                const actionFinalize = {
-                  label: "Finalize Listing",
-                  onClick: () => openModal(setFinalizeListingModalOpen),
-                };
                 const actionEnd = { label: "End Listing", onClick: () => openModal(setEndListingModalOpen) };
                 const actionCancel = {
                   label: "Cancel Listing",
@@ -807,12 +868,19 @@ const PartnerDashboard: NextPage = () => {
                   className: "text-error",
                 };
                 const actionExtend = { label: "Extend Listing", onClick: () => openModal(setExtendListingModalOpen) };
+                const actionDistribute = {
+                  label: "Distribute Earnings",
+                  onClick: () => {
+                    setSelectedCategorizedAsset(asset);
+                    setDistributeEarningsModalOpen(true);
+                  },
+                };
 
                 if (isSoldOut || isExpired) {
                   // Case 1: Sold Out or Expired -> Priority is to Settle/Finalize
                   primaryAction = {
-                    ...actionFinalize,
-                    className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
+                    ...actionEnd,
+                    className: "btn btn-primary",
                   };
                   secondaryActions.push(actionEnd);
                   secondaryActions.push(actionCancel);
@@ -820,16 +888,20 @@ const PartnerDashboard: NextPage = () => {
                   // Case 2: Active (regardless of sales) -> Priority is Extend Listing
                   primaryAction = {
                     ...actionExtend,
-                    className: "btn btn-info bg-info/15 border-0 text-info hover:bg-info/25",
+                    className:
+                      "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 " +
+                      "dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                   };
 
+                  if (hasClaimedTokens) {
+                    secondaryActions.push(actionDistribute);
+                  }
                   if (isUnsold) {
                     // No sales: End, Cancel
                     secondaryActions.push(actionEnd);
                     secondaryActions.push(actionCancel);
                   } else {
-                    // Partial sales: Finalize, End, Cancel
-                    secondaryActions.push(actionFinalize);
+                    // Partial sales: End, Cancel
                     secondaryActions.push(actionEnd);
                     secondaryActions.push(actionCancel);
                   }
@@ -849,10 +921,10 @@ const PartnerDashboard: NextPage = () => {
             </Section>
           )}
 
-          {/* READY TO LIST - Tokenized but not listed */}
+          {/* PENDING LISTING - Tokenized or registered but not listed */}
           {pendingListings.length > 0 && (filterState === "ALL" || filterState === "PENDING_LISTINGS") && (
             <Section
-              title="Ready to List"
+              title="Pending Listing"
               count={pendingListings.length}
               badgeClass="badge-warning"
               borderClass="border-warning/30"
@@ -864,36 +936,21 @@ const PartnerDashboard: NextPage = () => {
                   asset={asset}
                   borderColor="border-warning"
                   isGrid={viewMode === "grid"}
-                  primaryAction={{
-                    label: "List For Sale",
-                    onClick: () => openListModal(asset),
-                    className: "btn btn-warning bg-warning/15 border-0 text-warning hover:bg-warning/25",
-                  }}
-                />
-              ))}
-            </Section>
-          )}
-
-          {/* NEEDS SETUP - Registered but no tokens minted */}
-          {pendingTokenization.length > 0 && (filterState === "ALL" || filterState === "PENDING_TOKENIZATION") && (
-            <Section
-              title="Needs Setup"
-              count={pendingTokenization.length}
-              badgeClass="badge-neutral"
-              borderClass="border-neutral/30"
-              viewMode={viewMode}
-            >
-              {pendingTokenization.map(asset => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  borderColor="border-neutral"
-                  isGrid={viewMode === "grid"}
-                  primaryAction={{
-                    label: "Mint Revenue Tokens",
-                    onClick: () => openMintModal(asset),
-                    className: "btn btn-neutral bg-neutral/15 border-0 text-neutral hover:bg-neutral/25",
-                  }}
+                  primaryAction={
+                    asset.supply && asset.supply > 0n
+                      ? {
+                          label: "List Tokens",
+                          onClick: () => openListModal(asset, asset.supply?.toString()),
+                          className:
+                            "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
+                        }
+                      : {
+                          label: "Mint & List",
+                          onClick: () => openMintAndListModal(asset),
+                          className:
+                            "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
+                        }
+                  }
                 />
               ))}
             </Section>
@@ -927,27 +984,32 @@ const PartnerDashboard: NextPage = () => {
       />
 
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
-        <>
-          <MintTokensModal
-            isOpen={mintModalOpen}
-            onClose={() => {
-              setMintModalOpen(false);
-              triggerRefresh();
-            }}
-            vehicleId={selectedAsset.id}
-            vin={selectedAsset.vin || ""}
-            assetValue={selectedAsset.assetValue || "0"}
-          />
-          <ListVehicleModal
-            isOpen={listModalOpen}
-            onClose={() => {
-              setListModalOpen(false);
-              triggerRefresh();
-            }}
-            vehicleId={selectedAsset.id}
-            vin={selectedAsset.vin || ""}
-          />
-        </>
+        <MintAndListModal
+          isOpen={mintAndListModalOpen}
+          onClose={() => {
+            setMintAndListModalOpen(false);
+            triggerRefresh();
+          }}
+          vehicleId={selectedAsset.id}
+          assetValue={selectedAsset.assetValue || "0"}
+          isPrimaryListing
+        />
+      )}
+
+      {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
+        <ListVehicleModal
+          isOpen={listModalOpen}
+          onClose={() => {
+            setListModalOpen(false);
+            setListPrefillAmount(undefined);
+            triggerRefresh();
+          }}
+          vehicleId={selectedAsset.id}
+          vin={selectedAsset.vin || ""}
+          assetName={getAssetDisplayName(selectedAsset)}
+          prefillAmount={listPrefillAmount}
+          isPrimaryListing
+        />
       )}
 
       {/* New Lifecycle Modals */}
@@ -976,44 +1038,48 @@ const PartnerDashboard: NextPage = () => {
 
       {selectedListing && (
         <>
-          <ExtendListingModal
-            isOpen={extendListingModalOpen}
-            onClose={() => {
-              setExtendListingModalOpen(false);
-              triggerRefresh();
-            }}
-            listingId={selectedListing.id}
-            currentExpiresAt={BigInt(selectedListing.expiresAt)}
-          />
-          <EndListingModal
-            isOpen={endListingModalOpen}
-            onClose={() => {
-              setEndListingModalOpen(false);
-              refetchPending();
-              triggerRefresh();
-            }}
-            listingId={selectedListing.id}
-            tokenAmount={selectedListing.amount}
-          />
-          <CancelListingModal
-            isOpen={cancelListingModalOpen}
-            onClose={() => {
-              setCancelListingModalOpen(false);
-              refetchPending();
-              triggerRefresh();
-            }}
-            listingId={selectedListing.id}
-          />
-          <FinalizeListingModal
-            isOpen={finalizeListingModalOpen}
-            onClose={() => {
-              setFinalizeListingModalOpen(false);
-              refetchPending();
-              triggerRefresh();
-            }}
-            listingId={selectedListing.id}
-            tokenAmount={selectedListing.amount}
-          />
+          {(() => {
+            const listingAsset = allAssets.find(a => a.id === selectedListing.assetId);
+            const derivedPrimary = listingAsset?.partner?.toLowerCase() === selectedListing.seller.toLowerCase();
+            const isPrimaryListing = selectedListing.isPrimary ?? derivedPrimary;
+            return (
+              <>
+                <ExtendListingModal
+                  isOpen={extendListingModalOpen}
+                  onClose={() => {
+                    setExtendListingModalOpen(false);
+                    triggerRefresh();
+                  }}
+                  listingId={selectedListing.id}
+                  currentExpiresAt={BigInt(selectedListing.expiresAt)}
+                />
+                <EndListingModal
+                  isOpen={endListingModalOpen}
+                  onClose={() => {
+                    setEndListingModalOpen(false);
+                    refetchPending();
+                    triggerRefresh();
+                  }}
+                  listingId={selectedListing.id}
+                  tokenAmount={selectedListing.amount}
+                  tokenId={selectedListing.tokenId}
+                  amountSold={selectedListing.amountSold}
+                  pricePerToken={selectedListing.pricePerToken}
+                  isPrimary={isPrimaryListing}
+                />
+                <CancelListingModal
+                  isOpen={cancelListingModalOpen}
+                  onClose={() => {
+                    setCancelListingModalOpen(false);
+                    refetchPending();
+                    triggerRefresh();
+                  }}
+                  listingId={selectedListing.id}
+                  isPrimary={isPrimaryListing}
+                />
+              </>
+            );
+          })()}
         </>
       )}
 

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 interface SettleAssetModalProps {
   isOpen: boolean;
@@ -16,8 +18,11 @@ interface SettleAssetModalProps {
 
 export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: SettleAssetModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const { symbol, decimals } = usePaymentToken();
   const [topUpAmount, setTopUpAmount] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
+
+  useEscClose(isOpen, onClose);
 
   const { writeContractAsync: writeVehicleRegistry, isPending } = useScaffoldWriteContract({
     contractName: "VehicleRegistry",
@@ -25,26 +30,26 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
 
   const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
 
-  // Check USDC allowance
-  const { data: allowance } = useScaffoldReadContract({
+  // Check payment token allowance
+  const { data: paymentTokenAllowance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "allowance",
     args: [connectedAddress, treasuryAddress],
     watch: true,
   });
 
-  const { writeContractAsync: writeUsdc } = useScaffoldWriteContract({ contractName: "MockUSDC" });
+  const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!treasuryAddress) return;
 
     try {
-      const topUpBigInt = topUpAmount ? parseUnits(topUpAmount, 6) : 0n;
+      const topUpBigInt = topUpAmount ? parseUnits(topUpAmount, decimals) : 0n;
 
       // Approve if needed and top-up amount is provided
-      if (topUpBigInt > 0n && (!allowance || allowance < topUpBigInt)) {
-        await writeUsdc({
+      if (topUpBigInt > 0n && (!paymentTokenAllowance || paymentTokenAllowance < topUpBigInt)) {
+        await writePaymentToken({
           functionName: "approve",
           args: [treasuryAddress, topUpBigInt],
         });
@@ -129,11 +134,11 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                     onChange={e => setTopUpAmount(e.target.value)}
                     placeholder="0.00"
                   />
-                  <span className="join-item btn btn-disabled bg-base-200 px-3">USDC</span>
+                  <span className="join-item flex items-center px-3 bg-base-200 font-medium">{symbol}</span>
                 </div>
                 <label className="label py-1">
                   <span className="label-text-alt text-xs opacity-60">
-                    Add additional USDC to increase the settlement pool for token holders
+                    Add additional {symbol} to increase the settlement pool for token holders
                   </span>
                 </label>
               </div>
