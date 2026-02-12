@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1828,7 +1828,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1901,7 +1901,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2551,7 +2551,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -4329,7 +4329,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5916,7 +5916,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6361,11 +6361,21 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getMinProtocolFee",
+          name: "getMarketProjectionConstants",
           inputs: [],
           outputs: [
             {
-              name: "",
+              name: "benchmarkYieldBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "depreciationRateBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "bpPrecision",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6390,6 +6400,49 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getProtocolConfig",
+          inputs: [],
+          outputs: [
+            {
+              name: "bpPrecision",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "benchmarkYieldBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFeeBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "earlySalePenaltyBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "depreciationRateBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "minProtocolFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "minEarlySalePenalty",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
         },
         {
           type: "function",
@@ -6619,6 +6672,30 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "previewClaimEarnings",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "previewCollateralRelease",
           inputs: [
             {
@@ -6635,6 +6712,30 @@ const deployedContracts = {
           outputs: [
             {
               name: "releasedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewSettlementClaim",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
               type: "uint256",
               internalType: "uint256",
             },
@@ -7838,7 +7939,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -9584,7 +9685,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1770883393789.json",
+      deploymentFile: "run-1771274565336.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

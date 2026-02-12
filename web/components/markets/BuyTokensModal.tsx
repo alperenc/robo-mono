@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -25,6 +25,7 @@ interface BuyTokensModalProps {
   vehicleName?: string;
   partnerName?: string;
   listedTokens?: string;
+  relatedListingIds?: string[];
 }
 
 const PERCENTAGE_OPTIONS = [25, 50, 75, 100];
@@ -38,6 +39,7 @@ export function BuyTokensModal({
   vehicleName = "Asset",
   partnerName,
   listedTokens,
+  relatedListingIds = [],
 }: BuyTokensModalProps) {
   const { address } = useAccount();
   const { symbol, decimals } = usePaymentToken();
@@ -64,14 +66,25 @@ export function BuyTokensModal({
     args: [address, revenueTokenId],
   });
 
-  // Read user's escrowed token balance (marketplace)
-  const { data: escrowedBalance, refetch: refetchEscrowedBalance } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "buyerTokens",
-    args: [BigInt(listing.id), address],
+  const { data: escrowedBalancesData, refetch: refetchEscrowedBalances } = useReadContracts({
+    contracts: relatedListingIds.map(listingId => ({
+      address: deployedContracts[chainId]?.Marketplace?.address,
+      abi: deployedContracts[chainId]?.Marketplace?.abi,
+      functionName: "buyerTokens",
+      args: [BigInt(listingId), address],
+    })) as any,
+    query: { enabled: !!address && relatedListingIds.length > 0 && isOpen },
   });
 
-  const totalUserTokens = (userTokenBalance || 0n) + (escrowedBalance || 0n);
+  const cumulativeEscrowedBalance = useMemo(() => {
+    if (!escrowedBalancesData) return 0n;
+    return escrowedBalancesData.reduce((sum, result) => {
+      if (result.status !== "success") return sum;
+      return sum + (result.result as bigint);
+    }, 0n);
+  }, [escrowedBalancesData]);
+
+  const totalUserTokens = (userTokenBalance || 0n) + cumulativeEscrowedBalance;
   const listedTokensCount = useMemo(() => {
     try {
       return listedTokens ? BigInt(listedTokens) : 0n;
@@ -211,7 +224,7 @@ export function BuyTokensModal({
 
       setStep("success");
       // Refetch token balances to show updated holdings
-      await Promise.all([refetchTokenBalance(), refetchEscrowedBalance()]);
+      await Promise.all([refetchTokenBalance(), refetchEscrowedBalances()]);
       // Trigger data refresh
       onPurchaseComplete?.(listing.id);
     } catch (e: any) {

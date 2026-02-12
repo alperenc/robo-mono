@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface FinalizeListingModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ export const FinalizeListingModal = ({
 }: FinalizeListingModalProps) => {
   const { address } = useAccount();
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Fetch pending withdrawal amount (Treasury)
   const { data: pendingTreasuryAmount, isLoading: isLoadingTreasury } = useReadContract({
@@ -54,16 +57,25 @@ export const FinalizeListingModal = ({
 
   const hasProceeds = totalProceeds > 0n;
 
+  useEffect(() => {
+    if (!isOpen) setErrorMessage(null);
+  }, [isOpen]);
+
   const handleFinalize = async () => {
     try {
-      await writeMarketplace({
+      setErrorMessage(null);
+      const txHash = await writeMarketplace({
         functionName: "finalizeListing",
         args: [BigInt(listingId)],
       });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
       onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error finalizing listing:", e);
+      setErrorMessage(getParsedError(e));
     }
   };
 
@@ -91,6 +103,11 @@ export const FinalizeListingModal = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-4">
+            {errorMessage && (
+              <div className="alert alert-error text-sm">
+                <span>{errorMessage}</span>
+              </div>
+            )}
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <span className="loading loading-spinner loading-lg" />

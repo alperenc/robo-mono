@@ -1017,6 +1017,13 @@ const PartnerDashboard: NextPage = () => {
         <>
           <DistributeEarningsModal
             isOpen={distributeEarningsModalOpen}
+            onSuccess={() => {
+              refetchPending();
+              // Extra refresh for eventual consistency after collateral auto-release accounting updates.
+              setTimeout(() => {
+                refetchPending();
+              }, 1500);
+            }}
             onClose={() => {
               setDistributeEarningsModalOpen(false);
               triggerRefresh();

@@ -13,13 +13,18 @@ import { formatTokenAmount } from "~~/utils/formatters";
 interface DistributeEarningsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   assetId: string;
   assetName: string;
 }
 
-const PROTOCOL_FEE_BPS = 250; // 2.5% - matches ProtocolLib.PROTOCOL_FEE_BP
-
-export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }: DistributeEarningsModalProps) => {
+export const DistributeEarningsModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  assetId,
+  assetName,
+}: DistributeEarningsModalProps) => {
   const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
   const [totalRevenue, setTotalRevenue] = useState(""); // Total revenue earned
@@ -76,11 +81,14 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
     watch: true,
   });
 
-  // Get minimum protocol fee from contract
-  const { data: minProtocolFee } = useScaffoldReadContract({
+  // Get protocol config from contract
+  const { data: protocolConfig } = useScaffoldReadContract({
     contractName: "Treasury",
-    functionName: "getMinProtocolFee",
+    functionName: "getProtocolConfig",
   });
+  const bpPrecision = protocolConfig?.[0];
+  const protocolFeeBP = protocolConfig?.[2];
+  const minProtocolFee = protocolConfig?.[5];
 
   const { data: revenueShareBP } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
@@ -124,7 +132,13 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {
-    if (!tokenOwnership || !totalRevenue) {
+    if (
+      !tokenOwnership ||
+      !totalRevenue ||
+      bpPrecision === undefined ||
+      protocolFeeBP === undefined ||
+      minProtocolFee === undefined
+    ) {
       return null;
     }
 
@@ -132,15 +146,14 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
     const totalRevenueWei = parseUnits(totalRevenue || "0", decimals);
 
     // Calculate investor portion (what partner should distribute)
-    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? 10_000n)) / 10_000n;
+    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? bpPrecision)) / bpPrecision;
     const soldShare = (totalRevenueWei * tokenOwnership.externalTokens) / tokenOwnership.totalSupply;
     const investorPortion = revenueShareCap < soldShare ? revenueShareCap : soldShare;
     const partnerPortion = totalRevenueWei - investorPortion;
 
     // Calculate protocol fee with minimum enforcement
-    const calculatedFee = (investorPortion * BigInt(PROTOCOL_FEE_BPS)) / 10000n;
-    const minFee = minProtocolFee ?? 1_000_000n; // Fallback to 1 token unit if not loaded
-    const protocolFee = calculatedFee > minFee ? calculatedFee : minFee;
+    const calculatedFee = (investorPortion * protocolFeeBP) / bpPrecision;
+    const protocolFee = calculatedFee > minProtocolFee ? calculatedFee : minProtocolFee;
     const netToInvestors = investorPortion - protocolFee;
 
     return {
@@ -150,7 +163,7 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
       protocolFee,
       netToInvestors,
     };
-  }, [tokenOwnership, totalRevenue, minProtocolFee, revenueShareBP, decimals]);
+  }, [tokenOwnership, totalRevenue, bpPrecision, protocolFeeBP, minProtocolFee, revenueShareBP, decimals]);
 
   const estimatedRelease = useMemo(() => {
     if (!autoRelease) return 0n;
@@ -181,6 +194,7 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
       });
 
       setTotalRevenue("");
+      onSuccess?.();
       onClose();
     } catch (e) {
       console.error("Error distributing earnings:", e);

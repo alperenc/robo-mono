@@ -441,11 +441,56 @@ const MarketsPage: NextPage = () => {
     address,
   ]);
 
-  const sellerTokenIdSet = useMemo(() => {
-    if (!address) return new Set<string>();
+  const sellerTokenIdCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!address) return counts;
     const lower = address.toLowerCase();
-    return new Set(listings.filter(l => l.seller.toLowerCase() === lower && l.isPrimary === false).map(l => l.tokenId));
+    for (const listing of listings) {
+      if (listing.seller.toLowerCase() !== lower) continue;
+      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
+    }
+    return counts;
   }, [address, listings]);
+
+  const activeSellerTokenIdCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!address) return counts;
+    const lower = address.toLowerCase();
+    for (const listing of listings) {
+      const isActive = !listing.isCancelled && !listing.isEnded && listing.status !== "expired";
+      if (!isActive) continue;
+      if (listing.seller.toLowerCase() !== lower) continue;
+      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
+    }
+    return counts;
+  }, [address, listings]);
+
+  const tokenSoldTotals = useMemo(() => {
+    const totals = new Map<string, bigint>();
+    for (const listing of listings) {
+      if (listing.isCancelled) continue;
+      const sold = listing.amountSold ? BigInt(listing.amountSold) : 0n;
+      if (sold <= 0n) continue;
+      totals.set(listing.tokenId, (totals.get(listing.tokenId) ?? 0n) + sold);
+    }
+    return totals;
+  }, [listings]);
+
+  const refreshMarketsAfterSuccess = useCallback(() => {
+    fetchData(false);
+    refetchHoldings?.();
+    // Subgraph/indexing can lag by a few seconds; retry refresh to reflect latest listing state.
+    window.setTimeout(() => fetchData(false), 1200);
+    window.setTimeout(() => fetchData(false), 3500);
+  }, [fetchData, refetchHoldings]);
+
+  const applyListingActionSuccess = useCallback(
+    (listingId: string, updates: Partial<SubgraphListing>) => {
+      setListings(prev => prev.map(l => (l.id === listingId ? { ...l, ...updates } : l)));
+      refreshMarketsAfterSuccess();
+    },
+    [refreshMarketsAfterSuccess],
+  );
 
   // Get active registries for filter tabs
   const activeRegistries = Object.entries(ASSET_REGISTRIES).filter(([, r]) => r.active);
@@ -570,7 +615,7 @@ const MarketsPage: NextPage = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 items-stretch">
           {displayListings.map((listing, index) => {
             const vehicle = vehicles.find(v => v.id === listing.assetId);
             const tokenId = (BigInt(listing.assetId) + 1n).toString();
@@ -592,7 +637,10 @@ const MarketsPage: NextPage = () => {
                 networkName={networkName}
                 assetType={AssetType.VEHICLE}
                 priority={index < 4}
-                hasSellerListingForTokenId={sellerTokenIdSet.has(listing.tokenId)}
+                hasUserListingForTokenId={(sellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                hasUserActiveListingForTokenId={(activeSellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                hasUserBoughtListing={userListingIds.has(listing.id) || recentPurchases.has(listing.id)}
+                tokenTotalSoldAmount={(tokenSoldTotals.get(listing.tokenId) ?? 0n).toString()}
                 onBuyClick={() => {
                   setSelectedListing(listing);
                   setIsBuyModalOpen(true);
@@ -702,6 +750,7 @@ const MarketsPage: NextPage = () => {
             const token = tokens.find(t => t.revenueTokenId === tokenId);
             return token?.supply;
           })()}
+          relatedListingIds={listings.filter(l => l.tokenId === selectedListing.tokenId).map(l => l.id)}
         />
       )}
 
@@ -780,11 +829,13 @@ const MarketsPage: NextPage = () => {
       {selectedListing && (
         <ListVehicleModal
           isOpen={isListTokensOpen}
+          onSuccess={() => {
+            refreshMarketsAfterSuccess();
+          }}
           onClose={() => {
             setIsListTokensOpen(false);
             setSelectedListing(null);
             setPrefillListAmount(undefined);
-            fetchData(false);
           }}
           vehicleId={selectedListing.assetId}
           vin={(() => {
@@ -804,14 +855,11 @@ const MarketsPage: NextPage = () => {
         <FinalizeListingModal
           isOpen={isFinalizeListingOpen}
           onSuccess={() => {
-            fetchData(false);
-            refetchHoldings();
+            applyListingActionSuccess(selectedListing.id, { isEnded: true, status: "ended" });
           }}
           onClose={() => {
             setIsFinalizeListingOpen(false);
             setSelectedListing(null);
-            fetchData(false);
-            refetchHoldings();
           }}
           listingId={selectedListing.id}
           tokenAmount={selectedListing.amount}
@@ -821,10 +869,12 @@ const MarketsPage: NextPage = () => {
       {selectedListing && (
         <EndListingModal
           isOpen={isEndListingOpen}
+          onSuccess={() => {
+            applyListingActionSuccess(selectedListing.id, { isEnded: true, status: "ended" });
+          }}
           onClose={() => {
             setIsEndListingOpen(false);
             setSelectedListing(null);
-            fetchData(false);
           }}
           listingId={selectedListing.id}
           tokenAmount={selectedListing.amount}
@@ -838,10 +888,12 @@ const MarketsPage: NextPage = () => {
       {selectedListing && (
         <CancelListingModal
           isOpen={isCancelListingOpen}
+          onSuccess={() => {
+            refreshMarketsAfterSuccess();
+          }}
           onClose={() => {
             setIsCancelListingOpen(false);
             setSelectedListing(null);
-            fetchData(false);
           }}
           listingId={selectedListing.id}
           isPrimary={selectedListing.isPrimary}

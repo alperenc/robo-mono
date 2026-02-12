@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { erc20Abi } from "viem";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -7,10 +8,12 @@ import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface EndListingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   listingId: string;
   tokenAmount: string;
   tokenId?: string;
@@ -22,6 +25,7 @@ interface EndListingModalProps {
 export const EndListingModal = ({
   isOpen,
   onClose,
+  onSuccess,
   listingId,
   tokenAmount,
   tokenId,
@@ -38,6 +42,7 @@ export const EndListingModal = ({
   } = usePaymentToken();
   const { writeContractAsync: writeToken, isPending: isApproving } = useWriteContract();
   const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const formattedTokenAmount = Number(tokenAmount).toLocaleString();
 
@@ -136,8 +141,13 @@ export const EndListingModal = ({
   const needsApproval =
     isPrimaryListing && bufferRequirement > 0n && allowance !== undefined ? allowance < bufferRequirement : false;
 
+  useEffect(() => {
+    if (!isOpen) setErrorMessage(null);
+  }, [isOpen]);
+
   const handleConfirm = async () => {
     try {
+      setErrorMessage(null);
       if (needsApproval && paymentTokenAddress && treasuryAddress) {
         await writeToken({
           address: paymentTokenAddress,
@@ -148,14 +158,19 @@ export const EndListingModal = ({
         await refetchAllowance?.();
       }
 
-      await writeMarketplace({
+      const txHash = await writeMarketplace({
         functionName: "endListing",
         args: [BigInt(listingId)],
       });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
 
+      onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error ending listing:", e);
+      setErrorMessage(getParsedError(e));
     }
   };
 
@@ -183,6 +198,11 @@ export const EndListingModal = ({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-3">
+            {errorMessage && (
+              <div className="alert alert-error text-sm">
+                <span>{errorMessage}</span>
+              </div>
+            )}
             {/* Confirmation Text */}
             <p className="text-sm opacity-70">
               {isPrimaryListing === false

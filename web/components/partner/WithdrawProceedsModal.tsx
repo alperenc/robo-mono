@@ -30,6 +30,10 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
   });
 
   const formattedAmount = pendingAmount ? formatUnits(pendingAmount as bigint, decimals) : "0";
+  const formattedAmountDisplay = Number(formattedAmount).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   const hasProceeds = pendingAmount && (pendingAmount as bigint) > 0n;
 
   const handleWithdraw = async () => {
@@ -76,7 +80,7 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
                 <div className="stat bg-success/10 rounded-xl">
                   <div className="stat-title">Available to Withdraw</div>
                   <div className="stat-value text-success">
-                    {Number(formattedAmount).toLocaleString()} {symbol}
+                    {formattedAmountDisplay} {symbol}
                   </div>
                   <div className="stat-desc">{symbol} from marketplace sales</div>
                 </div>
@@ -118,7 +122,7 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
                   Withdrawing...
                 </>
               ) : (
-                `Withdraw ${Number(formattedAmount).toLocaleString()} ${symbol}`
+                `Withdraw ${formattedAmountDisplay} ${symbol}`
               )}
             </button>
           </div>

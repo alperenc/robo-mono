@@ -9,10 +9,12 @@ import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface ListVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   vehicleId: string;
   vin: string;
   assetName?: string;
@@ -23,6 +25,7 @@ interface ListVehicleModalProps {
 export const ListVehicleModal = ({
   isOpen,
   onClose,
+  onSuccess,
   vehicleId,
   vin,
   assetName,
@@ -38,6 +41,7 @@ export const ListVehicleModal = ({
     buyerPaysFee: "buyer",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEscClose(isOpen, onClose);
 
@@ -70,6 +74,10 @@ export const ListVehicleModal = ({
     if (!prefillAmount) return;
     setFormData(prev => (prev.amount ? prev : { ...prev, amount: prefillAmount }));
   }, [prefillAmount]);
+
+  useEffect(() => {
+    if (!isOpen) setErrorMessage(null);
+  }, [isOpen]);
 
   useEffect(() => {
     if (prefillAmount) return;
@@ -112,6 +120,7 @@ export const ListVehicleModal = ({
 
     setIsSubmitting(true);
     try {
+      setErrorMessage(null);
       const tokenId = BigInt(vehicleId) + 1n; // Revenue Token ID
       const durationSeconds = BigInt(parseInt(formData.durationDays) * 24 * 60 * 60);
       const priceBigInt = parseUnits(formData.pricePerToken, 6);
@@ -127,14 +136,19 @@ export const ListVehicleModal = ({
       // 2. Create Listing
       const buyerPaysFee = isPrimaryListing ? true : formData.buyerPaysFee === "buyer";
 
-      await writeMarketplace({
+      const txHash = await writeMarketplace({
         functionName: "createListing",
         args: [tokenId, BigInt(formData.amount), priceBigInt, durationSeconds, buyerPaysFee],
       });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
 
+      onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error listing vehicle:", e);
+      setErrorMessage(getParsedError(e));
     } finally {
       setIsSubmitting(false);
     }
@@ -183,6 +197,11 @@ export const ListVehicleModal = ({
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              {errorMessage && (
+                <div className="alert alert-error text-sm">
+                  <span>{errorMessage}</span>
+                </div>
+              )}
               <div className="divider text-xs opacity-50 my-0">Listing Details</div>
 
               <div className="bg-base-200 p-4 rounded-lg border border-primary/20">

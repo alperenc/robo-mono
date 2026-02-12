@@ -4,30 +4,39 @@ import { useEffect, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface CancelListingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   listingId: string;
   isPrimary?: boolean;
 }
 
-export const CancelListingModal = ({ isOpen, onClose, listingId, isPrimary }: CancelListingModalProps) => {
+export const CancelListingModal = ({ isOpen, onClose, onSuccess, listingId, isPrimary }: CancelListingModalProps) => {
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const [confirmationText, setConfirmationText] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEscClose(isOpen, onClose);
 
   const handleConfirm = async () => {
     try {
-      await writeMarketplace({
+      setErrorMessage(null);
+      const txHash = await writeMarketplace({
         functionName: "cancelListing",
         args: [BigInt(listingId)],
       });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
 
+      onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error cancelling listing:", e);
+      setErrorMessage(getParsedError(e));
     }
   };
 
@@ -35,6 +44,7 @@ export const CancelListingModal = ({ isOpen, onClose, listingId, isPrimary }: Ca
   useEffect(() => {
     if (!isOpen) {
       setConfirmationText("");
+      setErrorMessage(null);
     }
   }, [isOpen]);
 
@@ -64,6 +74,11 @@ export const CancelListingModal = ({ isOpen, onClose, listingId, isPrimary }: Ca
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col">
+            {errorMessage && (
+              <div className="alert alert-error text-sm mb-3">
+                <span>{errorMessage}</span>
+              </div>
+            )}
             <p className="text-sm text-base-content/70">
               Are you sure you want to cancel this listing? This action cannot be undone. All trades will be voided.
             </p>
