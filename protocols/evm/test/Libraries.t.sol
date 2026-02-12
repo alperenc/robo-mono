@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
-import { ProtocolLib, AssetLib, CollateralLib, EarningsLib, TokenLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib, CollateralLib, EarningsLib, TokenLib, VehicleLib } from "../contracts/Libraries.sol";
 
 // Helper to expose ProtocolLib/EarningsLib pure functions
 contract ProtocolEarningsHelper {
@@ -15,7 +15,7 @@ contract ProtocolEarningsHelper {
     }
 
     function penalty(uint256 amount, uint256 price) external pure returns (uint256) {
-        return ProtocolLib.calculatePenalty(amount, price);
+        return ProtocolLib.calculatePenalty(amount * price);
     }
 
     function calcEarnings(uint256 principal, uint256 timeElapsed, uint256 bp) external pure returns (uint256) {
@@ -59,6 +59,43 @@ contract AssetHelper {
     function sinceUpdate() external view returns (uint256) {
         return info.getTimeSinceUpdate();
     }
+
+    function setStatusRaw(uint8 s) external {
+        info.status = AssetLib.AssetStatus(s);
+    }
+}
+
+// Helper to hold and mutate VehicleInfo for VehicleLib tests
+contract VehicleHelper {
+    using VehicleLib for VehicleLib.VehicleInfo;
+
+    VehicleLib.VehicleInfo internal info;
+
+    function init(
+        string memory vin,
+        string memory make,
+        string memory model,
+        uint256 year,
+        uint256 manufacturerId,
+        string memory optionCodes,
+        string memory metadataUri
+    ) external {
+        info.initializeVehicleInfo(vin, make, model, year, manufacturerId, optionCodes, metadataUri);
+    }
+
+    function setRaw(string memory make, string memory model, uint256 year) external {
+        info.make = make;
+        info.model = model;
+        info.year = year;
+    }
+
+    function displayName() external view returns (string memory) {
+        return info.getDisplayName();
+    }
+
+    function updateMeta(string memory uri) external {
+        info.updateDynamicMetadata(uri);
+    }
 }
 
 // Helper to hold and mutate CollateralInfo and EarningsInfo/TokenInfo for cross-lib tests
@@ -71,7 +108,9 @@ contract CollateralTokenEarningsHelper {
     TokenLib.TokenInfo internal t;
 
     function initCollateral(uint256 assetValue, uint256 interval) external {
-        c.initializeCollateralInfo(assetValue, interval);
+        (, uint256 earningsBuffer, uint256 protocolBuffer,) =
+            CollateralLib.calculateCollateralRequirements(assetValue, interval, ProtocolLib.BENCHMARK_YIELD_BP);
+        c.initializeCollateralInfo(assetValue, earningsBuffer, protocolBuffer);
     }
 
     function collateralView()
@@ -91,12 +130,17 @@ contract CollateralTokenEarningsHelper {
         c.lockedAt = block.timestamp;
     }
 
+    function clearLock() external {
+        c.isLocked = false;
+        c.lockedAt = 0;
+    }
+
     function lockDuration() external view returns (uint256) {
         return c.getLockDuration();
     }
 
     function calcReq(uint256 assetValue, uint256 interval) external pure returns (uint256, uint256, uint256, uint256) {
-        return CollateralLib.calculateCollateralRequirements(assetValue, interval);
+        return CollateralLib.calculateCollateralRequirements(assetValue, interval, ProtocolLib.BENCHMARK_YIELD_BP);
     }
 
     function depreciation(uint256 base, uint256 elapsed) external pure returns (uint256) {
@@ -107,16 +151,31 @@ contract CollateralTokenEarningsHelper {
         return CollateralLib.processEarningsForBuffers(c, net, base);
     }
 
+    function salesPenalty(address holder, uint256 amt) external view returns (uint256) {
+        return t.calculateSalesPenalty(holder, amt);
+    }
+
     function targetBuffer(uint256 base) external pure returns (uint256) {
-        return CollateralLib.getBenchmarkEarningsBuffer(base);
+        (, uint256 earningsBuffer,,) = CollateralLib.calculateCollateralRequirements(
+            base, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+        );
+        return earningsBuffer;
     }
 
     function initToken(uint256 tokenId, uint256 price, uint256 minHold, uint256 maturityDate) external {
-        t.initializeTokenInfo(tokenId, price, minHold, maturityDate);
+        t.initializeTokenInfo(tokenId, price, minHold, maturityDate, 10_000, 1_000);
     }
 
-    function tokenInfo() external view returns (uint256, uint256, uint256, uint256, uint256) {
-        return (t.tokenId, t.tokenPrice, t.tokenSupply, t.minHoldingPeriod, t.maturityDate);
+    function tokenInfo() external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256) {
+        return (
+            t.tokenId,
+            t.tokenPrice,
+            t.tokenSupply,
+            t.minHoldingPeriod,
+            t.maturityDate,
+            t.revenueShareBP,
+            t.targetYieldBP
+        );
     }
 
     function addPos(address h, uint256 amt) external {
@@ -125,14 +184,6 @@ contract CollateralTokenEarningsHelper {
 
     function removePos(address h, uint256 amt) external {
         return t.removePosition(h, amt);
-    }
-
-    function tokenValue(uint256 amt) external view returns (uint256) {
-        return t.calculateTokenValue(amt);
-    }
-
-    function mature(TokenLib.TokenPosition storage p, uint256 minHold) internal view returns (bool) {
-        return TokenLib.isPositionMature(p, minHold);
     }
 
     function initEarnings() external {
@@ -157,7 +208,8 @@ contract CollateralTokenEarningsHelper {
     }
 
     function calcRelease() external view returns (uint256) {
-        return CollateralLib.calculateCollateralRelease(c);
+        CollateralLib.CollateralInfo memory info = c;
+        return CollateralLib.calculateCollateralRelease(info);
     }
 }
 
@@ -165,6 +217,7 @@ contract LibrariesTest is Test {
     ProtocolEarningsHelper private peh;
     AssetHelper private ah;
     CollateralTokenEarningsHelper private cteh;
+    VehicleHelper private vh;
 
     address private alice = address(0xA11CE);
 
@@ -172,6 +225,7 @@ contract LibrariesTest is Test {
         peh = new ProtocolEarningsHelper();
         ah = new AssetHelper();
         cteh = new CollateralTokenEarningsHelper();
+        vh = new VehicleHelper();
     }
 
     // ProtocolLib tests
@@ -187,8 +241,8 @@ contract LibrariesTest is Test {
 
     function testProtocolFeeAndPenalty() public pure {
         assertEq(ProtocolLib.calculateProtocolFee(10_000), ProtocolLib.MIN_PROTOCOL_FEE); // 2.5% is less than min fee
-        // 10 tokens at price 100 => 5% = 50
-        assertEq(ProtocolLib.calculatePenalty(10, 100), 50);
+        // 10 tokens at price 100 => 5% = 50, but min penalty applies
+        assertEq(ProtocolLib.calculatePenalty(10 * 100), ProtocolLib.MIN_EARLY_SALE_PENALTY);
     }
 
     // AssetLib tests
@@ -226,6 +280,13 @@ contract LibrariesTest is Test {
         ah.update(AssetLib.AssetStatus.Active);
     }
 
+    function testAssetsExpiredToRetired() public {
+        ah.init(AssetLib.AssetStatus.Pending, 100000e6);
+        ah.update(AssetLib.AssetStatus.Expired);
+        ah.update(AssetLib.AssetStatus.Retired);
+        assertEq(uint8(ah.status()), uint8(AssetLib.AssetStatus.Retired));
+    }
+
     function testAssetsTimeViews() public {
         ah.init(AssetLib.AssetStatus.Active, 100000e6);
         uint256 t0 = block.timestamp;
@@ -259,9 +320,16 @@ contract LibrariesTest is Test {
         assertApproxEqAbs(cteh.lockDuration(), 7 days, 2);
     }
 
+    function testCollateralLockDurationWhenUnlocked() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+        cteh.clearLock();
+        assertEq(cteh.lockDuration(), 0);
+    }
+
     function testCollateralRequirements() public pure {
-        (uint256 baseAmt, uint256 eBuf, uint256 pBuf, uint256 tot) =
-            CollateralLib.calculateCollateralRequirements(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+        (uint256 baseAmt, uint256 eBuf, uint256 pBuf, uint256 tot) = CollateralLib.calculateCollateralRequirements(
+            100000e6, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+        );
         assertEq(baseAmt, 100000e6);
         assertEq(tot, baseAmt + eBuf + pBuf);
     }
@@ -307,7 +375,7 @@ contract LibrariesTest is Test {
         uint256 principal = 1000e6;
         uint256 dt = 30 days;
         uint256 defaultBench = EarningsLib.calculateBenchmarkEarnings(principal, dt);
-        uint256 higherBench = EarningsLib.calculateEarnings(principal, dt, ProtocolLib.BENCHMARK_EARNINGS_BP + 500);
+        uint256 higherBench = EarningsLib.calculateEarnings(principal, dt, ProtocolLib.BENCHMARK_YIELD_BP + 500);
         assertGt(higherBench, defaultBench);
     }
 
@@ -316,15 +384,38 @@ contract LibrariesTest is Test {
         // min holding coerced to at least MONTHLY_INTERVAL
         uint256 maturityDate = block.timestamp + 365 days;
         cteh.initToken(1, 100e6, 1 days, maturityDate);
-        (uint256 tid, uint256 price, uint256 supply, uint256 minHold, uint256 tokenMaturity) = cteh.tokenInfo();
+        (
+            uint256 tid,
+            uint256 price,
+            uint256 supply,
+            uint256 minHold,
+            uint256 tokenMaturity,
+            uint256 revenueShareBP,
+            uint256 targetYieldBP
+        ) = cteh.tokenInfo();
         assertEq(tid, 1);
         assertEq(price, 100e6);
         assertEq(supply, 0);
         assertEq(minHold, ProtocolLib.MONTHLY_INTERVAL);
         assertEq(tokenMaturity, maturityDate);
+        assertEq(revenueShareBP, 10_000);
+        assertEq(targetYieldBP, 1_000);
+    }
 
-        // token value
-        assertEq(cteh.tokenValue(5), 5 * 100e6);
+    function testTokenSalesPenaltyZeroAmount() public {
+        uint256 maturityDate = block.timestamp + 365 days;
+        cteh.initToken(1, 100e6, ProtocolLib.MONTHLY_INTERVAL, maturityDate);
+        assertEq(cteh.salesPenalty(alice, 0), 0);
+    }
+
+    function testVehicleDisplayNameZeroYear() public {
+        vh.setRaw("Honda", "Civic", 0);
+        assertEq(vh.displayName(), "Honda Civic 0");
+    }
+
+    function testVehicleInvalidMetadataUri() public {
+        vm.expectRevert(VehicleLib.InvalidMetadataURI.selector);
+        vh.init("1HGCM82633A123456", "Honda", "Civic", 2020, 1, "EX-L", "http://bad-uri");
     }
 
     function testTokenUnclaimedForPositionsAndEarningsHelpers() public {

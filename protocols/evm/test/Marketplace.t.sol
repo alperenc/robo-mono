@@ -290,4 +290,22 @@ contract MarketplaceTest is BaseTest {
         vm.prank(unauthorized);
         marketplace.updateTreasury(address(newTreasury));
     }
+
+    function testOnERC1155BatchReceivedSelector() public {
+        bytes4 selector = marketplace.onERC1155BatchReceived(
+            address(this), address(0xBEEF), new uint256[](0), new uint256[](0), ""
+        );
+        assertEq(selector, marketplace.onERC1155BatchReceived.selector);
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        marketplace.upgradeToAndCall(address(newImpl), "");
+    }
 }

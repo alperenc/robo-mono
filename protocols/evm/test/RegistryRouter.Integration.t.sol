@@ -3,11 +3,12 @@ pragma solidity ^0.8.19;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib } from "../contracts/Libraries.sol";
+import { AssetLib, TokenLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
 
 // Simple Mock Registry to simulate a second asset type (e.g., "MachineRegistry")
 contract MockRegistry is IAssetRegistry {
@@ -30,7 +31,7 @@ contract MockRegistry is IAssetRegistry {
 
     function registerAndMint(address partner, uint256 assetValue, uint256 tokenPrice)
         external
-        returns (uint256 assetId, uint256 revenueTokenId)
+        returns (uint256 assetId, uint256 revenueTokenId, uint256 listingId)
     {
         // 1. Reserve IDs from Router (this binds the assetId to this registry in the Router)
         (assetId, revenueTokenId) = router.reserveNextTokenIdPair();
@@ -42,21 +43,25 @@ contract MockRegistry is IAssetRegistry {
         assets[assetId].info.createdAt = block.timestamp;
         assets[assetId].info.updatedAt = block.timestamp;
 
-        // 3. Setup Token Info & Lock Collateral
-        uint256 supply = assetValue / tokenPrice;
+        // 3. Compute supply for preview + mint flow
         uint256 maturityDate = block.timestamp + 365 days;
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
 
         // Mint Asset NFT first so partner owns it for collateral locking
         roboshareTokens.mint(partner, assetId, 1, "");
 
-        // Lock Collateral (Requires partner to have approved Treasury)
-        router.lockCollateralFor(partner, assetId, assetValue);
+        // 4. Mint + list through router flow (registry wrapper)
+        (,, listingId) =
+            router.mintRevenueTokensAndListFor(partner, assetId, tokenPrice, maturityDate, 10_000, 1_000, 1 days, true);
 
-        // 4. Mint revenue tokens
-        roboshareTokens.mint(partner, revenueTokenId, supply, "");
+        return (assetId, revenueTokenId, listingId);
+    }
 
-        return (assetId, revenueTokenId);
+    function registerAssetForTest(uint256 assetId, uint256 assetValue) external {
+        assets[assetId].id = assetId;
+        assets[assetId].info.assetValue = assetValue;
+        assets[assetId].info.status = AssetLib.AssetStatus.Active;
+        assets[assetId].info.createdAt = block.timestamp;
+        assets[assetId].info.updatedAt = block.timestamp;
     }
 
     // Implement required IAssetRegistry view functions
@@ -72,20 +77,21 @@ contract MockRegistry is IAssetRegistry {
         return assets[assetId].info.status;
     }
 
-    function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
-        return roboshareTokens.balanceOf(account, assetId) > 0;
-    }
-
     // Stubs for other functions
     function registerAsset(bytes calldata, uint256) external pure override returns (uint256) {
         return 0;
     }
 
-    function mintRevenueTokens(uint256, uint256, uint256) external pure override returns (uint256, uint256) {
-        return (0, 0);
+    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, uint256, uint256, bool)
+        external
+        pure
+        override
+        returns (uint256, uint256, uint256, uint256)
+    {
+        return (0, 0, 0, 0);
     }
 
-    function registerAssetAndMintTokens(bytes calldata, uint256, uint256, uint256)
+    function mintRevenueTokensAndList(uint256, uint256, uint256, uint256, uint256, uint256, bool)
         external
         pure
         override
@@ -94,13 +100,25 @@ contract MockRegistry is IAssetRegistry {
         return (0, 0, 0);
     }
 
-    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, bool)
+    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
         external
-        pure
+        view
         override
-        returns (uint256, uint256, uint256, uint256)
+        returns (uint256 tokenId, uint256 supply)
     {
-        return (0, 0, 0, 0);
+        if (assets[assetId].id == 0) {
+            revert AssetNotFound(assetId);
+        }
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert NotAssetOwner();
+        }
+
+        tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        if (roboshareTokens.getRevenueTokenSupply(tokenId) > 0) {
+            revert RevenueTokensAlreadyMinted();
+        }
+
+        supply = assets[assetId].info.assetValue / tokenPrice;
     }
 
     function setAssetStatus(uint256, AssetLib.AssetStatus) external override { }
@@ -147,6 +165,12 @@ contract MockRegistry is IAssetRegistry {
     }
 }
 
+contract RegistryRouterHarness is RegistryRouter {
+    function exposeMintRevenueTokensToEscrow(address registry, uint256 revenueTokenId, uint256 amount) external {
+        _mintRevenueTokensToEscrow(registry, revenueTokenId, amount);
+    }
+}
+
 contract RegistryRouterIntegrationTest is BaseTest {
     MockRegistry public mockRegistry;
 
@@ -185,11 +209,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // 2. Register a Mock Asset (Asset ID 3, Token ID 4)
         vm.startPrank(partner1);
 
-        // Approve Treasury to pull collateral
-        uint256 collateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
-        usdc.approve(address(treasury), collateral);
-
-        (uint256 mockAssetId, uint256 mockTokenId) =
+        (uint256 mockAssetId, uint256 mockTokenId, uint256 listingId) =
             mockRegistry.registerAndMint(partner1, ASSET_VALUE, REVENUE_TOKEN_PRICE);
         vm.stopPrank();
 
@@ -200,15 +220,8 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Verify Router knows about MockRegistry
         assertEq(router.getRegistryForAsset(mockAssetId), address(mockRegistry));
 
-        // 3. List Mock Token on Marketplace
-        // Marketplace uses Router to find registry, then registry to get asset info/status/collateral
-        vm.startPrank(partner1);
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(mockTokenId, 100, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
-        vm.stopPrank();
-
-        // 4. Purchase Mock Token
-        uint256 purchaseAmount = 10;
+        // 3. Purchase Mock Token
+        uint256 purchaseAmount = PURCHASE_AMOUNT;
         (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, purchaseAmount);
 
         vm.startPrank(buyer);
@@ -216,7 +229,10 @@ contract RegistryRouterIntegrationTest is BaseTest {
         marketplace.purchaseTokens(listingId, purchaseAmount);
         vm.stopPrank();
 
-        // 5. End Listing and Claim Tokens (New Escrow Flow)
+        // 4. End Listing and Claim Tokens (New Escrow Flow)
+        vm.prank(partner1);
+        usdc.approve(address(treasury), type(uint256).max);
+
         vm.prank(partner1);
         marketplace.endListing(listingId);
 
@@ -227,18 +243,73 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(buyer, mockTokenId), purchaseAmount);
     }
 
-    // RegistryNotFound Tests
+    function testMintRevenueTokensAndList() public {
+        _ensureState(SetupState.InitialAccountsSetup);
 
-    function testMintRevenueTokensRegistryNotFound() public {
-        uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
-        router.mintRevenueTokens(nonExistentAssetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days);
+        vm.startPrank(admin);
+        router.setMarketplace(address(marketplace));
+        marketplace.grantRole(marketplace.AUTHORIZED_CONTRACT_ROLE(), address(router));
+        vm.stopPrank();
+
+        // Register asset only
+        vm.startPrank(partner1);
+        uint256 assetId = assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            ASSET_VALUE
+        );
+
+        (uint256 revenueTokenId, uint256 tokenSupply, uint256 listingId) = router.mintRevenueTokensAndList(
+            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
+        );
+        vm.stopPrank();
+
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), tokenSupply);
+        _assertListingState(listingId, revenueTokenId, tokenSupply, REVENUE_TOKEN_PRICE, partner1, true, true);
     }
+
+    // RegistryNotFound Tests
 
     function testGetAssetInfoRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.getAssetInfo(nonExistentAssetId);
+    }
+
+    function testMintRevenueTokensAndListRegistryNotFound() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
+        vm.prank(partner1);
+        router.mintRevenueTokensAndList(
+            nonExistentAssetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
+        );
+    }
+
+    function testMintRevenueTokensAndListUnauthorizedPartner() public {
+        _ensureState(SetupState.AssetRegistered);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        vm.prank(buyer);
+        router.mintRevenueTokensAndList(
+            scenario.assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
+        );
+    }
+
+    function testPreviewMintRevenueTokensRegistryNotFound() public {
+        uint256 nonExistentAssetId = 999;
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
+        router.previewMintRevenueTokens(nonExistentAssetId, partner1, REVENUE_TOKEN_PRICE);
+    }
+
+    function testPreviewMintRevenueTokens() public {
+        _ensureState(SetupState.AssetRegistered);
+        (uint256 tokenId, uint256 supply) =
+            router.previewMintRevenueTokens(scenario.assetId, partner1, REVENUE_TOKEN_PRICE);
+
+        assertEq(tokenId, TokenLib.getTokenIdFromAssetId(scenario.assetId));
+        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
     }
 
     function testGetAssetStatusRegistryNotFound() public {
@@ -249,8 +320,23 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
     function testSetAssetStatusRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
+        vm.prank(address(treasury));
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
         router.setAssetStatus(nonExistentAssetId, AssetLib.AssetStatus.Active);
+    }
+
+    function testSetAssetStatusTreasurySuccess() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.prank(address(treasury));
+        router.setAssetStatus(scenario.assetId, AssetLib.AssetStatus.Active);
+
+        assertEq(uint8(router.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Active));
+    }
+
+    function testSetAssetStatusNotTreasury() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.setAssetStatus(scenario.assetId, AssetLib.AssetStatus.Active);
     }
 
     function testBurnRevenueTokensRegistryNotFound() public {
@@ -271,12 +357,6 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.retireAssetAndBurnTokens(nonExistentAssetId);
     }
 
-    function testIsAuthorizedForAssetRegistryNotFound() public {
-        uint256 nonExistentAssetId = 999;
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
-        router.isAuthorizedForAsset(partner1, nonExistentAssetId);
-    }
-
     function testSettleAssetRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
@@ -295,10 +375,71 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.claimSettlement(nonExistentAssetId, false);
     }
 
-    // RegistryNotBoundToAsset Tests
+    function testRecordSoldSupply() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 soldAmount = 10;
+        uint256 beforeSold = roboshareTokens.getSoldSupply(scenario.revenueTokenId);
 
-    function testLockCollateralForRegistryNotBoundToAsset() public {
-        uint256 assetId = 100;
+        vm.prank(address(marketplace));
+        router.recordSoldSupply(scenario.revenueTokenId, soldAmount);
+
+        uint256 afterSold = roboshareTokens.getSoldSupply(scenario.revenueTokenId);
+        assertEq(afterSold, beforeSold + soldAmount);
+    }
+
+    function testRecordSoldSupplyNotMarketplace() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        vm.expectRevert(RegistryRouter.NotMarketplace.selector);
+        router.recordSoldSupply(scenario.revenueTokenId, 10);
+    }
+
+    function testRecordSoldSupplyRegistryNotFound() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 unboundTokenId = scenario.revenueTokenId + 2;
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundTokenId));
+        router.recordSoldSupply(unboundTokenId, 10);
+    }
+
+    function testRecordSoldSupplyZeroAmount() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 beforeSold = roboshareTokens.getSoldSupply(scenario.revenueTokenId);
+
+        vm.prank(address(marketplace));
+        router.recordSoldSupply(scenario.revenueTokenId, 0);
+
+        assertEq(roboshareTokens.getSoldSupply(scenario.revenueTokenId), beforeSold);
+    }
+
+    function testCreditTokenEscrow() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        uint256 tokenId = scenario.revenueTokenId;
+        uint256 beforeEscrow = marketplace.tokenEscrow(tokenId);
+        uint256 amount = 123;
+
+        vm.prank(address(assetRegistry));
+        router.creditTokenEscrow(scenario.assetId, amount);
+
+        assertEq(marketplace.tokenEscrow(tokenId), beforeEscrow + amount);
+    }
+
+    function testClearTokenEscrow() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        uint256 tokenId = scenario.revenueTokenId;
+        uint256 beforeEscrow = marketplace.tokenEscrow(tokenId);
+
+        vm.prank(address(assetRegistry));
+        uint256 cleared = router.clearTokenEscrow(scenario.assetId);
+
+        assertEq(cleared, beforeEscrow);
+        assertEq(marketplace.tokenEscrow(tokenId), 0);
+    }
+
+    function testClearTokenEscrowRegistryNotBoundToAsset() public {
+        _ensureState(SetupState.RevenueTokensMinted);
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
         vm.startPrank(admin);
@@ -307,8 +448,23 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
-        router.lockCollateralFor(partner1, assetId, ASSET_VALUE);
+        router.clearTokenEscrow(scenario.assetId);
     }
+
+    function testCreditTokenEscrowRegistryNotBoundToAsset() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
+
+        vm.startPrank(admin);
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
+        vm.stopPrank();
+
+        vm.prank(unauthorizedRegistry);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
+        router.creditTokenEscrow(scenario.assetId, 10);
+    }
+
+    // RegistryNotBoundToAsset Tests
 
     function testReleaseCollateralForRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
@@ -364,61 +520,175 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
     // TreasuryNotSet Tests
 
-    function _setupRouterWithoutTreasury() internal returns (RegistryRouter) {
+    function _setupRouterWithoutTreasury() internal returns (RegistryRouter, uint256 assetId) {
         vm.startPrank(admin);
         RegistryRouter freshRouter = new RegistryRouter();
         ERC1967Proxy proxy = new ERC1967Proxy(address(freshRouter), "");
         RegistryRouter proxyRouter = RegistryRouter(address(proxy));
-        proxyRouter.initialize(admin, address(roboshareTokens));
-        proxyRouter.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), partner1);
+        proxyRouter.initialize(admin, address(roboshareTokens), address(partnerManager));
+        proxyRouter.grantRole(proxyRouter.AUTHORIZED_REGISTRY_ROLE(), address(assetRegistry));
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(proxyRouter));
         vm.stopPrank();
 
-        vm.prank(partner1);
-        proxyRouter.bindId(100);
+        vm.prank(address(assetRegistry));
+        (assetId,) = proxyRouter.reserveNextTokenIdPair();
 
-        return proxyRouter;
-    }
-
-    function testLockCollateralForTreasuryNotSet() public {
-        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
-        vm.prank(partner1);
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.lockCollateralFor(partner1, 100, ASSET_VALUE);
+        return (proxyRouter, assetId);
     }
 
     function testReleaseCollateralForTreasuryNotSet() public {
-        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
-        vm.prank(partner1);
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.prank(address(assetRegistry));
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.releaseCollateralFor(partner1, 100);
+        proxyRouter.releaseCollateralFor(partner1, assetId);
     }
 
     function testIsAssetSolventTreasuryNotSet() public {
-        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
-        vm.prank(partner1);
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.prank(address(assetRegistry));
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.isAssetSolvent(100);
+        proxyRouter.isAssetSolvent(assetId);
     }
 
     function testInitiateSettlementTreasuryNotSet() public {
-        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
-        vm.prank(partner1);
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.prank(address(assetRegistry));
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.initiateSettlement(partner1, 100, 100);
+        proxyRouter.initiateSettlement(partner1, assetId, 100);
     }
 
     function testExecuteLiquidationTreasuryNotSet() public {
-        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
-        vm.prank(partner1);
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.prank(address(assetRegistry));
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.executeLiquidation(100);
+        proxyRouter.executeLiquidation(assetId);
     }
 
     function testProcessSettlementClaimTreasuryNotSet() public {
-        RegistryRouter proxyRouter = _setupRouterWithoutTreasury();
-        vm.prank(partner1);
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.prank(address(assetRegistry));
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.processSettlementClaim(partner1, 100, 100);
+        proxyRouter.processSettlementClaim(partner1, assetId, 100);
+    }
+
+    function testSnapshotAndClaimEarningsTreasuryNotSet() public {
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.snapshotAndClaimEarnings(assetId, partner1, false);
+    }
+
+    function testSnapshotAndClaimEarningsRegistryNotBoundToAsset() public {
+        uint256 assetId = 100;
+        address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
+
+        vm.startPrank(admin);
+        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), unauthorizedRegistry);
+        vm.stopPrank();
+
+        vm.prank(unauthorizedRegistry);
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
+        router.snapshotAndClaimEarnings(assetId, partner1, false);
+    }
+
+    // MarketplaceNotSet Tests
+
+    function _setupRouterWithoutMarketplace() internal returns (RegistryRouter, uint256 assetId) {
+        vm.startPrank(admin);
+        RegistryRouter freshRouter = new RegistryRouter();
+        ERC1967Proxy proxy = new ERC1967Proxy(address(freshRouter), "");
+        RegistryRouter proxyRouter = RegistryRouter(address(proxy));
+        proxyRouter.initialize(admin, address(roboshareTokens), address(partnerManager));
+        proxyRouter.setTreasury(address(treasury));
+        proxyRouter.grantRole(proxyRouter.AUTHORIZED_REGISTRY_ROLE(), address(assetRegistry));
+        roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(proxyRouter));
+        vm.stopPrank();
+
+        vm.prank(address(assetRegistry));
+        (assetId,) = proxyRouter.reserveNextTokenIdPair();
+
+        return (proxyRouter, assetId);
+    }
+
+    function testCreateListingForMarketplaceNotSet() public {
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutMarketplace();
+        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.MarketplaceNotSet.selector);
+        proxyRouter.createListingFor(partner1, tokenId, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
+    }
+
+    function testMintRevenueTokensAndListForMarketplaceNotSet() public {
+        (RegistryRouter proxyRouter,) = _setupRouterWithoutMarketplace();
+        vm.startPrank(admin);
+        assetRegistry.updateRouter(address(proxyRouter));
+        proxyRouter.grantRole(proxyRouter.AUTHORIZED_REGISTRY_ROLE(), address(assetRegistry));
+        vm.stopPrank();
+
+        vm.prank(partner1);
+        uint256 assetId = assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            ASSET_VALUE
+        );
+
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.MarketplaceNotSet.selector);
+        proxyRouter.mintRevenueTokensAndListFor(
+            partner1, assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
+        );
+    }
+
+    function testClearTokenEscrowMarketplaceNotSet() public {
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutMarketplace();
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.MarketplaceNotSet.selector);
+        proxyRouter.clearTokenEscrow(assetId);
+    }
+
+    function testCreditTokenEscrowMarketplaceNotSet() public {
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutMarketplace();
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.MarketplaceNotSet.selector);
+        proxyRouter.creditTokenEscrow(assetId, 10);
+    }
+
+    function testBurnRevenueTokensFromEscrowRegistryNotBoundToAsset() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 unboundTokenId = scenario.revenueTokenId + 2;
+
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
+        router.burnRevenueTokensFromEscrow(unboundTokenId);
+    }
+
+    function testBurnRevenueTokensFromEscrowMarketplaceNotSet() public {
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutMarketplace();
+        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+
+        vm.prank(address(assetRegistry));
+        vm.expectRevert(RegistryRouter.MarketplaceNotSet.selector);
+        proxyRouter.burnRevenueTokensFromEscrow(tokenId);
+    }
+
+    function testMintRevenueTokensToEscrowRegistryNotBoundToAsset() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        RegistryRouterHarness harness = new RegistryRouterHarness();
+        ERC1967Proxy proxy = new ERC1967Proxy(address(harness), "");
+        RegistryRouterHarness proxyHarness = RegistryRouterHarness(address(proxy));
+
+        vm.startPrank(admin);
+        proxyHarness.initialize(admin, address(roboshareTokens), address(partnerManager));
+        proxyHarness.setMarketplace(address(marketplace));
+        marketplace.grantRole(marketplace.AUTHORIZED_CONTRACT_ROLE(), address(proxyHarness));
+        vm.stopPrank();
+
+        uint256 unboundTokenId = scenario.revenueTokenId + 2;
+        vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
+        proxyHarness.exposeMintRevenueTokensToEscrow(address(assetRegistry), unboundTokenId, 10);
     }
 
     // Solvency Tests

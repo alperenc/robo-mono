@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ProtocolLib } from "../contracts/Libraries.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
@@ -116,10 +117,14 @@ contract TreasuryTest is BaseTest {
 
     // Collateral Calculation Tests
 
-    function testGetTotalCollateralRequirement() public view {
-        uint256 requirement = treasury.getTotalCollateralRequirement(ASSET_VALUE);
-        (,,, uint256 expectedTotal) = _calculateExpectedCollateral(ASSET_VALUE);
+    function testGetTotalBufferRequirement() public view {
+        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP);
+        (,, uint256 expectedTotal) = _calculateExpectedBuffers(ASSET_VALUE);
         assertEq(requirement, expectedTotal);
+    }
+
+    function testGetMinProtocolFee() public view {
+        assertEq(treasury.getMinProtocolFee(), ProtocolLib.MIN_PROTOCOL_FEE);
     }
 
     // Admin Functions Tests
@@ -266,5 +271,16 @@ contract TreasuryTest is BaseTest {
         );
         treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        Treasury newImpl = new Treasury();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        treasury.upgradeToAndCall(address(newImpl), "");
     }
 }
