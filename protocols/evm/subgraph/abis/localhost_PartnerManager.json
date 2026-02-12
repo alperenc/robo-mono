@@ -76,6 +76,24 @@
   },
   {
     "type": "function",
+    "name": "changeNameFor",
+    "inputs": [
+      {
+        "name": "partner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "newName",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "getAllPartners",
     "inputs": [],
     "outputs": [
@@ -343,13 +361,8 @@
   },
   {
     "type": "function",
-    "name": "updatePartnerName",
+    "name": "updateName",
     "inputs": [
-      {
-        "name": "partner",
-        "type": "address",
-        "internalType": "address"
-      },
       {
         "name": "newName",
         "type": "string",

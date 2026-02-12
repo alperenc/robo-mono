@@ -19,8 +19,7 @@ import {
 import {
   VehicleRegistry,
   AssetRegistered as AssetRegisteredEvent,
-  VehicleRegistered as VehicleRegisteredEvent,
-  VehicleRegisteredAndRevenueTokensMinted as VehicleRegisteredAndMintedEvent
+  VehicleRegistered as VehicleRegisteredEvent
 } from "../generated/VehicleRegistry/VehicleRegistry"
 import {
   Treasury,
@@ -56,7 +55,7 @@ import {
   Listing,
   TokenTrade,
   EarningsDistribution,
-  AssetEarnings,
+  AssetEarning,
   TokenClaim,
   RefundClaim
 } from "../generated/schema"
@@ -107,9 +106,11 @@ export function handleRoboshareTokensTransferSingle(
 
 export function handleRevenueTokenInfoSet(event: RevenueTokenInfoSetEvent): void {
   let token = new RoboshareToken(event.params.revenueTokenId.toString())
+  let roboshareTokens = RoboshareTokens.bind(event.address)
   token.revenueTokenId = event.params.revenueTokenId
   token.price = event.params.price
   token.supply = event.params.supply
+  token.targetYieldBP = roboshareTokens.getTargetYieldBP(event.params.revenueTokenId)
   token.maturityDate = event.params.maturityDate
   token.setAtBlock = event.block.number
   token.save()
@@ -203,41 +204,6 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
   }
 }
 
-export function handleVehicleRegisteredAndMinted(
-  event: VehicleRegisteredAndMintedEvent
-): void {
-  // Create Vehicle entity
-  let vehicle = new Vehicle(event.params.vehicleId.toString())
-  vehicle.partner = event.params.partner
-  vehicle.blockNumber = event.block.number
-  vehicle.blockTimestamp = event.block.timestamp
-  vehicle.transactionHash = event.transaction.hash
-
-  // Fetch vehicle info from contract
-  let contract = VehicleRegistry.bind(event.address)
-  let infoCall = contract.try_getVehicleInfo(event.params.vehicleId)
-  if (!infoCall.reverted) {
-    let info = infoCall.value
-    vehicle.vin = info.value0 // vin
-    vehicle.make = info.value1 // make
-    vehicle.model = info.value2 // model
-    vehicle.year = info.value3 // year
-    vehicle.metadataURI = info.value6 // dynamicMetadataURI
-  }
-
-  vehicle.assetValue = event.params.assetValue
-  vehicle.save()
-
-  // Note: RoboshareToken entity is created by handleRevenueTokenInfoSet event
-  // which fires when mintRevenueTokens is called (part of registerAssetMintAndList)
-
-  let registryContract = VehicleRegistryContract.load("1")
-  if (!registryContract) {
-    registryContract = new VehicleRegistryContract("1")
-    registryContract.address = event.address
-    registryContract.save()
-  }
-}
 
 export function handleCollateralLocked(event: CollateralLockedEvent): void {
   let collateralLock = new CollateralLock(
@@ -276,10 +242,10 @@ export function handleEarningsDistributed(event: EarningsDistributedEvent): void
 
   // Update or create aggregate earnings for asset
   let assetEarningsId = event.params.assetId.toString()
-  let assetEarnings = AssetEarnings.load(assetEarningsId)
+  let assetEarnings = AssetEarning.load(assetEarningsId)
 
   if (!assetEarnings) {
-    assetEarnings = new AssetEarnings(assetEarningsId)
+    assetEarnings = new AssetEarning(assetEarningsId)
     assetEarnings.assetId = event.params.assetId
     assetEarnings.totalEarnings = BigInt.fromI32(0)
     assetEarnings.totalRevenue = BigInt.fromI32(0)
@@ -304,11 +270,12 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.pricePerToken = event.params.pricePerToken
   listing.expiresAt = event.params.expiresAt
   listing.buyerPaysFee = event.params.buyerPaysFee
+  listing.isPrimary = event.params.isPrimary
   listing.status = "active"
   listing.isCancelled = false
   listing.isEnded = false
   listing.claimedAmount = BigInt.fromI32(0)
-  listing.refundedUSDC = BigInt.fromI32(0)
+  listing.refundedAmount = BigInt.fromI32(0)
   listing.createdAt = event.block.timestamp
   listing.blockNumber = event.block.number
   listing.blockTimestamp = event.block.timestamp
@@ -402,7 +369,7 @@ export function handleRefundClaimed(event: RefundClaimedEvent): void {
 
   let listing = Listing.load(event.params.listingId.toString())
   if (listing) {
-    listing.refundedUSDC = listing.refundedUSDC.plus(event.params.amount)
+    listing.refundedAmount = listing.refundedAmount.plus(event.params.amount)
     listing.save()
   }
 }

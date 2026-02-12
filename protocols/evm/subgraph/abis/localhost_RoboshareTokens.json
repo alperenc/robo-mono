@@ -6,6 +6,19 @@
   },
   {
     "type": "function",
+    "name": "AUTHORIZED_CONTRACT_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "BURNER_ROLE",
     "inputs": [],
     "outputs": [
@@ -210,6 +223,25 @@
   },
   {
     "type": "function",
+    "name": "getRevenueShareBP",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getRevenueTokenSupply",
     "inputs": [
       {
@@ -269,6 +301,44 @@
     "outputs": [
       {
         "name": "penaltyAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSoldSupply",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTargetYieldBP",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -424,6 +494,24 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "increaseSoldSupply",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -770,6 +858,16 @@
         "name": "maturityDate",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "revenueShareBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "targetYieldBP",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1015,6 +1113,31 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SoldSupplyUpdated",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "oldSupply",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newSupply",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

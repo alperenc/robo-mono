@@ -9,21 +9,29 @@ import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 contract DeployRegistryRouter is ScaffoldETHDeploy {
     /**
      * @dev Deploy RegistryRouter with dependency address
-     * Usage: yarn deploy --contract RegistryRouter --network <network> --args <roboshareTokensAddress>
+     * Usage: yarn deploy --contract RegistryRouter --network <network> --args <roboshareTokensAddress> <partnerManagerAddress>
      */
-    function run(address roboshareTokensAddress) external scaffoldEthDeployerRunner returns (address) {
+    function run(address roboshareTokensAddress, address partnerManagerAddress)
+        external
+        scaffoldEthDeployerRunner
+        returns (address)
+    {
         console.log("Deploying RegistryRouter with deployer:", deployer);
         console.log("Dependencies:");
         console.log("  - RoboshareTokens:", roboshareTokensAddress);
+        console.log("  - PartnerManager:", partnerManagerAddress);
 
         require(roboshareTokensAddress != address(0), "RoboshareTokens address cannot be zero");
+        require(partnerManagerAddress != address(0), "PartnerManager address cannot be zero");
 
         // Deploy implementation
         RegistryRouter routerImplementation = new RegistryRouter();
         console.log("RegistryRouter implementation deployed at:", address(routerImplementation));
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSignature("initialize(address,address)", deployer, roboshareTokensAddress);
+        bytes memory initData = abi.encodeWithSignature(
+            "initialize(address,address,address)", deployer, roboshareTokensAddress, partnerManagerAddress
+        );
 
         // Deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(routerImplementation), initData);
@@ -36,6 +44,7 @@ contract DeployRegistryRouter is ScaffoldETHDeploy {
         console.log("Admin has DEFAULT_ADMIN_ROLE:", router.hasRole(router.DEFAULT_ADMIN_ROLE(), deployer));
         console.log("Admin has REGISTRY_ADMIN_ROLE:", router.hasRole(keccak256("REGISTRY_ADMIN_ROLE"), deployer));
         console.log("RoboshareTokens reference:", address(router.roboshareTokens()));
+        console.log("PartnerManager reference:", address(router.partnerManager()));
 
         // Log deployment summary
         console.log("=== Deployment Summary ===");

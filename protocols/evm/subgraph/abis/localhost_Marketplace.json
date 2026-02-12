@@ -198,6 +198,25 @@
   },
   {
     "type": "function",
+    "name": "clearTokenEscrow",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "createListing",
     "inputs": [
       {
@@ -277,6 +296,24 @@
         "internalType": "uint256"
       }
     ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "creditTokenEscrow",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -375,7 +412,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct Marketplace.Listing",
+        "internalType": "struct IMarketplace.Listing",
         "components": [
           {
             "name": "listingId",
@@ -429,6 +466,16 @@
           },
           {
             "name": "buyerPaysFee",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "earlySalePenalty",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "isPrimary",
             "type": "bool",
             "internalType": "bool"
           }
@@ -658,6 +705,16 @@
         "name": "buyerPaysFee",
         "type": "bool",
         "internalType": "bool"
+      },
+      {
+        "name": "earlySalePenalty",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "isPrimary",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -867,13 +924,32 @@
   },
   {
     "type": "function",
+    "name": "tokenEscrow",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "treasury",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract Treasury"
+        "internalType": "contract ITreasury"
       }
     ],
     "stateMutability": "view"
@@ -1054,6 +1130,12 @@
       },
       {
         "name": "buyerPaysFee",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "isPrimary",
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
@@ -1489,6 +1571,11 @@
   },
   {
     "type": "error",
+    "name": "AssetNotEligibleForListing",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1555,7 +1642,7 @@
   },
   {
     "type": "error",
-    "name": "ListingExpired",
+    "name": "ListingIsCancelled",
     "inputs": []
   },
   {
@@ -1576,6 +1663,11 @@
   {
     "type": "error",
     "name": "ListingNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ListingOwnerCannotPurchase",
     "inputs": []
   },
   {
@@ -1601,6 +1693,11 @@
   {
     "type": "error",
     "name": "NotListingOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PrimaryListingRequiresBuyerPaysFee",
     "inputs": []
   },
   {
