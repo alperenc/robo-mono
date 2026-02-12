@@ -19,11 +19,12 @@ library ProtocolLib {
 
     // Protocol economic constants (basis points)
     uint256 internal constant BP_PRECISION = 10000;
-    uint256 internal constant BENCHMARK_EARNINGS_BP = 1000; // 10%
+    uint256 internal constant BENCHMARK_YIELD_BP = 1000; // 10%
     uint256 internal constant PROTOCOL_FEE_BP = 250; // 2.5%
     uint256 internal constant EARLY_SALE_PENALTY_BP = 500; // 5%
     uint256 internal constant DEPRECIATION_RATE_BP = 1200; // 12% annually
     uint256 internal constant MIN_PROTOCOL_FEE = 1 * 10 ** 6; // 1 USDC (assuming 6 decimals)
+    uint256 internal constant MIN_EARLY_SALE_PENALTY = 1 * 10 ** 6; // 1 USDC (assuming 6 decimals)
 
     /**
      * @dev Validate IPFS URI format
@@ -64,12 +65,15 @@ library ProtocolLib {
 
     /**
      * @dev Calculate early sale penalty
-     * @param amount Amount to calculate penalty on
-     * @param revenueTokenPrice Price per revenue token
+     * @param amount Amount to calculate penalty on (tokenAmount * tokenPrice)
      * @return Penalty amount
      */
-    function calculatePenalty(uint256 amount, uint256 revenueTokenPrice) internal pure returns (uint256) {
-        return (amount * revenueTokenPrice * EARLY_SALE_PENALTY_BP) / BP_PRECISION;
+    function calculatePenalty(uint256 amount) internal pure returns (uint256) {
+        uint256 penalty = (amount * EARLY_SALE_PENALTY_BP) / BP_PRECISION;
+        if (amount > 0 && penalty < MIN_EARLY_SALE_PENALTY) {
+            return MIN_EARLY_SALE_PENALTY;
+        }
+        return penalty;
     }
 }
 
@@ -319,7 +323,7 @@ library VehicleLib {
      * @dev Get vehicle display name for UI/events
      */
     function getDisplayName(VehicleInfo storage info) internal view returns (string memory) {
-        return string(abi.encodePacked(_uint256ToString(info.year), " ", info.make, " ", info.model));
+        return string(abi.encodePacked(info.make, " ", info.model, " ", _uint256ToString(info.year)));
     }
 
     /**
@@ -378,8 +382,11 @@ library TokenLib {
         uint256 tokenId; // ERC1155 token ID
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
         uint256 tokenSupply; // Total number of tokens issued
+        uint256 soldSupply; // Total sold supply (net of cancelled listings)
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
         uint256 maturityDate; // Date by which the revenue commitment ends
+        uint256 revenueShareBP; // Max investor share of reported revenue (basis points)
+        uint256 targetYieldBP; // Target yield for buffer benchmarks (basis points)
         // Track positions per user using Queue
         mapping(address => PositionQueue) positions;
     }
@@ -392,13 +399,11 @@ library TokenLib {
      * @dev Get asset ID from token ID
      */
     function getAssetIdFromTokenId(uint256 tokenId) internal pure returns (uint256) {
-        uint256 assetId = isRevenueToken(tokenId) ? tokenId - 1 : tokenId;
-
         if (!isRevenueToken(tokenId)) {
             revert InvalidRevenueTokenId();
         }
 
-        return assetId;
+        return tokenId - 1;
     }
 
     /**
@@ -425,14 +430,20 @@ library TokenLib {
         uint256 tokenId,
         uint256 tokenPrice,
         uint256 minHoldingPeriod,
-        uint256 maturityDate
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP
     ) internal {
         info.tokenId = tokenId;
         info.tokenPrice = tokenPrice;
         info.tokenSupply = 0; // Initialize to 0, will be updated by minting/burning
+        info.soldSupply = 0;
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
         info.maturityDate = maturityDate;
+        info.revenueShareBP = revenueShareBP;
+        info.targetYieldBP =
+            targetYieldBP < ProtocolLib.BENCHMARK_YIELD_BP ? ProtocolLib.BENCHMARK_YIELD_BP : targetYieldBP;
         // mappings are automatically initialized
     }
 
@@ -512,7 +523,7 @@ library TokenLib {
 
                 // Calculate penalty if holding period not met
                 if (block.timestamp < pos.acquiredAt + info.minHoldingPeriod) {
-                    totalPenalty += ProtocolLib.calculatePenalty(toConsider, info.tokenPrice);
+                    totalPenalty += ProtocolLib.calculatePenalty(toConsider * info.tokenPrice);
                 }
                 remaining -= toConsider;
             }
@@ -527,26 +538,6 @@ library TokenLib {
      */
     function isRevenueToken(uint256 tokenId) internal pure returns (bool) {
         return tokenId != 0 && tokenId % 2 == 0;
-    }
-
-    /**
-     * @dev Calculate total value of tokens
-     * @param info Storage reference to token info
-     * @param tokenAmount Number of tokens
-     * @return Total value in USDC
-     */
-    function calculateTokenValue(TokenInfo storage info, uint256 tokenAmount) internal view returns (uint256) {
-        return info.tokenPrice * tokenAmount;
-    }
-
-    /**
-     * @dev Check if position is eligible for penalty-free transfer
-     * @param position The position to check
-     * @param minHoldingPeriod Minimum holding period to check against
-     * @return Whether the position can be transferred penalty-free
-     */
-    function isPositionMature(TokenPosition storage position, uint256 minHoldingPeriod) internal view returns (bool) {
-        return block.timestamp >= position.acquiredAt + minHoldingPeriod;
     }
 
     /**
@@ -605,8 +596,8 @@ library CollateralLib {
      * @dev Collateral information for vehicles with time-based calculations
      */
     struct CollateralInfo {
-        uint256 initialBaseCollateral; // Initial base collateral amount (for linear depreciation)
-        uint256 baseCollateral; // Base collateral amount in USDC
+        uint256 initialBaseCollateral; // Initial escrowed base (for linear depreciation)
+        uint256 baseCollateral; // Escrowed base amount in USDC
         uint256 earningsBuffer; // Current earnings buffer amount
         uint256 protocolBuffer; // Current protocol buffer amount
         uint256 totalCollateral; // Total required collateral in USDC
@@ -621,38 +612,39 @@ library CollateralLib {
     /**
      * @dev Settlement information for retired/expired assets
      */
-    struct AssetSettlement {
+    struct SettlementInfo {
         bool isSettled;
         uint256 settlementPerToken;
         uint256 totalSettlementPool;
     }
 
     /**
-     * @dev Initialize collateral info for a vehicle
+     * @dev Initialize collateral info for an asset with explicit base/buffer amounts.
      * @param info Collateral info storage reference
-     * @param assetValue Total value of the asset in USDC
-     * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
+     * @param baseAmount Base collateral amount (can be zero when buffers are funded first)
+     * @param earningsBuffer Earnings buffer amount
+     * @param protocolBuffer Protocol buffer amount
      */
-    function initializeCollateralInfo(CollateralInfo storage info, uint256 assetValue, uint256 bufferTimeInterval)
-        internal
-    {
-        if (info.isLocked) {
+    function initializeCollateralInfo(
+        CollateralInfo storage info,
+        uint256 baseAmount,
+        uint256 earningsBuffer,
+        uint256 protocolBuffer
+    ) internal {
+        if (info.totalCollateral > 0) {
             revert CollateralAlreadyInitialized();
         }
-        if (assetValue == 0) {
+        if (baseAmount == 0 && earningsBuffer == 0 && protocolBuffer == 0) {
             revert InvalidCollateralAmount();
         }
-
-        (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral) =
-            calculateCollateralRequirements(assetValue, bufferTimeInterval);
 
         info.initialBaseCollateral = baseAmount;
         info.baseCollateral = baseAmount;
         info.earningsBuffer = earningsBuffer;
         info.protocolBuffer = protocolBuffer;
-        info.totalCollateral = totalCollateral;
-        info.isLocked = false;
-        info.lockedAt = 0;
+        info.totalCollateral = baseAmount + earningsBuffer + protocolBuffer;
+        info.isLocked = info.totalCollateral > 0;
+        info.lockedAt = info.isLocked ? block.timestamp : 0;
         info.lastEventTimestamp = block.timestamp;
         info.reservedForLiquidation = 0;
         info.liquidationThreshold = earningsBuffer; // Set initial liquidation threshold to earnings buffer
@@ -661,27 +653,26 @@ library CollateralLib {
 
     /**
      * @dev Calculate collateral requirements with separate buffer components
-     * @param assetValue Total value of the asset in USDC
+     * @param baseAmount Base amount used for buffer sizing
      * @param bufferTimeInterval Time interval for buffer calculations (e.g., 90 days)
-     * @return baseAmount Base collateral amount
+     * @param yieldBP Yield in basis points (clamped to protocol minimum before calling)
+     * @return baseAmountOut Base collateral amount (echo)
      * @return earningsBuffer Earnings buffer amount
      * @return protocolBuffer Protocol buffer amount
      * @return totalCollateral Total collateral requirement
      */
-    function calculateCollateralRequirements(uint256 assetValue, uint256 bufferTimeInterval)
+    function calculateCollateralRequirements(uint256 baseAmount, uint256 bufferTimeInterval, uint256 yieldBP)
         internal
         pure
-        returns (uint256 baseAmount, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
+        returns (uint256 baseAmountOut, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
     {
-        // Base collateral amount is the asset value
-        baseAmount = assetValue;
-
+        baseAmountOut = baseAmount;
         // Calculate buffers for investor protection over the time interval
-        earningsBuffer = EarningsLib.calculateBenchmarkEarnings(baseAmount, bufferTimeInterval);
-        protocolBuffer = EarningsLib.calculateProtocolEarnings(baseAmount, bufferTimeInterval);
+        earningsBuffer = EarningsLib.calculateEarnings(baseAmountOut, bufferTimeInterval, yieldBP);
+        protocolBuffer = EarningsLib.calculateProtocolEarnings(baseAmountOut, bufferTimeInterval);
 
         // Total collateral is sum of base and buffers
-        totalCollateral = baseAmount + earningsBuffer + protocolBuffer;
+        totalCollateral = baseAmountOut + earningsBuffer + protocolBuffer;
     }
 
     /**
@@ -710,26 +701,42 @@ library CollateralLib {
      *      Depreciation is linear at 12% per year, prorated by time, and does not compound.
      *      Buffers are not considered here; caller is responsible for gating and buffer processing.
      */
-    function calculateCollateralRelease(CollateralInfo storage info) internal view returns (uint256 releaseAmount) {
+    function calculateCollateralRelease(CollateralInfo memory info) internal view returns (uint256 releaseAmount) {
+        return _calculateCollateralRelease(
+            info.initialBaseCollateral,
+            info.baseCollateral,
+            info.earningsBuffer,
+            info.reservedForLiquidation,
+            info.lockedAt
+        );
+    }
+
+    function _calculateCollateralRelease(
+        uint256 initialBaseCollateral,
+        uint256 baseCollateral,
+        uint256 earningsBuffer,
+        uint256 reservedForLiquidation,
+        uint256 lockedAt
+    ) private view returns (uint256 releaseAmount) {
         // Performance gate: Don't release base collateral if the protection buffer is empty
         // and there is an outstanding deficit reserved for liquidation.
-        if (info.earningsBuffer == 0 && info.reservedForLiquidation > 0) {
+        if (earningsBuffer == 0 && reservedForLiquidation > 0) {
             return 0;
         }
 
         // Cumulative allowed release from initial base
-        uint256 elapsedSinceLock = block.timestamp - info.lockedAt;
-        uint256 cumulativeAllowed = calculateDepreciation(info.initialBaseCollateral, elapsedSinceLock);
+        uint256 elapsedSinceLock = block.timestamp - lockedAt;
+        uint256 cumulativeAllowed = calculateDepreciation(initialBaseCollateral, elapsedSinceLock);
 
         // Already released from base
-        uint256 releasedSoFar = info.initialBaseCollateral - info.baseCollateral;
+        uint256 releasedSoFar = initialBaseCollateral - baseCollateral;
         if (cumulativeAllowed <= releasedSoFar) {
             return 0;
         }
 
         releaseAmount = cumulativeAllowed - releasedSoFar;
-        if (releaseAmount > info.baseCollateral) {
-            releaseAmount = info.baseCollateral;
+        if (releaseAmount > baseCollateral) {
+            releaseAmount = baseCollateral;
         }
     }
 
@@ -780,7 +787,9 @@ library CollateralLib {
             uint256 excessEarnings = netEarnings - baseEarnings;
 
             // Calculate benchmark buffer amount (what buffer should be)
-            uint256 benchmarkEarningsBuffer = getBenchmarkEarningsBuffer(info.baseCollateral);
+            (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
+                info.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+            );
             uint256 bufferDeficit =
                 benchmarkEarningsBuffer > info.earningsBuffer ? benchmarkEarningsBuffer - info.earningsBuffer : 0;
 
@@ -815,12 +824,6 @@ library CollateralLib {
      * @param baseCollateral Current base collateral amount
      * @return Benchmark earnings buffer amount
      */
-    function getBenchmarkEarningsBuffer(uint256 baseCollateral) internal pure returns (uint256) {
-        uint256 benchmarkQuarterlyEarnings =
-            (baseCollateral * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
-        return (benchmarkQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
-    }
-
     /**
      * @dev Check if asset collateral is solvent
      * @param info Storage reference to collateral info
@@ -828,16 +831,6 @@ library CollateralLib {
      */
     function isSolvent(CollateralInfo storage info) internal view returns (bool) {
         return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
-    }
-
-    /**
-     * @dev Get total collateral claimable by investors (excluding protocol buffer)
-     * @param info Storage reference to collateral info
-     * @return Total claimable amount in USDC
-     */
-    function getInvestorClaimableCollateral(CollateralInfo storage info) internal view returns (uint256) {
-        // Claimable = Base + EarningsBuffer + ReservedForLiquidation (which is part of earnings buffer moved)
-        return info.baseCollateral + info.earningsBuffer + info.reservedForLiquidation;
     }
 }
 
@@ -859,7 +852,8 @@ library EarningsLib {
      * @dev Vehicle earnings tracking information
      */
     struct EarningsInfo {
-        uint256 totalEarnings; // Total USDC earnings ever distributed
+        uint256 totalRevenue; // Total reported revenue
+        uint256 totalEarnings; // Total net USDC earnings distributed
         uint256 totalEarningsPerToken; // Cumulative USDC earnings per token across all periods
         uint256 currentPeriod; // Current earnings period number
         uint256 lastEventTimestamp; // Last collateral event timestamp
@@ -880,6 +874,7 @@ library EarningsLib {
      * @param earningsInfo Storage reference to earnings info
      */
     function initializeEarningsInfo(EarningsInfo storage earningsInfo) internal {
+        earningsInfo.totalRevenue = 0;
         earningsInfo.totalEarnings = 0;
         earningsInfo.totalEarningsPerToken = 0;
         earningsInfo.currentPeriod = 0;
@@ -921,7 +916,7 @@ library EarningsLib {
      * @return Benchmark earnings amount for investor safety
      */
     function calculateBenchmarkEarnings(uint256 principal, uint256 timeElapsed) internal pure returns (uint256) {
-        return calculateEarnings(principal, timeElapsed, ProtocolLib.BENCHMARK_EARNINGS_BP);
+        return calculateEarnings(principal, timeElapsed, ProtocolLib.BENCHMARK_YIELD_BP);
     }
 
     /**
@@ -1045,23 +1040,6 @@ library EarningsLib {
     }
 
     /**
-     * @dev Get the snapshot amount for a holder (unclaimed settled earnings)
-     * @param earningsInfo Storage reference to earnings info
-     * @param holder Address of the token holder
-     * @return amount Amount of unclaimed earnings in snapshot
-     * @return hasClaimed Whether the holder has already claimed this snapshot
-     */
-    function getSnapshotAmount(EarningsInfo storage earningsInfo, address holder)
-        internal
-        view
-        returns (uint256 amount, bool hasClaimed)
-    {
-        amount = earningsInfo.settledEarningsSnapshot[holder];
-        hasClaimed = earningsInfo.hasClaimedSettledEarnings[holder];
-        return (amount, hasClaimed);
-    }
-
-    /**
      * @dev Claim settled earnings from snapshot and mark as claimed.
      * @param earningsInfo Storage reference to earnings info
      * @param holder Address of the token holder
@@ -1073,8 +1051,9 @@ library EarningsLib {
     {
         // Get snapshot and verify not already claimed
         claimedAmount = earningsInfo.settledEarningsSnapshot[holder];
+        bool hasClaimed = earningsInfo.hasClaimedSettledEarnings[holder];
 
-        if (claimedAmount > 0 && !earningsInfo.hasClaimedSettledEarnings[holder]) {
+        if (claimedAmount > 0 && !hasClaimed) {
             // Mark as claimed
             earningsInfo.hasClaimedSettledEarnings[holder] = true;
             return claimedAmount;

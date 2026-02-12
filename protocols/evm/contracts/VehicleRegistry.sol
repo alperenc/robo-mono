@@ -34,27 +34,10 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     error ZeroAddress();
     error VehicleAlreadyExists();
     error VehicleDoesNotExist();
-    error RevenueTokensAlreadyMinted();
     error OutstandingTokensHeldByOthers();
 
     // Events
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, string vin);
-
-    event RevenueTokensMinted(
-        uint256 indexed vehicleId,
-        uint256 indexed revenueTokenId,
-        address indexed partner,
-        uint256 assetValue,
-        uint256 supply
-    );
-
-    event VehicleRegisteredAndRevenueTokensMinted(
-        uint256 indexed vehicleId,
-        uint256 indexed revenueTokenId,
-        address indexed partner,
-        uint256 assetValue,
-        uint256 supply
-    );
 
     event VehicleMetadataUpdated(uint256 indexed vehicleId, string newMetadataURI);
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
@@ -176,7 +159,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return VehicleLib.getDisplayName(vehicle.vehicleInfo);
     }
 
-    // IAssetsRegistry implementation
+    // IAssetRegistry implementation
 
     function registerAsset(bytes calldata data, uint256 assetValue)
         external
@@ -187,91 +170,11 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         (assetId,) = _registerVehicle(data, assetValue);
 
         roboshareTokens.mint(msg.sender, assetId, 1, ""); // Mint 1 vehicle NFT to partner
-
-        return assetId;
-    }
-
-    function mintRevenueTokens(uint256 assetId, uint256 tokenPrice, uint256 maturityDate)
-        external
-        override
-        onlyAuthorizedPartner
-        returns (uint256 revenueTokenId, uint256 supply)
-    {
-        if (vehicles[assetId].vehicleId == 0) {
-            revert AssetNotFound(assetId);
-        }
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
-
-        // Get token ID (pure conversion)
-        revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-
-        if (roboshareTokens.getRevenueTokenSupply(revenueTokenId) > 0) {
-            revert RevenueTokensAlreadyMinted();
-        }
-
-        // Calculate supply based on asset value and token price
-        uint256 assetValue = vehicles[assetId].assetInfo.assetValue;
-        supply = assetValue / tokenPrice;
-
-        // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
-
-        // Lock Collateral via Router
-        router.lockCollateralFor(msg.sender, assetId, assetValue);
-
-        // Mint Revenue Tokens
-        roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
-
-        // Activate asset
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
-
-        emit RevenueTokensMinted(assetId, revenueTokenId, msg.sender, assetValue, supply);
-
-        return (revenueTokenId, supply);
-    }
-
-    function registerAssetAndMintTokens(
-        bytes calldata data,
-        uint256 assetValue,
-        uint256 tokenPrice,
-        uint256 maturityDate
-    ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 supply) {
-        (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
-
-        // Calculate supply based on asset value and token price
-
-        supply = assetValue / tokenPrice;
-
-        // Initialize revenue token info in RoboshareTokens
-
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
-
-        // Mint Asset NFT
-
-        roboshareTokens.mint(msg.sender, assetId, 1, "");
-
-        // Lock Collateral via Router
-
-        router.lockCollateralFor(msg.sender, assetId, assetValue);
-
-        // Mint Revenue Tokens
-
-        roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
-
-        // Activate asset
-
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
-
-        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, assetValue, supply);
-
-        return (assetId, revenueTokenId, supply);
     }
 
     /**
      * @dev Register a vehicle, mint revenue tokens, and list for sale - all in one transaction.
-     * Combines registerAssetAndMintTokens + router.createListingFor for better UX.
+     * Combines registration, minting, and listing in a single flow.
      * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
      * @param data Encoded vehicle data (same as registerAsset)
      * @param assetValue Total value of the asset in USDC
@@ -289,6 +192,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 assetValue,
         uint256 tokenPrice,
         uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
         uint256 listingDuration,
         bool buyerPaysFee
     )
@@ -297,38 +202,70 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         onlyAuthorizedPartner
         returns (uint256 assetId, uint256 revenueTokenId, uint256 supply, uint256 listingId)
     {
-        // Step 1: Register and mint (reuses existing logic)
+        // Step 1: Register vehicle (reuses existing logic)
         (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
-
-        // Calculate supply based on asset value and token price
-        supply = assetValue / tokenPrice;
-
-        // Initialize revenue token info in RoboshareTokens
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, tokenPrice, supply, maturityDate);
 
         // Mint Asset NFT
         roboshareTokens.mint(msg.sender, assetId, 1, "");
 
-        // Lock Collateral via Router
-        router.lockCollateralFor(msg.sender, assetId, assetValue);
-
-        // Mint Revenue Tokens
-        roboshareTokens.mint(msg.sender, revenueTokenId, supply, "");
-
-        // Activate asset
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Active);
-
-        emit VehicleRegisteredAndRevenueTokensMinted(assetId, revenueTokenId, msg.sender, assetValue, supply);
-
-        // Step 2: Create listing at face value with full supply via Router
-        listingId = router.createListingFor(
-            msg.sender,
-            revenueTokenId,
-            supply, // Full supply
-            tokenPrice, // Face value
-            listingDuration,
-            buyerPaysFee
+        // Step 2: Mint revenue tokens and list via Router
+        (revenueTokenId, supply, listingId) = router.mintRevenueTokensAndListFor(
+            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
         );
+    }
+
+    /**
+     * @dev Mint revenue tokens for an existing asset and list for sale - all in one transaction.
+     * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
+     * @param assetId The registered asset ID
+     * @param tokenPrice Price per revenue token in USDC
+     * @param maturityDate Maturity date for the revenue tokens
+     * @param revenueShareBP Max investor share of reported revenue (basis points)
+     * @param targetYieldBP Target yield for buffer benchmarks (basis points)
+     * @param listingDuration Duration of the marketplace listing in seconds
+     * @param buyerPaysFee If true, buyer pays protocol fee
+     * @return revenueTokenId The minted revenue token ID
+     * @return supply The minted revenue token supply
+     * @return listingId The created marketplace listing ID
+     */
+    function mintRevenueTokensAndList(
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) external override onlyAuthorizedPartner returns (uint256 revenueTokenId, uint256 supply, uint256 listingId) {
+        (revenueTokenId, supply, listingId) = router.mintRevenueTokensAndListFor(
+            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
+        );
+    }
+
+    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
+        external
+        view
+        override
+        returns (uint256 revenueTokenId, uint256 supply)
+    {
+        if (!assetExists(assetId)) {
+            revert AssetNotFound(assetId);
+        }
+        if (!partnerManager.isAuthorizedPartner(partner)) {
+            revert PartnerManager.UnauthorizedPartner();
+        }
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert NotAssetOwner();
+        }
+
+        revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+
+        if (roboshareTokens.getRevenueTokenSupply(revenueTokenId) > 0) {
+            revert RevenueTokensAlreadyMinted();
+        }
+
+        uint256 assetValue = vehicles[assetId].assetInfo.assetValue;
+        supply = assetValue / tokenPrice;
     }
 
     /**
@@ -350,7 +287,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Can be called by partner to reduce supply or internally by retireAssetAndBurnTokens.
      */
     function burnRevenueTokens(uint256 assetId, uint256 amount) public override onlyAuthorizedPartner {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
 
@@ -375,6 +312,9 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        router.burnRevenueTokensFromEscrow(revenueTokenId);
+
         // Trigger Treasury Settlement via Router
         (uint256 settlementAmount, uint256 settlementPerToken) =
             router.initiateSettlement(msg.sender, assetId, topUpAmount);
@@ -388,7 +328,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Updates status to Expired and triggers liquidation via Router.
      */
     function liquidateAsset(uint256 assetId) external override {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
 
@@ -399,15 +339,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetAlreadySettled(assetId, info.status);
         }
 
-        // Check liquidation conditions: Maturity OR Insolvency
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
-        bool isMatured = block.timestamp >= maturityDate;
-        bool isSolvent = router.isAssetSolvent(assetId);
-
-        if (!isMatured && isSolvent) {
-            revert AssetNotEligibleForLiquidation(assetId);
-        }
+        router.burnRevenueTokensFromEscrow(revenueTokenId);
 
         // Trigger Treasury Liquidation via Router
         (uint256 liquidationAmount, uint256 settlementPerToken) = router.executeLiquidation(assetId);
@@ -429,7 +362,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         override
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
 
@@ -484,7 +417,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Burns tokens first, then retires asset. Treasury will verify 0 supply.
      */
     function retireAssetAndBurnTokens(uint256 assetId) external override onlyAuthorizedPartner {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
 
@@ -500,12 +433,28 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (totalSupply > 0) {
             uint256 partnerBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
             if (partnerBalance < totalSupply) {
-                revert OutstandingTokensHeldByOthers();
-            }
+                uint256 soldSupply = roboshareTokens.getSoldSupply(revenueTokenId);
+                address marketplace = router.marketplace();
+                uint256 escrowBalance = roboshareTokens.balanceOf(marketplace, revenueTokenId);
 
-            // Use existing burnRevenueTokens function
-            burnRevenueTokens(assetId, partnerBalance);
-            burnedTokens = partnerBalance;
+                // Allow retirement if partner holds all sold tokens and the rest are escrowed unsold tokens
+                if (partnerBalance >= soldSupply && partnerBalance + escrowBalance == totalSupply) {
+                    if (escrowBalance > 0) {
+                        roboshareTokens.burn(marketplace, revenueTokenId, escrowBalance);
+                        burnedTokens += escrowBalance;
+                    }
+                    if (partnerBalance > 0) {
+                        burnRevenueTokens(assetId, partnerBalance);
+                        burnedTokens += partnerBalance;
+                    }
+                } else {
+                    revert OutstandingTokensHeldByOthers();
+                }
+            } else {
+                // Use existing burnRevenueTokens function
+                burnRevenueTokens(assetId, partnerBalance);
+                burnedTokens = partnerBalance;
+            }
         }
 
         // Call internal _retireAsset (Treasury will verify 0 token supply)
@@ -514,7 +463,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     /**
      * @dev Internal function to handle asset retirement logic.
-     * Verifies ownership and status, updates status to Archived, and triggers collateral release via Router.
+     * Verifies status, updates status to Retired, and triggers collateral release via Router.
      */
     function _retireAsset(uint256 assetId, address partner, uint256 burnedTokens) internal {
         // Verify asset is active
@@ -535,7 +484,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Update asset status. Only callable by Router.
      */
     function setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) external override onlyRole(ROUTER_ROLE) {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
 
@@ -557,7 +506,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     /**
      * @dev Check if asset exists
      */
-    function assetExists(uint256 assetId) external view override returns (bool) {
+    function assetExists(uint256 assetId) public view override returns (bool) {
         return vehicles[assetId].vehicleId != 0;
     }
 
@@ -565,7 +514,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Get asset information
      */
     function getAssetInfo(uint256 assetId) external view override returns (AssetLib.AssetInfo memory) {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
         return vehicles[assetId].assetInfo;
@@ -575,27 +524,14 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * @dev Get asset status
      */
     function getAssetStatus(uint256 assetId) external view override returns (AssetLib.AssetStatus) {
-        if (vehicles[assetId].vehicleId == 0) {
+        if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
         return vehicles[assetId].assetInfo.status;
     }
 
-    /**
-     * @dev Check if account is authorized for asset
-     */
-    function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
-        // Must be an authorized partner AND own the asset
-        if (!partnerManager.isAuthorizedPartner(account)) {
-            return false;
-        }
-
-        // Check if the account owns the vehicle (has the vehicle NFT)
-        return roboshareTokens.balanceOf(account, assetId) > 0;
-    }
-
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {
-        if (vehicles[assetId].vehicleId != 0) {
+        if (assetExists(assetId)) {
             return address(this);
         }
         return address(0);
