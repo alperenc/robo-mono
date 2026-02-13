@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NextPage } from "next";
 import { useAccount, useChainId, useChains, useReadContracts, useSwitchChain } from "wagmi";
-import { AdjustmentsHorizontalIcon, ArrowsUpDownIcon, BriefcaseIcon } from "@heroicons/react/24/outline";
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowsUpDownIcon,
+  Bars4Icon,
+  BriefcaseIcon,
+  Squares2X2Icon,
+} from "@heroicons/react/24/outline";
 import { BuyTokensModal } from "~~/components/markets/BuyTokensModal";
 import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimRefundModal } from "~~/components/markets/ClaimRefundModal";
@@ -11,9 +17,11 @@ import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal
 import { ClaimTokensModal } from "~~/components/markets/ClaimTokensModal";
 import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
 import { CancelListingModal } from "~~/components/partner/CancelListingModal";
+import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { FinalizeListingModal } from "~~/components/partner/FinalizeListingModal";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
+import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
@@ -91,6 +99,7 @@ const MarketsPage: NextPage = () => {
   const [userListingIds, setUserListingIds] = useState<Set<string>>(new Set());
   const [userRefundedListingIds, setUserRefundedListingIds] = useState<Set<string>>(new Set());
   const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
+  const [soldOutAtByListing, setSoldOutAtByListing] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +108,19 @@ const MarketsPage: NextPage = () => {
   const [filterType, setFilterType] = useState<AssetType | "ALL">("ALL");
   const [sortBy, setSortBy] = useState<SortOption>("apr_desc");
   const [showOnlyHoldings, setShowOnlyHoldings] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+
+  useEffect(() => {
+    const enforceGridOnMobile = () => {
+      if (window.innerWidth < 1024) {
+        setViewMode("grid");
+      }
+    };
+
+    enforceGridOnMobile();
+    window.addEventListener("resize", enforceGridOnMobile);
+    return () => window.removeEventListener("resize", enforceGridOnMobile);
+  }, []);
 
   // Modal states
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
@@ -111,6 +133,8 @@ const MarketsPage: NextPage = () => {
   const [isFinalizeListingOpen, setIsFinalizeListingOpen] = useState(false);
   const [isEndListingOpen, setIsEndListingOpen] = useState(false);
   const [isCancelListingOpen, setIsCancelListingOpen] = useState(false);
+  const [isDistributeEarningsOpen, setIsDistributeEarningsOpen] = useState(false);
+  const [isSettleAssetOpen, setIsSettleAssetOpen] = useState(false);
   const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
 
   // Network info
@@ -267,6 +291,24 @@ const MarketsPage: NextPage = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (listings.length === 0) return;
+    setSoldOutAtByListing(prev => {
+      const next = { ...prev };
+      let changed = false;
+      const nowSec = Math.floor(Date.now() / 1000).toString();
+      for (const listing of listings) {
+        const isActive = !listing.isCancelled && !listing.isEnded && listing.status !== "expired";
+        const isSoldOut = listing.amount === "0";
+        if (isActive && isSoldOut && !next[listing.id]) {
+          next[listing.id] = nowSec;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [listings]);
 
   // Reset user-specific filters when the account changes
   useEffect(() => {
@@ -465,6 +507,18 @@ const MarketsPage: NextPage = () => {
     return counts;
   }, [address, listings]);
 
+  const primarySellerTokenIdCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!address) return counts;
+    const lower = address.toLowerCase();
+    for (const listing of listings) {
+      if (!listing.isPrimary) continue;
+      if (listing.seller.toLowerCase() !== lower) continue;
+      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
+    }
+    return counts;
+  }, [address, listings]);
+
   const tokenSoldTotals = useMemo(() => {
     const totals = new Map<string, bigint>();
     for (const listing of listings) {
@@ -592,6 +646,24 @@ const MarketsPage: NextPage = () => {
                 <option value="price_desc">Highest Price</option>
               </select>
             </div>
+
+            {/* View Mode Switcher - Hidden on mobile */}
+            <div className="hidden lg:flex items-center gap-2 bg-base-100 p-1 rounded-lg border border-base-200">
+              <button
+                className={`btn btn-sm btn-square ${viewMode === "list" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setViewMode("list")}
+                title="List View"
+              >
+                <Bars4Icon className="w-5 h-5" />
+              </button>
+              <button
+                className={`btn btn-sm btn-square ${viewMode === "grid" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setViewMode("grid")}
+                title="Grid View"
+              >
+                <Squares2X2Icon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -615,7 +687,11 @@ const MarketsPage: NextPage = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 items-stretch">
+        <div
+          className={`grid gap-6 items-stretch ${
+            viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
+          }`}
+        >
           {displayListings.map((listing, index) => {
             const vehicle = vehicles.find(v => v.id === listing.assetId);
             const tokenId = (BigInt(listing.assetId) + 1n).toString();
@@ -628,7 +704,7 @@ const MarketsPage: NextPage = () => {
             return (
               <MarketAssetCard
                 key={listing.id}
-                listing={listing}
+                listing={{ ...listing, soldOutAt: soldOutAtByListing[listing.id] }}
                 vehicle={vehicle}
                 token={token}
                 earnings={earning}
@@ -637,8 +713,10 @@ const MarketsPage: NextPage = () => {
                 networkName={networkName}
                 assetType={AssetType.VEHICLE}
                 priority={index < 4}
+                viewMode={viewMode}
                 hasUserListingForTokenId={(sellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
                 hasUserActiveListingForTokenId={(activeSellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                hasUserPrimaryListingForTokenId={(primarySellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
                 hasUserBoughtListing={userListingIds.has(listing.id) || recentPurchases.has(listing.id)}
                 tokenTotalSoldAmount={(tokenSoldTotals.get(listing.tokenId) ?? 0n).toString()}
                 onBuyClick={() => {
@@ -677,6 +755,14 @@ const MarketsPage: NextPage = () => {
                 onCancelListingClick={() => {
                   setSelectedListing(listing);
                   setIsCancelListingOpen(true);
+                }}
+                onDistributeEarningsClick={() => {
+                  setSelectedListing(listing);
+                  setIsDistributeEarningsOpen(true);
+                }}
+                onSettleAssetClick={() => {
+                  setSelectedListing(listing);
+                  setIsSettleAssetOpen(true);
                 }}
               />
             );
@@ -882,6 +968,41 @@ const MarketsPage: NextPage = () => {
           amountSold={selectedListing.amountSold}
           pricePerToken={selectedListing.pricePerToken}
           isPrimary={selectedListing.isPrimary}
+        />
+      )}
+
+      {selectedListing && (
+        <DistributeEarningsModal
+          isOpen={isDistributeEarningsOpen}
+          onSuccess={() => {
+            refreshMarketsAfterSuccess();
+          }}
+          onClose={() => {
+            setIsDistributeEarningsOpen(false);
+            setSelectedListing(null);
+            refreshMarketsAfterSuccess();
+          }}
+          assetId={selectedListing.assetId}
+          assetName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
+        />
+      )}
+
+      {selectedListing && (
+        <SettleAssetModal
+          isOpen={isSettleAssetOpen}
+          onClose={() => {
+            setIsSettleAssetOpen(false);
+            setSelectedListing(null);
+            refreshMarketsAfterSuccess();
+          }}
+          assetId={selectedListing.assetId}
+          assetName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
         />
       )}
 

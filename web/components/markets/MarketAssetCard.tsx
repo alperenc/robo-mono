@@ -55,8 +55,10 @@ interface MarketAssetCardProps {
   networkName?: string;
   assetType?: AssetType;
   priority?: boolean;
+  viewMode?: "list" | "grid";
   hasUserListingForTokenId?: boolean;
   hasUserActiveListingForTokenId?: boolean;
+  hasUserPrimaryListingForTokenId?: boolean;
   hasUserBoughtListing?: boolean;
   tokenTotalSoldAmount?: string;
   onBuyClick?: () => void;
@@ -68,6 +70,8 @@ interface MarketAssetCardProps {
   onFinalizeListingClick?: () => void;
   onEndListingClick?: () => void;
   onCancelListingClick?: () => void;
+  onDistributeEarningsClick?: () => void;
+  onSettleAssetClick?: () => void;
 }
 
 export function MarketAssetCard({
@@ -80,8 +84,10 @@ export function MarketAssetCard({
   networkName = "Localhost",
   assetType = AssetType.VEHICLE,
   priority,
+  viewMode = "grid",
   hasUserListingForTokenId = false,
   hasUserActiveListingForTokenId = false,
+  hasUserPrimaryListingForTokenId = false,
   hasUserBoughtListing = false,
   tokenTotalSoldAmount,
   onBuyClick,
@@ -93,6 +99,8 @@ export function MarketAssetCard({
   onFinalizeListingClick,
   onEndListingClick,
   onCancelListingClick,
+  onDistributeEarningsClick,
+  onSettleAssetClick,
 }: MarketAssetCardProps) {
   const { address } = useAccount();
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
@@ -111,6 +119,11 @@ export function MarketAssetCard({
     contractName: "Marketplace",
     functionName: "buyerPayments",
     args: [BigInt(listing.id), address],
+  });
+  const { data: primaryTokenEscrow } = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "tokenEscrow",
+    args: [BigInt(listing.tokenId)],
   });
 
   const { data: walletTokenBalance } = useScaffoldReadContract({
@@ -358,6 +371,7 @@ export function MarketAssetCard({
   const isCancelled = listing.isCancelled;
   const isEnded = listing.isEnded;
   const isInactive = isCancelled || isEnded || isExpired;
+  const isTokenMatured = token ? Number(token.maturityDate) <= Math.floor(Date.now() / 1000) : false;
   const soldOutDurationLabel = useMemo(() => {
     if (hasAvailableTokens) return null;
     if (!listing.createdAt || !listing.soldOutAt) return "Sold Out";
@@ -374,11 +388,15 @@ export function MarketAssetCard({
   const isSellerOfListing = Boolean(address && listing.seller.toLowerCase() === address.toLowerCase());
   const isSecondaryListing = listing.isPrimary === false;
   const showSecondaryListingBadge = isSecondaryListing && !isInactive;
-  const primarySellerEscrowAmount = isSellerOfListing && !isSecondaryListing ? BigInt(listing.amount) : 0n;
+  // Primary sellers should not list wallet tokens; only secondary sellers can.
+  const canListWalletTokens = !hasUserPrimaryListingForTokenId;
+  // For primary sellers, relistable inventory is pooled in Marketplace tokenEscrow(tokenId),
+  // not per-listing amount (ended/cancelled listings can both return supply into the same pool).
+  const primarySellerInactiveEscrowAmount =
+    isSellerOfListing && !isSecondaryListing && isInactive ? primaryTokenEscrow || 0n : 0n;
+  const walletListableAmount = canListWalletTokens ? walletTokenBalance || 0n : 0n;
   const listableTokensAmount =
-    isSellerOfListing && !isSecondaryListing
-      ? primarySellerEscrowAmount + (walletTokenBalance || 0n)
-      : walletTokenBalance || 0n;
+    isSellerOfListing && !isSecondaryListing ? primarySellerInactiveEscrowAmount : walletListableAmount;
   const canListTokens = listableTokensAmount > 0n;
 
   const registry = ASSET_REGISTRIES[assetType];
@@ -399,25 +417,55 @@ export function MarketAssetCard({
     const canManageOwnListing = isSellerOfListing && !isInactive;
     const canRelistInactiveOwnPrimaryListing = isSellerOfListing && !isSecondaryListing && isInactive && canListTokens;
     const sellerManagementActions: { label: string; onClick?: () => void; className?: string }[] = [];
+    const primarySellerLifecycleActions: { label: string; onClick?: () => void; className?: string }[] = [];
+
+    if (isSellerOfListing && !isSecondaryListing && !isCancelled) {
+      if (onDistributeEarningsClick && listingSoldAmount > 0n) {
+        primarySellerLifecycleActions.push({
+          label: "Distribute Earnings",
+          onClick: onDistributeEarningsClick,
+          className: "btn-success bg-success/15 border-0 text-success hover:bg-success/25",
+        });
+      }
+      if (onSettleAssetClick) {
+        primarySellerLifecycleActions.push({
+          label: "Settle Asset",
+          onClick: onSettleAssetClick,
+          className: isTokenMatured ? undefined : "text-error",
+        });
+      }
+    }
 
     if (canManageOwnListing) {
-      if (isSecondaryListing && onFinalizeListingClick) {
-        // Secondary seller: finalize is the primary management action.
-        sellerManagementActions.push({ label: "Finalize Listing", onClick: onFinalizeListingClick });
-      }
-      if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
-      if (onCancelListingClick) {
-        sellerManagementActions.push({
-          label: "Cancel Listing",
-          onClick: onCancelListingClick,
-          className: "text-error",
-        });
-      }
-      if (canListTokens) {
-        sellerManagementActions.push({
-          label: listTokensLabel,
-          onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
-        });
+      if (isSecondaryListing) {
+        if (onFinalizeListingClick) {
+          // Secondary seller: finalize is the primary management action.
+          sellerManagementActions.push({ label: "Finalize Listing", onClick: onFinalizeListingClick });
+        }
+        if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
+        if (onCancelListingClick) {
+          sellerManagementActions.push({
+            label: "Cancel Listing",
+            onClick: onCancelListingClick,
+            className: "text-error",
+          });
+        }
+        if (canListTokens) {
+          sellerManagementActions.push({
+            label: listTokensLabel,
+            onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
+          });
+        }
+      } else {
+        // Active primary listing: only listing-management actions.
+        if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
+        if (onCancelListingClick) {
+          sellerManagementActions.push({
+            label: "Cancel Listing",
+            onClick: onCancelListingClick,
+            className: "text-error",
+          });
+        }
       }
     }
 
@@ -433,10 +481,29 @@ export function MarketAssetCard({
       primaryClass = "btn-primary";
       primaryDisabled = false;
       primaryOnClick = () => onListTokensClick?.(listableTokensAmount.toString());
+      secondaryActions.push(...primarySellerLifecycleActions);
+    } else if (isSellerOfListing && !isSecondaryListing && isInactive && primarySellerLifecycleActions.length > 0) {
+      // Inactive primary listings should still expose lifecycle actions (e.g. distribute/settle)
+      primaryLabel = primarySellerLifecycleActions[0].label;
+      primaryClass =
+        primarySellerLifecycleActions[0].label === "Settle Asset"
+          ? isTokenMatured
+            ? "btn-warning"
+            : "btn-error"
+          : primarySellerLifecycleActions[0].className || "btn-primary";
+      primaryDisabled = false;
+      primaryOnClick = primarySellerLifecycleActions[0].onClick;
+      secondaryActions.push(...primarySellerLifecycleActions.slice(1));
     } else if (sellerManagementActions.length > 0) {
       // Seller managing their own listing (primary: no finalize, secondary: finalize first)
       primaryLabel = sellerManagementActions[0].label;
-      primaryClass = sellerManagementActions[0].label === "Cancel Listing" ? "btn-error" : "btn-primary";
+      primaryClass =
+        sellerManagementActions[0].label === "Settle Asset"
+          ? isTokenMatured
+            ? "btn-warning"
+            : "btn-error"
+          : sellerManagementActions[0].className ||
+            (sellerManagementActions[0].label === "Cancel Listing" ? "btn-error" : "btn-primary");
       primaryDisabled = false;
       primaryOnClick = sellerManagementActions[0].onClick;
       secondaryActions.push(...sellerManagementActions.slice(1));
@@ -499,6 +566,26 @@ export function MarketAssetCard({
       primaryLabel = isCancelled ? "Cancelled" : isEnded ? "Ended" : isExpired ? "Expired" : "Buy Tokens";
     }
 
+    const successGhostClass = "btn-success bg-success/15 border-0 text-success hover:bg-success/25";
+    const primaryGhostClass =
+      "btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25";
+
+    // Align markets in-body CTAs with partner page visual language.
+    if (
+      primaryLabel === "Distribute Earnings" ||
+      primaryLabel === "Claim Earnings" ||
+      primaryLabel === "Claim Tokens"
+    ) {
+      primaryClass = successGhostClass;
+    } else if (
+      primaryLabel === "List Tokens" ||
+      primaryLabel === "List More Tokens" ||
+      primaryLabel === "End Listing" ||
+      primaryLabel === "Buy Tokens"
+    ) {
+      primaryClass = primaryGhostClass;
+    }
+
     return {
       primaryLabel,
       primaryClass,
@@ -514,6 +601,9 @@ export function MarketAssetCard({
     hasAvailableTokens,
     soldOutDurationLabel,
     hasUserActiveListingForTokenId,
+    hasUserPrimaryListingForTokenId,
+    listingSoldAmount,
+    isTokenMatured,
     isCancelled,
     isEnded,
     isExpired,
@@ -524,6 +614,7 @@ export function MarketAssetCard({
     canListTokens,
     onBuyClick,
     onCancelListingClick,
+    onDistributeEarningsClick,
     onClaimEarningsClick,
     onClaimRefundClick,
     onClaimSettlementClick,
@@ -531,11 +622,13 @@ export function MarketAssetCard({
     onEndListingClick,
     onFinalizeListingClick,
     onListTokensClick,
+    onSettleAssetClick,
     walletTokenBalance,
   ]);
 
   const isCardPressable = Boolean(actionState.primaryOnClick) && !actionState.primaryDisabled;
   const hasAvailableActions = isCardPressable || actionState.secondaryActions.some(action => Boolean(action.onClick));
+  const isListMode = viewMode === "list";
   const triggerPrimaryAction = () => {
     if (!isCardPressable) return;
     actionState.primaryOnClick?.();
@@ -584,11 +677,159 @@ export function MarketAssetCard({
     };
   }, [isActionMenuOpen]);
 
+  if (isListMode) {
+    return (
+      <div
+        className={`rounded-2xl border border-base-300 bg-base-100 shadow-sm transition-all duration-200 ${
+          hasAvailableActions ? "hover:shadow-md" : "opacity-70 saturate-50"
+        } ${isCardPressable ? "cursor-pointer" : ""}`}
+        onClick={handleCardClick}
+        onKeyDown={handleCardKeyDown}
+        role={isCardPressable ? "button" : undefined}
+        tabIndex={isCardPressable ? 0 : undefined}
+        aria-label={isCardPressable ? actionState.primaryLabel : undefined}
+      >
+        <div className="p-3 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="flex min-w-0 items-center gap-3 lg:w-[30%]">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-base-200">
+                {imageUrl ? (
+                  <Image src={imageUrl} alt={displayName} fill className="object-cover" unoptimized />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <span className="text-xl opacity-40">{registry.icon}</span>
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide opacity-50">{assetType}</span>
+                  {showInvestedBadge && <span className="badge badge-xs badge-primary">💼 Invested</span>}
+                  {isNewlyListed && <span className="badge badge-xs badge-success">✨ New</span>}
+                  {showSecondaryListingBadge && <span className="badge badge-xs">🔁 Secondary</span>}
+                  {(isCancelled || isEnded || isExpired) && (
+                    <span
+                      className={`badge badge-xs ${isCancelled ? "badge-error" : isExpired ? "badge-warning" : "badge-neutral"}`}
+                    >
+                      {isCancelled ? "Cancelled" : isExpired ? "Expired" : "Ended"}
+                    </span>
+                  )}
+                </div>
+                <div className="line-clamp-2 break-words text-base font-bold leading-tight" title={displayName}>
+                  {displayName}
+                </div>
+                {partner && <div className="truncate text-xs text-primary/80">by {partner.name}</div>}
+              </div>
+            </div>
+
+            <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4 lg:w-[50%]">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide opacity-50">Price</div>
+                <div className="font-semibold leading-tight">{priceDisplay}</div>
+                <div className="text-[11px] opacity-60">{paymentSymbol}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide opacity-50">Available</div>
+                <div className="font-semibold leading-tight">
+                  {availableTokensDisplay.available}
+                  <span className="opacity-50"> / {availableTokensDisplay.total}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide opacity-50">Sold</div>
+                <div className="font-semibold leading-tight">{availableTokensDisplay.soldPercentage}%</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide opacity-50">APY</div>
+                <div className="font-semibold leading-tight text-success">{apyDisplay}</div>
+              </div>
+              <div className="col-span-2 sm:col-span-4">
+                <progress
+                  className={`progress h-1.5 w-full ${isCancelled ? "progress-error" : "progress-primary"}`}
+                  value={availableTokensDisplay.soldPercentage}
+                  max="100"
+                ></progress>
+              </div>
+            </div>
+
+            <div className="w-full lg:w-[220px]">
+              {actionState.secondaryActions.length > 0 ? (
+                <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
+                  <div className="flex w-full">
+                    <button
+                      type="button"
+                      className={`btn ${actionState.primaryClass} rounded-r-none flex-1`}
+                      onClick={() => {
+                        setIsActionMenuOpen(false);
+                        actionState.primaryOnClick?.();
+                      }}
+                      disabled={actionState.primaryDisabled}
+                    >
+                      {actionState.primaryLabel}
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${actionState.primaryClass} rounded-l-none px-2 border-l border-base-100/40`}
+                      aria-expanded={isActionMenuOpen}
+                      aria-haspopup="menu"
+                      onClick={() => setIsActionMenuOpen(prev => !prev)}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                        data-slot="icon"
+                        className="h-4 w-4"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
+                  </div>
+                  {isActionMenuOpen && (
+                    <ul className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
+                      {actionState.secondaryActions.map(action => (
+                        <li key={action.label}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsActionMenuOpen(false);
+                              action.onClick?.();
+                            }}
+                            className={action.className ?? ""}
+                          >
+                            {action.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <button
+                  className={`btn ${actionState.primaryClass} w-full`}
+                  onClick={actionState.primaryOnClick}
+                  disabled={actionState.primaryDisabled}
+                >
+                  {actionState.primaryLabel}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`card h-full bg-base-100 shadow-lg transition-all duration-300 overflow-hidden group ${
         hasAvailableActions ? "hover:shadow-xl" : "opacity-70 saturate-50"
-      } ${isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""}`}
+      } ${isCancelled ? "border border-error/30" : ""} ${
+        isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""
+      } ${isListMode ? "sm:flex sm:flex-row sm:min-h-[18rem]" : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       role={isCardPressable ? "button" : undefined}
@@ -610,7 +851,11 @@ export function MarketAssetCard({
       ) : null}
 
       {/* Image Section */}
-      <figure className="relative h-48 bg-gradient-to-br from-base-200 to-base-300 overflow-hidden">
+      <figure
+        className={`relative bg-gradient-to-br from-base-200 to-base-300 overflow-hidden ${
+          isListMode ? "h-44 sm:h-auto sm:w-64 md:w-72" : "h-48"
+        }`}
+      >
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -636,16 +881,20 @@ export function MarketAssetCard({
 
         {/* Status Overlays */}
         {isCancelled && (
-          <div className="absolute inset-0 bg-error/80 flex items-center justify-center z-10">
+          <div
+            className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none ${
+              hasAvailableActions ? "bg-error/50" : "bg-error/80"
+            }`}
+          >
             <span className="badge badge-error badge-lg font-bold shadow-lg">CANCELLED</span>
           </div>
         )}
-        {isEnded && !isCancelled && (
+        {isEnded && !isCancelled && !hasAvailableActions && (
           <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center z-10">
             <span className="badge badge-neutral badge-lg font-bold shadow-lg">SALE ENDED</span>
           </div>
         )}
-        {isExpired && !isEnded && !isCancelled && (
+        {isExpired && !isEnded && !isCancelled && !hasAvailableActions && (
           <div className="absolute inset-0 bg-warning/80 flex items-center justify-center z-10">
             <span className="badge badge-warning badge-lg font-bold shadow-lg">EXPIRED</span>
           </div>
@@ -653,12 +902,15 @@ export function MarketAssetCard({
       </figure>
 
       {/* Content Section */}
-      <div className="card-body p-4 gap-2">
+      <div className={`card-body gap-2 flex-1 ${isListMode ? "p-5 sm:py-4 sm:px-5" : "p-4"}`}>
         {/* Asset Type */}
         <span className="text-xs font-semibold uppercase tracking-wider opacity-50">{assetType}</span>
 
         {/* Asset Name */}
-        <h3 className="card-title text-lg font-bold line-clamp-2 min-h-[3.5rem]" title={displayName}>
+        <h3
+          className={`card-title text-lg font-bold line-clamp-2 ${isListMode ? "" : "min-h-[3.5rem]"}`}
+          title={displayName}
+        >
           {displayName}
         </h3>
 
@@ -728,7 +980,7 @@ export function MarketAssetCard({
         {/* Action Button */}
         <div className="card-actions mt-2">
           {actionState.secondaryActions.length > 0 ? (
-            <div ref={actionDropdownRef} className="relative w-full">
+            <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
               <div className="flex w-full">
                 <button
                   type="button"
@@ -743,7 +995,7 @@ export function MarketAssetCard({
                 </button>
                 <button
                   type="button"
-                  className={`btn ${actionState.primaryClass} rounded-l-none px-3`}
+                  className={`btn ${actionState.primaryClass} rounded-l-none px-3 border-l border-base-100/40`}
                   aria-expanded={isActionMenuOpen}
                   aria-haspopup="menu"
                   onClick={() => setIsActionMenuOpen(prev => !prev)}
@@ -763,7 +1015,7 @@ export function MarketAssetCard({
                 </button>
               </div>
               {isActionMenuOpen && (
-                <ul className="absolute bottom-full right-0 z-[60] menu p-2 shadow bg-base-100 rounded-box w-full mb-2">
+                <ul className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mb-2 bottom-full">
                   {actionState.secondaryActions.map(action => (
                     <li key={action.label}>
                       <button
@@ -772,7 +1024,7 @@ export function MarketAssetCard({
                           setIsActionMenuOpen(false);
                           action.onClick?.();
                         }}
-                        className={`w-full text-left ${action.className ?? ""}`}
+                        className={action.className ?? ""}
                       >
                         {action.label}
                       </button>

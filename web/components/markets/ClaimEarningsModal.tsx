@@ -1,7 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
+import { formatUnits } from "viem";
+import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 interface ClaimEarningsModalProps {
   isOpen: boolean;
@@ -11,9 +15,23 @@ interface ClaimEarningsModalProps {
 }
 
 export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: ClaimEarningsModalProps) => {
+  const { address } = useAccount();
+  const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
+  const { data: previewClaimAmount } = useScaffoldReadContract({
+    contractName: "Treasury",
+    functionName: "previewClaimEarnings",
+    args: [BigInt(assetId), address],
+    query: { enabled: isOpen && !!address },
+  });
+  const claimableAmount = previewClaimAmount || 0n;
+  const claimableDisplay = useMemo(() => {
+    const formatted = formatUnits(claimableAmount, paymentDecimals);
+    return Number(formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [claimableAmount, paymentDecimals]);
 
   const handleClaim = async () => {
+    if (claimableAmount === 0n) return;
     try {
       await writeTreasury({
         functionName: "claimAndWithdrawEarnings",
@@ -45,13 +63,23 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="bg-success/10 rounded-xl p-4 text-sm text-base-content/70">
-            Any unclaimed earnings for your holdings will be transferred to your wallet.
+          <div className="bg-success/10 rounded-xl p-4">
+            <p className="text-sm text-base-content/70 mb-2">Claimable Amount</p>
+            <p className="text-2xl font-bold text-success">
+              {claimableDisplay} <span className="text-base font-semibold opacity-80">{paymentSymbol}</span>
+            </p>
+            <p className="text-sm text-base-content/70 mt-3">
+              Any unclaimed earnings for your holdings will be transferred to your wallet.
+            </p>
           </div>
         </div>
 
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
-          <button className="btn btn-primary btn-block" onClick={handleClaim} disabled={isPending}>
+          <button
+            className="btn btn-primary btn-block"
+            onClick={handleClaim}
+            disabled={isPending || claimableAmount === 0n}
+          >
             {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Earnings"}
           </button>
         </div>

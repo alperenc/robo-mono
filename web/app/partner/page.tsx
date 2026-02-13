@@ -424,6 +424,10 @@ const PartnerDashboard: NextPage = () => {
     isGrid?: boolean;
   }) => {
     const dropdownRef = useRef<HTMLDivElement | null>(null);
+    const visibleSecondaryActions = (secondaryActions ?? []).filter((action, idx, arr) => {
+      if (primaryAction && action.label === primaryAction.label) return false;
+      return arr.findIndex(candidate => candidate.label === action.label) === idx;
+    });
     const hasSupply =
       asset.supply !== undefined &&
       asset.supply !== null &&
@@ -475,7 +479,7 @@ const PartnerDashboard: NextPage = () => {
           {/* Actions - only render if primaryAction is provided */}
           {primaryAction && (
             <div className="flex-shrink-0 flex gap-2 mt-2 sm:mt-0">
-              {secondaryActions && secondaryActions.length > 0 ? (
+              {visibleSecondaryActions.length > 0 ? (
                 <div className="flex items-stretch w-full sm:w-auto">
                   <button
                     className={`${primaryAction.className} rounded-r-none border-r-base-100 flex-1 sm:flex-none`}
@@ -495,7 +499,7 @@ const PartnerDashboard: NextPage = () => {
                       tabIndex={0}
                       className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2"
                     >
-                      {secondaryActions.map((action, idx) => (
+                      {visibleSecondaryActions.map((action, idx) => (
                         <li key={idx}>
                           <a onClick={action.onClick} className={action.className || ""}>
                             {action.label}
