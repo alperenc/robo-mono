@@ -740,7 +740,6 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertEq(settlementClaimed, previewAmount, "Preview should match settlement claimed");
         assertEq(treasury.previewSettlementClaim(scenario.assetId, buyer), 0, "Preview should be zero after claim");
     }
-
     function testPreviewClaimEarningsActiveMatchesClaim() public {
         _ensureState(SetupState.EarningsDistributed);
 
