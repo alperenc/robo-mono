@@ -828,6 +828,7 @@ const PartnerDashboard: NextPage = () => {
                         setSelectedCategorizedAsset(asset);
                         setSettleAssetModalOpen(true);
                       },
+                      className: asset.assetStatus === 2 ? "" : "text-error",
                     },
                   ]}
                 />
