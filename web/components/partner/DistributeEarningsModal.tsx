@@ -206,11 +206,12 @@ export const DistributeEarningsModal = ({
   if (!isOpen) return null;
 
   const hasExternalHolders = tokenOwnership && tokenOwnership.externalTokens > 0n;
+  const hasEscrowedInvestorTokens = tokenOwnership && tokenOwnership.escrowTokens > 0n;
 
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
           <button
@@ -276,6 +277,16 @@ export const DistributeEarningsModal = ({
                   <p className="text-warning font-bold">No external token holders</p>
                   <p className="opacity-80 mt-1">
                     You currently hold all revenue tokens. There are no investors to distribute earnings to.
+                  </p>
+                </div>
+              )}
+
+              {hasEscrowedInvestorTokens && (
+                <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg text-xs">
+                  <p className="text-warning font-bold">Warning: Escrowed Investor Tokens Detected</p>
+                  <p className="opacity-80 mt-1">
+                    Some investor tokens are still in marketplace escrow. Distributing earnings now may lead to
+                    confusing claim behavior until those tokens are claimed.
                   </p>
                 </div>
               )}

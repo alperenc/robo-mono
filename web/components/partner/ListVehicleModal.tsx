@@ -63,6 +63,11 @@ export const ListVehicleModal = ({
     functionName: "getTokenPrice",
     args: [revenueTokenId],
   });
+  const { data: targetYieldBP } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "getTargetYieldBP",
+    args: [revenueTokenId],
+  });
 
   const { data: walletBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
@@ -157,6 +162,12 @@ export const ListVehicleModal = ({
   // Calculate total value
   const totalValue =
     formData.amount && formData.pricePerToken ? parseUnits(formData.pricePerToken, 6) * BigInt(formData.amount) : 0n;
+  const { data: estimatedBuffer } = useScaffoldReadContract({
+    contractName: "Treasury",
+    functionName: "getTotalBufferRequirement",
+    args: [totalValue, (targetYieldBP as bigint) ?? 0n],
+    query: { enabled: isOpen && isPrimaryListing && totalValue > 0n && targetYieldBP !== undefined },
+  });
 
   // Calculate expiry date
   const expiryDate = new Date(Date.now() + parseInt(formData.durationDays || "0") * 24 * 60 * 60 * 1000);
@@ -173,7 +184,7 @@ export const ListVehicleModal = ({
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
           <button
@@ -202,9 +213,8 @@ export const ListVehicleModal = ({
                   <span>{errorMessage}</span>
                 </div>
               )}
-              <div className="divider text-xs opacity-50 my-0">Listing Details</div>
 
-              <div className="bg-base-200 p-4 rounded-lg border border-primary/20">
+              <div className="bg-base-200 p-4 rounded-lg border border-base-300">
                 {/* Row 1: Amount and Price */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div className="form-control">
@@ -281,23 +291,37 @@ export const ListVehicleModal = ({
                 {/* Row 2: Fees + Duration */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                   {isPrimaryListing ? (
-                    <div className="form-control">
-                      <label className="label py-0">
-                        <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
-                      </label>
-                      <select
-                        name="durationDays"
-                        className="select select-bordered select-sm w-full"
-                        value={formData.durationDays}
-                        onChange={handleInputChange}
-                      >
-                        <option value="7">7 Days</option>
-                        <option value="14">14 Days</option>
-                        <option value="30">30 Days</option>
-                        <option value="60">60 Days</option>
-                        <option value="90">90 Days</option>
-                      </select>
-                    </div>
+                    <>
+                      <div className="form-control">
+                        <label className="label py-0">
+                          <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
+                        </label>
+                        <select
+                          name="durationDays"
+                          className="select select-bordered select-sm w-full"
+                          value={formData.durationDays}
+                          onChange={handleInputChange}
+                        >
+                          <option value="7">7 Days</option>
+                          <option value="14">14 Days</option>
+                          <option value="30">30 Days</option>
+                          <option value="60">60 Days</option>
+                          <option value="90">90 Days</option>
+                        </select>
+                        <div className="flex flex-col items-end pt-2 text-right">
+                          <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
+                          <span className="text-sm font-bold text-base-content">{formatDate(expiryDate)}</span>
+                        </div>
+                      </div>
+                      <div className="form-control">
+                        <label className="label py-0">
+                          <span className="label-text text-xs font-bold uppercase opacity-60">Fees</span>
+                        </label>
+                        <select className="select select-bordered select-sm w-full" disabled>
+                          <option>Buyers pay fees</option>
+                        </select>
+                      </div>
+                    </>
                   ) : (
                     <div className="form-control">
                       <label className="label py-0">
@@ -314,12 +338,7 @@ export const ListVehicleModal = ({
                       </select>
                     </div>
                   )}
-                  {isPrimaryListing ? (
-                    <div className="flex flex-col items-end pb-1">
-                      <span className="text-[10px] uppercase opacity-50 font-bold">Expires On</span>
-                      <span className="text-sm font-bold text-base-content">{formatDate(expiryDate)}</span>
-                    </div>
-                  ) : (
+                  {!isPrimaryListing ? (
                     <div className="form-control">
                       <label className="label py-0">
                         <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
@@ -337,26 +356,45 @@ export const ListVehicleModal = ({
                         <option value="90">90 Days</option>
                       </select>
                       <div className="flex flex-col items-end pt-2 text-right">
-                        <span className="text-[10px] uppercase opacity-50 font-bold">Expires On</span>
+                        <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
                         <span className="text-sm font-bold text-base-content">{formatDate(expiryDate)}</span>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              {/* Summary Box */}
-              <div className="bg-success/10 p-3 rounded-lg text-xs">
+              {/* Listing Summary */}
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-lg p-3 border border-base-300">
+                <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70 dark:text-white/70 mb-3">
+                  Listing Summary
+                </h4>
                 <div className="flex justify-between items-center">
-                  <span className="opacity-80">Total Listing Value:</span>
-                  <span className="font-bold text-success text-sm">
+                  <span className="font-normal dark:text-white/80">Total Listing Value</span>
+                  <span className="font-bold text-success text-xl">
                     {formatTokenAmount(totalValue, decimals)} {symbol}
                   </span>
                 </div>
               </div>
 
+              {/* Buffer Terms (Primary only) */}
+              {isPrimaryListing && (
+                <div className="bg-primary/10 border border-base-300 rounded-lg p-3 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs uppercase opacity-60 font-bold">Estimated Buffer</span>
+                    <span className="font-bold text-sm">
+                      {formatTokenAmount((estimatedBuffer as bigint | undefined) ?? 0n, decimals)} {symbol}
+                    </span>
+                  </div>
+                  <p className="opacity-80 mt-2">
+                    💰 Estimated buffer if this listing fully sells. Actual funding is finalized when the listing ends
+                    based on tokens sold.
+                  </p>
+                </div>
+              )}
+
               {/* Info Box */}
-              <div className="bg-info/10 p-3 rounded-lg text-xs">
+              <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
                 <p className="opacity-80 mt-1 mb-1">
                   {isPrimaryListing
                     ? "Your tokens are already held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."

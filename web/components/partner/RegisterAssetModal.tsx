@@ -37,7 +37,7 @@ export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetMo
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
       {/* Mobile: fullscreen | Desktop: constrained centered modal */}
-      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button className="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" onClick={onClose}>
           <XMarkIcon className="h-5 w-5" />

@@ -94,6 +94,14 @@ export const RegisterVehicleForm = ({
   };
   const revenueShareBP = toBasisPoints(formData.revenueShareBP);
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
+  const listingExpiryDate = new Date(Date.now() + parseInt(formData.listingDurationDays || "0") * 24 * 60 * 60 * 1000);
+  const formatListingDate = (date: Date) =>
+    date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
 
   const { data: requiredCollateral } = useScaffoldReadContract({
     contractName: "Treasury",
@@ -549,9 +557,9 @@ export const RegisterVehicleForm = ({
         )}
         {/* Step 1: Vehicle Details */}
         {currentStep === 1 && (
-          <div className="flex flex-col justify-between h-full gap-6">
+          <div className="flex flex-col justify-between h-full gap-3">
             {/* Image Upload Section */}
-            <div className="bg-base-200 rounded-xl p-4">
+            <div className="bg-base-200 border border-base-300 rounded-xl p-4">
               <label className="block text-sm font-medium mb-2">Vehicle Image</label>
               <input
                 key={fileInputKey}
@@ -583,7 +591,7 @@ export const RegisterVehicleForm = ({
             </div>
 
             {/* Vehicle Identification */}
-            <div className="bg-base-200 rounded-xl p-4 space-y-4">
+            <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
               <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Asset Information</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-control">
@@ -626,7 +634,7 @@ export const RegisterVehicleForm = ({
             </div>
 
             {/* Vehicle Details */}
-            <div className="bg-base-200 rounded-xl p-4 space-y-4">
+            <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
               <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Vehicle Details</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-control">
@@ -740,9 +748,9 @@ export const RegisterVehicleForm = ({
 
         {/* Step 2: Financial Terms */}
         {currentStep === 2 && (
-          <div className="flex flex-col justify-between h-full gap-6">
+          <div className="flex flex-col justify-between h-full gap-3">
             {/* Token Configuration */}
-            <div className="bg-base-200 rounded-xl p-4 space-y-4">
+            <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
               <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Token Configuration</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-control">
@@ -814,13 +822,13 @@ export const RegisterVehicleForm = ({
                     <option value="60">60 Months (5 years)</option>
                   </select>
                 </div>
-                <div className="bg-primary/10 dark:bg-white/10 rounded-lg p-2 text-center w-full">
+                <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full">
                   <span className="text-[10px] uppercase opacity-60 font-bold block">Projected Supply</span>
                   <span className="text-md font-bold text-base-content dark:text-white">
                     {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "0"} Tokens
                   </span>
                 </div>
-                <div className="bg-primary/10 dark:bg-white/10 rounded-lg p-2 text-center w-full">
+                <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full">
                   <span className="text-[10px] uppercase opacity-60 font-bold block">Estimated Buffer</span>
                   <span className="text-md font-bold text-base-content dark:text-white">
                     {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
@@ -828,26 +836,15 @@ export const RegisterVehicleForm = ({
                 </div>
               </div>
             </div>
-
-            {/* Info Notice */}
-            <div className="bg-info/10 border border-info/20 rounded-xl p-4">
-              <p className="text-sm">
-                💰 Estimated buffer if the listing fully sells:{" "}
-                <span className="font-bold">
-                  {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
-                </span>
-                . The actual buffer is funded when the listing ends, based on tokens sold.
-              </p>
-            </div>
           </div>
         )}
 
         {/* Step 3: Marketplace Listing */}
         {currentStep === 3 && (
-          <div className="flex flex-col justify-between h-full gap-6">
+          <div className="flex flex-col justify-between h-full gap-3">
             {/* Listing Summary */}
-            <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-xl p-4 border border-primary/20 dark:border-white/15">
-              <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70 dark:text-white/70 mb-4">
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-xl p-4 border border-base-300">
+              <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70 dark:text-white/70 mb-4">
                 Listing Summary
               </h4>
               <div className="space-y-3">
@@ -865,21 +862,36 @@ export const RegisterVehicleForm = ({
                 </div>
                 <div className="divider my-1 opacity-20"></div>
                 <div className="flex justify-between items-center">
-                  <span className="font-medium dark:text-white/80">Total Valuation</span>
-                  <span className="font-bold text-primary text-2xl dark:text-white">
+                  <span className="font-normal dark:text-white/80">Total Listing Value</span>
+                  <span className="font-bold text-success text-xl">
                     {formData.assetValue ? `${Number(formData.assetValue).toLocaleString()} ${symbol}` : "—"}
                   </span>
                 </div>
               </div>
             </div>
 
+            {isPrimaryListing && (
+              <div className="bg-primary/10 border border-base-300 rounded-xl p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs uppercase opacity-60 font-bold">Estimated Buffer</span>
+                  <span className="font-bold text-base-content dark:text-white">
+                    {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
+                  </span>
+                </div>
+                <p className="text-xs opacity-80 mt-2">
+                  💰 Estimated buffer if the listing fully sells. The actual buffer is funded when the listing ends,
+                  based on tokens sold.
+                </p>
+              </div>
+            )}
+
             {/* Listing Configuration */}
-            <div className="bg-base-200 rounded-xl p-4 space-y-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Listing Options</h4>
+            <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
+              <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Listing Options</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-control">
                   <label className="label pb-1">
-                    <span className="label-text font-medium">Listing Duration</span>
+                    <span className="label-text font-normal">Listing Duration</span>
                     {isMissing("listingDurationDays") && <span className="label-text-alt text-error">Required</span>}
                   </label>
                   <select
@@ -895,16 +907,28 @@ export const RegisterVehicleForm = ({
                     <option value="60">60 Days</option>
                     <option value="90">90 Days</option>
                   </select>
+                  <div className="flex flex-col items-end pt-2 text-right">
+                    <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
+                    <span className="text-sm font-bold text-base-content">{formatListingDate(listingExpiryDate)}</span>
+                  </div>
                 </div>
                 <div className="form-control">
                   <label className="label pb-1">
-                    <span className="label-text font-medium">Fees</span>
+                    <span className="label-text font-normal">Fees</span>
                   </label>
                   <select className="select select-bordered w-full" disabled={isPrimaryListing}>
                     <option>Buyers pay fees</option>
                   </select>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
+              <p className="opacity-80 mt-1 mb-1">
+                {isPrimaryListing
+                  ? "Your tokens will be held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."
+                  : "Your tokens will be transferred to marketplace escrow for sale. Buyers can purchase partial amounts. Unsold tokens will be returned to you when the listing ends."}
+              </p>
             </div>
           </div>
         )}
