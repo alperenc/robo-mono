@@ -46,11 +46,11 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
   }, [claimableAmount, paymentDecimals]);
 
   const handleClaim = async () => {
-    if (claimableAmount === 0n) return;
+    if (claimableAmount === 0n || !address) return;
     try {
       await writeRouter({
-        functionName: "claimSettlement",
-        args: [BigInt(assetId), false],
+        functionName: "claimSettlementFor",
+        args: [address, BigInt(assetId), false],
       });
       onClose();
     } catch (e) {

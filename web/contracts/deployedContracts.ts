@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1828,7 +1828,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1901,7 +1901,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2551,7 +2551,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2687,6 +2687,40 @@ const deployedContracts = {
           type: "function",
           name: "claimSettlement",
           inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "autoClaimEarnings",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "claimSettlementFor",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
             {
               name: "assetId",
               type: "uint256",
@@ -4329,7 +4363,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -4428,6 +4462,40 @@ const deployedContracts = {
           type: "function",
           name: "claimSettlement",
           inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "autoClaimEarnings",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "claimedAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "earningsClaimed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "claimSettlementFor",
+          inputs: [
+            {
+              name: "account",
+              type: "address",
+              internalType: "address",
+            },
             {
               name: "assetId",
               type: "uint256",
@@ -5916,7 +5984,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -7939,7 +8007,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -9685,7 +9753,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771510147778.json",
+      deploymentFile: "run-1771585041512.json",
       deploymentScript: "Deploy.s.sol",
     },
   },
