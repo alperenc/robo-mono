@@ -740,6 +740,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertEq(settlementClaimed, previewAmount, "Preview should match settlement claimed");
         assertEq(treasury.previewSettlementClaim(scenario.assetId, buyer), 0, "Preview should be zero after claim");
     }
+
     function testPreviewClaimEarningsActiveMatchesClaim() public {
         _ensureState(SetupState.EarningsDistributed);
 
@@ -792,6 +793,7 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
             treasury.previewClaimEarnings(scenario.assetId, buyer), 0, "Settled preview should be zero after claim"
         );
     }
+
     function testClaimEarnings() public {
         _ensureState(SetupState.EarningsDistributed);
         uint256 earningsAmount = EARNINGS_AMOUNT;
@@ -2016,10 +2018,8 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertEq(harness.totalCollateralDeposited(), 0);
     }
 
-    function testFuzzDistributeEarnings(uint256 totalEarnings, uint256 investorPortion) public {
-        // Constraints
-        vm.assume(totalEarnings > 10 * 1e6 && totalEarnings < 1e12); // >10 USDC
-        vm.assume(investorPortion >= 2500000 && investorPortion <= totalEarnings); // >= 2.5 USDC (min fee)
+    function testFuzzDistributeEarnings(uint256 totalEarnings) public {
+        totalEarnings = bound(totalEarnings, (10 * 1e6) + 1, 1e12 - 1); // >10 USDC
 
         _ensureState(SetupState.RevenueTokensClaimed);
 
