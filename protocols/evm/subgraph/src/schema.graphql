@@ -71,7 +71,7 @@ type VehicleRegistryContract @entity(immutable: true) {
   address: Bytes!
 }
 
-type Vehicle @entity(immutable: true) {
+type Vehicle @entity(immutable: false) {
   id: ID! # vehicleId
   partner: Bytes!
   vin: String!

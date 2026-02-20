@@ -149,19 +149,33 @@ export function handleIdBoundToRegistry(event: IdBoundToRegistryEvent): void {
 }
 
 export function handleAssetRegistered(event: AssetRegisteredEvent): void {
-  let vehicle = Vehicle.load(event.params.assetId.toString())
+  let id = event.params.assetId.toString()
+  let vehicle = Vehicle.load(id)
+
+  // Prefer registry address from id binding when this event is emitted by a router.
+  let bound = BoundId.load(id)
+  let registryAddress = event.address
+  if (bound) {
+    registryAddress = changetype<Address>(bound.registry)
+  }
+
+  let contract = VehicleRegistry.bind(registryAddress)
+  let infoCall = contract.try_getVehicleInfo(event.params.assetId)
+
+  // If this is the first time we see the entity and vehicle info is unavailable yet,
+  // skip this event and let VehicleRegistered/create handlers populate it.
+  if (!vehicle && infoCall.reverted) {
+    return
+  }
+
   if (!vehicle) {
-    vehicle = new Vehicle(event.params.assetId.toString())
+    vehicle = new Vehicle(id)
     vehicle.partner = event.params.owner
     vehicle.blockNumber = event.block.number
     vehicle.blockTimestamp = event.block.timestamp
     vehicle.transactionHash = event.transaction.hash
   }
 
-  // Fetch vehicle info from contract to ensure non-nullable fields (like vin) are populated
-  // This works whether event.address is the VehicleRegistry or the RegistryRouter
-  let contract = VehicleRegistry.bind(event.address)
-  let infoCall = contract.try_getVehicleInfo(event.params.assetId)
   if (!infoCall.reverted) {
     let info = infoCall.value
     vehicle.vin = info.value0
@@ -176,12 +190,18 @@ export function handleAssetRegistered(event: AssetRegisteredEvent): void {
 }
 
 export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
-  let vehicle = new Vehicle(event.params.vehicleId.toString())
-  vehicle.partner = event.params.partner
+  let id = event.params.vehicleId.toString()
+  let vehicle = Vehicle.load(id)
+  if (!vehicle) {
+    vehicle = new Vehicle(id)
+    vehicle.partner = event.params.partner
+    vehicle.blockNumber = event.block.number
+    vehicle.blockTimestamp = event.block.timestamp
+    vehicle.transactionHash = event.transaction.hash
+  } else {
+    vehicle.partner = event.params.partner
+  }
   vehicle.vin = event.params.vin
-  vehicle.blockNumber = event.block.number
-  vehicle.blockTimestamp = event.block.timestamp
-  vehicle.transactionHash = event.transaction.hash
 
   // Fetch vehicle info from contract
   let contract = VehicleRegistry.bind(event.address)
