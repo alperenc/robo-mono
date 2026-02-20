@@ -14,6 +14,7 @@ import { notification } from "~~/utils/scaffold-eth";
 interface MintAndListModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   vehicleId: string;
   assetValue: string;
   isPrimaryListing?: boolean;
@@ -22,6 +23,7 @@ interface MintAndListModalProps {
 export const MintAndListModal = ({
   isOpen,
   onClose,
+  onSuccess,
   vehicleId,
   assetValue,
   isPrimaryListing = true,
@@ -161,6 +163,7 @@ export const MintAndListModal = ({
           true,
         ],
       });
+      onSuccess?.();
       onClose();
     } catch (e) {
       console.error("Error:", e);

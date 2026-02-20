@@ -235,7 +235,27 @@ const MarketsPage: NextPage = () => {
           console.warn("Subgraph query warnings:", errors);
         }
 
-        setListings(data?.listings || []);
+        setListings(prev => {
+          const incoming = (data?.listings || []) as SubgraphListing[];
+          const prevById = new Map(prev.map(l => [l.id, l]));
+          return incoming.map(listing => {
+            const prevListing = prevById.get(listing.id);
+            if (!prevListing) return listing;
+
+            // Protect optimistic terminal transitions from stale subgraph snapshots.
+            const hasOptimisticTerminal = prevListing.isEnded || prevListing.isCancelled;
+            const incomingIsTerminal = listing.isEnded || listing.isCancelled;
+            if (hasOptimisticTerminal && !incomingIsTerminal) {
+              return {
+                ...listing,
+                isEnded: prevListing.isEnded,
+                isCancelled: prevListing.isCancelled,
+                status: prevListing.status,
+              };
+            }
+            return listing;
+          });
+        });
         setVehicles(data?.vehicles || []);
         setTokens(data?.roboshareTokens || []);
         setAssetEarnings(data?.assetEarnings || []);
@@ -530,18 +550,24 @@ const MarketsPage: NextPage = () => {
     return totals;
   }, [listings]);
 
-  const refreshMarketsAfterSuccess = useCallback(() => {
-    fetchData(false);
-    refetchHoldings?.();
-    // Subgraph/indexing can lag by a few seconds; retry refresh to reflect latest listing state.
-    window.setTimeout(() => fetchData(false), 1200);
-    window.setTimeout(() => fetchData(false), 3500);
-  }, [fetchData, refetchHoldings]);
+  const refreshMarketsAfterSuccess = useCallback(
+    (opts?: { skipImmediateFetch?: boolean }) => {
+      if (!opts?.skipImmediateFetch) {
+        fetchData(false);
+      }
+      refetchHoldings?.();
+      // Subgraph/indexing can lag by a few seconds; retry refresh to reflect latest listing state.
+      window.setTimeout(() => fetchData(false), 1200);
+      window.setTimeout(() => fetchData(false), 3500);
+    },
+    [fetchData, refetchHoldings],
+  );
 
   const applyListingActionSuccess = useCallback(
     (listingId: string, updates: Partial<SubgraphListing>) => {
       setListings(prev => prev.map(l => (l.id === listingId ? { ...l, ...updates } : l)));
-      refreshMarketsAfterSuccess();
+      // Keep optimistic UI until indexers catch up; avoid immediate stale overwrite.
+      refreshMarketsAfterSuccess({ skipImmediateFetch: true });
     },
     [refreshMarketsAfterSuccess],
   );

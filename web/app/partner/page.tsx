@@ -54,6 +54,54 @@ interface SubgraphListing {
   createdAt: string;
 }
 
+const isSameListings = (a: SubgraphListing[], b: SubgraphListing[]) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (
+      left.id !== right.id ||
+      left.tokenId !== right.tokenId ||
+      left.assetId !== right.assetId ||
+      left.seller !== right.seller ||
+      left.amount !== right.amount ||
+      left.amountSold !== right.amountSold ||
+      left.claimedAmount !== right.claimedAmount ||
+      left.pricePerToken !== right.pricePerToken ||
+      left.expiresAt !== right.expiresAt ||
+      left.isPrimary !== right.isPrimary ||
+      left.status !== right.status ||
+      left.createdAt !== right.createdAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const isSameAssets = (a: DashboardAsset[], b: DashboardAsset[]) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (
+      left.id !== right.id ||
+      left.partner !== right.partner ||
+      left.vin !== right.vin ||
+      left.make !== right.make ||
+      left.model !== right.model ||
+      left.year !== right.year ||
+      left.assetValue !== right.assetValue ||
+      left.metadataURI !== right.metadataURI ||
+      left.blockNumber !== right.blockNumber ||
+      left.type !== right.type
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
 // Asset state enum for the 5 lifecycle states
 type AssetState = "ACTIVE_FLEET" | "ACTIVE_LISTINGS" | "PENDING_LISTINGS" | "SETTLED";
 
@@ -102,12 +150,38 @@ const PartnerDashboard: NextPage = () => {
   const [cancelListingModalOpen, setCancelListingModalOpen] = useState(false);
   const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const skipNextCloseRefreshRef = useRef(false);
 
   // Trigger a data refresh with delay to allow subgraph to index
   const triggerRefresh = (delayMs = 2000) => {
     setTimeout(() => {
       setRefreshCounter(c => c + 1);
     }, delayMs);
+  };
+
+  const refreshPartnerAfterSuccess = () => {
+    // Immediate refresh attempt, then delayed retries for subgraph indexing lag.
+    setRefreshCounter(c => c + 1);
+    refetchPending?.();
+    [1200, 3500].forEach(delayMs => {
+      setTimeout(() => {
+        setRefreshCounter(c => c + 1);
+        refetchPending?.();
+      }, delayMs);
+    });
+  };
+
+  const refreshOnModalClose = () => {
+    if (skipNextCloseRefreshRef.current) {
+      skipNextCloseRefreshRef.current = false;
+      return;
+    }
+    triggerRefresh();
+  };
+
+  const handleFlowSuccess = () => {
+    skipNextCloseRefreshRef.current = true;
+    refreshPartnerAfterSuccess();
   };
 
   // Dynamic Labels (Global)
@@ -186,10 +260,10 @@ const PartnerDashboard: NextPage = () => {
           const myListings = (data?.listings || []).filter(
             (l: any) => l.seller.toLowerCase() === connectedAddress?.toLowerCase(),
           );
-          setListings(myListings);
+          setListings(prev => (isSameListings(prev, myListings) ? prev : myListings));
         }
 
-        setAllAssets(assets);
+        setAllAssets(prev => (isSameAssets(prev, assets) ? prev : assets));
       } catch (e) {
         console.error("Error fetching data:", e);
       }
@@ -981,9 +1055,10 @@ const PartnerDashboard: NextPage = () => {
       {/* Modals */}
       <RegisterAssetModal
         isOpen={isRegisterOpen}
+        onSuccess={handleFlowSuccess}
         onClose={() => {
           setIsRegisterOpen(false);
-          triggerRefresh();
+          refreshOnModalClose();
         }}
         maxStep={maxStep}
       />
@@ -991,9 +1066,10 @@ const PartnerDashboard: NextPage = () => {
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
         <MintAndListModal
           isOpen={mintAndListModalOpen}
+          onSuccess={handleFlowSuccess}
           onClose={() => {
             setMintAndListModalOpen(false);
-            triggerRefresh();
+            refreshOnModalClose();
           }}
           vehicleId={selectedAsset.id}
           assetValue={selectedAsset.assetValue || "0"}
@@ -1004,10 +1080,11 @@ const PartnerDashboard: NextPage = () => {
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
         <ListVehicleModal
           isOpen={listModalOpen}
+          onSuccess={handleFlowSuccess}
           onClose={() => {
             setListModalOpen(false);
             setListPrefillAmount(undefined);
-            triggerRefresh();
+            refreshOnModalClose();
           }}
           vehicleId={selectedAsset.id}
           vin={selectedAsset.vin || ""}

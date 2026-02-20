@@ -9,10 +9,11 @@ import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 interface RegisterAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   maxStep: 1 | 3;
 }
 
-export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetModalProps) => {
+export const RegisterAssetModal = ({ isOpen, onClose, onSuccess, maxStep }: RegisterAssetModalProps) => {
   // Filter for active registries
   const activeRegistries = Object.entries(ASSET_REGISTRIES).filter(([, config]) => config.active);
   const singleActiveType = activeRegistries.length === 1 ? (activeRegistries[0][0] as AssetType) : null;
@@ -74,7 +75,13 @@ export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetMo
           /* Polymorphic Form Rendering - flex-1 to fill modal */
           <div className="flex-1 flex flex-col overflow-hidden">
             {selectedType === AssetType.VEHICLE && (
-              <RegisterVehicleForm onClose={onClose} maxStep={maxStep} onBack={handleBack} isPrimaryListing />
+              <RegisterVehicleForm
+                onClose={onClose}
+                onSuccess={onSuccess}
+                maxStep={maxStep}
+                onBack={handleBack}
+                isPrimaryListing
+              />
             )}
             {selectedType === AssetType.REAL_ESTATE && (
               <div className="text-center py-10 p-6">

@@ -12,6 +12,7 @@ import { notification } from "~~/utils/scaffold-eth";
 
 interface RegisterVehicleFormProps {
   onClose: () => void;
+  onSuccess?: () => void;
   maxStep: 1 | 3;
   onBack: () => void;
   isPrimaryListing?: boolean;
@@ -25,6 +26,7 @@ const STEP_TITLES = {
 
 export const RegisterVehicleForm = ({
   onClose,
+  onSuccess,
   maxStep,
   onBack,
   isPrimaryListing = true,
@@ -319,6 +321,7 @@ export const RegisterVehicleForm = ({
         functionName: "registerAsset",
         args: [encodedData, assetValueBigInt],
       });
+      onSuccess?.();
       clearDraft();
       onClose();
     } catch (e) {
@@ -423,6 +426,7 @@ export const RegisterVehicleForm = ({
           true,
         ],
       });
+      onSuccess?.();
       clearDraft();
       onClose();
     } catch (e) {
