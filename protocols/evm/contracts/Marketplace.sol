@@ -468,8 +468,11 @@ contract Marketplace is
     function finalizeListing(uint256 listingId) external returns (uint256 withdrawn) {
         Listing storage listing = listings[listingId];
 
-        // Only attempt to end if it's still active or effectively active (expired but state true)
-        if (listing.isActive) {
+        // Settle listing before withdrawal when needed:
+        // - active listing
+        // - sold-out/inactive listing that still has unsettled proceeds/fees
+        bool hasUnsettledProceeds = listingProceeds[listingId] > 0 || listingProtocolFees[listingId] > 0;
+        if (listing.isActive || (!listing.isCancelled && hasUnsettledProceeds)) {
             endListing(listingId);
         }
 

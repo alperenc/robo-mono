@@ -863,6 +863,38 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(withdrawn, 0, "No withdrawal expected");
     }
 
+    function testFinalizeListingSoldOutSecondarySettlesAndWithdraws() public {
+        _ensureState(SetupState.RevenueTokensListed);
+
+        uint256 secondaryListingId = _setupSecondaryListing(partner2, PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, true);
+
+        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(secondaryListingId, PURCHASE_AMOUNT);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+        marketplace.purchaseTokens(secondaryListingId, PURCHASE_AMOUNT);
+        vm.stopPrank();
+
+        // Sold out listings become inactive immediately but are not yet settled.
+        Marketplace.Listing memory listingBefore = marketplace.getListing(secondaryListingId);
+        assertFalse(listingBefore.isActive, "Listing should be inactive after sellout");
+        assertEq(listingBefore.amount, 0, "Listing amount should be zero after sellout");
+        uint256 unsettledProceeds = marketplace.listingProceeds(secondaryListingId);
+        assertGt(unsettledProceeds, 0, "Proceeds should remain unsettled");
+        uint256 expectedWithdrawal =
+            unsettledProceeds > listingBefore.earlySalePenalty ? unsettledProceeds - listingBefore.earlySalePenalty : 0;
+
+        uint256 sellerUsdcBefore = usdc.balanceOf(partner2);
+
+        vm.prank(partner2);
+        uint256 withdrawn = marketplace.finalizeListing(secondaryListingId);
+
+        assertEq(withdrawn, expectedWithdrawal, "Finalize should withdraw sold-out listing proceeds");
+        assertEq(usdc.balanceOf(partner2), sellerUsdcBefore + expectedWithdrawal, "Seller should receive proceeds");
+        assertEq(marketplace.listingProceeds(secondaryListingId), 0, "Listing proceeds should be settled");
+        assertEq(treasury.getPendingWithdrawal(partner2), 0, "Pending withdrawal should be drained by finalize");
+    }
+
     function testFinalizeListingNotListingOwner() public {
         _ensureState(SetupState.RevenueTokensListed);
 
