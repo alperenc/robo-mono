@@ -196,6 +196,11 @@ contract RegistryRouterTest is BaseTest {
         );
     }
 
+    function testClaimSettlementDirectCallNotAllowed() public {
+        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
+        router.claimSettlement(scenario.assetId, false);
+    }
+
     function testInitializationZeroAdmin() public {
         RegistryRouter routerImpl = new RegistryRouter();
 

@@ -146,6 +146,10 @@ contract MockRegistry is IAssetRegistry {
         return (0, 0);
     }
 
+    function claimSettlementFor(address, uint256, bool) external pure override returns (uint256, uint256) {
+        return (0, 0);
+    }
+
     function getRegistryType() external pure override returns (string memory) {
         return "MockRegistry";
     }
@@ -369,10 +373,10 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.liquidateAsset(nonExistentAssetId);
     }
 
-    function testClaimSettlementRegistryNotFound() public {
+    function testClaimSettlementForRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
-        router.claimSettlement(nonExistentAssetId, false);
+        router.claimSettlementFor(partner1, nonExistentAssetId, false);
     }
 
     function testRecordSoldSupply() public {

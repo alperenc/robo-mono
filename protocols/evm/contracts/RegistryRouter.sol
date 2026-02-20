@@ -397,6 +397,17 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
     function claimSettlement(uint256 assetId, bool autoClaimEarnings)
         external
+        pure
+        override
+        returns (uint256, uint256)
+    {
+        assetId;
+        autoClaimEarnings;
+        revert DirectCallNotAllowed();
+    }
+
+    function claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
+        external
         override
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
@@ -404,7 +415,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        return IAssetRegistry(registry).claimSettlement(assetId, autoClaimEarnings);
+        return IAssetRegistry(registry).claimSettlementFor(account, assetId, autoClaimEarnings);
     }
 
     function burnRevenueTokens(uint256 assetId, uint256 amount) external override {

@@ -362,6 +362,30 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         override
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
+        return _claimSettlementFor(msg.sender, assetId, autoClaimEarnings);
+    }
+
+    /**
+     * @dev Router-forwarded settlement claim preserving original caller identity.
+     * @param account The end-user claiming settlement
+     * @param assetId The ID of the settled asset
+     * @param autoClaimEarnings If true, claims any unclaimed earnings before settlement in same tx.
+     * @return claimedAmount The settlement USDC amount received
+     * @return earningsClaimed The earnings USDC amount received (0 if autoClaimEarnings is false)
+     */
+    function claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
+        external
+        override
+        onlyRole(ROUTER_ROLE)
+        returns (uint256 claimedAmount, uint256 earningsClaimed)
+    {
+        return _claimSettlementFor(account, assetId, autoClaimEarnings);
+    }
+
+    function _claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
+        internal
+        returns (uint256 claimedAmount, uint256 earningsClaimed)
+    {
         if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
@@ -374,7 +398,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 balance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
+        uint256 balance = roboshareTokens.balanceOf(account, revenueTokenId);
 
         if (balance == 0) {
             revert InsufficientTokenBalance(revenueTokenId, 1, balance);
@@ -382,7 +406,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         // Snapshot (and optionally claim) earnings BEFORE burning tokens
         // This preserves earnings so they can be claimed later even after tokens are burned
-        uint256 snapshotAmount = router.snapshotAndClaimEarnings(assetId, msg.sender, autoClaimEarnings);
+        uint256 snapshotAmount = router.snapshotAndClaimEarnings(assetId, account, autoClaimEarnings);
 
         // Only return earnings if they were actually claimed (autoClaim=true)
         // When autoClaim=false, earnings are snapshotted for later claim via claimEarnings()
@@ -391,12 +415,12 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         // Burn tokens (positions will be deleted)
-        roboshareTokens.burn(msg.sender, revenueTokenId, balance);
+        roboshareTokens.burn(account, revenueTokenId, balance);
 
         // Process Claim via Router -> Treasury
-        claimedAmount = router.processSettlementClaim(msg.sender, assetId, balance);
+        claimedAmount = router.processSettlementClaim(account, assetId, balance);
 
-        emit SettlementClaimed(assetId, msg.sender, balance, claimedAmount);
+        emit SettlementClaimed(assetId, account, balance, claimedAmount);
     }
 
     /**

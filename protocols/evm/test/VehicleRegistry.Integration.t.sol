@@ -897,6 +897,19 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.claimSettlement(scenario.assetId, false);
     }
 
+    function testClaimSettlementForUnauthorizedCaller() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, assetRegistry.ROUTER_ROLE()
+            )
+        );
+        assetRegistry.claimSettlementFor(partner1, scenario.assetId, false);
+        vm.stopPrank();
+    }
+
     // Branch Coverage Improvement Tests
 
     function testRetireAssetAndBurnTokensZeroSupply() public {
