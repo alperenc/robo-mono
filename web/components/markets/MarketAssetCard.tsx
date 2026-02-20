@@ -85,7 +85,6 @@ export function MarketAssetCard({
   assetType = AssetType.VEHICLE,
   priority,
   viewMode = "grid",
-  hasUserListingForTokenId = false,
   hasUserActiveListingForTokenId = false,
   hasUserPrimaryListingForTokenId = false,
   hasUserBoughtListing = false,
@@ -400,31 +399,55 @@ export function MarketAssetCard({
   const canListTokens = listableTokensAmount > 0n;
 
   const registry = ASSET_REGISTRIES[assetType];
-  const showInvestedBadge =
-    !isCancelled &&
-    !isSellerOfListing &&
-    ((walletTokenBalance || 0n) > 0n || (escrowedTokens || 0n) > 0n || hasUserListingForTokenId);
+  const showInvestedBadge = !isCancelled && !isSellerOfListing && ((escrowedTokens || 0n) > 0n || hasUserBoughtListing);
   const actionState = useMemo(() => {
-    const listTokensLabel = hasUserActiveListingForTokenId || isSellerOfListing ? "List More Tokens" : "List Tokens";
-    let primaryLabel = "Buy Tokens";
-    let primaryClass = "btn-primary";
-    let primaryDisabled = isInactive;
-    let primaryOnClick = onBuyClick;
-    const secondaryActions: { label: string; onClick?: () => void; className?: string }[] = [];
+    type CandidateAction = { label: string; onClick?: () => void; className?: string };
 
-    // Determine if user has claimed tokens into their wallet
+    const listTokensLabel = hasUserActiveListingForTokenId || isSellerOfListing ? "List More Tokens" : "List Tokens";
     const hasClaimedTokens = (walletTokenBalance || 0n) > 0n;
     const canManageOwnListing = isSellerOfListing && !isInactive;
     const canRelistInactiveOwnPrimaryListing = isSellerOfListing && !isSecondaryListing && isInactive && canListTokens;
-    const sellerManagementActions: { label: string; onClick?: () => void; className?: string }[] = [];
-    const primarySellerLifecycleActions: { label: string; onClick?: () => void; className?: string }[] = [];
 
-    if (isSellerOfListing && !isSecondaryListing && !isCancelled) {
+    const sellerManagementActions: CandidateAction[] = [];
+    const primarySellerLifecycleActions: CandidateAction[] = [];
+    const actionCandidates: CandidateAction[] = [];
+
+    const successGhostClass = "btn-success bg-success/15 border-0 text-success hover:bg-success/25";
+    const primaryGhostClass =
+      "btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25";
+
+    const pushAction = (action: CandidateAction) => {
+      if (!action.onClick) return;
+      actionCandidates.push(action);
+    };
+
+    const resolvePrimaryClass = (action: CandidateAction): string => {
+      if (action.label === "Settle Asset") return isTokenMatured ? "btn-warning" : "btn-error";
+      if (action.label === "Cancel Listing" || action.label === "Claim Refund") return "btn-error";
+      if (action.label === "Claim Settlement") return successGhostClass;
+      if (
+        action.label === "Distribute Earnings" ||
+        action.label === "Claim Earnings" ||
+        action.label === "Claim Tokens"
+      ) {
+        return successGhostClass;
+      }
+      if (
+        action.label === "List Tokens" ||
+        action.label === "List More Tokens" ||
+        action.label === "End Listing" ||
+        action.label === "Buy Tokens"
+      ) {
+        return primaryGhostClass;
+      }
+      return action.className || "btn-primary";
+    };
+
+    if (isSellerOfListing && !isSecondaryListing && !isCancelled && !isAssetSettled) {
       if (onDistributeEarningsClick && listingSoldAmount > 0n) {
         primarySellerLifecycleActions.push({
           label: "Distribute Earnings",
           onClick: onDistributeEarningsClick,
-          className: "btn-success bg-success/15 border-0 text-success hover:bg-success/25",
         });
       }
       if (onSettleAssetClick) {
@@ -439,7 +462,6 @@ export function MarketAssetCard({
     if (canManageOwnListing) {
       if (isSecondaryListing) {
         if (onFinalizeListingClick) {
-          // Secondary seller: finalize is the primary management action.
           sellerManagementActions.push({ label: "Finalize Listing", onClick: onFinalizeListingClick });
         }
         if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
@@ -457,7 +479,6 @@ export function MarketAssetCard({
           });
         }
       } else {
-        // Active primary listing: only listing-management actions.
         if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
         if (onCancelListingClick) {
           sellerManagementActions.push({
@@ -470,128 +491,83 @@ export function MarketAssetCard({
     }
 
     if (canClaimRefund) {
-      // Top priority: refund on cancelled listings
-      primaryLabel = "Claim Refund";
-      primaryClass = "btn-error";
-      primaryDisabled = false;
-      primaryOnClick = onClaimRefundClick;
+      pushAction({ label: "Claim Refund", onClick: onClaimRefundClick });
     } else if (canRelistInactiveOwnPrimaryListing) {
-      // Primary seller can relist inventory that remains in escrow after listing becomes inactive.
-      primaryLabel = listTokensLabel;
-      primaryClass = "btn-primary";
-      primaryDisabled = false;
-      primaryOnClick = () => onListTokensClick?.(listableTokensAmount.toString());
-      secondaryActions.push(...primarySellerLifecycleActions);
+      pushAction({
+        label: listTokensLabel,
+        onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
+      });
+      primarySellerLifecycleActions.forEach(pushAction);
     } else if (isSellerOfListing && !isSecondaryListing && isInactive && primarySellerLifecycleActions.length > 0) {
-      // Inactive primary listings should still expose lifecycle actions (e.g. distribute/settle)
-      primaryLabel = primarySellerLifecycleActions[0].label;
-      primaryClass =
-        primarySellerLifecycleActions[0].label === "Settle Asset"
-          ? isTokenMatured
-            ? "btn-warning"
-            : "btn-error"
-          : primarySellerLifecycleActions[0].className || "btn-primary";
-      primaryDisabled = false;
-      primaryOnClick = primarySellerLifecycleActions[0].onClick;
-      secondaryActions.push(...primarySellerLifecycleActions.slice(1));
+      primarySellerLifecycleActions.forEach(pushAction);
     } else if (sellerManagementActions.length > 0) {
-      // Seller managing their own listing (primary: no finalize, secondary: finalize first)
-      primaryLabel = sellerManagementActions[0].label;
-      primaryClass =
-        sellerManagementActions[0].label === "Settle Asset"
-          ? isTokenMatured
-            ? "btn-warning"
-            : "btn-error"
-          : sellerManagementActions[0].className ||
-            (sellerManagementActions[0].label === "Cancel Listing" ? "btn-error" : "btn-primary");
-      primaryDisabled = false;
-      primaryOnClick = sellerManagementActions[0].onClick;
-      secondaryActions.push(...sellerManagementActions.slice(1));
+      sellerManagementActions.forEach(pushAction);
     } else if (canClaimTokens) {
-      // Tokens still in escrow — prompt to claim first
-      primaryLabel = "Claim Tokens";
-      primaryClass = "btn-success";
-      primaryDisabled = false;
-      primaryOnClick = onClaimTokensClick;
-      // If user already has wallet tokens of the same tokenId, allow listing them immediately.
+      pushAction({ label: "Claim Tokens", onClick: onClaimTokensClick });
       if (hasClaimedTokens) {
-        secondaryActions.push({
+        pushAction({
           label: listTokensLabel,
           onClick: () => onListTokensClick?.((walletTokenBalance || 0n).toString()),
         });
       }
     } else if (canClaimEarningsOnThisListing) {
-      // On-chain preview is the source of truth for claimability.
-      primaryLabel = "Claim Earnings";
-      primaryClass = "btn-success";
-      primaryDisabled = false;
-      primaryOnClick = onClaimEarningsClick;
+      pushAction({ label: "Claim Earnings", onClick: onClaimEarningsClick });
       if (canClaimSettlement) {
-        secondaryActions.push({ label: "Claim Settlement", onClick: onClaimSettlementClick });
+        pushAction({ label: "Claim Settlement", onClick: onClaimSettlementClick });
       } else if (canListTokens) {
-        secondaryActions.push({
+        pushAction({
           label: listTokensLabel,
           onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
         });
       }
     } else if (!isSellerOfListing && !isInactive) {
-      // For other users' active listings, prioritize market participation
-      primaryLabel = hasAvailableTokens ? "Buy Tokens" : soldOutDurationLabel || "Sold Out";
-      primaryClass = "btn-primary";
-      primaryDisabled = !hasAvailableTokens;
-      primaryOnClick = onBuyClick;
+      if (hasAvailableTokens) {
+        pushAction({ label: "Buy Tokens", onClick: onBuyClick });
+      }
       if (canListTokens) {
-        secondaryActions.push({
+        pushAction({
           label: listTokensLabel,
           onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
         });
       }
     } else if (hasClaimedTokens) {
-      // User holds tokens — show holder-specific CTAs
       if (canClaimSettlement) {
-        // No earnings but settled: primary = Claim Settlement
-        primaryLabel = "Claim Settlement";
-        primaryClass = "btn-warning";
-        primaryDisabled = false;
-        primaryOnClick = onClaimSettlementClick;
+        pushAction({ label: "Claim Settlement", onClick: onClaimSettlementClick });
       } else {
-        // No earnings, not settled: primary = List Tokens
-        primaryLabel = listTokensLabel;
-        primaryClass = "btn-primary";
-        primaryDisabled = false;
-        primaryOnClick = () => onListTokensClick?.(listableTokensAmount.toString());
+        pushAction({
+          label: listTokensLabel,
+          onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
+        });
       }
-    } else {
-      // No holdings — default buy/status label
-      primaryLabel = isCancelled ? "Cancelled" : isEnded ? "Ended" : isExpired ? "Expired" : "Buy Tokens";
     }
 
-    const successGhostClass = "btn-success bg-success/15 border-0 text-success hover:bg-success/25";
-    const primaryGhostClass =
-      "btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25";
-
-    // Align markets in-body CTAs with partner page visual language.
-    if (
-      primaryLabel === "Distribute Earnings" ||
-      primaryLabel === "Claim Earnings" ||
-      primaryLabel === "Claim Tokens"
-    ) {
-      primaryClass = successGhostClass;
-    } else if (
-      primaryLabel === "List Tokens" ||
-      primaryLabel === "List More Tokens" ||
-      primaryLabel === "End Listing" ||
-      primaryLabel === "Buy Tokens"
-    ) {
-      primaryClass = primaryGhostClass;
+    const primaryAction = actionCandidates[0];
+    if (primaryAction) {
+      return {
+        primaryLabel: primaryAction.label,
+        primaryClass: resolvePrimaryClass(primaryAction),
+        primaryDisabled: false,
+        primaryOnClick: primaryAction.onClick,
+        secondaryActions: actionCandidates.slice(1),
+      };
     }
 
+    const defaultLabel =
+      !isSellerOfListing && !isInactive && !hasAvailableTokens
+        ? soldOutDurationLabel || "Sold Out"
+        : isCancelled
+          ? "Cancelled"
+          : isEnded
+            ? "Ended"
+            : isExpired
+              ? "Expired"
+              : "Buy Tokens";
     return {
-      primaryLabel,
-      primaryClass,
-      primaryDisabled,
-      primaryOnClick,
-      secondaryActions,
+      primaryLabel: defaultLabel,
+      primaryClass: defaultLabel === "Buy Tokens" ? primaryGhostClass : "btn-primary",
+      primaryDisabled: true,
+      primaryOnClick: undefined,
+      secondaryActions: [],
     };
   }, [
     canClaimRefund,
@@ -608,6 +584,7 @@ export function MarketAssetCard({
     isEnded,
     isExpired,
     isInactive,
+    isAssetSettled,
     isSecondaryListing,
     isSellerOfListing,
     listableTokensAmount,
