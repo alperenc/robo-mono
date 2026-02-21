@@ -154,7 +154,7 @@ export function MarketAssetCard({
   const hasAvailableTokens = BigInt(listing.amount) > 0n;
   const hasEarnings = Boolean(earnings && (earnings.distributionCount !== "0" || earnings.totalEarnings !== "0"));
   const canClaimEarnings = (previewClaimAmount || 0n) > 0n;
-  const canClaimEarningsOnThisListing = canClaimEarnings && hasUserBoughtListing;
+  const canClaimEarningsOnThisListing = canClaimEarnings && hasUserBoughtListing && !listing.isCancelled;
   const hasHoldings = (walletTokenBalance || 0n) > 0n || (escrowedTokens || 0n) > 0n;
   const isAssetSettled = Number(assetStatus ?? -1) === 3 || Number(assetStatus ?? -1) === 4;
   const canClaimSettlement = hasHoldings && isAssetSettled;
@@ -746,7 +746,7 @@ export function MarketAssetCard({
                     </button>
                     <button
                       type="button"
-                      className={`btn ${actionState.primaryClass} rounded-l-none px-2 border-l border-base-100/40`}
+                      className={`btn ${actionState.primaryClass} rounded-l-none px-2 border-l border-current/15`}
                       aria-expanded={isActionMenuOpen}
                       aria-haspopup="menu"
                       onClick={() => setIsActionMenuOpen(prev => !prev)}
@@ -972,7 +972,7 @@ export function MarketAssetCard({
                 </button>
                 <button
                   type="button"
-                  className={`btn ${actionState.primaryClass} rounded-l-none px-3 border-l border-base-100/40`}
+                  className={`btn ${actionState.primaryClass} rounded-l-none px-3 border-l border-current/15`}
                   aria-expanded={isActionMenuOpen}
                   aria-haspopup="menu"
                   onClick={() => setIsActionMenuOpen(prev => !prev)}

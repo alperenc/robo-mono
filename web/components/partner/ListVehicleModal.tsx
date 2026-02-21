@@ -74,6 +74,12 @@ export const ListVehicleModal = ({
     functionName: "balanceOf",
     args: [connectedAddress, revenueTokenId],
   });
+  const { data: assetNftBalance } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "balanceOf",
+    args: [connectedAddress, BigInt(vehicleId)],
+  });
+  const isPrimaryFlow = isPrimaryListing || ((assetNftBalance as bigint | undefined) ?? 0n) > 0n;
 
   useEffect(() => {
     if (!prefillAmount) return;
@@ -139,7 +145,7 @@ export const ListVehicleModal = ({
       }
 
       // 2. Create Listing
-      const buyerPaysFee = isPrimaryListing ? true : formData.buyerPaysFee === "buyer";
+      const buyerPaysFee = isPrimaryFlow ? true : formData.buyerPaysFee === "buyer";
 
       const txHash = await writeMarketplace({
         functionName: "createListing",
@@ -166,7 +172,7 @@ export const ListVehicleModal = ({
     contractName: "Treasury",
     functionName: "getTotalBufferRequirement",
     args: [totalValue, (targetYieldBP as bigint) ?? 0n],
-    query: { enabled: isOpen && isPrimaryListing && totalValue > 0n && targetYieldBP !== undefined },
+    query: { enabled: isOpen && isPrimaryFlow && totalValue > 0n && targetYieldBP !== undefined },
   });
 
   // Calculate expiry date
@@ -290,7 +296,7 @@ export const ListVehicleModal = ({
 
                 {/* Row 2: Fees + Duration */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                  {isPrimaryListing ? (
+                  {isPrimaryFlow ? (
                     <>
                       <div className="form-control">
                         <label className="label py-0">
@@ -338,7 +344,7 @@ export const ListVehicleModal = ({
                       </select>
                     </div>
                   )}
-                  {!isPrimaryListing ? (
+                  {!isPrimaryFlow ? (
                     <div className="form-control">
                       <label className="label py-0">
                         <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
@@ -378,7 +384,7 @@ export const ListVehicleModal = ({
               </div>
 
               {/* Buffer Terms (Primary only) */}
-              {isPrimaryListing && (
+              {isPrimaryFlow && (
                 <div className="bg-primary/10 border border-base-300 rounded-lg p-3 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-xs uppercase opacity-60 font-bold">Estimated Buffer</span>
@@ -396,7 +402,7 @@ export const ListVehicleModal = ({
               {/* Info Box */}
               <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
                 <p className="opacity-80 mt-1 mb-1">
-                  {isPrimaryListing
+                  {isPrimaryFlow
                     ? "Your tokens are already held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."
                     : "Your tokens will be transferred to marketplace escrow for sale. Buyers can purchase partial amounts. Unsold tokens will be returned to you when the listing ends."}
                 </p>

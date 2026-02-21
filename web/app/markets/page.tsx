@@ -862,7 +862,9 @@ const MarketsPage: NextPage = () => {
             const token = tokens.find(t => t.revenueTokenId === tokenId);
             return token?.supply;
           })()}
-          relatedListingIds={listings.filter(l => l.tokenId === selectedListing.tokenId).map(l => l.id)}
+          relatedListingIds={listings
+            .filter(l => l.tokenId === selectedListing.tokenId && !l.isCancelled && l.status !== "cancelled")
+            .map(l => l.id)}
         />
       )}
 
@@ -959,7 +961,6 @@ const MarketsPage: NextPage = () => {
             return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
           })()}
           prefillAmount={prefillListAmount}
-          isPrimaryListing={false}
         />
       )}
 
