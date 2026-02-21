@@ -44,16 +44,38 @@ export const FinalizeListingModal = ({
     args: [BigInt(listingId)],
     query: { enabled: isOpen },
   });
+  const { data: listingData, isLoading: isLoadingListingData } = useReadContract({
+    address: deployedContracts[31337]?.Marketplace?.address,
+    abi: deployedContracts[31337]?.Marketplace?.abi,
+    functionName: "listings",
+    args: [BigInt(listingId)],
+    query: { enabled: isOpen },
+  });
+  const toBigInt = (value: unknown): bigint => {
+    if (typeof value === "bigint") return value;
+    if (typeof value === "number") return BigInt(value);
+    if (typeof value === "string") return BigInt(value);
+    return 0n;
+  };
 
-  const isLoading = isLoadingTreasury || isLoadingMarketplace;
-  const listingAmount = (listingProceeds as bigint) || 0n;
+  const isLoading = isLoadingTreasury || isLoadingMarketplace || isLoadingListingData;
+  const listingAmountGross = (listingProceeds as bigint) || 0n;
+  const listingAmountRemaining = toBigInt((listingData as any)?.amount ?? (listingData as any)?.[2] ?? 0n);
+  const listingAmountSold = toBigInt((listingData as any)?.soldAmount ?? (listingData as any)?.[3] ?? 0n);
+  const listingEarlySalePenalty = toBigInt((listingData as any)?.earlySalePenalty ?? (listingData as any)?.[11] ?? 0n);
+  const listingTotal = listingAmountRemaining + listingAmountSold;
+  const penaltyApplied =
+    listingEarlySalePenalty > 0n && listingAmountSold > 0n && listingTotal > 0n
+      ? (listingEarlySalePenalty * listingAmountSold) / listingTotal
+      : 0n;
+  const listingAmountNet = listingAmountGross > penaltyApplied ? listingAmountGross - penaltyApplied : 0n;
   const pendingAmountVal = (pendingTreasuryAmount as bigint) || 0n;
-  const totalProceeds = listingAmount + pendingAmountVal;
+  const totalProceeds = listingAmountNet + pendingAmountVal;
 
   const formattedTokenAmount = Number(tokenAmount).toLocaleString();
   const formattedTotal = formatUnits(totalProceeds, 6);
-  const formattedListingPart = formatUnits(listingAmount, 6);
   const formattedPendingPart = formatUnits(pendingAmountVal, 6);
+  const formattedPenalty = formatUnits(penaltyApplied, 6);
 
   const hasProceeds = totalProceeds > 0n;
 
@@ -138,11 +160,16 @@ export const FinalizeListingModal = ({
                           USDC total
                         </div>
                         <div className="text-xs opacity-60 mt-1 space-y-0.5">
-                          {listingAmount > 0n && (
-                            <div>• ${Number(formattedListingPart).toLocaleString()} from this listing</div>
+                          {listingAmountGross > 0n && (
+                            <div>
+                              • +${Number(formatUnits(listingAmountGross, 6)).toLocaleString()} from this listing
+                            </div>
                           )}
                           {pendingAmountVal > 0n && (
-                            <div>• ${Number(formattedPendingPart).toLocaleString()} from treasury balance</div>
+                            <div>• +${Number(formattedPendingPart).toLocaleString()} from treasury balance</div>
+                          )}
+                          {penaltyApplied > 0n && (
+                            <div>• -${Number(formattedPenalty).toLocaleString()} early-sale penalty</div>
                           )}
                         </div>
                       </div>
