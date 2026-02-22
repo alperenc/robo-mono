@@ -489,9 +489,10 @@ const MarketsPage: NextPage = () => {
 
     // Sort (active listings first)
     filtered.sort((a, b) => {
-      const aInactive = a.isCancelled || a.isEnded || a.status === "expired";
-      const bInactive = b.isCancelled || b.isEnded || b.status === "expired";
-      if (aInactive !== bInactive) return aInactive ? 1 : -1;
+      // Keep cancelled listings pinned to the end regardless of selected sort.
+      const aSortBucket = a.isCancelled ? 2 : a.isEnded || a.status === "expired" ? 1 : 0;
+      const bSortBucket = b.isCancelled ? 2 : b.isEnded || b.status === "expired" ? 1 : 0;
+      if (aSortBucket !== bSortBucket) return aSortBucket - bSortBucket;
       switch (sortBy) {
         case "apr_desc":
           return calculateListingApy(b) - calculateListingApy(a);
