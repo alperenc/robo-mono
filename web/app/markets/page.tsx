@@ -306,7 +306,42 @@ const MarketsPage: NextPage = () => {
         args: [address, BigInt(l.assetId) + 1n],
       },
     ]) as any,
-    query: { enabled: !!address && listings.length > 0 && showOnlyHoldings },
+    // Also used for action-priority sorting and CTA visibility heuristics, not just the holdings-only filter.
+    query: { enabled: !!address && listings.length > 0 },
+  });
+
+  // Fetch actionability previews (claimable earnings/settlement) for sorting heuristics.
+  const uniqueAssetIds = useMemo(() => {
+    return Array.from(new Set(listings.map(l => l.assetId)));
+  }, [listings]);
+
+  const { data: actionPreviewData } = useReadContracts({
+    allowFailure: true,
+    contracts: uniqueAssetIds.flatMap(assetId => [
+      {
+        address: deployedContracts[31337]?.Treasury?.address,
+        abi: deployedContracts[31337]?.Treasury?.abi,
+        functionName: "previewClaimEarnings",
+        args: [BigInt(assetId), address],
+      },
+      {
+        address: deployedContracts[31337]?.Treasury?.address,
+        abi: deployedContracts[31337]?.Treasury?.abi,
+        functionName: "previewSettlementClaim",
+        args: [BigInt(assetId), address],
+      },
+    ]) as any,
+    query: { enabled: !!address && uniqueAssetIds.length > 0 },
+  });
+  const { data: assetStatusPreviewData } = useReadContracts({
+    allowFailure: true,
+    contracts: uniqueAssetIds.map(assetId => ({
+      address: deployedContracts[31337]?.RegistryRouter?.address,
+      abi: deployedContracts[31337]?.RegistryRouter?.abi,
+      functionName: "getAssetStatus",
+      args: [BigInt(assetId)],
+    })) as any,
+    query: { enabled: uniqueAssetIds.length > 0 },
   });
 
   // Initial fetch
@@ -364,6 +399,37 @@ const MarketsPage: NextPage = () => {
     }
     return ids;
   }, [holdingsData, listings]);
+
+  const assetActionPreview = useMemo(() => {
+    const byAssetId = new Map<string, { claimableEarnings: bigint; claimableSettlement: bigint }>();
+    if (!actionPreviewData) return byAssetId;
+
+    uniqueAssetIds.forEach((assetId, index) => {
+      const earningsResult = actionPreviewData[index * 2];
+      const settlementResult = actionPreviewData[index * 2 + 1];
+      const claimableEarnings =
+        earningsResult?.status === "success" ? ((earningsResult.result as bigint | undefined) ?? 0n) : 0n;
+      const claimableSettlement =
+        settlementResult?.status === "success" ? ((settlementResult.result as bigint | undefined) ?? 0n) : 0n;
+      byAssetId.set(assetId, { claimableEarnings, claimableSettlement });
+    });
+
+    return byAssetId;
+  }, [actionPreviewData, uniqueAssetIds]);
+
+  const assetStatusById = useMemo(() => {
+    const byAssetId = new Map<string, number>();
+    if (!assetStatusPreviewData) return byAssetId;
+
+    uniqueAssetIds.forEach((assetId, index) => {
+      const result = assetStatusPreviewData[index];
+      const status =
+        result?.status === "success" && result.result !== undefined ? Number(result.result as bigint | number) : -1;
+      byAssetId.set(assetId, status);
+    });
+
+    return byAssetId;
+  }, [assetStatusPreviewData, uniqueAssetIds]);
 
   // Fetch IPFS images
   useEffect(() => {
@@ -454,6 +520,58 @@ const MarketsPage: NextPage = () => {
     [tokens, assetEarnings, tokenSoldTotals],
   );
 
+  const hasLikelyAction = useCallback(
+    (listing: SubgraphListing): boolean => {
+      // Generic actionable state for any user (e.g. buyable active listings).
+      const isCancelled = listing.isCancelled || listing.status === "cancelled";
+      const isEndedOrExpired = listing.isEnded || listing.status === "expired";
+      const hasAvailableTokens = BigInt(listing.amount) > 0n;
+      if (!isCancelled && !isEndedOrExpired && hasAvailableTokens) return true;
+
+      if (!address) return false;
+
+      const isSeller = listing.seller.toLowerCase() === address.toLowerCase();
+      const hasBoughtListing = userListingIds.has(listing.id) || recentPurchases.has(listing.id);
+      const hasTokensOrEscrowForListing = userHoldingsIds.has(listing.id);
+      const refundAlreadyClaimed = userRefundedListingIds.has(listing.id);
+      const preview = assetActionPreview.get(listing.assetId);
+      const assetStatus = assetStatusById.get(listing.assetId) ?? -1;
+      const isAssetSettled = assetStatus === 3 || assetStatus === 4;
+      const hasClaimableEarnings = (preview?.claimableEarnings ?? 0n) > 0n;
+      const hasClaimableSettlement = (preview?.claimableSettlement ?? 0n) > 0n;
+
+      // Cancelled listings stay in the "cancelled last" bucket, but can still be actionable for refund claims.
+      if (isCancelled) {
+        return hasTokensOrEscrowForListing && !refundAlreadyClaimed;
+      }
+
+      // Seller-managed listings are often actionable while the listing is live/expired.
+      // Ended seller listings can still be actionable while the underlying asset remains unsettled
+      // (e.g. Distribute Earnings / Settle Asset on primary listings).
+      if (isSeller && !isCancelled && (!listing.isEnded || !isAssetSettled)) return true;
+
+      // Non-ended listings the user participated in often still expose actionable CTAs
+      // (e.g. claim earnings on expired listings) even when generic availability is zero.
+      if (!listing.isEnded && hasBoughtListing) return true;
+
+      // Buyer/holder actions that the card can actually surface.
+      if (hasBoughtListing && hasClaimableEarnings) return true;
+      if (hasTokensOrEscrowForListing && hasClaimableSettlement) return true;
+
+      // Conservative fallback: do not prioritize based on holdings/history alone.
+      return false;
+    },
+    [
+      address,
+      assetActionPreview,
+      assetStatusById,
+      recentPurchases,
+      userHoldingsIds,
+      userListingIds,
+      userRefundedListingIds,
+    ],
+  );
+
   // Filter and sort listings
   const displayListings = useMemo(() => {
     let filtered = [...listings];
@@ -490,9 +608,20 @@ const MarketsPage: NextPage = () => {
     // Sort (active listings first)
     filtered.sort((a, b) => {
       // Keep cancelled listings pinned to the end regardless of selected sort.
-      const aSortBucket = a.isCancelled ? 2 : a.isEnded || a.status === "expired" ? 1 : 0;
-      const bSortBucket = b.isCancelled ? 2 : b.isEnded || b.status === "expired" ? 1 : 0;
-      if (aSortBucket !== bSortBucket) return aSortBucket - bSortBucket;
+      const aCancelled = a.isCancelled || a.status === "cancelled";
+      const bCancelled = b.isCancelled || b.status === "cancelled";
+      if (aCancelled !== bCancelled) return aCancelled ? 1 : -1;
+
+      // For non-cancelled listings, surface listings that likely have user actions first.
+      const aHasAction = hasLikelyAction(a);
+      const bHasAction = hasLikelyAction(b);
+      if (aHasAction !== bHasAction) return aHasAction ? -1 : 1;
+
+      // Then prefer active listings over ended/expired listings.
+      const aEndedOrExpired = a.isEnded || a.status === "expired";
+      const bEndedOrExpired = b.isEnded || b.status === "expired";
+      if (aEndedOrExpired !== bEndedOrExpired) return aEndedOrExpired ? 1 : -1;
+
       switch (sortBy) {
         case "apr_desc":
           return calculateListingApy(b) - calculateListingApy(a);
@@ -531,7 +660,10 @@ const MarketsPage: NextPage = () => {
     recentPurchases,
     userHoldingsIds,
     userRefundedListingIds,
+    assetActionPreview,
+    assetStatusById,
     address,
+    hasLikelyAction,
   ]);
 
   const sellerTokenIdCounts = useMemo(() => {
