@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -1828,7 +1828,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1901,7 +1901,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2551,7 +2551,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -3270,6 +3270,30 @@ const deployedContracts = {
               name: "",
               type: "address",
               internalType: "contract PartnerManager",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewLiquidationEligibility",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "eligible",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "reason",
+              type: "uint8",
+              internalType: "uint8",
             },
           ],
           stateMutability: "view",
@@ -4363,7 +4387,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5984,7 +6008,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6782,6 +6806,30 @@ const deployedContracts = {
               name: "releasedAmount",
               type: "uint256",
               internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewLiquidationEligibility",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "eligible",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "reason",
+              type: "uint8",
+              internalType: "uint8",
             },
           ],
           stateMutability: "view",
@@ -7883,6 +7931,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidUSDCContract",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "NoCollateralLocked",
           inputs: [],
         },
@@ -8002,12 +8061,23 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "UnsupportedUSDCDecimals",
+          inputs: [
+            {
+              name: "decimals",
+              type: "uint8",
+              internalType: "uint8",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "ZeroAddress",
           inputs: [],
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -9656,6 +9726,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidUSDCContract",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "ListingIsCancelled",
           inputs: [],
         },
@@ -9748,12 +9829,23 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "UnsupportedUSDCDecimals",
+          inputs: [
+            {
+              name: "decimals",
+              type: "uint8",
+              internalType: "uint8",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "ZeroAddress",
           inputs: [],
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771585041512.json",
+      deploymentFile: "run-1771794605679.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

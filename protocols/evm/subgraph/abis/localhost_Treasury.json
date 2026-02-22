@@ -797,6 +797,30 @@
   },
   {
     "type": "function",
+    "name": "previewLiquidationEligibility",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "reason",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "previewSettlementClaim",
     "inputs": [
       {
@@ -1892,6 +1916,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidUSDCContract",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NoCollateralLocked",
     "inputs": []
   },
@@ -2008,6 +2043,17 @@
     "type": "error",
     "name": "UnauthorizedPartner",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedUSDCDecimals",
+    "inputs": [
+      {
+        "name": "decimals",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
   },
   {
     "type": "error",
