@@ -42,6 +42,7 @@ interface SubgraphListing {
   status: string;
   isCancelled: boolean;
   isEnded: boolean;
+  endedAt?: string | null;
   claimedAmount: string;
   refundedAmount: string;
   createdAt: string;
@@ -184,6 +185,7 @@ const MarketsPage: NextPage = () => {
                 status
                 isCancelled
                 isEnded
+                endedAt
                 claimedAmount
                 refundedAmount
                 createdAt

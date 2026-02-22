@@ -294,6 +294,7 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.status = "active"
   listing.isCancelled = false
   listing.isEnded = false
+  listing.endedAt = null
   listing.claimedAmount = BigInt.fromI32(0)
   listing.refundedAmount = BigInt.fromI32(0)
   listing.createdAt = event.block.timestamp
@@ -352,6 +353,7 @@ export function handleListingEnded(event: ListingEndedEvent): void {
   if (listing) {
     listing.status = "ended"
     listing.isEnded = true
+    listing.endedAt = event.block.timestamp
     listing.save()
   }
 }

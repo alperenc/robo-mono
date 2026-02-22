@@ -22,6 +22,7 @@ interface MarketAssetCardProps {
     isPrimary?: boolean;
     isCancelled?: boolean;
     isEnded?: boolean;
+    endedAt?: string | null;
     createdAt?: string;
     soldOutAt?: string;
   };
@@ -202,22 +203,20 @@ export function MarketAssetCard({
     const totalValue = tokenPrice * principalAmount;
 
     if (earnings && listingActualEarnings > 0n && totalValue > 0n) {
-      // Prefer annualized realized APY when full timing exists; otherwise use realized return to-date.
-      const firstDistAt = BigInt(earnings.firstDistributionAt || "0");
+      // Annualize realized returns only when listing end timestamp is available.
+      // Otherwise fallback to target yield APY instead of using inaccurate timing guesses.
+      const listingEndedAtOnChain = BigInt(listing.endedAt || "0");
       const lastDistAt = BigInt(earnings.lastDistributionAt || "0");
-      const duration = lastDistAt - firstDistAt;
-      let aprBps: bigint;
+      const duration =
+        listingEndedAtOnChain > 0n && lastDistAt > listingEndedAtOnChain ? lastDistAt - listingEndedAtOnChain : 0n;
 
-      if (duration > 0n && firstDistAt > 0n) {
+      if (duration > 0n) {
         const secondsPerYear = 365n * 24n * 60n * 60n;
         const annualizedEarnings = (listingActualEarnings * secondsPerYear) / duration;
-        aprBps = (annualizedEarnings * bpPrecision) / totalValue;
-      } else {
-        aprBps = (listingActualEarnings * bpPrecision) / totalValue;
+        const aprBps = (annualizedEarnings * bpPrecision) / totalValue;
+        const aprPercent = Number(aprBps) / 100;
+        return `${aprPercent.toFixed(2)}%`;
       }
-
-      const aprPercent = Number(aprBps) / 100;
-      return `${aprPercent.toFixed(2)}%`;
     }
 
     // Fallback to target yield APY (or benchmark if unavailable)
@@ -228,7 +227,16 @@ export function MarketAssetCard({
         : 0;
     const targetYieldPercent = targetYieldBps / 100;
     return `${targetYieldPercent.toFixed(2)}%`;
-  }, [token, benchmarkYieldBP, bpPrecision, earnings, listing.amount, listingActualEarnings, listingSoldAmount]);
+  }, [
+    token,
+    benchmarkYieldBP,
+    bpPrecision,
+    earnings,
+    listing.amount,
+    listing.endedAt,
+    listingActualEarnings,
+    listingSoldAmount,
+  ]);
 
   // Format listing-scoped actual earnings (numeric value only — symbol rendered separately)
   const actualEarningsDisplay = useMemo(() => {
