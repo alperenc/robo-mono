@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -17,6 +17,7 @@ interface ClaimSettlementModalProps {
 
 export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: ClaimSettlementModalProps) => {
   const { address } = useAccount();
+  const [autoClaimEarnings, setAutoClaimEarnings] = useState(false);
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const { writeContractAsync: writeRouter, isPending } = useScaffoldWriteContract({
     contractName: "RegistryRouter",
@@ -39,18 +40,52 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
     args: address ? [BigInt(assetId), address] : undefined,
     query: { enabled: isOpen && !!address },
   });
+  const { data: previewEarningsAmount } = useReadContract({
+    address: deployedContracts[31337]?.Treasury?.address,
+    abi: [
+      {
+        type: "function",
+        name: "previewClaimEarnings",
+        stateMutability: "view",
+        inputs: [
+          { name: "assetId", type: "uint256" },
+          { name: "holder", type: "address" },
+        ],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ] as const,
+    functionName: "previewClaimEarnings",
+    args: address ? [BigInt(assetId), address] : undefined,
+    query: { enabled: isOpen && !!address },
+  });
   const claimableAmount = previewSettlementAmount || 0n;
+  const claimableEarnings = previewEarningsAmount || 0n;
+  const totalIfAutoClaim = claimableAmount + claimableEarnings;
   const claimableDisplay = useMemo(() => {
     const formatted = formatUnits(claimableAmount, paymentDecimals);
     return Number(formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [claimableAmount, paymentDecimals]);
+  const claimableEarningsDisplay = useMemo(() => {
+    const formatted = formatUnits(claimableEarnings, paymentDecimals);
+    return Number(formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [claimableEarnings, paymentDecimals]);
+  const totalIfAutoClaimDisplay = useMemo(() => {
+    const formatted = formatUnits(totalIfAutoClaim, paymentDecimals);
+    return Number(formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [totalIfAutoClaim, paymentDecimals]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setAutoClaimEarnings(false);
+    }
+  }, [isOpen]);
 
   const handleClaim = async () => {
     if (claimableAmount === 0n || !address) return;
     try {
       await writeRouter({
         functionName: "claimSettlementFor",
-        args: [address, BigInt(assetId), false],
+        args: [address, BigInt(assetId), autoClaimEarnings],
       });
       onClose();
     } catch (e) {
@@ -86,6 +121,53 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
             <p className="text-sm opacity-70 mt-3">
               Claim your settlement payout. This will burn your revenue tokens for this asset.
             </p>
+            <div className="mt-4 space-y-1 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="opacity-70">Settlement</span>
+                <span className="font-medium">
+                  {claimableDisplay} {paymentSymbol}
+                </span>
+              </div>
+              {autoClaimEarnings && (
+                <div className="flex justify-between gap-3">
+                  <span className="opacity-70">Claimable earnings</span>
+                  <span className="font-medium">
+                    {claimableEarningsDisplay} {paymentSymbol}
+                  </span>
+                </div>
+              )}
+              {autoClaimEarnings && (
+                <div className="flex justify-between gap-3 border-t border-base-300 pt-2 mt-2 font-semibold text-success">
+                  <span>Total this transaction</span>
+                  <span>
+                    {totalIfAutoClaimDisplay} {paymentSymbol}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-control w-full mt-2">
+            <label className="label cursor-pointer flex justify-between w-full py-2">
+              <div>
+                <span className="label-text font-medium">Auto-claim earnings</span>
+                <p className="text-xs opacity-50 mt-0.5">
+                  Include any unclaimed earnings in the same settlement transaction.
+                </p>
+                {autoClaimEarnings && (
+                  <p className="text-xs mt-1 font-medium text-success">
+                    Estimated earnings claim: {claimableEarningsDisplay} {paymentSymbol}
+                  </p>
+                )}
+              </div>
+              <input
+                type="checkbox"
+                className="toggle toggle-success"
+                checked={autoClaimEarnings}
+                onChange={e => setAutoClaimEarnings(e.target.checked)}
+                disabled={isPending}
+              />
+            </label>
           </div>
         </div>
 
