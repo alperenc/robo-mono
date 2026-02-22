@@ -379,6 +379,16 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         return ITreasury(treasury).isAssetSolvent(assetId);
     }
 
+    /**
+     * @dev Preview liquidation eligibility via Treasury using simulated shortfall accrual.
+     */
+    function previewLiquidationEligibility(uint256 assetId) external view returns (bool eligible, uint8 reason) {
+        if (treasury == address(0)) {
+            revert TreasuryNotSet();
+        }
+        return ITreasury(treasury).previewLiquidationEligibility(assetId);
+    }
+
     function settleAsset(uint256 assetId, uint256 topUpAmount) external override {
         address registry = idToRegistry[assetId];
         if (registry == address(0)) {

@@ -33,6 +33,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         NoNewEarningsPeriods
     }
 
+    enum LiquidationEligibilityReason {
+        EligibleByMaturity,
+        EligibleByInsolvency,
+        AlreadySettled,
+        NotEligible
+    }
+
     struct ReleaseCalculation {
         ReleaseEligibility status;
         CollateralLib.CollateralInfo collateral;
@@ -677,10 +684,43 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     /**
      * @dev Check asset solvency
+     * @notice Returns raw stored collateral solvency and does not simulate missed-shortfall accrual.
      */
     function isAssetSolvent(uint256 assetId) external view override returns (bool) {
         // An asset is solvent if it hasn't been settled AND is not currently under financial distress
         return !assetSettlements[assetId].isSettled && CollateralLib.isSolvent(assetCollateral[assetId]);
+    }
+
+    /**
+     * @dev Preview liquidation eligibility using simulated missed-shortfall accrual.
+     */
+    function previewLiquidationEligibility(uint256 assetId)
+        external
+        view
+        override
+        returns (bool eligible, uint8 reason)
+    {
+        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
+        if (settlement.isSettled) {
+            return (false, uint8(LiquidationEligibilityReason.AlreadySettled));
+        }
+
+        CollateralLib.CollateralInfo memory simulatedCollateral =
+            _previewCollateralAfterMissedEarningsShortfall(assetId);
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
+        bool isMatured = block.timestamp >= maturityDate;
+        bool isSolvent = CollateralLib.isSolventMemory(simulatedCollateral);
+
+        if (isMatured) {
+            return (true, uint8(LiquidationEligibilityReason.EligibleByMaturity));
+        }
+        if (!isSolvent) {
+            return (true, uint8(LiquidationEligibilityReason.EligibleByInsolvency));
+        }
+
+        return (false, uint8(LiquidationEligibilityReason.NotEligible));
     }
 
     /**
@@ -801,6 +841,35 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         collateralInfo.lastEventTimestamp = block.timestamp;
         earningsInfo.lastEventTimestamp = block.timestamp;
+    }
+
+    function _previewCollateralAfterMissedEarningsShortfall(uint256 assetId)
+        internal
+        view
+        returns (CollateralLib.CollateralInfo memory collateralInfo)
+    {
+        collateralInfo = assetCollateral[assetId];
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+
+        if (!collateralInfo.isLocked) {
+            return collateralInfo;
+        }
+
+        if (earningsInfo.lastEventTimestamp == 0) {
+            return collateralInfo;
+        }
+
+        uint256 elapsed = block.timestamp - earningsInfo.lastEventTimestamp;
+        if (elapsed == 0) {
+            return collateralInfo;
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
+        uint256 benchmarkEarnings =
+            EarningsLib.calculateEarnings(collateralInfo.initialBaseCollateral, elapsed, targetYieldBP);
+
+        CollateralLib.processEarningsForBuffersInMemory(collateralInfo, 0, benchmarkEarnings);
     }
 
     /**

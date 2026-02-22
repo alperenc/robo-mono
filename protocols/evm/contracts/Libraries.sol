@@ -820,6 +820,64 @@ library CollateralLib {
     }
 
     /**
+     * @dev View-only/in-memory variant of processEarningsForBuffers.
+     *      Mirrors buffer shortfall/replenishment math without mutating storage.
+     * @param info Collateral info memory copy (will be mutated in-memory)
+     * @param netEarnings Actual earnings received for the period
+     * @param baseEarnings Expected base earnings for the period
+     * @return earningsResult Positive: remaining excess earnings, Negative: shortfall amount, Zero: exact match
+     * @return replenishmentAmount Amount replenished to earnings buffer from reserved funds
+     */
+    function processEarningsForBuffersInMemory(CollateralInfo memory info, uint256 netEarnings, uint256 baseEarnings)
+        internal
+        pure
+        returns (int256 earningsResult, uint256 replenishmentAmount)
+    {
+        // Handle shortfall (when netEarnings < baseEarnings)
+        if (netEarnings < baseEarnings) {
+            uint256 shortfallAmount = baseEarnings - netEarnings;
+
+            if (info.earningsBuffer >= shortfallAmount) {
+                info.earningsBuffer -= shortfallAmount;
+                info.reservedForLiquidation += shortfallAmount;
+            } else {
+                info.reservedForLiquidation += info.earningsBuffer;
+                info.earningsBuffer = 0;
+            }
+
+            info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
+            return (-shortfallAmount.toInt256(), 0);
+        } else if (netEarnings > baseEarnings) {
+            uint256 excessEarnings = netEarnings - baseEarnings;
+
+            (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
+                info.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+            );
+            uint256 bufferDeficit =
+                benchmarkEarningsBuffer > info.earningsBuffer ? benchmarkEarningsBuffer - info.earningsBuffer : 0;
+
+            uint256 replenished = 0;
+            if (info.reservedForLiquidation > 0) {
+                uint256 toReplenish =
+                    bufferDeficit < info.reservedForLiquidation ? bufferDeficit : info.reservedForLiquidation;
+                toReplenish = toReplenish < excessEarnings ? toReplenish : excessEarnings;
+
+                if (toReplenish > 0) {
+                    info.earningsBuffer += toReplenish;
+                    info.reservedForLiquidation -= toReplenish;
+                    excessEarnings -= toReplenish;
+                    replenished = toReplenish;
+                    info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
+                }
+            }
+
+            return (excessEarnings.toInt256(), replenished);
+        }
+
+        return (0, 0);
+    }
+
+    /**
      * @dev Get benchmark earnings buffer amount based on current base collateral
      * @param baseCollateral Current base collateral amount
      * @return Benchmark earnings buffer amount
@@ -830,6 +888,15 @@ library CollateralLib {
      * @return True if solvent (has buffer remaining OR no deficit)
      */
     function isSolvent(CollateralInfo storage info) internal view returns (bool) {
+        return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
+    }
+
+    /**
+     * @dev In-memory solvency check for preview/simulation paths.
+     * @param info Memory copy of collateral info
+     * @return True if solvent (has buffer remaining OR no deficit)
+     */
+    function isSolventMemory(CollateralInfo memory info) internal pure returns (bool) {
         return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
     }
 }

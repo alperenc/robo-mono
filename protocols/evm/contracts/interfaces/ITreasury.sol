@@ -70,6 +70,12 @@ interface ITreasury {
     function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
         external
         returns (uint256 claimedAmount);
+    /**
+     * @dev Preview whether an asset is currently eligible for liquidation using simulated missed-shortfall accrual.
+     * @return eligible True if liquidation would be allowed
+     * @return reason Encoded reason: 0=EligibleByMaturity, 1=EligibleByInsolvency, 2=AlreadySettled, 3=NotEligible
+     */
+    function previewLiquidationEligibility(uint256 assetId) external view returns (bool eligible, uint8 reason);
     function isAssetSolvent(uint256 assetId) external view returns (bool);
     function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
         external
