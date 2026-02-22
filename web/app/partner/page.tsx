@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { NextPage } from "next";
 import { formatUnits } from "viem";
-import { useAccount, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
+import { useAccount, useBlock, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { CancelListingModal } from "~~/components/partner/CancelListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
@@ -114,6 +114,7 @@ interface CategorizedAsset extends DashboardAsset {
 
 const PartnerDashboard: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+  const { data: latestBlock } = useBlock({ watch: true });
   const chainId = useChainId();
   const chains = useChains();
   const currentChain = chains.find(c => c.id === chainId);
@@ -322,6 +323,17 @@ const PartnerDashboard: NextPage = () => {
   // Cast to break deep type inference
   const supplies = suppliesData as ContractResult<bigint>[] | undefined;
 
+  const { data: maturityDatesData, refetch: refetchMaturityDates } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      address: deployedContracts[31337]?.RoboshareTokens?.address,
+      abi: deployedContracts[31337]?.RoboshareTokens?.abi,
+      functionName: "getTokenMaturityDate",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: allAssets.length > 0 },
+  });
+  const tokenMaturityDates = maturityDatesData as ContractResult<bigint>[] | undefined;
+
   // Fetch Asset Statuses from RegistryRouter
   const routerConfig = {
     address: deployedContracts[31337]?.RegistryRouter?.address,
@@ -342,16 +354,24 @@ const PartnerDashboard: NextPage = () => {
   // Store refetch functions in refs to avoid deep type instantiation in useCallback deps
   const refetchSuppliesRef = useRef(refetchSupplies);
   const refetchStatusesRef = useRef(refetchStatuses);
+  const refetchMaturityDatesRef = useRef(refetchMaturityDates);
   refetchSuppliesRef.current = refetchSupplies;
   refetchStatusesRef.current = refetchStatuses;
+  refetchMaturityDatesRef.current = refetchMaturityDates;
 
   // Refetch supplies and statuses when refreshCounter changes
   useEffect(() => {
     if (refreshCounter > 0 && allAssets.length > 0) {
       void refetchSuppliesRef.current();
       void refetchStatusesRef.current();
+      void refetchMaturityDatesRef.current();
     }
   }, [refreshCounter, allAssets.length]);
+
+  const chainNowSec = latestBlock?.timestamp ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
+  const assetMaturityDateById = new Map<string, bigint>(
+    allAssets.map((asset, index) => [asset.id, (tokenMaturityDates?.[index]?.result as bigint | undefined) ?? 0n]),
+  );
 
   // View/Display Mode State
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -873,40 +893,52 @@ const PartnerDashboard: NextPage = () => {
               borderClass="border-success/30"
               viewMode={viewMode}
             >
-              {activeFleet.map(asset => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  borderColor="border-success"
-                  isGrid={viewMode === "grid"}
-                  primaryAction={{
+              {activeFleet.map(asset =>
+                (() => {
+                  const maturityDate = assetMaturityDateById.get(asset.id) ?? 0n;
+                  const isMaturedByTime = maturityDate > 0n && Number(maturityDate) <= chainNowSec;
+                  const isMatured = asset.assetStatus === 2 || isMaturedByTime;
+                  const distributeAction = {
                     label: "Distribute Earnings",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
                       setDistributeEarningsModalOpen(true);
                     },
                     className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
-                  }}
-                  secondaryActions={[
-                    ...(asset.supply && asset.totalSold !== undefined && asset.supply > asset.totalSold
-                      ? [
-                          {
-                            label: "List Tokens",
-                            onClick: () => openListModal(asset, (asset.supply! - asset.totalSold!).toString()),
-                          },
-                        ]
-                      : []),
-                    {
-                      label: "Settle Asset",
-                      onClick: () => {
-                        setSelectedCategorizedAsset(asset);
-                        setSettleAssetModalOpen(true);
-                      },
-                      className: asset.assetStatus === 2 ? "" : "text-error",
+                  };
+                  const settleAction = {
+                    label: "Settle Asset",
+                    onClick: () => {
+                      setSelectedCategorizedAsset(asset);
+                      setSettleAssetModalOpen(true);
                     },
-                  ]}
-                />
-              ))}
+                    className: isMatured
+                      ? "btn btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25"
+                      : "btn btn-error",
+                  };
+
+                  return (
+                    <AssetCard
+                      key={asset.id}
+                      asset={asset}
+                      borderColor="border-success"
+                      isGrid={viewMode === "grid"}
+                      primaryAction={isMatured ? settleAction : distributeAction}
+                      secondaryActions={[
+                        ...(asset.supply && asset.totalSold !== undefined && asset.supply > asset.totalSold
+                          ? [
+                              {
+                                label: "List Tokens",
+                                onClick: () => openListModal(asset, (asset.supply! - asset.totalSold!).toString()),
+                              },
+                            ]
+                          : []),
+                        ...(isMatured ? [distributeAction] : [settleAction]),
+                      ]}
+                    />
+                  );
+                })(),
+              )}
             </Section>
           )}
 

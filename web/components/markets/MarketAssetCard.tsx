@@ -3,7 +3,7 @@
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useBlock } from "wagmi";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
@@ -103,9 +103,11 @@ export function MarketAssetCard({
   onSettleAssetClick,
 }: MarketAssetCardProps) {
   const { address } = useAccount();
+  const { data: latestBlock } = useBlock({ watch: true });
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const actionDropdownRef = useRef<HTMLDivElement>(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const chainNowSec = latestBlock?.timestamp ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
 
   // Read user's escrowed token balance (marketplace)
   const { data: escrowedTokens } = useScaffoldReadContract({
@@ -276,7 +278,7 @@ export function MarketAssetCard({
 
     // earnings at maturity = earningsPerYear * yearsToMaturity
     const maturitySec = Number(token.maturityDate);
-    const nowSec = Math.floor(Date.now() / 1000);
+    const nowSec = chainNowSec;
     const secondsPerYear = 365 * 24 * 60 * 60;
     // Use full term from listing creation (approximate) — or remaining time if already listed
     const remainingSec = maturitySec > nowSec ? maturitySec - nowSec : 0;
@@ -319,6 +321,7 @@ export function MarketAssetCard({
     hasAvailableTokens,
     listingSoldAmount,
     paymentDecimals,
+    chainNowSec,
   ]);
 
   // Format price per token (numeric value only — symbol rendered separately)
@@ -378,7 +381,7 @@ export function MarketAssetCard({
   const isCancelled = listing.isCancelled;
   const isEnded = listing.isEnded;
   const isInactive = isCancelled || isEnded || isExpired;
-  const isTokenMatured = token ? Number(token.maturityDate) <= Math.floor(Date.now() / 1000) : false;
+  const isTokenMatured = token ? Number(token.maturityDate) <= chainNowSec : false;
   const soldOutDurationLabel = useMemo(() => {
     if (hasAvailableTokens) return null;
     if (!listing.createdAt || !listing.soldOutAt) return "Sold Out";
@@ -430,7 +433,7 @@ export function MarketAssetCard({
     };
 
     const resolvePrimaryClass = (action: CandidateAction): string => {
-      if (action.label === "Settle Asset") return isTokenMatured ? "btn-warning" : "btn-error";
+      if (action.label === "Settle Asset") return isTokenMatured ? primaryGhostClass : "btn-error";
       if (action.label === "Cancel Listing" || action.label === "Claim Refund") return "btn-error";
       if (action.label === "Claim Settlement") return successGhostClass;
       if (
@@ -452,13 +455,19 @@ export function MarketAssetCard({
     };
 
     if (isSellerOfListing && !isSecondaryListing && !isCancelled && !isAssetSettled) {
+      if (isTokenMatured && onSettleAssetClick) {
+        primarySellerLifecycleActions.push({
+          label: "Settle Asset",
+          onClick: onSettleAssetClick,
+        });
+      }
       if (onDistributeEarningsClick && listingSoldAmount > 0n) {
         primarySellerLifecycleActions.push({
           label: "Distribute Earnings",
           onClick: onDistributeEarningsClick,
         });
       }
-      if (onSettleAssetClick) {
+      if (!isTokenMatured && onSettleAssetClick) {
         primarySellerLifecycleActions.push({
           label: "Settle Asset",
           onClick: onSettleAssetClick,
