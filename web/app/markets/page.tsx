@@ -85,7 +85,7 @@ interface SubgraphPartner {
 
 type SortOption = "apr_desc" | "apr_asc" | "earnings_desc" | "earnings_asc" | "newest" | "price_asc" | "price_desc";
 
-// Protocol constants for APR calculation
+// Protocol constants for APY calculation/sorting
 const BENCHMARK_EARNINGS_BP = 1000n;
 const BP_PRECISION = 10000n;
 
@@ -393,28 +393,56 @@ const MarketsPage: NextPage = () => {
     fetchImages();
   }, [vehicles, imageUrls]);
 
-  // Helper to calculate APR for sorting (match card display logic)
-  const calculateApr = useCallback(
-    (assetId: string): number => {
-      const tokenId = (BigInt(assetId) + 1n).toString();
-      const token = tokens.find(t => t.revenueTokenId === tokenId);
-      const earning = assetEarnings.find(e => e.assetId === assetId);
+  const tokenSoldTotals = useMemo(() => {
+    const totals = new Map<string, bigint>();
+    for (const listing of listings) {
+      if (listing.isCancelled) continue;
+      const sold = listing.amountSold ? BigInt(listing.amountSold) : 0n;
+      if (sold <= 0n) continue;
+      totals.set(listing.tokenId, (totals.get(listing.tokenId) ?? 0n) + sold);
+    }
+    return totals;
+  }, [listings]);
+
+  // Helper to calculate listing APY for sorting (match card display logic)
+  const calculateListingApy = useCallback(
+    (listing: SubgraphListing): number => {
+      const token = tokens.find(t => t.revenueTokenId === listing.tokenId);
+      const earning = assetEarnings.find(e => e.assetId === listing.assetId);
 
       if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
 
-      const tokenPrice = BigInt(token.price);
-      const tokenSupply = BigInt(token.supply);
-      const totalValue = tokenPrice * tokenSupply;
+      const listingSoldAmount =
+        listing.amountSold && listing.amountSold !== "0"
+          ? BigInt(listing.amountSold)
+          : (() => {
+              const derived = BigInt(token.supply) - BigInt(listing.amount);
+              return derived > 0n ? derived : 0n;
+            })();
 
-      if (earning && earning.firstDistributionAt !== "0" && totalValue > 0n) {
-        const totalEarnings = BigInt(earning.totalEarnings);
-        const firstDistAt = BigInt(earning.firstDistributionAt);
-        const lastDistAt = BigInt(earning.lastDistributionAt);
-        const duration = lastDistAt - firstDistAt;
+      const soldSupplyForAllocation = tokenSoldTotals.get(listing.tokenId) ?? listingSoldAmount;
+      const listingActualEarnings =
+        listing.isCancelled ||
+        !earning ||
+        earning.totalEarnings === "0" ||
+        listingSoldAmount <= 0n ||
+        soldSupplyForAllocation <= 0n
+          ? 0n
+          : (BigInt(earning.totalEarnings) * listingSoldAmount) / soldSupplyForAllocation;
+
+      const tokenPrice = BigInt(token.price);
+      const principalAmount = listingSoldAmount > 0n ? listingSoldAmount : BigInt(listing.amount);
+      const totalValue = tokenPrice * principalAmount;
+
+      if (earning && listingActualEarnings > 0n && totalValue > 0n) {
+        const listingEndedAtOnChain = BigInt(listing.endedAt || "0");
+        const lastDistAt = BigInt(earning.lastDistributionAt || "0");
+        const duration =
+          listingEndedAtOnChain > 0n && lastDistAt > listingEndedAtOnChain ? lastDistAt - listingEndedAtOnChain : 0n;
 
         if (duration > 0n) {
           const secondsPerYear = 365n * 24n * 60n * 60n;
-          const annualizedEarnings = (totalEarnings * secondsPerYear) / duration;
+          const annualizedEarnings = (listingActualEarnings * secondsPerYear) / duration;
           const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
           return Number(aprBps) / 100;
         }
@@ -423,7 +451,7 @@ const MarketsPage: NextPage = () => {
       const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
       return targetYieldBp / 100;
     },
-    [tokens, assetEarnings],
+    [tokens, assetEarnings, tokenSoldTotals],
   );
 
   // Filter and sort listings
@@ -466,9 +494,9 @@ const MarketsPage: NextPage = () => {
       if (aInactive !== bInactive) return aInactive ? 1 : -1;
       switch (sortBy) {
         case "apr_desc":
-          return calculateApr(b.assetId) - calculateApr(a.assetId);
+          return calculateListingApy(b) - calculateListingApy(a);
         case "apr_asc":
-          return calculateApr(a.assetId) - calculateApr(b.assetId);
+          return calculateListingApy(a) - calculateListingApy(b);
         case "earnings_desc": {
           const earningsA = BigInt(assetEarnings.find(e => e.assetId === a.assetId)?.totalEarnings || "0");
           const earningsB = BigInt(assetEarnings.find(e => e.assetId === b.assetId)?.totalEarnings || "0");
@@ -496,7 +524,7 @@ const MarketsPage: NextPage = () => {
     filterType,
     sortBy,
     assetEarnings,
-    calculateApr,
+    calculateListingApy,
     showOnlyHoldings,
     userListingIds,
     recentPurchases,
@@ -540,17 +568,6 @@ const MarketsPage: NextPage = () => {
     }
     return counts;
   }, [address, listings]);
-
-  const tokenSoldTotals = useMemo(() => {
-    const totals = new Map<string, bigint>();
-    for (const listing of listings) {
-      if (listing.isCancelled) continue;
-      const sold = listing.amountSold ? BigInt(listing.amountSold) : 0n;
-      if (sold <= 0n) continue;
-      totals.set(listing.tokenId, (totals.get(listing.tokenId) ?? 0n) + sold);
-    }
-    return totals;
-  }, [listings]);
 
   const refreshMarketsAfterSuccess = useCallback(
     (opts?: { skipImmediateFetch?: boolean }) => {
@@ -665,8 +682,8 @@ const MarketsPage: NextPage = () => {
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as SortOption)}
               >
-                <option value="apr_desc">Highest APR</option>
-                <option value="apr_asc">Lowest APR</option>
+                <option value="apr_desc">Highest APY</option>
+                <option value="apr_asc">Lowest APY</option>
                 <option value="earnings_desc">Most Earnings</option>
                 <option value="earnings_asc">Least Earnings</option>
                 <option value="newest">Newest</option>
