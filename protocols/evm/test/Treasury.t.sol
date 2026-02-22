@@ -10,6 +10,32 @@ import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
 
+contract TreasuryBadTotalSupplyToken {
+    function totalSupply() external pure returns (uint256) {
+        revert("bad totalSupply");
+    }
+}
+
+contract TreasuryBadDecimalsToken {
+    function totalSupply() external pure returns (uint256) {
+        return 1;
+    }
+
+    function decimals() external pure returns (uint8) {
+        revert("bad decimals");
+    }
+}
+
+contract TreasuryWrongDecimalsToken {
+    function totalSupply() external pure returns (uint256) {
+        return 1;
+    }
+
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
+}
+
 contract TreasuryTest is BaseTest {
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
@@ -239,6 +265,33 @@ contract TreasuryTest is BaseTest {
         );
         vm.prank(unauthorized);
         treasury.updateUSDC(address(newUsdc));
+    }
+
+    function testUpdateUSDCInvalidContractTotalSupplyReverts() public {
+        TreasuryBadTotalSupplyToken bad = new TreasuryBadTotalSupplyToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Treasury.InvalidUSDCContract.selector, address(bad)));
+        treasury.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCInvalidContractDecimalsReverts() public {
+        TreasuryBadDecimalsToken bad = new TreasuryBadDecimalsToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Treasury.InvalidUSDCContract.selector, address(bad)));
+        treasury.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCUnsupportedUSDCDecimalsReverts() public {
+        TreasuryWrongDecimalsToken bad = new TreasuryWrongDecimalsToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Treasury.UnsupportedUSDCDecimals.selector, uint8(18)));
+        treasury.updateUSDC(address(bad));
+        vm.stopPrank();
     }
 
     function testUpdateRoboshareTokens() public {

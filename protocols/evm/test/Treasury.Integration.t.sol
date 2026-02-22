@@ -1315,6 +1315,56 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertEq(settlementPerToken, liquidationAmount / totalSupply);
     }
 
+    function testPreviewLiquidationEligibilityNotEligible() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        _setupBaseEscrowCredited(ASSET_VALUE);
+
+        (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 3); // NotEligible
+
+        vm.prank(address(router));
+        vm.expectRevert(
+            abi.encodeWithSelector(IAssetRegistry.AssetNotEligibleForLiquidation.selector, scenario.assetId)
+        );
+        treasury.executeLiquidation(scenario.assetId);
+    }
+
+    function testPreviewLiquidationEligibilityByMaturity() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        _setupBaseEscrowCredited(ASSET_VALUE);
+
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
+        vm.warp(maturityDate + 1);
+
+        (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
+        assertTrue(eligible);
+        assertEq(reason, 0); // EligibleByMaturity
+    }
+
+    function testPreviewLiquidationEligibilityNoPriorEarningsInitialized() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        _setupBaseEscrowCredited(ASSET_VALUE);
+
+        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(scenario.assetId);
+        assertEq(lastEventTimestamp, 0, "No earnings should be initialized for this branch");
+
+        (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 3); // NotEligible
+    }
+
+    function testPreviewLiquidationEligibilityZeroElapsed() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(scenario.assetId);
+        assertEq(lastEventTimestamp, block.timestamp, "Preview should run in same timestamp for zero-elapsed branch");
+
+        (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 3); // NotEligible
+    }
+
     function testExecuteLiquidationAppliesMissedEarningsShortfall() public {
         _ensureState(SetupState.RevenueTokensClaimed);
 
@@ -1333,6 +1383,10 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
 
         vm.expectEmit(true, true, false, true, address(treasury));
         emit ITreasury.ShortfallReserved(scenario.assetId, shortfallAmount);
+
+        (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
+        assertTrue(eligible);
+        assertEq(reason, 1); // EligibleByInsolvency
 
         vm.prank(address(router));
         treasury.executeLiquidation(scenario.assetId);
@@ -1445,6 +1499,10 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // First: settle via Treasury directly (simulating router call)
         vm.prank(address(router));
         treasury.initiateSettlement(partner1, scenario.assetId, 0);
+
+        (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 2); // AlreadySettled
 
         // Second: attempt to liquidate (should revert since already settled)
         vm.prank(address(router));

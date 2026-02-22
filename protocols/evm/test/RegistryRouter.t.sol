@@ -201,6 +201,13 @@ contract RegistryRouterTest is BaseTest {
         router.claimSettlement(scenario.assetId, false);
     }
 
+    function testPreviewLiquidationEligibilityView() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 3); // NotEligible
+    }
+
     function testInitializationZeroAdmin() public {
         RegistryRouter routerImpl = new RegistryRouter();
 

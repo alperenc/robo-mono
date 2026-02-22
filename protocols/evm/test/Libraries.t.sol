@@ -151,6 +151,16 @@ contract CollateralTokenEarningsHelper {
         return CollateralLib.processEarningsForBuffers(c, net, base);
     }
 
+    function processInMemory(uint256 net, uint256 base)
+        external
+        view
+        returns (int256 earningsResult, uint256 replenished, uint256 earningsBuffer, uint256 reserved, uint256 total)
+    {
+        CollateralLib.CollateralInfo memory info = c;
+        (earningsResult, replenished) = CollateralLib.processEarningsForBuffersInMemory(info, net, base);
+        return (earningsResult, replenished, info.earningsBuffer, info.reservedForLiquidation, info.totalCollateral);
+    }
+
     function salesPenalty(address holder, uint256 amt) external view returns (uint256) {
         return t.calculateSalesPenalty(holder, amt);
     }
@@ -462,6 +472,57 @@ contract LibrariesTest is Test {
         cteh.lockNow();
         // No time passed, release should be 0
         assertEq(cteh.calcRelease(), 0);
+    }
+
+    function testProcessEarningsForBuffersInMemoryShortfallCoveredByBuffer() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+
+        (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
+            cteh.processInMemory(50e6, 75e6);
+        assertEq(result, -int256(25e6));
+        assertEq(replenished, 0);
+        assertEq(reservedAfter, 25e6);
+        assertGt(eBufAfter, 0);
+    }
+
+    function testProcessEarningsForBuffersInMemoryShortfallExceedsBuffer() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+        (, uint256 startingBuffer,,) = cteh.collateralView();
+        uint256 baseEarnings = startingBuffer + 1;
+
+        (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
+            cteh.processInMemory(0, baseEarnings);
+        assertEq(result, -int256(baseEarnings));
+        assertEq(replenished, 0);
+        assertEq(eBufAfter, 0);
+        assertEq(reservedAfter, startingBuffer);
+    }
+
+    function testProcessEarningsForBuffersInMemoryExcessReplenishesReserved() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+
+        // Create a deficit + reserved state in storage helper, then run the in-memory replenishment path.
+        (,, uint256 eBufAfterShortfall, uint256 reservedAfterShortfall,) = cteh.processInMemory(0, 100e6);
+        assertGt(reservedAfterShortfall, 0);
+        assertLt(eBufAfterShortfall, cteh.targetBuffer(100000e6));
+
+        // Apply the same shortfall to stored state so the subsequent in-memory call starts from this shape.
+        cteh.process(0, 100e6);
+
+        (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
+            cteh.processInMemory(200e6, 100e6);
+        assertEq(result, int256(100e6 - replenished));
+        assertGt(replenished, 0);
+        assertGt(eBufAfter, eBufAfterShortfall);
+        assertLt(reservedAfter, reservedAfterShortfall);
+    }
+
+    function testProcessEarningsForBuffersInMemoryExcessNoReserved() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+        (int256 result, uint256 replenished,, uint256 reservedAfter,) = cteh.processInMemory(200e6, 100e6);
+        assertEq(result, 100e6);
+        assertEq(replenished, 0);
+        assertEq(reservedAfter, 0);
     }
 
     function testUnclaimedEarningsZeroOrUpToDate() public {

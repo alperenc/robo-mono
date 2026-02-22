@@ -554,6 +554,12 @@ contract RegistryRouterIntegrationTest is BaseTest {
         proxyRouter.isAssetSolvent(assetId);
     }
 
+    function testPreviewLiquidationEligibilityTreasuryNotSet() public {
+        (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
+        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        proxyRouter.previewLiquidationEligibility(assetId);
+    }
+
     function testInitiateSettlementTreasuryNotSet() public {
         (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
         vm.prank(address(assetRegistry));
@@ -716,5 +722,21 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         // After liquidation, Treasury should reflect non-solvency due to settlement (even if solvent before)
         assertFalse(router.isAssetSolvent(scenario.assetId));
+    }
+
+    function testPreviewLiquidationEligibility() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        _setupBaseEscrowCredited(ASSET_VALUE);
+
+        (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 3); // NotEligible
+
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
+        vm.warp(maturityDate + 1);
+
+        (eligible, reason) = router.previewLiquidationEligibility(scenario.assetId);
+        assertTrue(eligible);
+        assertEq(reason, 0); // EligibleByMaturity
     }
 }
