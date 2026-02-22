@@ -7,6 +7,7 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
@@ -68,6 +69,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
     // Internal Errors (not part of public API)
     error ZeroAddress();
+    error InvalidUSDCContract(address token);
+    error UnsupportedUSDCDecimals(uint8 decimals);
 
     /**
      * @dev Modifier to restrict access to authorized partners
@@ -113,6 +116,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         partnerManager = PartnerManager(_partnerManager);
         router = RegistryRouter(_router);
+        _validateUSDCContract(_usdc);
         usdc = IERC20(_usdc);
         treasuryFeeRecipient = _treasuryFeeRecipient;
     }
@@ -1187,9 +1191,32 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         if (_usdc == address(0)) {
             revert ZeroAddress();
         }
+        _validateUSDCContract(_usdc);
         address oldAddress = address(usdc);
         usdc = IERC20(_usdc);
         emit UsdcUpdated(oldAddress, _usdc);
+    }
+
+    /**
+     * @dev Validate that a token address is a USDC-compatible ERC20 (6 decimals).
+     */
+    function _validateUSDCContract(address token) internal view {
+        // Ensure IERC20 interface surface is callable.
+        try IERC20(token).totalSupply() returns (uint256) { }
+        catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        uint8 tokenDecimals;
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            tokenDecimals = d;
+        } catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        if (tokenDecimals != 6) {
+            revert UnsupportedUSDCDecimals(tokenDecimals);
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ProtocolLib, TokenLib, AssetLib } from "./Libraries.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
@@ -75,6 +76,8 @@ contract Marketplace is
     error NoRefundToClaim();
     error ListingOwnerCannotPurchase();
     error PrimaryListingRequiresBuyerPaysFee();
+    error InvalidUSDCContract(address token);
+    error UnsupportedUSDCDecimals(uint8 decimals);
 
     // Events
     event ListingCreated(
@@ -145,6 +148,7 @@ contract Marketplace is
         partnerManager = PartnerManager(_partnerManager);
         router = RegistryRouter(_router);
         treasury = ITreasury(_treasury);
+        _validateUSDCContract(_usdc);
         usdc = IERC20(_usdc);
 
         _listingIdCounter = 1;
@@ -715,9 +719,32 @@ contract Marketplace is
         if (_usdc == address(0)) {
             revert ZeroAddress();
         }
+        _validateUSDCContract(_usdc);
         address oldAddress = address(usdc);
         usdc = IERC20(_usdc);
         emit UsdcUpdated(oldAddress, _usdc);
+    }
+
+    /**
+     * @dev Validate that a token address is a USDC-compatible ERC20 (6 decimals).
+     */
+    function _validateUSDCContract(address token) internal view {
+        // Ensure IERC20 interface surface is callable.
+        try IERC20(token).totalSupply() returns (uint256) { }
+        catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        uint8 tokenDecimals;
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            tokenDecimals = d;
+        } catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        if (tokenDecimals != 6) {
+            revert UnsupportedUSDCDecimals(tokenDecimals);
+        }
     }
 
     /**
