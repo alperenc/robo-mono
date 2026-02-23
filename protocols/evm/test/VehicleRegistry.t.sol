@@ -157,20 +157,6 @@ contract VehicleRegistryTest is BaseTest {
         );
     }
 
-    function testIsAuthorizedForAssetScenarios() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-
-        // UnauthorizedCaller account: not a partner
-        assertFalse(assetRegistry.isAuthorizedForAsset(unauthorized, scenario.assetId));
-
-        // Authorized partner but no ownership
-        // partner2 is authorized in BaseTest but doesn't own scenario.assetId
-        assertFalse(assetRegistry.isAuthorizedForAsset(partner2, scenario.assetId));
-
-        // Authorized and owns
-        assertTrue(assetRegistry.isAuthorizedForAsset(partner1, scenario.assetId));
-    }
-
     function testGetRegistryForAsset() public {
         _ensureState(SetupState.AssetRegistered);
 
@@ -256,6 +242,21 @@ contract VehicleRegistryTest is BaseTest {
         assetRegistry.updatePartnerManager(address(0));
     }
 
+    function testUpdatePartnerManagerUnauthorizedCaller() public {
+        address newPM = makeAddr("newPartnerManager");
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                assetRegistry.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        assetRegistry.updatePartnerManager(newPM);
+        vm.stopPrank();
+    }
+
     function testUpdateRouter() public {
         address newRouter = makeAddr("newRouter");
         address oldRouter = address(assetRegistry.router());
@@ -275,5 +276,16 @@ contract VehicleRegistryTest is BaseTest {
         vm.prank(admin);
         vm.expectRevert(VehicleRegistry.ZeroAddress.selector);
         assetRegistry.updateRouter(address(0));
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        VehicleRegistry newImpl = new VehicleRegistry();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, assetRegistry.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        assetRegistry.upgradeToAndCall(address(newImpl), "");
     }
 }

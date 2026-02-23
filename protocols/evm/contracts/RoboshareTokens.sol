@@ -26,6 +26,7 @@ contract RoboshareTokens is
     bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+    bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
     // Token ID counter
     uint256 private _tokenIdCounter;
@@ -43,6 +44,7 @@ contract RoboshareTokens is
         uint256 indexed revenueTokenId, address indexed from, address indexed to, uint256 amount
     );
     event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate);
+    event SoldSupplyUpdated(uint256 indexed revenueTokenId, uint256 oldSupply, uint256 newSupply);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -61,6 +63,7 @@ contract RoboshareTokens is
         _grantRole(BURNER_ROLE, defaultAdmin);
         _grantRole(URI_SETTER_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
+        _grantRole(AUTHORIZED_CONTRACT_ROLE, defaultAdmin);
 
         _tokenIdCounter = 1; // Start from 1, 0 reserved.
     }
@@ -86,10 +89,14 @@ contract RoboshareTokens is
      * @param price The initial price per token.
      * @param maturityDate The date by which the revenue commitment ends.
      */
-    function setRevenueTokenInfo(uint256 revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate)
-        external
-        onlyRole(MINTER_ROLE)
-    {
+    function setRevenueTokenInfo(
+        uint256 revenueTokenId,
+        uint256 price,
+        uint256 supply,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP
+    ) external onlyRole(MINTER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
@@ -103,7 +110,9 @@ contract RoboshareTokens is
             revenueTokenId,
             price,
             ProtocolLib.MONTHLY_INTERVAL, // Default holding period
-            maturityDate
+            maturityDate,
+            revenueShareBP,
+            targetYieldBP
         );
         emit RevenueTokenInfoSet(revenueTokenId, price, supply, maturityDate);
     }
@@ -195,6 +204,23 @@ contract RoboshareTokens is
         return _revenueTokenInfos[revenueTokenId].tokenSupply;
     }
 
+    function getSoldSupply(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].soldSupply;
+    }
+
+    function increaseSoldSupply(uint256 revenueTokenId, uint256 amount) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
+        uint256 oldSupply = info.soldSupply;
+        info.soldSupply = oldSupply + amount;
+        emit SoldSupplyUpdated(revenueTokenId, oldSupply, info.soldSupply);
+    }
+
     /**
      * @dev Gets the price for a specific revenue token ID.
      * @param revenueTokenId The ID of the revenue token.
@@ -217,6 +243,26 @@ contract RoboshareTokens is
             revert NotRevenueToken();
         }
         return _revenueTokenInfos[revenueTokenId].maturityDate;
+    }
+
+    /**
+     * @dev Gets the revenue share cap (basis points) for a revenue token.
+     */
+    function getRevenueShareBP(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].revenueShareBP;
+    }
+
+    /**
+     * @dev Gets the target yield (basis points) for buffer benchmarks.
+     */
+    function getTargetYieldBP(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].targetYieldBP;
     }
 
     /**

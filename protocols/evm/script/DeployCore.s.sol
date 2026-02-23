@@ -54,8 +54,12 @@ abstract contract DeployCore is ScaffoldETHDeploy {
         // Deploy RegistryRouter
         {
             RegistryRouter routerImplementation = new RegistryRouter();
-            bytes memory routerInitData =
-                abi.encodeWithSignature("initialize(address,address)", _deployer, address(contracts.roboshareTokens));
+            bytes memory routerInitData = abi.encodeWithSignature(
+                "initialize(address,address,address)",
+                _deployer,
+                address(contracts.roboshareTokens),
+                address(contracts.partnerManager)
+            );
             ERC1967Proxy routerProxy = new ERC1967Proxy(address(routerImplementation), routerInitData);
             contracts.router = RegistryRouter(address(routerProxy));
         }
@@ -129,6 +133,10 @@ abstract contract DeployCore is ScaffoldETHDeploy {
 
         // Grant BURNER_ROLE to VehicleRegistry (for burning revenue tokens on retirement)
         contracts.roboshareTokens.grantRole(contracts.roboshareTokens.BURNER_ROLE(), address(contracts.vehicleRegistry));
+        // Grant BURNER_ROLE to Router (for burning escrowed tokens)
+        contracts.roboshareTokens.grantRole(contracts.roboshareTokens.BURNER_ROLE(), address(contracts.router));
+        contracts.roboshareTokens
+            .grantRole(contracts.roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(contracts.router));
 
         // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace on Treasury (for recording pending withdrawals on purchases)
         contracts.treasury.grantRole(contracts.treasury.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));

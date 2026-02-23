@@ -2,15 +2,30 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NextPage } from "next";
-import { useAccount, useChainId, useChains, useReadContracts } from "wagmi";
-import { AdjustmentsHorizontalIcon, ArrowsUpDownIcon, BriefcaseIcon } from "@heroicons/react/24/outline";
+import { useAccount, useChainId, useChains, useReadContracts, useSwitchChain } from "wagmi";
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowsUpDownIcon,
+  Bars4Icon,
+  BriefcaseIcon,
+  Squares2X2Icon,
+} from "@heroicons/react/24/outline";
 import { BuyTokensModal } from "~~/components/markets/BuyTokensModal";
+import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimRefundModal } from "~~/components/markets/ClaimRefundModal";
+import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
 import { ClaimTokensModal } from "~~/components/markets/ClaimTokensModal";
 import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
+import { CancelListingModal } from "~~/components/partner/CancelListingModal";
+import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
+import { EndListingModal } from "~~/components/partner/EndListingModal";
+import { FinalizeListingModal } from "~~/components/partner/FinalizeListingModal";
+import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
+import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
+import { getTargetNetworks } from "~~/utils/scaffold-eth";
 
 // Types for subgraph data
 interface SubgraphListing {
@@ -23,11 +38,13 @@ interface SubgraphListing {
   pricePerToken: string;
   expiresAt: string;
   buyerPaysFee: boolean;
+  isPrimary: boolean;
   status: string;
   isCancelled: boolean;
   isEnded: boolean;
+  endedAt?: string | null;
   claimedAmount: string;
-  refundedUSDC: string;
+  refundedAmount: string;
   createdAt: string;
 }
 
@@ -46,6 +63,7 @@ interface SubgraphToken {
   revenueTokenId: string;
   price: string;
   supply: string;
+  targetYieldBP?: string;
   maturityDate: string;
 }
 
@@ -67,7 +85,7 @@ interface SubgraphPartner {
 
 type SortOption = "apr_desc" | "apr_asc" | "earnings_desc" | "earnings_asc" | "newest" | "price_asc" | "price_desc";
 
-// Protocol constants for APR calculation
+// Protocol constants for APY calculation/sorting
 const BENCHMARK_EARNINGS_BP = 1000n;
 const BP_PRECISION = 10000n;
 
@@ -80,7 +98,9 @@ const MarketsPage: NextPage = () => {
   const [assetEarnings, setAssetEarnings] = useState<SubgraphAssetEarnings[]>([]);
   const [partners, setPartners] = useState<SubgraphPartner[]>([]);
   const [userListingIds, setUserListingIds] = useState<Set<string>>(new Set());
+  const [userRefundedListingIds, setUserRefundedListingIds] = useState<Set<string>>(new Set());
   const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
+  const [soldOutAtByListing, setSoldOutAtByListing] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,18 +109,42 @@ const MarketsPage: NextPage = () => {
   const [filterType, setFilterType] = useState<AssetType | "ALL">("ALL");
   const [sortBy, setSortBy] = useState<SortOption>("apr_desc");
   const [showOnlyHoldings, setShowOnlyHoldings] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+
+  useEffect(() => {
+    const enforceGridOnMobile = () => {
+      if (window.innerWidth < 1024) {
+        setViewMode("grid");
+      }
+    };
+
+    enforceGridOnMobile();
+    window.addEventListener("resize", enforceGridOnMobile);
+    return () => window.removeEventListener("resize", enforceGridOnMobile);
+  }, []);
 
   // Modal states
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
   const [isClaimTokensOpen, setIsClaimTokensOpen] = useState(false);
   const [isClaimRefundOpen, setIsClaimRefundOpen] = useState(false);
+  const [isClaimEarningsOpen, setIsClaimEarningsOpen] = useState(false);
+  const [isClaimSettlementOpen, setIsClaimSettlementOpen] = useState(false);
+  const [isListTokensOpen, setIsListTokensOpen] = useState(false);
+  const [isFinalizeListingOpen, setIsFinalizeListingOpen] = useState(false);
+  const [isEndListingOpen, setIsEndListingOpen] = useState(false);
+  const [isCancelListingOpen, setIsCancelListingOpen] = useState(false);
+  const [isDistributeEarningsOpen, setIsDistributeEarningsOpen] = useState(false);
+  const [isSettleAssetOpen, setIsSettleAssetOpen] = useState(false);
+  const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
 
   // Network info
   const chainId = useChainId();
   const chains = useChains();
   const currentChain = chains.find(c => c.id === chainId);
   const networkName = currentChain?.name || "Localhost";
+  const { switchChain } = useSwitchChain();
+  const targetNetworks = getTargetNetworks();
 
   // Fetch data from subgraph
   const fetchData = useCallback(
@@ -113,6 +157,9 @@ const MarketsPage: NextPage = () => {
         const userQueryPart = address
           ? `
         tokenTrades(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
+          listingId
+        }
+        refundClaims(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
           listingId
         }
       `
@@ -129,6 +176,7 @@ const MarketsPage: NextPage = () => {
                 tokenId
                 assetId
                 seller
+                isPrimary
                 amount
                 amountSold
                 pricePerToken
@@ -137,8 +185,9 @@ const MarketsPage: NextPage = () => {
                 status
                 isCancelled
                 isEnded
+                endedAt
                 claimedAmount
-                refundedUSDC
+                refundedAmount
                 createdAt
               }
               vehicles(first: 100) {
@@ -155,12 +204,22 @@ const MarketsPage: NextPage = () => {
                 revenueTokenId
                 price
                 supply
+                targetYieldBP
                 maturityDate
               }
               partners(first: 100) {
                 id
                 name
                 address
+              }
+              assetEarnings(first: 100) {
+                id
+                assetId
+                totalRevenue
+                totalEarnings
+                distributionCount
+                firstDistributionAt
+                lastDistributionAt
               }
               ${userQueryPart}
             }
@@ -178,7 +237,27 @@ const MarketsPage: NextPage = () => {
           console.warn("Subgraph query warnings:", errors);
         }
 
-        setListings(data?.listings || []);
+        setListings(prev => {
+          const incoming = (data?.listings || []) as SubgraphListing[];
+          const prevById = new Map(prev.map(l => [l.id, l]));
+          return incoming.map(listing => {
+            const prevListing = prevById.get(listing.id);
+            if (!prevListing) return listing;
+
+            // Protect optimistic terminal transitions from stale subgraph snapshots.
+            const hasOptimisticTerminal = prevListing.isEnded || prevListing.isCancelled;
+            const incomingIsTerminal = listing.isEnded || listing.isCancelled;
+            if (hasOptimisticTerminal && !incomingIsTerminal) {
+              return {
+                ...listing,
+                isEnded: prevListing.isEnded,
+                isCancelled: prevListing.isCancelled,
+                status: prevListing.status,
+              };
+            }
+            return listing;
+          });
+        });
         setVehicles(data?.vehicles || []);
         setTokens(data?.roboshareTokens || []);
         setAssetEarnings(data?.assetEarnings || []);
@@ -190,6 +269,13 @@ const MarketsPage: NextPage = () => {
         } else {
           setUserListingIds(new Set());
         }
+
+        if (data?.refundClaims) {
+          const ids = new Set<string>(data.refundClaims.map((c: any) => c.listingId));
+          setUserRefundedListingIds(ids);
+        } else {
+          setUserRefundedListingIds(new Set());
+        }
       } catch (e: any) {
         console.error("Error fetching market data:", e);
         setError(e.message || "Failed to fetch market data");
@@ -199,11 +285,6 @@ const MarketsPage: NextPage = () => {
     },
     [address],
   );
-
-  // Initial fetch
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   // Fetch Holdings (Escrow + Wallet) for "Your Holdings" filter
   const {
@@ -225,8 +306,80 @@ const MarketsPage: NextPage = () => {
         args: [address, BigInt(l.assetId) + 1n],
       },
     ]) as any,
-    query: { enabled: !!address && listings.length > 0 && showOnlyHoldings },
+    // Also used for action-priority sorting and CTA visibility heuristics, not just the holdings-only filter.
+    query: { enabled: !!address && listings.length > 0 },
   });
+
+  // Fetch actionability previews (claimable earnings/settlement) for sorting heuristics.
+  const uniqueAssetIds = useMemo(() => {
+    return Array.from(new Set(listings.map(l => l.assetId)));
+  }, [listings]);
+
+  const { data: actionPreviewData } = useReadContracts({
+    allowFailure: true,
+    contracts: uniqueAssetIds.flatMap(assetId => [
+      {
+        address: deployedContracts[31337]?.Treasury?.address,
+        abi: deployedContracts[31337]?.Treasury?.abi,
+        functionName: "previewClaimEarnings",
+        args: [BigInt(assetId), address],
+      },
+      {
+        address: deployedContracts[31337]?.Treasury?.address,
+        abi: deployedContracts[31337]?.Treasury?.abi,
+        functionName: "previewSettlementClaim",
+        args: [BigInt(assetId), address],
+      },
+    ]) as any,
+    query: { enabled: !!address && uniqueAssetIds.length > 0 },
+  });
+  const { data: assetStatusPreviewData } = useReadContracts({
+    allowFailure: true,
+    contracts: uniqueAssetIds.map(assetId => ({
+      address: deployedContracts[31337]?.RegistryRouter?.address,
+      abi: deployedContracts[31337]?.RegistryRouter?.abi,
+      functionName: "getAssetStatus",
+      args: [BigInt(assetId)],
+    })) as any,
+    query: { enabled: uniqueAssetIds.length > 0 },
+  });
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (listings.length === 0) return;
+    setSoldOutAtByListing(prev => {
+      const next = { ...prev };
+      let changed = false;
+      const nowSec = Math.floor(Date.now() / 1000).toString();
+      for (const listing of listings) {
+        const isActive = !listing.isCancelled && !listing.isEnded && listing.status !== "expired";
+        const isSoldOut = listing.amount === "0";
+        if (isActive && isSoldOut && !next[listing.id]) {
+          next[listing.id] = nowSec;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [listings]);
+
+  // Reset user-specific filters when the account changes
+  useEffect(() => {
+    setUserListingIds(new Set());
+    setUserRefundedListingIds(new Set());
+    setRecentPurchases(new Set());
+  }, [address]);
+
+  // Refetch holdings when the account or holdings filter changes
+  useEffect(() => {
+    if (showOnlyHoldings && address) {
+      refetchHoldings?.();
+    }
+  }, [address, showOnlyHoldings, refetchHoldings]);
 
   // Extract listing IDs where user has tokens or escrow
   const userHoldingsIds = useMemo(() => {
@@ -246,6 +399,37 @@ const MarketsPage: NextPage = () => {
     }
     return ids;
   }, [holdingsData, listings]);
+
+  const assetActionPreview = useMemo(() => {
+    const byAssetId = new Map<string, { claimableEarnings: bigint; claimableSettlement: bigint }>();
+    if (!actionPreviewData) return byAssetId;
+
+    uniqueAssetIds.forEach((assetId, index) => {
+      const earningsResult = actionPreviewData[index * 2];
+      const settlementResult = actionPreviewData[index * 2 + 1];
+      const claimableEarnings =
+        earningsResult?.status === "success" ? ((earningsResult.result as bigint | undefined) ?? 0n) : 0n;
+      const claimableSettlement =
+        settlementResult?.status === "success" ? ((settlementResult.result as bigint | undefined) ?? 0n) : 0n;
+      byAssetId.set(assetId, { claimableEarnings, claimableSettlement });
+    });
+
+    return byAssetId;
+  }, [actionPreviewData, uniqueAssetIds]);
+
+  const assetStatusById = useMemo(() => {
+    const byAssetId = new Map<string, number>();
+    if (!assetStatusPreviewData) return byAssetId;
+
+    uniqueAssetIds.forEach((assetId, index) => {
+      const result = assetStatusPreviewData[index];
+      const status =
+        result?.status === "success" && result.result !== undefined ? Number(result.result as bigint | number) : -1;
+      byAssetId.set(assetId, status);
+    });
+
+    return byAssetId;
+  }, [assetStatusPreviewData, uniqueAssetIds]);
 
   // Fetch IPFS images
   useEffect(() => {
@@ -275,36 +459,117 @@ const MarketsPage: NextPage = () => {
     fetchImages();
   }, [vehicles, imageUrls]);
 
-  // Helper to calculate APR for sorting
-  const calculateApr = useCallback(
-    (assetId: string): number => {
-      const tokenId = (BigInt(assetId) + 1n).toString();
-      const token = tokens.find(t => t.revenueTokenId === tokenId);
-      const earning = assetEarnings.find(e => e.assetId === assetId);
+  const tokenSoldTotals = useMemo(() => {
+    const totals = new Map<string, bigint>();
+    for (const listing of listings) {
+      if (listing.isCancelled) continue;
+      const sold = listing.amountSold ? BigInt(listing.amountSold) : 0n;
+      if (sold <= 0n) continue;
+      totals.set(listing.tokenId, (totals.get(listing.tokenId) ?? 0n) + sold);
+    }
+    return totals;
+  }, [listings]);
+
+  // Helper to calculate listing APY for sorting (match card display logic)
+  const calculateListingApy = useCallback(
+    (listing: SubgraphListing): number => {
+      const token = tokens.find(t => t.revenueTokenId === listing.tokenId);
+      const earning = assetEarnings.find(e => e.assetId === listing.assetId);
 
       if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
 
-      const tokenPrice = BigInt(token.price);
-      const tokenSupply = BigInt(token.supply);
-      const totalValue = tokenPrice * tokenSupply;
+      const listingSoldAmount =
+        listing.amountSold && listing.amountSold !== "0"
+          ? BigInt(listing.amountSold)
+          : (() => {
+              const derived = BigInt(token.supply) - BigInt(listing.amount);
+              return derived > 0n ? derived : 0n;
+            })();
 
-      if (earning && earning.firstDistributionAt !== "0" && totalValue > 0n) {
-        const totalEarnings = BigInt(earning.totalEarnings);
-        const firstDistAt = BigInt(earning.firstDistributionAt);
-        const lastDistAt = BigInt(earning.lastDistributionAt);
-        const duration = lastDistAt - firstDistAt;
+      const soldSupplyForAllocation = tokenSoldTotals.get(listing.tokenId) ?? listingSoldAmount;
+      const listingActualEarnings =
+        listing.isCancelled ||
+        !earning ||
+        earning.totalEarnings === "0" ||
+        listingSoldAmount <= 0n ||
+        soldSupplyForAllocation <= 0n
+          ? 0n
+          : (BigInt(earning.totalEarnings) * listingSoldAmount) / soldSupplyForAllocation;
+
+      const tokenPrice = BigInt(token.price);
+      const principalAmount = listingSoldAmount > 0n ? listingSoldAmount : BigInt(listing.amount);
+      const totalValue = tokenPrice * principalAmount;
+
+      if (earning && listingActualEarnings > 0n && totalValue > 0n) {
+        const listingEndedAtOnChain = BigInt(listing.endedAt || "0");
+        const lastDistAt = BigInt(earning.lastDistributionAt || "0");
+        const duration =
+          listingEndedAtOnChain > 0n && lastDistAt > listingEndedAtOnChain ? lastDistAt - listingEndedAtOnChain : 0n;
 
         if (duration > 0n) {
           const secondsPerYear = 365n * 24n * 60n * 60n;
-          const annualizedEarnings = (totalEarnings * secondsPerYear) / duration;
+          const annualizedEarnings = (listingActualEarnings * secondsPerYear) / duration;
           const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
           return Number(aprBps) / 100;
         }
       }
 
-      return Number(BENCHMARK_EARNINGS_BP) / 100;
+      const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
+      return targetYieldBp / 100;
     },
-    [tokens, assetEarnings],
+    [tokens, assetEarnings, tokenSoldTotals],
+  );
+
+  const hasLikelyAction = useCallback(
+    (listing: SubgraphListing): boolean => {
+      // Generic actionable state for any user (e.g. buyable active listings).
+      const isCancelled = listing.isCancelled || listing.status === "cancelled";
+      const isEndedOrExpired = listing.isEnded || listing.status === "expired";
+      const hasAvailableTokens = BigInt(listing.amount) > 0n;
+      if (!isCancelled && !isEndedOrExpired && hasAvailableTokens) return true;
+
+      if (!address) return false;
+
+      const isSeller = listing.seller.toLowerCase() === address.toLowerCase();
+      const hasBoughtListing = userListingIds.has(listing.id) || recentPurchases.has(listing.id);
+      const hasTokensOrEscrowForListing = userHoldingsIds.has(listing.id);
+      const refundAlreadyClaimed = userRefundedListingIds.has(listing.id);
+      const preview = assetActionPreview.get(listing.assetId);
+      const assetStatus = assetStatusById.get(listing.assetId) ?? -1;
+      const isAssetSettled = assetStatus === 3 || assetStatus === 4;
+      const hasClaimableEarnings = (preview?.claimableEarnings ?? 0n) > 0n;
+      const hasClaimableSettlement = (preview?.claimableSettlement ?? 0n) > 0n;
+
+      // Cancelled listings stay in the "cancelled last" bucket, but can still be actionable for refund claims.
+      if (isCancelled) {
+        return hasTokensOrEscrowForListing && !refundAlreadyClaimed;
+      }
+
+      // Seller-managed listings are often actionable while the listing is live/expired.
+      // Ended seller listings can still be actionable while the underlying asset remains unsettled
+      // (e.g. Distribute Earnings / Settle Asset on primary listings).
+      if (isSeller && !isCancelled && (!listing.isEnded || !isAssetSettled)) return true;
+
+      // Non-ended listings the user participated in often still expose actionable CTAs
+      // (e.g. claim earnings on expired listings) even when generic availability is zero.
+      if (!listing.isEnded && hasBoughtListing) return true;
+
+      // Buyer/holder actions that the card can actually surface.
+      if (hasBoughtListing && hasClaimableEarnings) return true;
+      if (hasTokensOrEscrowForListing && hasClaimableSettlement) return true;
+
+      // Conservative fallback: do not prioritize based on holdings/history alone.
+      return false;
+    },
+    [
+      address,
+      assetActionPreview,
+      assetStatusById,
+      recentPurchases,
+      userHoldingsIds,
+      userListingIds,
+      userRefundedListingIds,
+    ],
   );
 
   // Filter and sort listings
@@ -320,7 +585,14 @@ const MarketsPage: NextPage = () => {
 
     // Filter by Holdings
     if (showOnlyHoldings) {
+      if (!address) return [];
       filtered = filtered.filter(l => {
+        const isCancelled = l.isCancelled || l.status === "cancelled";
+        if (isCancelled) {
+          const hasTokens = userHoldingsIds.has(l.id);
+          const hasUserRefund = userRefundedListingIds.has(l.id);
+          if (hasUserRefund && !hasTokens) return false;
+        }
         // Include if user traded in this listing (subgraph)
         if (userListingIds.has(l.id)) return true;
         // Include if user recently purchased (optimistic)
@@ -333,13 +605,28 @@ const MarketsPage: NextPage = () => {
       });
     }
 
-    // Sort
+    // Sort (active listings first)
     filtered.sort((a, b) => {
+      // Keep cancelled listings pinned to the end regardless of selected sort.
+      const aCancelled = a.isCancelled || a.status === "cancelled";
+      const bCancelled = b.isCancelled || b.status === "cancelled";
+      if (aCancelled !== bCancelled) return aCancelled ? 1 : -1;
+
+      // For non-cancelled listings, surface listings that likely have user actions first.
+      const aHasAction = hasLikelyAction(a);
+      const bHasAction = hasLikelyAction(b);
+      if (aHasAction !== bHasAction) return aHasAction ? -1 : 1;
+
+      // Then prefer active listings over ended/expired listings.
+      const aEndedOrExpired = a.isEnded || a.status === "expired";
+      const bEndedOrExpired = b.isEnded || b.status === "expired";
+      if (aEndedOrExpired !== bEndedOrExpired) return aEndedOrExpired ? 1 : -1;
+
       switch (sortBy) {
         case "apr_desc":
-          return calculateApr(b.assetId) - calculateApr(a.assetId);
+          return calculateListingApy(b) - calculateListingApy(a);
         case "apr_asc":
-          return calculateApr(a.assetId) - calculateApr(b.assetId);
+          return calculateListingApy(a) - calculateListingApy(b);
         case "earnings_desc": {
           const earningsA = BigInt(assetEarnings.find(e => e.assetId === a.assetId)?.totalEarnings || "0");
           const earningsB = BigInt(assetEarnings.find(e => e.assetId === b.assetId)?.totalEarnings || "0");
@@ -367,13 +654,73 @@ const MarketsPage: NextPage = () => {
     filterType,
     sortBy,
     assetEarnings,
-    calculateApr,
+    calculateListingApy,
     showOnlyHoldings,
     userListingIds,
     recentPurchases,
     userHoldingsIds,
+    userRefundedListingIds,
     address,
+    hasLikelyAction,
   ]);
+
+  const sellerTokenIdCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!address) return counts;
+    const lower = address.toLowerCase();
+    for (const listing of listings) {
+      if (listing.seller.toLowerCase() !== lower) continue;
+      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
+    }
+    return counts;
+  }, [address, listings]);
+
+  const activeSellerTokenIdCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!address) return counts;
+    const lower = address.toLowerCase();
+    for (const listing of listings) {
+      const isActive = !listing.isCancelled && !listing.isEnded && listing.status !== "expired";
+      if (!isActive) continue;
+      if (listing.seller.toLowerCase() !== lower) continue;
+      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
+    }
+    return counts;
+  }, [address, listings]);
+
+  const primarySellerTokenIdCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!address) return counts;
+    const lower = address.toLowerCase();
+    for (const listing of listings) {
+      if (!listing.isPrimary) continue;
+      if (listing.seller.toLowerCase() !== lower) continue;
+      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
+    }
+    return counts;
+  }, [address, listings]);
+
+  const refreshMarketsAfterSuccess = useCallback(
+    (opts?: { skipImmediateFetch?: boolean }) => {
+      if (!opts?.skipImmediateFetch) {
+        fetchData(false);
+      }
+      refetchHoldings?.();
+      // Subgraph/indexing can lag by a few seconds; retry refresh to reflect latest listing state.
+      window.setTimeout(() => fetchData(false), 1200);
+      window.setTimeout(() => fetchData(false), 3500);
+    },
+    [fetchData, refetchHoldings],
+  );
+
+  const applyListingActionSuccess = useCallback(
+    (listingId: string, updates: Partial<SubgraphListing>) => {
+      setListings(prev => prev.map(l => (l.id === listingId ? { ...l, ...updates } : l)));
+      // Keep optimistic UI until indexers catch up; avoid immediate stale overwrite.
+      refreshMarketsAfterSuccess({ skipImmediateFetch: true });
+    },
+    [refreshMarketsAfterSuccess],
+  );
 
   // Get active registries for filter tabs
   const activeRegistries = Object.entries(ASSET_REGISTRIES).filter(([, r]) => r.active);
@@ -382,19 +729,37 @@ const MarketsPage: NextPage = () => {
     <div className="flex flex-col gap-8 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full lg:max-w-[75%] 2xl:max-w-[80%] mx-auto overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+        <div>
+          <div className="flex items-center gap-3">
             <h1 className="text-3xl lg:text-4xl font-bold">Explore Markets</h1>
-            <p className="text-lg opacity-70 mt-2">Discover and invest in tokenized real-world assets</p>
+            <div className="dropdown dropdown-end">
+              <div
+                tabIndex={0}
+                role="button"
+                className="flex items-center gap-2 text-sm opacity-70 px-2 py-1 rounded-full border border-base-300 hover:border-base-400 transition-colors"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse"></span>
+                <span>{networkName}</span>
+                <span className="ml-1">▾</span>
+              </div>
+              <ul tabIndex={0} className="dropdown-content z-[10] menu p-2 shadow bg-base-100 rounded-box w-56 mt-2">
+                {targetNetworks
+                  .filter(net => net.id !== chainId)
+                  .map(net => (
+                    <li key={net.id}>
+                      <button
+                        type="button"
+                        className="menu-item btn-sm rounded-xl flex gap-3 py-3 whitespace-nowrap"
+                        onClick={() => switchChain?.({ chainId: net.id })}
+                      >
+                        Switch to {net.name}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </div>
           </div>
-
-          {/* Network Badge */}
-          <div className="flex items-center gap-2">
-            <span className="badge badge-lg badge-outline gap-2">
-              <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-              {networkName}
-            </span>
-          </div>
+          <p className="text-lg opacity-70 mt-2">Discover and invest in tokenized real-world assets</p>
         </div>
 
         {/* Filters & Sort */}
@@ -448,14 +813,32 @@ const MarketsPage: NextPage = () => {
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as SortOption)}
               >
-                <option value="apr_desc">Highest APR</option>
-                <option value="apr_asc">Lowest APR</option>
+                <option value="apr_desc">Highest APY</option>
+                <option value="apr_asc">Lowest APY</option>
                 <option value="earnings_desc">Most Earnings</option>
                 <option value="earnings_asc">Least Earnings</option>
                 <option value="newest">Newest</option>
                 <option value="price_asc">Lowest Price</option>
                 <option value="price_desc">Highest Price</option>
               </select>
+            </div>
+
+            {/* View Mode Switcher - Hidden on mobile */}
+            <div className="hidden lg:flex items-center gap-2 bg-base-100 p-1 rounded-lg border border-base-200">
+              <button
+                className={`btn btn-sm btn-square ${viewMode === "list" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setViewMode("list")}
+                title="List View"
+              >
+                <Bars4Icon className="w-5 h-5" />
+              </button>
+              <button
+                className={`btn btn-sm btn-square ${viewMode === "grid" ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setViewMode("grid")}
+                title="Grid View"
+              >
+                <Squares2X2Icon className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -480,8 +863,12 @@ const MarketsPage: NextPage = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-          {displayListings.map(listing => {
+        <div
+          className={`grid gap-6 items-stretch ${
+            viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
+          }`}
+        >
+          {displayListings.map((listing, index) => {
             const vehicle = vehicles.find(v => v.id === listing.assetId);
             const tokenId = (BigInt(listing.assetId) + 1n).toString();
             const token = tokens.find(t => t.revenueTokenId === tokenId);
@@ -493,7 +880,7 @@ const MarketsPage: NextPage = () => {
             return (
               <MarketAssetCard
                 key={listing.id}
-                listing={listing}
+                listing={{ ...listing, soldOutAt: soldOutAtByListing[listing.id] }}
                 vehicle={vehicle}
                 token={token}
                 earnings={earning}
@@ -501,6 +888,13 @@ const MarketsPage: NextPage = () => {
                 imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
                 networkName={networkName}
                 assetType={AssetType.VEHICLE}
+                priority={index < 4}
+                viewMode={viewMode}
+                hasUserListingForTokenId={(sellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                hasUserActiveListingForTokenId={(activeSellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                hasUserPrimaryListingForTokenId={(primarySellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                hasUserBoughtListing={userListingIds.has(listing.id) || recentPurchases.has(listing.id)}
+                tokenTotalSoldAmount={(tokenSoldTotals.get(listing.tokenId) ?? 0n).toString()}
                 onBuyClick={() => {
                   setSelectedListing(listing);
                   setIsBuyModalOpen(true);
@@ -512,6 +906,39 @@ const MarketsPage: NextPage = () => {
                 onClaimRefundClick={() => {
                   setSelectedListing(listing);
                   setIsClaimRefundOpen(true);
+                }}
+                onClaimEarningsClick={() => {
+                  setSelectedListing(listing);
+                  setIsClaimEarningsOpen(true);
+                }}
+                onClaimSettlementClick={() => {
+                  setSelectedListing(listing);
+                  setIsClaimSettlementOpen(true);
+                }}
+                onListTokensClick={amount => {
+                  setSelectedListing(listing);
+                  setPrefillListAmount(amount);
+                  setIsListTokensOpen(true);
+                }}
+                onFinalizeListingClick={() => {
+                  setSelectedListing(listing);
+                  setIsFinalizeListingOpen(true);
+                }}
+                onEndListingClick={() => {
+                  setSelectedListing(listing);
+                  setIsEndListingOpen(true);
+                }}
+                onCancelListingClick={() => {
+                  setSelectedListing(listing);
+                  setIsCancelListingOpen(true);
+                }}
+                onDistributeEarningsClick={() => {
+                  setSelectedListing(listing);
+                  setIsDistributeEarningsOpen(true);
+                }}
+                onSettleAssetClick={() => {
+                  setSelectedListing(listing);
+                  setIsSettleAssetOpen(true);
                 }}
               />
             );
@@ -555,6 +982,16 @@ const MarketsPage: NextPage = () => {
             fetchData(false);
           }}
           listing={selectedListing}
+          listedTokens={(() => {
+            if (!address) return "0";
+            const tokenId = selectedListing.tokenId;
+            const sellerListings = listings.filter(l => {
+              const isActive = !l.isCancelled && !l.isEnded && l.status !== "expired";
+              return isActive && l.tokenId === tokenId && l.seller.toLowerCase() === address.toLowerCase();
+            });
+            const total = sellerListings.reduce((sum, l) => sum + BigInt(l.amount), 0n);
+            return total.toString();
+          })()}
           vehicleName={(() => {
             const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
             if (vehicle?.make && vehicle?.model && vehicle?.year) {
@@ -575,6 +1012,9 @@ const MarketsPage: NextPage = () => {
             const token = tokens.find(t => t.revenueTokenId === tokenId);
             return token?.supply;
           })()}
+          relatedListingIds={listings
+            .filter(l => l.tokenId === selectedListing.tokenId && !l.isCancelled && l.status !== "cancelled")
+            .map(l => l.id)}
         />
       )}
 
@@ -619,7 +1059,143 @@ const MarketsPage: NextPage = () => {
               return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
             })()}
           />
+          <ClaimEarningsModal
+            isOpen={isClaimEarningsOpen}
+            onClose={() => {
+              setIsClaimEarningsOpen(false);
+              setSelectedListing(null);
+              fetchData(false);
+              refetchHoldings();
+            }}
+            assetId={selectedListing.assetId}
+            vehicleName={(() => {
+              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+            })()}
+          />
+          <ClaimSettlementModal
+            isOpen={isClaimSettlementOpen}
+            onClose={() => {
+              setIsClaimSettlementOpen(false);
+              setSelectedListing(null);
+              fetchData(false);
+              refetchHoldings();
+            }}
+            assetId={selectedListing.assetId}
+            vehicleName={(() => {
+              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+            })()}
+          />
         </>
+      )}
+
+      {selectedListing && (
+        <ListVehicleModal
+          isOpen={isListTokensOpen}
+          onSuccess={() => {
+            refreshMarketsAfterSuccess();
+          }}
+          onClose={() => {
+            setIsListTokensOpen(false);
+            setSelectedListing(null);
+            setPrefillListAmount(undefined);
+          }}
+          vehicleId={selectedListing.assetId}
+          vin={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle?.vin || "";
+          })()}
+          assetName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
+          prefillAmount={prefillListAmount}
+        />
+      )}
+
+      {selectedListing && (
+        <FinalizeListingModal
+          isOpen={isFinalizeListingOpen}
+          onSuccess={() => {
+            applyListingActionSuccess(selectedListing.id, { isEnded: true, status: "ended" });
+          }}
+          onClose={() => {
+            setIsFinalizeListingOpen(false);
+            setSelectedListing(null);
+          }}
+          listingId={selectedListing.id}
+          tokenAmount={selectedListing.amount}
+        />
+      )}
+
+      {selectedListing && (
+        <EndListingModal
+          isOpen={isEndListingOpen}
+          onSuccess={() => {
+            applyListingActionSuccess(selectedListing.id, { isEnded: true, status: "ended" });
+          }}
+          onClose={() => {
+            setIsEndListingOpen(false);
+            setSelectedListing(null);
+          }}
+          listingId={selectedListing.id}
+          tokenAmount={selectedListing.amount}
+          tokenId={selectedListing.tokenId}
+          amountSold={selectedListing.amountSold}
+          pricePerToken={selectedListing.pricePerToken}
+          isPrimary={selectedListing.isPrimary}
+        />
+      )}
+
+      {selectedListing && (
+        <DistributeEarningsModal
+          isOpen={isDistributeEarningsOpen}
+          onSuccess={() => {
+            refreshMarketsAfterSuccess();
+          }}
+          onClose={() => {
+            setIsDistributeEarningsOpen(false);
+            setSelectedListing(null);
+            refreshMarketsAfterSuccess();
+          }}
+          assetId={selectedListing.assetId}
+          assetName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
+        />
+      )}
+
+      {selectedListing && (
+        <SettleAssetModal
+          isOpen={isSettleAssetOpen}
+          onClose={() => {
+            setIsSettleAssetOpen(false);
+            setSelectedListing(null);
+            refreshMarketsAfterSuccess();
+          }}
+          assetId={selectedListing.assetId}
+          assetName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
+            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
+        />
+      )}
+
+      {selectedListing && (
+        <CancelListingModal
+          isOpen={isCancelListingOpen}
+          onSuccess={() => {
+            refreshMarketsAfterSuccess();
+          }}
+          onClose={() => {
+            setIsCancelListingOpen(false);
+            setSelectedListing(null);
+          }}
+          listingId={selectedListing.id}
+          isPrimary={selectedListing.isPrimary}
+        />
       )}
     </div>
   );

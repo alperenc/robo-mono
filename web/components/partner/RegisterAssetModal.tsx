@@ -2,22 +2,26 @@
 
 import { useState } from "react";
 import { RegisterVehicleForm } from "./forms/RegisterVehicleForm";
+import { useEscClose } from "./useEscClose";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 
 interface RegisterAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  maxStep: 1 | 2 | 3; // 1=Register, 2=Register&Mint, 3=List
+  onSuccess?: () => void;
+  maxStep: 1 | 3;
 }
 
-export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetModalProps) => {
+export const RegisterAssetModal = ({ isOpen, onClose, onSuccess, maxStep }: RegisterAssetModalProps) => {
   // Filter for active registries
   const activeRegistries = Object.entries(ASSET_REGISTRIES).filter(([, config]) => config.active);
   const singleActiveType = activeRegistries.length === 1 ? (activeRegistries[0][0] as AssetType) : null;
 
   // Auto-select if only one type is active, otherwise start null
   const [selectedType, setSelectedType] = useState<AssetType | null>(singleActiveType);
+
+  useEscClose(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -34,7 +38,7 @@ export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetMo
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
       {/* Mobile: fullscreen | Desktop: constrained centered modal */}
-      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button className="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" onClick={onClose}>
           <XMarkIcon className="h-5 w-5" />
@@ -71,7 +75,13 @@ export const RegisterAssetModal = ({ isOpen, onClose, maxStep }: RegisterAssetMo
           /* Polymorphic Form Rendering - flex-1 to fill modal */
           <div className="flex-1 flex flex-col overflow-hidden">
             {selectedType === AssetType.VEHICLE && (
-              <RegisterVehicleForm onClose={onClose} maxStep={maxStep} onBack={handleBack} />
+              <RegisterVehicleForm
+                onClose={onClose}
+                onSuccess={onSuccess}
+                maxStep={maxStep}
+                onBack={handleBack}
+                isPrimaryListing
+              />
             )}
             {selectedType === AssetType.REAL_ESTATE && (
               <div className="text-center py-10 p-6">

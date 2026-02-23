@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 interface BuyTokensModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ interface BuyTokensModalProps {
   totalSupply?: string;
   vehicleName?: string;
   partnerName?: string;
+  listedTokens?: string;
+  relatedListingIds?: string[];
 }
 
 const PERCENTAGE_OPTIONS = [25, 50, 75, 100];
@@ -35,8 +38,11 @@ export function BuyTokensModal({
   totalSupply,
   vehicleName = "Asset",
   partnerName,
+  listedTokens,
+  relatedListingIds = [],
 }: BuyTokensModalProps) {
   const { address } = useAccount();
+  const { symbol, decimals } = usePaymentToken();
   const [amount, setAmount] = useState("");
   const [step, setStep] = useState<"input" | "approving" | "purchasing" | "success" | "error">("input");
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +51,8 @@ export function BuyTokensModal({
   const chainId = 31337; // localhost
   const marketplaceAddress = deployedContracts[chainId]?.Marketplace?.address;
 
-  // Read USDC balance
-  const { data: usdcBalance } = useScaffoldReadContract({
+  // Read payment token balance
+  const { data: paymentTokenBalance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "balanceOf",
     args: [address],
@@ -60,17 +66,35 @@ export function BuyTokensModal({
     args: [address, revenueTokenId],
   });
 
-  // Read user's escrowed token balance (marketplace)
-  const { data: escrowedBalance, refetch: refetchEscrowedBalance } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "buyerTokens",
-    args: [BigInt(listing.id), address],
+  const { data: escrowedBalancesData, refetch: refetchEscrowedBalances } = useReadContracts({
+    contracts: relatedListingIds.map(listingId => ({
+      address: deployedContracts[chainId]?.Marketplace?.address,
+      abi: deployedContracts[chainId]?.Marketplace?.abi,
+      functionName: "buyerTokens",
+      args: [BigInt(listingId), address],
+    })) as any,
+    query: { enabled: !!address && relatedListingIds.length > 0 && isOpen },
   });
 
-  const totalUserTokens = (userTokenBalance || 0n) + (escrowedBalance || 0n);
+  const cumulativeEscrowedBalance = useMemo(() => {
+    if (!escrowedBalancesData) return 0n;
+    return escrowedBalancesData.reduce((sum, result) => {
+      if (result.status !== "success") return sum;
+      return sum + (result.result as bigint);
+    }, 0n);
+  }, [escrowedBalancesData]);
 
-  // Read USDC allowance for Marketplace
-  const { data: usdcAllowance, refetch: refetchAllowance } = useScaffoldReadContract({
+  const totalUserTokens = (userTokenBalance || 0n) + cumulativeEscrowedBalance;
+  const listedTokensCount = useMemo(() => {
+    try {
+      return listedTokens ? BigInt(listedTokens) : 0n;
+    } catch {
+      return 0n;
+    }
+  }, [listedTokens]);
+
+  // Read payment token allowance for Marketplace
+  const { data: paymentTokenAllowance, refetch: refetchAllowance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "allowance",
     args: [address, marketplaceAddress],
@@ -85,7 +109,7 @@ export function BuyTokensModal({
   });
 
   // Write contracts
-  const { writeContractAsync: approveUsdc, isPending: isApproving } = useScaffoldWriteContract({
+  const { writeContractAsync: approvePaymentToken, isPending: isApproving } = useScaffoldWriteContract({
     contractName: "MockUSDC",
   });
 
@@ -93,9 +117,9 @@ export function BuyTokensModal({
     contractName: "Marketplace",
   });
 
-  // Calculate max affordable tokens based on USDC balance
+  // Calculate max affordable tokens based on payment token balance
   const maxAffordableTokens = useMemo(() => {
-    if (!usdcBalance) return 0n;
+    if (!paymentTokenBalance) return 0n;
 
     const pricePerToken = BigInt(listing.pricePerToken);
     if (pricePerToken === 0n) return 0n;
@@ -105,8 +129,8 @@ export function BuyTokensModal({
     const feeMultiplier = buyerPaysFee ? 103n : 100n; // ~3% protocol fee buffer
     const effectivePricePerToken = (pricePerToken * feeMultiplier) / 100n;
 
-    return usdcBalance / effectivePricePerToken;
-  }, [usdcBalance, listing.pricePerToken, listing.buyerPaysFee]);
+    return paymentTokenBalance / effectivePricePerToken;
+  }, [paymentTokenBalance, listing.pricePerToken, listing.buyerPaysFee]);
 
   // Max tokens = min(listing amount, affordable tokens)
   const maxTokens = useMemo(() => {
@@ -121,16 +145,16 @@ export function BuyTokensModal({
 
   // Check if approval needed
   const needsApproval = useMemo(() => {
-    if (!usdcAllowance || !expectedPayment) return true;
-    return usdcAllowance < expectedPayment;
-  }, [usdcAllowance, expectedPayment]);
+    if (!paymentTokenAllowance || !expectedPayment) return true;
+    return paymentTokenAllowance < expectedPayment;
+  }, [paymentTokenAllowance, expectedPayment]);
 
   // Format values for display
-  const formattedBalance = usdcBalance ? formatUnits(usdcBalance, 6) : "0";
-  const formattedCost = formatUnits(totalCost, 6);
-  const formattedFee = formatUnits(protocolFee, 6);
-  const formattedTotal = formatUnits(expectedPayment, 6);
-  const pricePerTokenDisplay = formatUnits(BigInt(listing.pricePerToken), 6);
+  const formattedBalance = paymentTokenBalance ? formatUnits(paymentTokenBalance, decimals) : "0";
+  const formattedCost = formatUnits(totalCost, decimals);
+  const formattedFee = formatUnits(protocolFee, decimals);
+  const formattedTotal = formatUnits(expectedPayment, decimals);
+  const pricePerTokenDisplay = formatUnits(BigInt(listing.pricePerToken), decimals);
 
   // Handle percentage selection
   const handlePercentageSelect = useCallback(
@@ -179,7 +203,7 @@ export function BuyTokensModal({
         setStep("approving");
 
         try {
-          await approveUsdc({
+          await approvePaymentToken({
             functionName: "approve",
             args: [marketplaceAddress, expectedPayment],
           });
@@ -200,7 +224,7 @@ export function BuyTokensModal({
 
       setStep("success");
       // Refetch token balances to show updated holdings
-      await Promise.all([refetchTokenBalance(), refetchEscrowedBalance()]);
+      await Promise.all([refetchTokenBalance(), refetchEscrowedBalances()]);
       // Trigger data refresh
       onPurchaseComplete?.(listing.id);
     } catch (e: any) {
@@ -225,12 +249,12 @@ export function BuyTokensModal({
 
   const isLoading = isApproving || isPurchasing;
   const hasValidAmount = amount && BigInt(amount) > 0n && BigInt(amount) <= BigInt(listing.amount);
-  const hasInsufficientBalance = expectedPayment > (usdcBalance ?? 0n);
+  const hasInsufficientBalance = expectedPayment > (paymentTokenBalance ?? 0n);
 
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
@@ -250,11 +274,11 @@ export function BuyTokensModal({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {step === "success" ? (
-            <div className="text-center py-8">
+            <div className="text-center text-base-content">
               <div className="text-6xl mb-4">🎉</div>
               <h4 className="text-xl font-bold text-success mb-2">Purchase Complete!</h4>
 
-              <div className="alert alert-info text-sm mb-4 text-left">
+              <div className="alert text-sm mb-4 text-left bg-base-200/70 text-base-content border border-base-300">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
@@ -273,32 +297,37 @@ export function BuyTokensModal({
                 </span>
               </div>
 
-              <p className="opacity-70 mb-4">
+              <p className="text-base-content/80 mb-4">
                 You&apos;ve acquired <span className="font-bold">{Number(amount).toLocaleString()}</span> revenue rights
                 tokens for {vehicleName}.
               </p>
 
               {/* Ownership percentage */}
               {totalSupply && (
-                <div className="bg-base-200 rounded-lg p-4 mb-4">
-                  <div className="text-sm opacity-70 mb-1">This Purchase</div>
-                  <div className="text-2xl font-bold text-primary">
+                <div className="bg-base-100/70 dark:bg-base-100/15 border border-base-300/60 rounded-lg p-4 mb-4 text-base-content">
+                  <div className="text-sm text-base-content/70 mb-1">This Purchase</div>
+                  <div className="text-2xl font-bold text-base-content">
                     {((Number(amount) / Number(totalSupply)) * 100).toFixed(2)}%
                   </div>
-                  <div className="text-xs opacity-50">of total revenue rights</div>
+                  <div className="text-xs text-base-content/60">of total revenue rights</div>
                 </div>
               )}
 
               {/* Total holdings after purchase */}
-              {totalUserTokens !== undefined && totalSupply && (
-                <div className="bg-success/10 rounded-lg p-4">
-                  <div className="text-sm opacity-70 mb-1">Your Cumulative Holdings</div>
+              {totalSupply && (
+                <div className="bg-success/20 dark:bg-success/15 border border-success/30 rounded-lg p-4 text-base-content">
+                  <div className="text-sm text-base-content/70 mb-1">Your Cumulative Holdings</div>
                   <div className="text-2xl font-bold text-success">
-                    {((Number(totalUserTokens) / Number(totalSupply)) * 100).toFixed(2)}%
+                    {((Number(totalUserTokens + listedTokensCount) / Number(totalSupply)) * 100).toFixed(2)}%
                   </div>
-                  <div className="text-xs opacity-50">
-                    {Number(totalUserTokens).toLocaleString()} tokens (Wallet + Escrow)
+                  <div className="text-xs text-base-content/60">
+                    {Number(totalUserTokens + listedTokensCount).toLocaleString()} tokens
                   </div>
+                  {listedTokensCount > 0n && (
+                    <div className="text-xs text-base-content/50">
+                      {Number(listedTokensCount).toLocaleString()} listed tokens
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -308,7 +337,9 @@ export function BuyTokensModal({
               <div className="bg-base-200 rounded-lg p-3">
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Price per Token:</span>
-                  <span className="font-bold">${pricePerTokenDisplay}</span>
+                  <span className="font-bold">
+                    {Number(pricePerTokenDisplay).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Available:</span>
@@ -316,11 +347,11 @@ export function BuyTokensModal({
                 </div>
               </div>
 
-              {/* USDC Balance */}
+              {/* Payment Token Balance */}
               <div className="flex justify-between items-center">
-                <span className="text-sm opacity-70">Your USDC Balance</span>
+                <span className="text-sm opacity-70">Your {symbol} Balance</span>
                 <span className="font-mono">
-                  ${Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
                 </span>
               </div>
 
@@ -379,20 +410,26 @@ export function BuyTokensModal({
                 <div className="bg-base-200 rounded-lg p-3 space-y-1">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span>${Number(formattedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span>
+                      {Number(formattedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm opacity-70">
                     <span>Protocol Fee</span>
-                    <span>${Number(formattedFee).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span>
+                      {Number(formattedFee).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                    </span>
                   </div>
                   <div className="divider my-1"></div>
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
                     <span className={hasInsufficientBalance ? "text-error" : ""}>
-                      ${Number(formattedTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {Number(formattedTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
                     </span>
                   </div>
-                  {hasInsufficientBalance && <div className="text-xs text-error mt-1">Insufficient USDC balance</div>}
+                  {hasInsufficientBalance && (
+                    <div className="text-xs text-error mt-1">Insufficient {symbol} balance</div>
+                  )}
                 </div>
               )}
 

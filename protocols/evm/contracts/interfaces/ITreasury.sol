@@ -14,6 +14,7 @@ interface ITreasury {
     event CollateralReleased(uint256 indexed assetId, address indexed recipient, uint256 amount);
     event WithdrawalProcessed(address indexed recipient, uint256 amount);
     event CollateralLocked(uint256 indexed assetId, address indexed partner, uint256 amount);
+    event BaseEscrowCredited(uint256 indexed assetId, uint256 amount);
     event ShortfallReserved(uint256 indexed assetId, uint256 amount);
     event BufferReplenished(uint256 indexed assetId, uint256 amount, uint256 fromReserved);
     event CollateralBuffersUpdated(
@@ -57,10 +58,9 @@ interface ITreasury {
     error AssetNotOperationalForSettlement(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error NoUnclaimedEarnings();
 
-    function lockCollateral(uint256 assetId, uint256 assetValue) external;
-    function lockCollateralFor(address partner, uint256 assetId, uint256 assetValue) external;
     function releaseCollateral(uint256 assetId) external;
     function releaseCollateralFor(address partner, uint256 assetId) external returns (uint256 releasedCollateral);
+    function fundBuffersFor(address partner, uint256 assetId, uint256 baseAmount) external;
     function initiateSettlement(address partner, uint256 assetId, uint256 topUpAmount)
         external
         returns (uint256 settlementAmount, uint256 settlementPerToken);
@@ -70,11 +70,32 @@ interface ITreasury {
     function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
         external
         returns (uint256 claimedAmount);
+    /**
+     * @dev Preview whether an asset is currently eligible for liquidation using simulated missed-shortfall accrual.
+     * @return eligible True if liquidation would be allowed
+     * @return reason Encoded reason: 0=EligibleByMaturity, 1=EligibleByInsolvency, 2=AlreadySettled, 3=NotEligible
+     */
+    function previewLiquidationEligibility(uint256 assetId) external view returns (bool eligible, uint8 reason);
     function isAssetSolvent(uint256 assetId) external view returns (bool);
-    function distributeEarnings(uint256 assetId, uint256 totalRevenue, uint256 investorAmount, bool tryAutoRelease)
+    function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
         external
         returns (uint256 collateralReleased);
-    function getMinProtocolFee() external pure returns (uint256);
+    function getProtocolConfig()
+        external
+        pure
+        returns (
+            uint256 bpPrecision,
+            uint256 benchmarkYieldBP,
+            uint256 protocolFeeBP,
+            uint256 earlySalePenaltyBP,
+            uint256 depreciationRateBP,
+            uint256 minProtocolFee,
+            uint256 minEarlySalePenalty
+        );
+    function getMarketProjectionConstants()
+        external
+        pure
+        returns (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision);
     function claimEarnings(uint256 assetId) external;
     function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
         external
@@ -82,9 +103,19 @@ interface ITreasury {
     function releasePartialCollateral(uint256 assetId) external;
     function releaseAndWithdrawCollateral(uint256 assetId) external returns (uint256 withdrawn);
     function claimAndWithdrawEarnings(uint256 assetId) external returns (uint256 withdrawn);
-    function getTotalCollateralRequirement(uint256 assetValue) external pure returns (uint256);
+    function creditBaseEscrow(uint256 assetId, uint256 amount) external;
+    function recordPendingWithdrawal(address recipient, uint256 amount) external;
+    function processWithdrawalFor(address account) external returns (uint256 amount);
+    function treasuryFeeRecipient() external view returns (address);
+    function getTotalBufferRequirement(uint256 baseAmount, uint256 yieldBP) external pure returns (uint256);
     function getAssetCollateralInfo(uint256 assetId) external view returns (CollateralLib.CollateralInfo memory);
+    function previewCollateralRelease(uint256 assetId, bool assumeNewPeriod)
+        external
+        view
+        returns (uint256 releasedAmount);
     function getPendingWithdrawal(address account) external view returns (uint256);
+    function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256);
+    function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256);
     function getTreasuryStats() external view returns (uint256 totalDeposited, uint256 treasuryBalance);
     function updateRouter(address _newRouter) external;
     function updatePartnerManager(address _partnerManager) external;

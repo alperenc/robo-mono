@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ProtocolLib, CollateralLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, TokenLib, CollateralLib, AssetLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -21,6 +21,8 @@ contract BaseTest is Test {
         RevenueTokensMinted,
         RevenueTokensListed,
         RevenueTokensPurchased,
+        BuffersLocked,
+        ListingEnded,
         RevenueTokensClaimed,
         EarningsDistributed,
         AssetWithPartialCollateralRelease,
@@ -113,6 +115,16 @@ contract BaseTest is Test {
             currentState = SetupState.RevenueTokensPurchased;
         }
 
+        if (requiredState >= SetupState.BuffersLocked && currentState < SetupState.BuffersLocked) {
+            _setupBuffersLocked();
+            currentState = SetupState.BuffersLocked;
+        }
+
+        if (requiredState >= SetupState.ListingEnded && currentState < SetupState.ListingEnded) {
+            _setupListingEnded();
+            currentState = SetupState.ListingEnded;
+        }
+
         if (requiredState >= SetupState.RevenueTokensClaimed && currentState < SetupState.RevenueTokensClaimed) {
             _setupRevenueTokensClaimed();
             currentState = SetupState.RevenueTokensClaimed;
@@ -151,17 +163,43 @@ contract BaseTest is Test {
     }
 
     function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
-        // Calculate required collateral
-        uint256 requiredCollateral = treasury.getTotalCollateralRequirement(ASSET_VALUE);
-
         uint256 maturityDate = block.timestamp + 365 days;
 
-        vm.startPrank(partner1);
-        // Approve USDC for collateral
-        usdc.approve(address(treasury), requiredCollateral);
+        revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
+        uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
 
-        (revenueTokenId,) = assetRegistry.mintRevenueTokens(scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate);
+        vm.startPrank(admin);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, REVENUE_TOKEN_PRICE, supply, maturityDate, 10_000, 1_000);
         vm.stopPrank();
+
+        _mintRevenueTokensToEscrow(revenueTokenId, supply);
+
+        vm.prank(address(treasury));
+        router.setAssetStatus(scenario.assetId, AssetLib.AssetStatus.Active);
+    }
+
+    function _mintRevenueTokensToEscrow(uint256 revenueTokenId, uint256 amount) internal {
+        vm.prank(address(router));
+        roboshareTokens.mint(address(marketplace), revenueTokenId, amount, "");
+        vm.prank(address(router));
+        marketplace.creditTokenEscrow(revenueTokenId, amount);
+    }
+
+    function _setupBuffersLocked() internal {
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        uint256 baseAmount = listing.soldAmount * listing.pricePerToken;
+        uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
+        uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP);
+        vm.prank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
+        vm.prank(address(marketplace));
+        treasury.fundBuffersFor(partner1, scenario.assetId, baseAmount);
+    }
+
+    function _setupBaseEscrowCredited(uint256 amount) internal {
+        deal(address(usdc), address(treasury), usdc.balanceOf(address(treasury)) + amount);
+        vm.prank(address(marketplace));
+        treasury.creditBaseEscrow(scenario.assetId, amount);
     }
 
     function _setupRevenueTokensListed() internal returns (uint256 listingId) {
@@ -169,8 +207,11 @@ contract BaseTest is Test {
         vm.prank(partner1);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
 
+        // Approve treasury for buffer funding at listing end
         vm.prank(partner1);
-        // Create listing for tokens (collateral already locked)
+        usdc.approve(address(treasury), type(uint256).max);
+
+        vm.prank(partner1);
         listingId = marketplace.createListing(
             scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
@@ -187,11 +228,17 @@ contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function _setupRevenueTokensClaimed() internal {
+    function _setupListingEnded() internal {
+        // Partner approves buffer funding and ends listing to release escrowed tokens
+        vm.prank(partner1);
+        usdc.approve(address(treasury), type(uint256).max);
+
         // Partner ends listing to release escrowed tokens
         vm.prank(partner1);
         marketplace.endListing(scenario.listingId);
+    }
 
+    function _setupRevenueTokensClaimed() internal {
         // Buyer claims tokens from escrow
         vm.prank(buyer);
         marketplace.claimTokens(scenario.listingId);
@@ -208,15 +255,15 @@ contract BaseTest is Test {
 
         // Calculate investor portion based on token ownership
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 partnerTokens = roboshareTokens.balanceOf(partner1, revenueTokenId);
-        uint256 investorTokens = totalSupply - partnerTokens;
-
-        // Calculate investor amount (proportional to their token ownership)
-        uint256 investorAmount = (totalEarningsAmount * investorTokens) / totalSupply;
+        uint256 investorTokens = roboshareTokens.getSoldSupply(revenueTokenId);
+        uint256 revenueShareBP = roboshareTokens.getRevenueShareBP(revenueTokenId);
+        uint256 cap = (totalEarningsAmount * revenueShareBP) / ProtocolLib.BP_PRECISION;
+        uint256 soldShare = (totalEarningsAmount * investorTokens) / totalSupply;
+        uint256 investorAmount = soldShare < cap ? soldShare : cap;
 
         vm.startPrank(partner1);
         usdc.approve(address(treasury), investorAmount);
-        treasury.distributeEarnings(scenario.assetId, totalEarningsAmount, investorAmount, false);
+        treasury.distributeEarnings(scenario.assetId, totalEarningsAmount, false);
         vm.stopPrank();
     }
 
@@ -529,16 +576,16 @@ contract BaseTest is Test {
     /**
      * @dev Calculate expected collateral requirement
      */
-    function _calculateExpectedCollateral(uint256 assetValue)
+    function _calculateExpectedBuffers(uint256 baseAmount)
         internal
         pure
-        returns (uint256 base, uint256 earningsBuffer, uint256 protocolBuffer, uint256 total)
+        returns (uint256 earningsBuffer, uint256 protocolBuffer, uint256 total)
     {
-        base = assetValue;
-        uint256 expectedQuarterlyEarnings = (base * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
-        earningsBuffer = (expectedQuarterlyEarnings * ProtocolLib.BENCHMARK_EARNINGS_BP) / ProtocolLib.BP_PRECISION;
+        uint256 expectedQuarterlyEarnings =
+            (baseAmount * ProtocolLib.QUARTERLY_INTERVAL) / ProtocolLib.YEARLY_INTERVAL;
+        earningsBuffer = (expectedQuarterlyEarnings * ProtocolLib.BENCHMARK_YIELD_BP) / ProtocolLib.BP_PRECISION;
         protocolBuffer = (expectedQuarterlyEarnings * ProtocolLib.PROTOCOL_FEE_BP) / ProtocolLib.BP_PRECISION;
-        total = base + earningsBuffer + protocolBuffer;
+        total = earningsBuffer + protocolBuffer;
     }
 
     // ========================================

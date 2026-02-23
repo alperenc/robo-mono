@@ -7,14 +7,16 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
-import { AssetLib } from "./Libraries.sol";
+import { AssetLib, TokenLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
+import { PartnerManager } from "./PartnerManager.sol";
 
 /**
  * @title RegistryRouter
  * @dev Central router for all asset registries in the Roboshare Protocol
  * Routes asset-specific calls to the appropriate registry based on asset ID
  * Manages the global asset ID counter via RoboshareTokens
+ * Also routes Treasury and Marketplace operations on behalf of asset registries
  */
 contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradeable, IAssetRegistry {
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -23,6 +25,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
     // Core contracts
     RoboshareTokens public roboshareTokens;
+    PartnerManager public partnerManager;
     address public treasury;
     address public marketplace;
 
@@ -35,19 +38,29 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     error RegistryNotFound(uint256 id);
     error RegistryNotBoundToAsset();
     error TreasuryNotSet();
-    error TokenNotFound(uint256 tokenId);
+    error MarketplaceNotSet();
+    error NotTreasury();
+    error NotMarketplace();
 
     // Events
     event IdBoundToRegistry(uint256 indexed id, address indexed registry);
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
+    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
+    event RevenueTokensMinted(
+        uint256 indexed assetId,
+        uint256 indexed revenueTokenId,
+        address indexed partner,
+        uint256 assetValue,
+        uint256 supply
+    );
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(address _admin, address _roboshareTokens) public initializer {
-        if (_admin == address(0) || _roboshareTokens == address(0)) {
+    function initialize(address _admin, address _roboshareTokens, address _partnerManager) public initializer {
+        if (_admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)) {
             revert ZeroAddress();
         }
 
@@ -63,6 +76,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         _setRoleAdmin(AUTHORIZED_REGISTRY_ROLE, REGISTRY_ADMIN_ROLE);
 
         roboshareTokens = RoboshareTokens(_roboshareTokens);
+        partnerManager = PartnerManager(_partnerManager);
     }
 
     /**
@@ -79,6 +93,17 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     function setMarketplace(address _marketplace) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_marketplace == address(0)) revert ZeroAddress();
         marketplace = _marketplace;
+    }
+
+    function _onlyAuthorizedPartner() internal view {
+        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
+            revert PartnerManager.UnauthorizedPartner();
+        }
+    }
+
+    modifier onlyAuthorizedPartner() {
+        _onlyAuthorizedPartner();
+        _;
     }
 
     /**
@@ -99,16 +124,9 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         uint256 duration,
         bool buyerPaysFee
     ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 listingId) {
-        if (marketplace == address(0)) revert ZeroAddress();
+        if (marketplace == address(0)) revert MarketplaceNotSet();
         return
             IMarketplace(marketplace).createListingFor(seller, tokenId, amount, pricePerToken, duration, buyerPaysFee);
-    }
-
-    /**
-     * @dev Bind an ID to a registry. Must be called by an authorized registry.
-     */
-    function bindId(uint256 id) external onlyRole(AUTHORIZED_REGISTRY_ROLE) {
-        _bindId(id, msg.sender);
     }
 
     /**
@@ -149,8 +167,71 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         revert DirectCallNotAllowed();
     }
 
-    function mintRevenueTokens(uint256 assetId, uint256 tokenPrice, uint256 maturityDate)
+    function mintRevenueTokensAndList(
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) external override onlyAuthorizedPartner returns (uint256 tokenId, uint256 supply, uint256 listingId) {
+        return _mintRevenueTokensAndListFor(
+            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
+        );
+    }
+
+    /**
+     * @dev Registry-only wrapper to mint revenue tokens and list on behalf of a partner.
+     */
+    function mintRevenueTokensAndListFor(
+        address partner,
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 tokenId, uint256 supply, uint256 listingId) {
+        return _mintRevenueTokensAndListFor(
+            partner, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
+        );
+    }
+
+    /**
+     * @dev Shared mint + list flow used by direct callers and registry wrappers.
+     */
+    function _mintRevenueTokensAndListFor(
+        address partner,
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) internal returns (uint256 tokenId, uint256 supply, uint256 listingId) {
+        address registry = idToRegistry[assetId];
+        if (registry == address(0)) {
+            revert RegistryNotFound(assetId);
+        }
+
+        (tokenId, supply) = IAssetRegistry(registry).previewMintRevenueTokens(assetId, partner, tokenPrice);
+
+        roboshareTokens.setRevenueTokenInfo(tokenId, tokenPrice, supply, maturityDate, revenueShareBP, targetYieldBP);
+        _mintRevenueTokensToEscrow(registry, tokenId, supply);
+        emit RevenueTokensMinted(assetId, tokenId, partner, supply * tokenPrice, supply);
+
+        IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        listingId = IMarketplace(marketplace)
+            .createListingFor(partner, tokenId, supply, tokenPrice, listingDuration, buyerPaysFee);
+    }
+
+    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
         external
+        view
         override
         returns (uint256 tokenId, uint256 supply)
     {
@@ -158,19 +239,10 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        return IAssetRegistry(registry).mintRevenueTokens(assetId, tokenPrice, maturityDate);
+        return IAssetRegistry(registry).previewMintRevenueTokens(assetId, partner, tokenPrice);
     }
 
-    function registerAssetAndMintTokens(bytes calldata, uint256, uint256, uint256)
-        external
-        pure
-        override
-        returns (uint256, uint256, uint256)
-    {
-        revert DirectCallNotAllowed();
-    }
-
-    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, bool)
+    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, uint256, uint256, bool)
         external
         pure
         override
@@ -202,12 +274,13 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     function setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) external override {
+        if (msg.sender != treasury) {
+            revert NotTreasury();
+        }
         address registry = idToRegistry[assetId];
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        // Router doesn't enforce access control here, the specific registry should.
-        // However, usually only Treasury calls this.
         IAssetRegistry(registry).setAssetStatus(assetId, status);
     }
 
@@ -306,6 +379,16 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         return ITreasury(treasury).isAssetSolvent(assetId);
     }
 
+    /**
+     * @dev Preview liquidation eligibility via Treasury using simulated shortfall accrual.
+     */
+    function previewLiquidationEligibility(uint256 assetId) external view returns (bool eligible, uint8 reason) {
+        if (treasury == address(0)) {
+            revert TreasuryNotSet();
+        }
+        return ITreasury(treasury).previewLiquidationEligibility(assetId);
+    }
+
     function settleAsset(uint256 assetId, uint256 topUpAmount) external override {
         address registry = idToRegistry[assetId];
         if (registry == address(0)) {
@@ -324,6 +407,17 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
     function claimSettlement(uint256 assetId, bool autoClaimEarnings)
         external
+        pure
+        override
+        returns (uint256, uint256)
+    {
+        assetId;
+        autoClaimEarnings;
+        revert DirectCallNotAllowed();
+    }
+
+    function claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
+        external
         override
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
@@ -331,7 +425,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        return IAssetRegistry(registry).claimSettlement(assetId, autoClaimEarnings);
+        return IAssetRegistry(registry).claimSettlementFor(account, assetId, autoClaimEarnings);
     }
 
     function burnRevenueTokens(uint256 assetId, uint256 amount) external override {
@@ -381,32 +475,77 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev Forward collateral lock request from Registry to Treasury.
-     * Callable only by authorized registries.
+     * @dev Clear unsold escrow for a tokenId (called by registry at settlement).
      */
-    function lockCollateralFor(address partner, uint256 assetId, uint256 assetValue)
-        external
-        onlyRole(AUTHORIZED_REGISTRY_ROLE)
-    {
+    function clearTokenEscrow(uint256 assetId) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 amount) {
         // Verify this registry owns the asset
         if (idToRegistry[assetId] != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
-
-        // Call Treasury
-        if (treasury == address(0)) {
-            revert TreasuryNotSet();
+        if (marketplace == address(0)) {
+            revert MarketplaceNotSet();
         }
 
-        ITreasury(treasury).lockCollateralFor(partner, assetId, assetValue);
+        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        amount = IMarketplace(marketplace).clearTokenEscrow(tokenId);
     }
 
-    function isAuthorizedForAsset(address account, uint256 assetId) external view override returns (bool) {
-        address registry = idToRegistry[assetId];
-        if (registry == address(0)) {
-            revert RegistryNotFound(assetId);
+    function creditTokenEscrow(uint256 assetId, uint256 amount) external onlyRole(AUTHORIZED_REGISTRY_ROLE) {
+        if (idToRegistry[assetId] != msg.sender) {
+            revert RegistryNotBoundToAsset();
         }
-        return IAssetRegistry(registry).isAuthorizedForAsset(account, assetId);
+        if (marketplace == address(0)) {
+            revert MarketplaceNotSet();
+        }
+
+        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        IMarketplace(marketplace).creditTokenEscrow(tokenId, amount);
+    }
+
+    /**
+     * @dev Record sold supply for primary listings (called by Marketplace after a listing ends).
+     * Allows multiple listings per asset owner; sold supply accumulates.
+     */
+    function recordSoldSupply(uint256 revenueTokenId, uint256 soldAmount) external {
+        if (msg.sender != marketplace) {
+            revert NotMarketplace();
+        }
+        if (idToRegistry[revenueTokenId] == address(0)) {
+            revert RegistryNotFound(revenueTokenId);
+        }
+        if (soldAmount == 0) {
+            return;
+        }
+        roboshareTokens.increaseSoldSupply(revenueTokenId, soldAmount);
+    }
+
+    function _mintRevenueTokensToEscrow(address registry, uint256 revenueTokenId, uint256 amount) internal {
+        if (idToRegistry[revenueTokenId] != registry) {
+            revert RegistryNotBoundToAsset();
+        }
+        if (marketplace == address(0)) {
+            revert MarketplaceNotSet();
+        }
+        roboshareTokens.mint(marketplace, revenueTokenId, amount, "");
+        IMarketplace(marketplace).creditTokenEscrow(revenueTokenId, amount);
+    }
+
+    function burnRevenueTokensFromEscrow(uint256 revenueTokenId)
+        external
+        onlyRole(AUTHORIZED_REGISTRY_ROLE)
+        returns (uint256 amount)
+    {
+        if (idToRegistry[revenueTokenId] != msg.sender) {
+            revert RegistryNotBoundToAsset();
+        }
+        if (marketplace == address(0)) {
+            revert MarketplaceNotSet();
+        }
+
+        amount = IMarketplace(marketplace).clearTokenEscrow(revenueTokenId);
+        if (amount > 0) {
+            roboshareTokens.burn(marketplace, revenueTokenId, amount);
+        }
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {
@@ -432,6 +571,17 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         address oldAddress = address(roboshareTokens);
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         emit RoboshareTokensUpdated(oldAddress, _roboshareTokens);
+    }
+
+    /**
+     * @dev Update PartnerManager address
+     * @param _partnerManager New PartnerManager contract address
+     */
+    function updatePartnerManager(address _partnerManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_partnerManager == address(0)) revert ZeroAddress();
+        address oldPartnerManager = address(partnerManager);
+        partnerManager = PartnerManager(_partnerManager);
+        emit PartnerManagerUpdated(oldPartnerManager, _partnerManager);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }

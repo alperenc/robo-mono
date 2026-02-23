@@ -9,11 +9,12 @@ query GetMarketListings {
     pricePerToken
     expiresAt
     buyerPaysFee
+    isPrimary
     status
     isCancelled
     isEnded
     claimedAmount
-    refundedUSDC
+    refundedAmount
     createdAt
   }
   vehicles(first: 100) {

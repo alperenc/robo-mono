@@ -90,19 +90,6 @@
   },
   {
     "type": "function",
-    "name": "bindId",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "burnRevenueTokens",
     "inputs": [
       {
@@ -117,6 +104,25 @@
       }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "burnRevenueTokensFromEscrow",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -136,12 +142,65 @@
     ],
     "outputs": [
       {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "claimSettlementFor",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "autoClaimEarnings",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
         "name": "claimedAmount",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
         "name": "earningsClaimed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "clearTokenEscrow",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -190,6 +249,24 @@
         "internalType": "uint256"
       }
     ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "creditTokenEscrow",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -414,6 +491,11 @@
         "name": "_roboshareTokens",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_partnerManager",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -474,57 +556,10 @@
   },
   {
     "type": "function",
-    "name": "isAuthorizedForAsset",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "liquidateAsset",
     "inputs": [
       {
         "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "lockCollateralFor",
-    "inputs": [
-      {
-        "name": "partner",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "assetValue",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -547,7 +582,7 @@
   },
   {
     "type": "function",
-    "name": "mintRevenueTokens",
+    "name": "mintRevenueTokensAndList",
     "inputs": [
       {
         "name": "assetId",
@@ -561,6 +596,166 @@
       },
       {
         "name": "maturityDate",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "revenueShareBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "targetYieldBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "listingDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyerPaysFee",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "mintRevenueTokensAndListFor",
+    "inputs": [
+      {
+        "name": "partner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "revenueShareBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "targetYieldBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "listingDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyerPaysFee",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "partnerManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract PartnerManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewLiquidationEligibility",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "reason",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewMintRevenueTokens",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "partner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenPrice",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -577,7 +772,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -623,6 +818,24 @@
   },
   {
     "type": "function",
+    "name": "recordSoldSupply",
+    "inputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "soldAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "registerAsset",
     "inputs": [
       {
@@ -647,56 +860,22 @@
   },
   {
     "type": "function",
-    "name": "registerAssetAndMintTokens",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "pure"
-  },
-  {
-    "type": "function",
     "name": "registerAssetMintAndList",
     "inputs": [
       {
         "name": "",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "",
@@ -990,6 +1169,19 @@
   },
   {
     "type": "function",
+    "name": "updatePartnerManager",
+    "inputs": [
+      {
+        "name": "_partnerManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "updateRoboshareTokens",
     "inputs": [
       {
@@ -1190,6 +1382,62 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PartnerManagerUpdated",
+    "inputs": [
+      {
+        "name": "oldAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RevenueTokensMinted",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "partner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "assetValue",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1483,7 +1731,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidAssetId",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MarketplaceNotSet",
     "inputs": []
   },
   {
@@ -1494,6 +1752,16 @@
   {
     "type": "error",
     "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotMarketplace",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotTreasury",
     "inputs": []
   },
   {
@@ -1514,21 +1782,15 @@
   },
   {
     "type": "error",
+    "name": "RevenueTokensAlreadyMinted",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "RevenueTokensNotMinted",
     "inputs": [
       {
         "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "TokenNotFound",
-    "inputs": [
-      {
-        "name": "tokenId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1554,6 +1816,11 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedPartner",
+    "inputs": []
   },
   {
     "type": "error",

@@ -197,14 +197,75 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testGetUserPositionsAndBalance() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, partner1);
-        uint256 expectedBalance = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 tokenId = 102;
+        uint256 amount = 100;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(minter);
+        roboshareTokens.setRevenueTokenInfo(tokenId, 100 * 1e6, amount, maturityDate, 10_000, 1_000);
+
+        vm.prank(minter);
+        roboshareTokens.mint(user1, tokenId, amount, "");
+
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(tokenId, user1);
 
         assertEq(positions.length, 1, "Should have exactly one position");
-        assertEq(positions[0].tokenId, scenario.revenueTokenId, "Token ID mismatch in position");
-        assertEq(positions[0].amount, expectedBalance, "Position amount mismatch");
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), expectedBalance);
+        assertEq(positions[0].tokenId, tokenId, "Token ID mismatch in position");
+        assertEq(positions[0].amount, amount, "Position amount mismatch");
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), amount);
+    }
+
+    function testGetRevenueTokenSupplyNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getRevenueTokenSupply(assetId);
+    }
+
+    function testGetSoldSupplyNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getSoldSupply(assetId);
+    }
+
+    function testIncreaseSoldSupplyNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(this));
+        vm.stopPrank();
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.increaseSoldSupply(assetId, 1);
+    }
+
+    function testGetTokenMaturityDateNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getTokenMaturityDate(assetId);
+    }
+
+    function testGetRevenueShareBPNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getRevenueShareBP(assetId);
+    }
+
+    function testGetTargetYieldBPNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getTargetYieldBP(assetId);
+    }
+
+    function testGetSalesPenaltyAssetOwner() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        uint256 penalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, 1);
+        assertEq(penalty, 0);
     }
 
     function testSupportsInterface() public view {
@@ -307,7 +368,7 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.prank(minter);
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.setRevenueTokenInfo(assetId, price, supply, block.timestamp + 365 days);
+        roboshareTokens.setRevenueTokenInfo(assetId, price, supply, block.timestamp + 365 days, 10_000, 1_000);
     }
 
     function testSetRevenueTokenInfoAlreadySet() public {
@@ -316,11 +377,11 @@ contract RoboshareTokensTest is BaseTest {
         uint256 supply = 1000;
 
         vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days, 10_000, 1_000);
 
         vm.startPrank(minter);
         vm.expectRevert(RoboshareTokens.RevenueTokenInfoAlreadySet.selector);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days);
+        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days, 10_000, 1_000);
         vm.stopPrank();
     }
 
@@ -338,13 +399,16 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testGetSalesPenaltyHoldingPeriod() public {
-        _ensureState(SetupState.RevenueTokensMinted);
-        uint256 tokenId = scenario.revenueTokenId;
+        uint256 tokenId = 102;
         uint256 amount = 100;
+        uint256 maturityDate = block.timestamp + 365 days;
 
-        // Transfer tokens to user1 (who does not own the asset)
-        vm.prank(partner1);
-        roboshareTokens.safeTransferFrom(partner1, user1, tokenId, amount, "");
+        vm.prank(minter);
+        roboshareTokens.setRevenueTokenInfo(tokenId, 100 * 1e6, amount, maturityDate, 10_000, 1_000);
+
+        // Mint tokens to user1 (who does not own the asset)
+        vm.prank(minter);
+        roboshareTokens.mint(user1, tokenId, amount, "");
 
         // Immediately after receiving, there should be a penalty for user1
         uint256 penalty = roboshareTokens.getSalesPenalty(user1, tokenId, amount);
@@ -392,5 +456,16 @@ contract RoboshareTokensTest is BaseTest {
         // Even ID -> InvalidAssetId
         vm.expectRevert(TokenLib.InvalidAssetId.selector);
         roboshareTokens.getTokenIdFromAssetId(1002);
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        RoboshareTokens newImpl = new RoboshareTokens();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        roboshareTokens.upgradeToAndCall(address(newImpl), "");
     }
 }

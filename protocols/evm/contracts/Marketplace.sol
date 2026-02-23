@@ -6,13 +6,14 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ProtocolLib, TokenLib, AssetLib } from "./Libraries.sol";
+import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RegistryRouter } from "./RegistryRouter.sol";
-import { Treasury } from "./Treasury.sol";
 
 /**
  * @dev Marketplace for buying and selling revenue share tokens
@@ -35,25 +36,11 @@ contract Marketplace is
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
     RegistryRouter public router;
-    Treasury public treasury;
+    ITreasury public treasury;
     IERC20 public usdc;
 
     // Listing management
     uint256 private _listingIdCounter;
-
-    struct Listing {
-        uint256 listingId;
-        uint256 tokenId;
-        uint256 amount;
-        uint256 soldAmount; // Tokens sold and held in escrow
-        uint256 pricePerToken; // Price in USDC (6 decimals)
-        address seller;
-        uint256 expiresAt;
-        bool isActive;
-        bool isCancelled;
-        uint256 createdAt;
-        bool buyerPaysFee; // If true, buyer pays protocol fee; if false, seller absorbs fee
-    }
 
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => uint256[]) public assetListings; // assetId => listingIds[]
@@ -65,6 +52,7 @@ contract Marketplace is
     // Escrow tracking
     mapping(uint256 => mapping(address => uint256)) public buyerTokens; // listingId => buyer => tokenAmount
     mapping(uint256 => mapping(address => uint256)) public buyerPayments; // listingId => buyer => usdcPaid
+    mapping(uint256 => uint256) public tokenEscrow; // tokenId => escrowed amount for sale/burn
 
     // Errors
     error ZeroAddress();
@@ -74,17 +62,22 @@ contract Marketplace is
     error InsufficientTokenBalance();
     error ListingNotActive();
     error AssetNotActive();
+    error AssetNotEligibleForListing();
     error NoCollateralLocked();
     error ListingNotFound();
-    error ListingExpired();
     error FeesExceedPrice();
     error InsufficientPayment();
     error NotListingOwner();
     error InvalidDuration();
     error ListingNotEnded();
+    error ListingIsCancelled();
     error ListingNotCancelled();
     error NoTokensToClaim();
     error NoRefundToClaim();
+    error ListingOwnerCannotPurchase();
+    error PrimaryListingRequiresBuyerPaysFee();
+    error InvalidUSDCContract(address token);
+    error UnsupportedUSDCDecimals(uint8 decimals);
 
     // Events
     event ListingCreated(
@@ -95,7 +88,8 @@ contract Marketplace is
         uint256 amount,
         uint256 pricePerToken,
         uint256 expiresAt,
-        bool buyerPaysFee
+        bool buyerPaysFee,
+        bool isPrimary
     );
 
     event ListingExtended(uint256 indexed listingId, uint256 newExpiresAt);
@@ -153,28 +147,15 @@ contract Marketplace is
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         partnerManager = PartnerManager(_partnerManager);
         router = RegistryRouter(_router);
-        treasury = Treasury(_treasury);
+        treasury = ITreasury(_treasury);
+        _validateUSDCContract(_usdc);
         usdc = IERC20(_usdc);
 
         _listingIdCounter = 1;
     }
 
     /**
-     * @dev Modifier to ensure only authorized partners can call functions
-     */
-    modifier onlyAuthorizedPartner() {
-        _onlyAuthorizedPartner();
-        _;
-    }
-
-    function _onlyAuthorizedPartner() internal view {
-        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.UnauthorizedPartner();
-        }
-    }
-
-    /**
-     * @dev Create a listing for revenue share tokens (requires collateral to be locked)
+     * @dev Create a listing for revenue share tokens.
      * @param tokenId The revenue share token ID
      * @param amount Number of tokens to list
      * @param pricePerToken Price per token in USDC
@@ -186,39 +167,6 @@ contract Marketplace is
         nonReentrant
         returns (uint256 listingId)
     {
-        // Validate token type (must be revenue share token)
-        if (!TokenLib.isRevenueToken(tokenId)) {
-            revert InvalidTokenType();
-        }
-        if (pricePerToken == 0) {
-            revert InvalidPrice();
-        }
-
-        uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
-
-        // Validate inputs
-        if (amount == 0 || amount > tokenSupply) {
-            revert InvalidAmount();
-        }
-
-        // Verify seller owns enough tokens
-        uint256 sellerBalance = roboshareTokens.balanceOf(msg.sender, tokenId);
-        if (sellerBalance < amount) {
-            revert InsufficientTokenBalance();
-        }
-
-        // Get asset ID and check collateral is locked
-        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-
-        // Check asset status is Active
-        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert AssetNotActive();
-        }
-
-        if (!treasury.getAssetCollateralInfo(assetId).isLocked) {
-            revert NoCollateralLocked();
-        }
-
         return _createListingFor(msg.sender, tokenId, amount, pricePerToken, duration, buyerPaysFee);
     }
 
@@ -240,39 +188,6 @@ contract Marketplace is
         uint256 duration,
         bool buyerPaysFee
     ) external override onlyRole(AUTHORIZED_CONTRACT_ROLE) nonReentrant returns (uint256 listingId) {
-        // Validate token type (must be revenue share token)
-        if (!TokenLib.isRevenueToken(tokenId)) {
-            revert InvalidTokenType();
-        }
-        if (pricePerToken == 0) {
-            revert InvalidPrice();
-        }
-
-        uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
-
-        // Validate inputs
-        if (amount == 0 || amount > tokenSupply) {
-            revert InvalidAmount();
-        }
-
-        // Verify seller owns enough tokens
-        uint256 sellerBalance = roboshareTokens.balanceOf(seller, tokenId);
-        if (sellerBalance < amount) {
-            revert InsufficientTokenBalance();
-        }
-
-        // Get asset ID and check collateral is locked
-        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-
-        // Check asset status is Active
-        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            revert AssetNotActive();
-        }
-
-        if (!treasury.getAssetCollateralInfo(assetId).isLocked) {
-            revert NoCollateralLocked();
-        }
-
         return _createListingFor(seller, tokenId, amount, pricePerToken, duration, buyerPaysFee);
     }
 
@@ -287,8 +202,47 @@ contract Marketplace is
         uint256 duration,
         bool buyerPaysFee
     ) internal returns (uint256 listingId) {
-        // Get asset ID for indexing
+        // Validate token type (must be revenue share token)
+        if (!TokenLib.isRevenueToken(tokenId)) {
+            revert InvalidTokenType();
+        }
+        if (pricePerToken == 0) {
+            revert InvalidPrice();
+        }
+
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
+
+        if (!isAssetEligibleForListing(assetId)) {
+            revert AssetNotEligibleForListing();
+        }
+
+        uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
+
+        // Validate inputs
+        if (amount == 0 || amount > tokenSupply) {
+            revert InvalidAmount();
+        }
+
+        // Verify seller owns enough tokens (asset owners can list from escrowed token supply)
+        uint256 sellerBalance = roboshareTokens.balanceOf(seller, tokenId);
+        bool isAssetOwner = roboshareTokens.balanceOf(seller, assetId) > 0;
+        uint256 earlySalePenalty = 0;
+        if (isAssetOwner) {
+            if (!buyerPaysFee) {
+                revert PrimaryListingRequiresBuyerPaysFee();
+            }
+            uint256 remaining = tokenSupply - roboshareTokens.getSoldSupply(tokenId);
+            if (amount > remaining) {
+                revert InvalidAmount();
+            }
+            if (tokenEscrow[tokenId] < amount) {
+                revert InsufficientTokenBalance();
+            }
+        } else if (sellerBalance < amount) {
+            revert InsufficientTokenBalance();
+        } else {
+            earlySalePenalty = roboshareTokens.getSalesPenalty(seller, tokenId, amount);
+        }
 
         // Create listing
         listingId = _listingIdCounter++;
@@ -305,16 +259,24 @@ contract Marketplace is
             isActive: true,
             isCancelled: false,
             createdAt: block.timestamp,
-            buyerPaysFee: buyerPaysFee
+            buyerPaysFee: buyerPaysFee,
+            earlySalePenalty: earlySalePenalty,
+            isPrimary: isAssetOwner
         });
 
         // Add to asset listings index
         assetListings[assetId].push(listingId);
 
-        // Transfer tokens to marketplace for escrow
-        roboshareTokens.safeTransferFrom(seller, address(this), tokenId, amount, "");
+        // Transfer tokens to marketplace for escrow (asset owners can use token escrow)
+        if (isAssetOwner) {
+            tokenEscrow[tokenId] -= amount;
+        } else {
+            roboshareTokens.safeTransferFrom(seller, address(this), tokenId, amount, "");
+        }
 
-        emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee);
+        emit ListingCreated(
+            listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee, isAssetOwner
+        );
 
         return listingId;
     }
@@ -330,18 +292,19 @@ contract Marketplace is
             revert ListingNotFound();
         }
 
-        // Check asset status
         uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
-        if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
+        if (!isAssetEligibleForListing(assetId)) {
             revert AssetNotActive();
+        }
+
+        if (msg.sender == listing.seller) {
+            revert ListingOwnerCannotPurchase();
         }
 
         if (!listing.isActive) {
             revert ListingNotActive();
         }
-        if (block.timestamp > listing.expiresAt) {
-            revert ListingExpired();
-        }
+
         if (amount == 0 || amount > listing.amount) {
             revert InvalidAmount();
         }
@@ -349,27 +312,31 @@ contract Marketplace is
         // Calculate base payment amounts
         uint256 totalPrice = amount * listing.pricePerToken;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
-        uint256 salesPenalty = roboshareTokens.getSalesPenalty(listing.seller, listing.tokenId, amount);
+
+        uint256 totalListed = listing.amount + listing.soldAmount;
+        uint256 penaltyShare = 0;
+        if (listing.earlySalePenalty > 0) {
+            penaltyShare = (listing.earlySalePenalty * amount) / totalListed;
+        }
 
         uint256 expectedPayment;
         uint256 sellerReceives;
-        uint256 totalFeesToTreasury = protocolFee + salesPenalty;
+        uint256 totalFeesToTreasury = protocolFee;
 
         if (listing.buyerPaysFee) {
             // Buyer pays the listed price + the protocol fee.
-            if (salesPenalty > totalPrice) {
+            if (penaltyShare > totalPrice) {
                 revert FeesExceedPrice();
             }
             expectedPayment = totalPrice + protocolFee;
-            // Seller receives the listed price, but the sales penalty is deducted from their share.
-            sellerReceives = totalPrice - salesPenalty;
+            sellerReceives = totalPrice;
         } else {
             // Buyer pays only the listed price.
-            if (totalFeesToTreasury > totalPrice) {
+            if (totalFeesToTreasury + penaltyShare > totalPrice) {
                 revert FeesExceedPrice();
             }
             expectedPayment = totalPrice;
-            // Seller receives the listed price, but both protocol fee and sales penalty are deducted.
+            // Seller receives the listed price, but protocol fee is deducted.
             sellerReceives = totalPrice - totalFeesToTreasury;
         }
 
@@ -415,24 +382,41 @@ contract Marketplace is
         // Allow ending if:
         // 1. Active
         // 2. Inactive but Sold Out (amount == 0) and Not Cancelled (needs settlement)
-        // 3. Expired (regardless of active state)
         bool isSoldOut = (!listing.isActive && listing.amount == 0 && !listing.isCancelled);
-        bool isExpired = block.timestamp > listing.expiresAt;
-
-        if (!listing.isActive && !isSoldOut && !isExpired) {
+        if (!listing.isActive && !isSoldOut) {
             revert ListingNotActive();
         }
 
         // Mark as inactive (successfully ended)
         listing.isActive = false;
 
-        // Return *unsold* tokens to seller
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
+
+        bool isPrimary = listing.isPrimary;
+
+        // Return unsold tokens to secondary sellers; escrow unsold for primary listings
         if (listing.amount > 0) {
-            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+            if (isPrimary) {
+                tokenEscrow[listing.tokenId] += listing.amount;
+            } else {
+                roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+            }
+            listing.amount = 0;
         }
 
-        // Transfer deferred proceeds to Treasury (making them withdrawable)
-        _settleListing(listingId, listing.seller);
+        if (isPrimary && listing.soldAmount > 0) {
+            router.recordSoldSupply(listing.tokenId, listing.soldAmount);
+        }
+
+        if (isPrimary) {
+            uint256 baseEscrow = listing.soldAmount * listing.pricePerToken;
+            if (baseEscrow > 0) {
+                treasury.fundBuffersFor(listing.seller, assetId, baseEscrow);
+            }
+        }
+
+        // Transfer proceeds to Treasury (credit base for primary, pay seller for secondary)
+        _settleListing(listingId, listing.seller, isPrimary);
 
         emit ListingEnded(listingId, msg.sender);
     }
@@ -449,7 +433,9 @@ contract Marketplace is
             revert ListingNotFound();
         }
         if (listing.seller != msg.sender) {
-            revert NotListingOwner();
+            if (block.timestamp <= listing.expiresAt) {
+                revert NotListingOwner();
+            }
         }
         if (!listing.isActive) {
             revert ListingNotActive();
@@ -459,10 +445,15 @@ contract Marketplace is
         listing.isActive = false;
         listing.isCancelled = true;
 
-        // Return ALL tokens to seller (unsold + sold/escrowed)
+        // Return tokens to secondary sellers; asset owners keep tokens escrowed for relisting/settlement
         uint256 totalReturn = listing.amount + listing.soldAmount;
         if (totalReturn > 0) {
-            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, totalReturn, "");
+            bool isPrimary = listing.isPrimary;
+            if (isPrimary) {
+                tokenEscrow[listing.tokenId] += totalReturn;
+            } else {
+                roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, totalReturn, "");
+            }
         }
 
         // Clear proceeds (void the sales)
@@ -481,8 +472,11 @@ contract Marketplace is
     function finalizeListing(uint256 listingId) external returns (uint256 withdrawn) {
         Listing storage listing = listings[listingId];
 
-        // Only attempt to end if it's still active or effectively active (expired but state true)
-        if (listing.isActive) {
+        // Settle listing before withdrawal when needed:
+        // - active listing
+        // - sold-out/inactive listing that still has unsettled proceeds/fees
+        bool hasUnsettledProceeds = listingProceeds[listingId] > 0 || listingProtocolFees[listingId] > 0;
+        if (listing.isActive || (!listing.isCancelled && hasUnsettledProceeds)) {
             endListing(listingId);
         }
 
@@ -495,9 +489,17 @@ contract Marketplace is
      * @param listingId The listing ID to settle
      * @param seller The seller address to credit
      */
-    function _settleListing(uint256 listingId, address seller) internal {
+    function _settleListing(uint256 listingId, address seller, bool isAssetOwner) internal {
         uint256 sellerProceeds = listingProceeds[listingId];
         uint256 protocolFees = listingProtocolFees[listingId];
+
+        Listing storage listing = listings[listingId];
+        if (listing.earlySalePenalty > 0 && listing.soldAmount > 0) {
+            uint256 totalListed = listing.soldAmount + listing.amount;
+            uint256 penaltyApplied = (listing.earlySalePenalty * listing.soldAmount) / totalListed;
+            sellerProceeds -= penaltyApplied;
+            protocolFees += penaltyApplied;
+        }
 
         if (sellerProceeds == 0 && protocolFees == 0) {
             return; // Nothing to settle
@@ -507,11 +509,17 @@ contract Marketplace is
         listingProceeds[listingId] = 0;
         listingProtocolFees[listingId] = 0;
 
-        // Transfer to Treasury and record pending withdrawals
+        // Transfer to Treasury and credit escrow (if primary listing)
         uint256 totalToTreasury = sellerProceeds + protocolFees;
         usdc.safeTransfer(address(treasury), totalToTreasury);
 
-        if (sellerProceeds > 0) {
+        if (isAssetOwner) {
+            uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
+            uint256 baseEscrow = listing.soldAmount * listing.pricePerToken;
+            if (baseEscrow > 0) {
+                treasury.creditBaseEscrow(assetId, baseEscrow);
+            }
+        } else if (sellerProceeds > 0) {
             treasury.recordPendingWithdrawal(seller, sellerProceeds);
         }
         if (protocolFees > 0) {
@@ -529,7 +537,7 @@ contract Marketplace is
 
         if (listing.listingId == 0) revert ListingNotFound();
         if (listing.isActive) revert ListingNotEnded();
-        if (listing.isCancelled) revert ListingNotEnded(); // Cannot claim tokens if cancelled
+        if (listing.isCancelled) revert ListingIsCancelled(); // Cannot claim tokens if cancelled
 
         uint256 amount = buyerTokens[listingId][msg.sender];
         if (amount == 0) revert NoTokensToClaim();
@@ -595,6 +603,22 @@ contract Marketplace is
         emit ListingExtended(listingId, listing.expiresAt);
     }
 
+    /**
+     * @dev Clear unsold escrow for a tokenId (used by registry at settlement).
+     */
+    function clearTokenEscrow(uint256 tokenId) external onlyRole(AUTHORIZED_CONTRACT_ROLE) returns (uint256 amount) {
+        amount = tokenEscrow[tokenId];
+        if (amount > 0) {
+            tokenEscrow[tokenId] = 0;
+        }
+    }
+
+    function creditTokenEscrow(uint256 tokenId, uint256 amount) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
+        if (amount > 0) {
+            tokenEscrow[tokenId] += amount;
+        }
+    }
+
     // View Functions
 
     /**
@@ -614,7 +638,7 @@ contract Marketplace is
         // Count active listings
         for (uint256 i = 0; i < allListings.length; i++) {
             Listing storage listing = listings[allListings[i]];
-            if (listing.isActive && block.timestamp <= listing.expiresAt) {
+            if (listing.isActive) {
                 activeCount++;
             }
         }
@@ -624,7 +648,7 @@ contract Marketplace is
         uint256 index = 0;
         for (uint256 i = 0; i < allListings.length; i++) {
             Listing storage listing = listings[allListings[i]];
-            if (listing.isActive && block.timestamp <= listing.expiresAt) {
+            if (listing.isActive) {
                 activeListings[index] = allListings[i];
                 index++;
             }
@@ -658,7 +682,7 @@ contract Marketplace is
     }
 
     /**
-     * @dev Check if asset has locked collateral (required for listing)
+     * @dev Check if asset is eligible for listing (exists and active).
      */
     function isAssetEligibleForListing(uint256 assetId) public view override returns (bool) {
         if (!router.assetExists(assetId)) {
@@ -666,10 +690,6 @@ contract Marketplace is
         }
 
         if (router.getAssetStatus(assetId) != AssetLib.AssetStatus.Active) {
-            return false;
-        }
-
-        if (!treasury.getAssetCollateralInfo(assetId).isLocked) {
             return false;
         }
 
@@ -699,9 +719,32 @@ contract Marketplace is
         if (_usdc == address(0)) {
             revert ZeroAddress();
         }
+        _validateUSDCContract(_usdc);
         address oldAddress = address(usdc);
         usdc = IERC20(_usdc);
         emit UsdcUpdated(oldAddress, _usdc);
+    }
+
+    /**
+     * @dev Validate that a token address is a USDC-compatible ERC20 (6 decimals).
+     */
+    function _validateUSDCContract(address token) internal view {
+        // Ensure IERC20 interface surface is callable.
+        try IERC20(token).totalSupply() returns (uint256) { }
+        catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        uint8 tokenDecimals;
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            tokenDecimals = d;
+        } catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        if (tokenDecimals != 6) {
+            revert UnsupportedUSDCDecimals(tokenDecimals);
+        }
     }
 
     /**
@@ -740,7 +783,7 @@ contract Marketplace is
             revert ZeroAddress();
         }
         address oldAddress = address(treasury);
-        treasury = Treasury(_treasury);
+        treasury = ITreasury(_treasury);
         emit TreasuryUpdated(oldAddress, _treasury);
     }
 

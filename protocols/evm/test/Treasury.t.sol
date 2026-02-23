@@ -2,12 +2,39 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ProtocolLib } from "../contracts/Libraries.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
+
+contract TreasuryBadTotalSupplyToken {
+    function totalSupply() external pure returns (uint256) {
+        revert("bad totalSupply");
+    }
+}
+
+contract TreasuryBadDecimalsToken {
+    function totalSupply() external pure returns (uint256) {
+        return 1;
+    }
+
+    function decimals() external pure returns (uint8) {
+        revert("bad decimals");
+    }
+}
+
+contract TreasuryWrongDecimalsToken {
+    function totalSupply() external pure returns (uint256) {
+        return 1;
+    }
+
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
+}
 
 contract TreasuryTest is BaseTest {
     function setUp() public {
@@ -116,10 +143,39 @@ contract TreasuryTest is BaseTest {
 
     // Collateral Calculation Tests
 
-    function testGetTotalCollateralRequirement() public view {
-        uint256 requirement = treasury.getTotalCollateralRequirement(ASSET_VALUE);
-        (,,, uint256 expectedTotal) = _calculateExpectedCollateral(ASSET_VALUE);
+    function testGetTotalBufferRequirement() public view {
+        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP);
+        (,, uint256 expectedTotal) = _calculateExpectedBuffers(ASSET_VALUE);
         assertEq(requirement, expectedTotal);
+    }
+
+    function testGetProtocolConfig() public view {
+        (
+            uint256 bpPrecision,
+            uint256 benchmarkYieldBP,
+            uint256 protocolFeeBP,
+            uint256 earlySalePenaltyBP,
+            uint256 depreciationRateBP,
+            uint256 minProtocolFee,
+            uint256 minEarlySalePenalty
+        ) = treasury.getProtocolConfig();
+
+        assertEq(bpPrecision, ProtocolLib.BP_PRECISION);
+        assertEq(benchmarkYieldBP, ProtocolLib.BENCHMARK_YIELD_BP);
+        assertEq(protocolFeeBP, ProtocolLib.PROTOCOL_FEE_BP);
+        assertEq(earlySalePenaltyBP, ProtocolLib.EARLY_SALE_PENALTY_BP);
+        assertEq(depreciationRateBP, ProtocolLib.DEPRECIATION_RATE_BP);
+        assertEq(minProtocolFee, ProtocolLib.MIN_PROTOCOL_FEE);
+        assertEq(minEarlySalePenalty, ProtocolLib.MIN_EARLY_SALE_PENALTY);
+    }
+
+    function testGetMarketProjectionConstants() public view {
+        (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision) =
+            treasury.getMarketProjectionConstants();
+
+        assertEq(benchmarkYieldBP, ProtocolLib.BENCHMARK_YIELD_BP);
+        assertEq(depreciationRateBP, ProtocolLib.DEPRECIATION_RATE_BP);
+        assertEq(bpPrecision, ProtocolLib.BP_PRECISION);
     }
 
     // Admin Functions Tests
@@ -211,6 +267,33 @@ contract TreasuryTest is BaseTest {
         treasury.updateUSDC(address(newUsdc));
     }
 
+    function testUpdateUSDCInvalidContractTotalSupplyReverts() public {
+        TreasuryBadTotalSupplyToken bad = new TreasuryBadTotalSupplyToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Treasury.InvalidUSDCContract.selector, address(bad)));
+        treasury.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCInvalidContractDecimalsReverts() public {
+        TreasuryBadDecimalsToken bad = new TreasuryBadDecimalsToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Treasury.InvalidUSDCContract.selector, address(bad)));
+        treasury.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCUnsupportedUSDCDecimalsReverts() public {
+        TreasuryWrongDecimalsToken bad = new TreasuryWrongDecimalsToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Treasury.UnsupportedUSDCDecimals.selector, uint8(18)));
+        treasury.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
     function testUpdateRoboshareTokens() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
@@ -266,5 +349,16 @@ contract TreasuryTest is BaseTest {
         );
         treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        Treasury newImpl = new Treasury();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, treasury.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        treasury.upgradeToAndCall(address(newImpl), "");
     }
 }

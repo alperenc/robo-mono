@@ -1,29 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useEscClose } from "./useEscClose";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface CancelListingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   listingId: string;
+  isPrimary?: boolean;
 }
 
-export const CancelListingModal = ({ isOpen, onClose, listingId }: CancelListingModalProps) => {
+export const CancelListingModal = ({ isOpen, onClose, onSuccess, listingId, isPrimary }: CancelListingModalProps) => {
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const [confirmationText, setConfirmationText] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEscClose(isOpen, onClose);
 
   const handleConfirm = async () => {
     try {
-      await writeMarketplace({
+      setErrorMessage(null);
+      const txHash = await writeMarketplace({
         functionName: "cancelListing",
         args: [BigInt(listingId)],
       });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
 
+      onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error cancelling listing:", e);
+      setErrorMessage(getParsedError(e));
     }
   };
 
@@ -31,6 +44,7 @@ export const CancelListingModal = ({ isOpen, onClose, listingId }: CancelListing
   useEffect(() => {
     if (!isOpen) {
       setConfirmationText("");
+      setErrorMessage(null);
     }
   }, [isOpen]);
 
@@ -41,7 +55,7 @@ export const CancelListingModal = ({ isOpen, onClose, listingId }: CancelListing
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
@@ -53,18 +67,27 @@ export const CancelListingModal = ({ isOpen, onClose, listingId }: CancelListing
 
         {/* Header */}
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl text-error">Cancel Listing</h3>
-          <p className="text-sm opacity-60 mt-1">Abort the sale and refund buyers</p>
+          <h3 className="font-bold text-xl text-base-content">Cancel Listing</h3>
+          <p className="text-sm text-base-content/60 mt-1">Abort the sale and refund buyers</p>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col">
+            {errorMessage && (
+              <div className="alert alert-error text-sm mb-3">
+                <span>{errorMessage}</span>
+              </div>
+            )}
+            <p className="text-sm text-base-content/70">
+              Are you sure you want to cancel this listing? This action cannot be undone. All trades will be voided.
+            </p>
+
             {/* Warning Alert */}
-            <div className="alert alert-error bg-error/10 border-error/20 text-error-content">
+            <div className="alert bg-error/10 border border-error/30 text-base-content">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="stroke-current shrink-0 h-6 w-6"
+                className="stroke-current shrink-0 h-6 w-6 text-error"
                 fill="none"
                 viewBox="0 0 24 24"
               >
@@ -76,22 +99,19 @@ export const CancelListingModal = ({ isOpen, onClose, listingId }: CancelListing
                 />
               </svg>
               <div>
-                <div className="font-semibold">Full Refund Initiated</div>
-                <div className="text-sm">
-                  All buyers will be refunded. All tokens (sold + unsold) will be returned to you.
+                <div className="font-semibold text-error">Full Refund Initiated</div>
+                <div className="text-sm text-base-content/70">
+                  {isPrimary
+                    ? "All buyers will be refunded. Tokens will remain in marketplace escrow."
+                    : "All buyers will be refunded. All tokens (sold + unsold) will be returned to you."}
                 </div>
               </div>
             </div>
 
-            {/* Confirmation Text */}
-            <p className="text-sm opacity-70">
-              Are you sure you want to cancel this listing? This action cannot be undone. All trades will be voided.
-            </p>
-
             {/* Safety Input */}
-            <div className="form-control">
+            <div className="form-control py-4">
               <label className="label">
-                <span className="label-text text-xs font-bold uppercase opacity-60">
+                <span className="label-text text-xs font-bold uppercase text-base-content/60">
                   Type <span className="text-error">cancel</span> to confirm
                 </span>
               </label>

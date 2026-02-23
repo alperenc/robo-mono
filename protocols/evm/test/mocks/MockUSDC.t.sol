@@ -14,8 +14,8 @@ contract MockUSDCTest is Test {
     }
 
     function testMetadata() public view {
-        assertEq(usdc.name(), "USD Coin");
-        assertEq(usdc.symbol(), "USDC");
+        assertEq(usdc.name(), "MockUSD Coin");
+        assertEq(usdc.symbol(), "MockUSDC");
         assertEq(usdc.decimals(), 6);
     }
 

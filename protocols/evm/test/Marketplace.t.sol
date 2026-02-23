@@ -11,6 +11,32 @@ import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
+contract MarketplaceBadTotalSupplyToken {
+    function totalSupply() external pure returns (uint256) {
+        revert("bad totalSupply");
+    }
+}
+
+contract MarketplaceBadDecimalsToken {
+    function totalSupply() external pure returns (uint256) {
+        return 1;
+    }
+
+    function decimals() external pure returns (uint8) {
+        revert("bad decimals");
+    }
+}
+
+contract MarketplaceWrongDecimalsToken {
+    function totalSupply() external pure returns (uint256) {
+        return 1;
+    }
+
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
+}
+
 contract MarketplaceTest is BaseTest {
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
@@ -233,6 +259,33 @@ contract MarketplaceTest is BaseTest {
         marketplace.updateUSDC(address(newUsdc));
     }
 
+    function testUpdateUSDCInvalidContractTotalSupplyReverts() public {
+        MarketplaceBadTotalSupplyToken bad = new MarketplaceBadTotalSupplyToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Marketplace.InvalidUSDCContract.selector, address(bad)));
+        marketplace.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCInvalidContractDecimalsReverts() public {
+        MarketplaceBadDecimalsToken bad = new MarketplaceBadDecimalsToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Marketplace.InvalidUSDCContract.selector, address(bad)));
+        marketplace.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
+    function testUpdateUSDCUnsupportedUSDCDecimalsReverts() public {
+        MarketplaceWrongDecimalsToken bad = new MarketplaceWrongDecimalsToken();
+
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Marketplace.UnsupportedUSDCDecimals.selector, uint8(18)));
+        marketplace.updateUSDC(address(bad));
+        vm.stopPrank();
+    }
+
     function testUpdateRoboshareTokens() public {
         RoboshareTokens newRoboshareTokens = new RoboshareTokens();
 
@@ -289,5 +342,23 @@ contract MarketplaceTest is BaseTest {
         );
         vm.prank(unauthorized);
         marketplace.updateTreasury(address(newTreasury));
+    }
+
+    function testOnERC1155BatchReceivedSelector() public {
+        bytes4 selector = marketplace.onERC1155BatchReceived(
+            address(this), address(0xBEEF), new uint256[](0), new uint256[](0), ""
+        );
+        assertEq(selector, marketplace.onERC1155BatchReceived.selector);
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        Marketplace newImpl = new Marketplace();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, marketplace.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        marketplace.upgradeToAndCall(address(newImpl), "");
     }
 }

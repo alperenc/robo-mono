@@ -1,10 +1,12 @@
 "use client";
 
+import { useEscClose } from "./useEscClose";
 import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 interface WithdrawProceedsModalProps {
   isOpen: boolean;
@@ -13,7 +15,10 @@ interface WithdrawProceedsModalProps {
 
 export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModalProps) => {
   const { address } = useAccount();
+  const { symbol, decimals } = usePaymentToken();
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
+
+  useEscClose(isOpen, onClose);
 
   // Fetch pending withdrawal amount
   const { data: pendingAmount, isLoading: isLoadingPending } = useReadContract({
@@ -24,7 +29,11 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
     query: { enabled: !!address && isOpen },
   });
 
-  const formattedAmount = pendingAmount ? formatUnits(pendingAmount as bigint, 6) : "0";
+  const formattedAmount = pendingAmount ? formatUnits(pendingAmount as bigint, decimals) : "0";
+  const formattedAmountDisplay = Number(formattedAmount).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   const hasProceeds = pendingAmount && (pendingAmount as bigint) > 0n;
 
   const handleWithdraw = async () => {
@@ -43,7 +52,7 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
@@ -70,8 +79,10 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
               <>
                 <div className="stat bg-success/10 rounded-xl">
                   <div className="stat-title">Available to Withdraw</div>
-                  <div className="stat-value text-success">{Number(formattedAmount).toLocaleString()} USDC</div>
-                  <div className="stat-desc">USDC from marketplace sales</div>
+                  <div className="stat-value text-success">
+                    {formattedAmountDisplay} {symbol}
+                  </div>
+                  <div className="stat-desc">{symbol} from marketplace sales</div>
                 </div>
                 <p className="text-sm opacity-70">
                   Click withdraw to transfer your pending sales proceeds to your wallet.
@@ -111,7 +122,7 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
                   Withdrawing...
                 </>
               ) : (
-                `Withdraw ${Number(formattedAmount).toLocaleString()} USDC`
+                `Withdraw ${formattedAmountDisplay} ${symbol}`
               )}
             </button>
           </div>

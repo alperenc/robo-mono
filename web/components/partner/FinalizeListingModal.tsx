@@ -1,21 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface FinalizeListingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   listingId: string;
   tokenAmount: string;
 }
 
-export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }: FinalizeListingModalProps) => {
+export const FinalizeListingModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  listingId,
+  tokenAmount,
+}: FinalizeListingModalProps) => {
   const { address } = useAccount();
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Fetch pending withdrawal amount (Treasury)
   const { data: pendingTreasuryAmount, isLoading: isLoadingTreasury } = useReadContract({
@@ -34,28 +44,60 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
     args: [BigInt(listingId)],
     query: { enabled: isOpen },
   });
+  const { data: listingData, isLoading: isLoadingListingData } = useReadContract({
+    address: deployedContracts[31337]?.Marketplace?.address,
+    abi: deployedContracts[31337]?.Marketplace?.abi,
+    functionName: "listings",
+    args: [BigInt(listingId)],
+    query: { enabled: isOpen },
+  });
+  const toBigInt = (value: unknown): bigint => {
+    if (typeof value === "bigint") return value;
+    if (typeof value === "number") return BigInt(value);
+    if (typeof value === "string") return BigInt(value);
+    return 0n;
+  };
 
-  const isLoading = isLoadingTreasury || isLoadingMarketplace;
-  const listingAmount = (listingProceeds as bigint) || 0n;
+  const isLoading = isLoadingTreasury || isLoadingMarketplace || isLoadingListingData;
+  const listingAmountGross = (listingProceeds as bigint) || 0n;
+  const listingAmountRemaining = toBigInt((listingData as any)?.amount ?? (listingData as any)?.[2] ?? 0n);
+  const listingAmountSold = toBigInt((listingData as any)?.soldAmount ?? (listingData as any)?.[3] ?? 0n);
+  const listingEarlySalePenalty = toBigInt((listingData as any)?.earlySalePenalty ?? (listingData as any)?.[11] ?? 0n);
+  const listingTotal = listingAmountRemaining + listingAmountSold;
+  const penaltyApplied =
+    listingEarlySalePenalty > 0n && listingAmountSold > 0n && listingTotal > 0n
+      ? (listingEarlySalePenalty * listingAmountSold) / listingTotal
+      : 0n;
+  const listingAmountNet = listingAmountGross > penaltyApplied ? listingAmountGross - penaltyApplied : 0n;
   const pendingAmountVal = (pendingTreasuryAmount as bigint) || 0n;
-  const totalProceeds = listingAmount + pendingAmountVal;
+  const totalProceeds = listingAmountNet + pendingAmountVal;
 
   const formattedTokenAmount = Number(tokenAmount).toLocaleString();
   const formattedTotal = formatUnits(totalProceeds, 6);
-  const formattedListingPart = formatUnits(listingAmount, 6);
   const formattedPendingPart = formatUnits(pendingAmountVal, 6);
+  const formattedPenalty = formatUnits(penaltyApplied, 6);
 
   const hasProceeds = totalProceeds > 0n;
 
+  useEffect(() => {
+    if (!isOpen) setErrorMessage(null);
+  }, [isOpen]);
+
   const handleFinalize = async () => {
     try {
-      await writeMarketplace({
+      setErrorMessage(null);
+      const txHash = await writeMarketplace({
         functionName: "finalizeListing",
         args: [BigInt(listingId)],
       });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
+      onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error finalizing listing:", e);
+      setErrorMessage(getParsedError(e));
     }
   };
 
@@ -64,7 +106,7 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
@@ -83,6 +125,11 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-4">
+            {errorMessage && (
+              <div className="alert alert-error text-sm">
+                <span>{errorMessage}</span>
+              </div>
+            )}
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <span className="loading loading-spinner loading-lg" />
@@ -113,11 +160,16 @@ export const FinalizeListingModal = ({ isOpen, onClose, listingId, tokenAmount }
                           USDC total
                         </div>
                         <div className="text-xs opacity-60 mt-1 space-y-0.5">
-                          {listingAmount > 0n && (
-                            <div>• ${Number(formattedListingPart).toLocaleString()} from this listing</div>
+                          {listingAmountGross > 0n && (
+                            <div>
+                              • +${Number(formatUnits(listingAmountGross, 6)).toLocaleString()} from this listing
+                            </div>
                           )}
                           {pendingAmountVal > 0n && (
-                            <div>• ${Number(formattedPendingPart).toLocaleString()} from treasury balance</div>
+                            <div>• +${Number(formattedPendingPart).toLocaleString()} from treasury balance</div>
+                          )}
+                          {penaltyApplied > 0n && (
+                            <div>• -${Number(formattedPenalty).toLocaleString()} early-sale penalty</div>
                           )}
                         </div>
                       </div>

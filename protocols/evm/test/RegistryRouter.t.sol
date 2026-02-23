@@ -140,38 +140,6 @@ contract RegistryRouterTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testBindId() public {
-        address newRegistry = makeAddr("newRegistry");
-        uint256 assetId = 100;
-
-        vm.startPrank(admin);
-        router.grantRole(router.AUTHORIZED_REGISTRY_ROLE(), newRegistry);
-        vm.stopPrank();
-
-        vm.startPrank(newRegistry);
-        vm.expectEmit(true, true, false, false);
-        emit RegistryRouter.IdBoundToRegistry(assetId, newRegistry);
-        router.bindId(assetId);
-        vm.stopPrank();
-
-        assertEq(router.idToRegistry(assetId), newRegistry);
-    }
-
-    function testBindIdUnauthorizedCaller() public {
-        uint256 assetId = 100;
-
-        vm.startPrank(unauthorized);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                router.AUTHORIZED_REGISTRY_ROLE()
-            )
-        );
-        router.bindId(assetId);
-        vm.stopPrank();
-    }
-
     function testReserveNextTokenIdPair() public {
         address newRegistry = makeAddr("newRegistry");
 
@@ -221,16 +189,23 @@ contract RegistryRouterTest is BaseTest {
         router.registerAsset(bytes(""), ASSET_VALUE);
     }
 
-    function testRegisterAssetAndMintTokensDirectCall() public {
-        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetAndMintTokens(bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days);
-    }
-
     function testRegisterAssetMintAndListDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.registerAssetMintAndList(
-            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 30 days, true
+            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
         );
+    }
+
+    function testClaimSettlementDirectCallNotAllowed() public {
+        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
+        router.claimSettlement(scenario.assetId, false);
+    }
+
+    function testPreviewLiquidationEligibilityView() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);
+        assertFalse(eligible);
+        assertEq(reason, 3); // NotEligible
     }
 
     function testInitializationZeroAdmin() public {
@@ -240,7 +215,9 @@ contract RegistryRouterTest is BaseTest {
 
         new ERC1967Proxy(
             address(routerImpl),
-            abi.encodeWithSignature("initialize(address,address)", address(0), address(roboshareTokens))
+            abi.encodeWithSignature(
+                "initialize(address,address,address)", address(0), address(roboshareTokens), address(partnerManager)
+            )
         );
     }
 
@@ -249,7 +226,21 @@ contract RegistryRouterTest is BaseTest {
 
         vm.expectRevert(RegistryRouter.ZeroAddress.selector);
 
-        new ERC1967Proxy(address(routerImpl), abi.encodeWithSignature("initialize(address,address)", admin, address(0)));
+        new ERC1967Proxy(
+            address(routerImpl),
+            abi.encodeWithSignature("initialize(address,address,address)", admin, address(0), address(partnerManager))
+        );
+    }
+
+    function testInitializationZeroPartnerManager() public {
+        RegistryRouter routerImpl = new RegistryRouter();
+
+        vm.expectRevert(RegistryRouter.ZeroAddress.selector);
+
+        new ERC1967Proxy(
+            address(routerImpl),
+            abi.encodeWithSignature("initialize(address,address,address)", admin, address(roboshareTokens), address(0))
+        );
     }
 
     // ============ Admin Function Tests ============
@@ -283,5 +274,47 @@ contract RegistryRouterTest is BaseTest {
         );
         router.updateRoboshareTokens(newTokens);
         vm.stopPrank();
+    }
+
+    function testUpdatePartnerManager() public {
+        address newPartnerManager = makeAddr("newPartnerManager");
+        address oldPartnerManager = address(router.partnerManager());
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit RegistryRouter.PartnerManagerUpdated(oldPartnerManager, newPartnerManager);
+        router.updatePartnerManager(newPartnerManager);
+
+        assertEq(address(router.partnerManager()), newPartnerManager);
+    }
+
+    function testUpdatePartnerManagerZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(RegistryRouter.ZeroAddress.selector);
+        router.updatePartnerManager(address(0));
+    }
+
+    function testUpdatePartnerManagerUnauthorizedCaller() public {
+        address newPartnerManager = makeAddr("newPartnerManager");
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, router.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        router.updatePartnerManager(newPartnerManager);
+        vm.stopPrank();
+    }
+
+    function testUpgradeUnauthorizedCaller() public {
+        RegistryRouter newImpl = new RegistryRouter();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, router.UPGRADER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        router.upgradeToAndCall(address(newImpl), "");
     }
 }

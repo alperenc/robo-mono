@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEscClose } from "./useEscClose";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
@@ -15,6 +16,8 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
   const [durationDays, setDurationDays] = useState("7");
 
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
+
+  useEscClose(isOpen, onClose);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +59,7 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
           <button

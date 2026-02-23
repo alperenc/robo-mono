@@ -44,6 +44,13 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(PARTNER_ADMIN_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
+
+        _authorizedPartners[defaultAdmin] = true;
+        _partnerNames[defaultAdmin] = "Roboshare";
+        _partnerRegistrationTime[defaultAdmin] = block.timestamp;
+        _allPartners.push(defaultAdmin);
+
+        emit PartnerAuthorized(defaultAdmin, "Roboshare");
     }
 
     /**
@@ -93,14 +100,27 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
     /**
      * @dev Update partner name
+     * @param newName New name for the partner
+     */
+    function updateName(string calldata newName) external onlyAuthorizedPartner {
+        if (bytes(newName).length == 0) revert EmptyName();
+
+        _partnerNames[msg.sender] = newName;
+        emit PartnerNameUpdated(msg.sender, newName);
+    }
+
+    /**
+     * @dev Update partner name on behalf of a partner (admin only)
      * @param partner Address of the partner
      * @param newName New name for the partner
      */
-    function updatePartnerName(address partner, string calldata newName) external onlyRole(PARTNER_ADMIN_ROLE) {
+    function changeNameFor(address partner, string calldata newName) external onlyRole(PARTNER_ADMIN_ROLE) {
         if (!_authorizedPartners[partner]) {
             revert UnauthorizedPartner();
         }
-        if (bytes(newName).length == 0) revert EmptyName();
+        if (bytes(newName).length == 0) {
+            revert EmptyName();
+        }
 
         _partnerNames[partner] = newName;
         emit PartnerNameUpdated(partner, newName);

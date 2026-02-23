@@ -6,6 +6,22 @@ pragma solidity ^0.8.19;
  * @dev Minimal interface for Marketplace contract, used by asset registries for createListingFor
  */
 interface IMarketplace {
+    struct Listing {
+        uint256 listingId;
+        uint256 tokenId;
+        uint256 amount;
+        uint256 soldAmount;
+        uint256 pricePerToken;
+        address seller;
+        uint256 expiresAt;
+        bool isActive;
+        bool isCancelled;
+        uint256 createdAt;
+        bool buyerPaysFee;
+        uint256 earlySalePenalty;
+        bool isPrimary;
+    }
+
     /**
      * @dev Create a listing on behalf of a seller (for authorized contracts like VehicleRegistry)
      * @param seller The address of the seller
@@ -25,4 +41,10 @@ interface IMarketplace {
     ) external returns (uint256 listingId);
 
     function isAssetEligibleForListing(uint256 assetId) external view returns (bool);
+
+    function tokenEscrow(uint256 tokenId) external view returns (uint256);
+
+    function clearTokenEscrow(uint256 tokenId) external returns (uint256 amount);
+
+    function creditTokenEscrow(uint256 tokenId, uint256 amount) external;
 }

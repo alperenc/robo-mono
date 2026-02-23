@@ -1,32 +1,43 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
-import { formatUsdc } from "~~/utils/formatters";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { formatTokenAmount } from "~~/utils/formatters";
 
 interface DistributeEarningsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   assetId: string;
   assetName: string;
 }
 
-const PROTOCOL_FEE_BPS = 250; // 2.5% - matches ProtocolLib.PROTOCOL_FEE_BP
-
-export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }: DistributeEarningsModalProps) => {
+export const DistributeEarningsModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  assetId,
+  assetName,
+}: DistributeEarningsModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const { symbol, decimals } = usePaymentToken();
   const [totalRevenue, setTotalRevenue] = useState(""); // Total revenue earned
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoRelease, setAutoRelease] = useState(true); // Auto-release collateral when distributing
 
+  useEscClose(isOpen, onClose);
+
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
-  const { writeContractAsync: writeUsdc } = useScaffoldWriteContract({ contractName: "MockUSDC" });
+  const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
 
   const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
+  const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
 
   // Get revenue token ID (assetId + 1)
   const revenueTokenId = BigInt(assetId) + 1n;
@@ -39,6 +50,13 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
     watch: true,
   });
 
+  const { data: soldSupply } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "getSoldSupply",
+    args: [revenueTokenId],
+    watch: true,
+  });
+
   // Get partner's balance of revenue tokens
   const { data: partnerBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
@@ -47,18 +65,43 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
     watch: true,
   });
 
-  // Check USDC allowance
-  const { data: allowance } = useScaffoldReadContract({
+  // Get escrowed revenue tokens held by Marketplace
+  const { data: escrowedTokens } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "balanceOf",
+    args: [marketplaceAddress, revenueTokenId],
+    watch: true,
+  });
+
+  // Check payment token allowance
+  const { data: paymentTokenAllowance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "allowance",
     args: [connectedAddress, treasuryAddress],
     watch: true,
   });
 
-  // Get minimum protocol fee from contract
-  const { data: minProtocolFee } = useScaffoldReadContract({
+  // Get protocol config from contract
+  const { data: protocolConfig } = useScaffoldReadContract({
     contractName: "Treasury",
-    functionName: "getMinProtocolFee",
+    functionName: "getProtocolConfig",
+  });
+  const bpPrecision = protocolConfig?.[0];
+  const protocolFeeBP = protocolConfig?.[2];
+  const minProtocolFee = protocolConfig?.[5];
+
+  const { data: revenueShareBP } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "getRevenueShareBP",
+    args: [revenueTokenId],
+    watch: true,
+  });
+
+  const { data: previewRelease } = useScaffoldReadContract({
+    contractName: "Treasury",
+    functionName: "previewCollateralRelease",
+    args: [BigInt(assetId), true],
+    query: { enabled: autoRelease },
   });
 
   // Calculate token ownership breakdown (independent of revenue)
@@ -68,36 +111,49 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
     }
 
     const partnerTokens = partnerBalance || 0n;
-    const externalTokens = totalSupply - partnerTokens;
+    const escrowTokens = escrowedTokens || 0n;
+    const soldTokens = soldSupply || 0n;
+    const externalTokens = soldTokens > partnerTokens ? soldTokens - partnerTokens : 0n;
     const externalPercentage = Number((externalTokens * 10000n) / totalSupply) / 100;
     const partnerPercentage = Number((partnerTokens * 10000n) / totalSupply) / 100;
+    const escrowPercentage = Number((escrowTokens * 10000n) / totalSupply) / 100;
 
     return {
       totalSupply,
       partnerTokens,
       externalTokens,
+      escrowTokens,
+      soldTokens,
       partnerPercentage,
       externalPercentage,
+      escrowPercentage,
     };
-  }, [totalSupply, partnerBalance]);
+  }, [totalSupply, partnerBalance, escrowedTokens, soldSupply]);
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {
-    if (!tokenOwnership || !totalRevenue) {
+    if (
+      !tokenOwnership ||
+      !totalRevenue ||
+      bpPrecision === undefined ||
+      protocolFeeBP === undefined ||
+      minProtocolFee === undefined
+    ) {
       return null;
     }
 
     // Parse total revenue
-    const totalRevenueWei = parseUnits(totalRevenue || "0", 6);
+    const totalRevenueWei = parseUnits(totalRevenue || "0", decimals);
 
     // Calculate investor portion (what partner should distribute)
-    const investorPortion = (totalRevenueWei * tokenOwnership.externalTokens) / tokenOwnership.totalSupply;
+    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? bpPrecision)) / bpPrecision;
+    const soldShare = (totalRevenueWei * tokenOwnership.externalTokens) / tokenOwnership.totalSupply;
+    const investorPortion = revenueShareCap < soldShare ? revenueShareCap : soldShare;
     const partnerPortion = totalRevenueWei - investorPortion;
 
     // Calculate protocol fee with minimum enforcement
-    const calculatedFee = (investorPortion * BigInt(PROTOCOL_FEE_BPS)) / 10000n;
-    const minFee = minProtocolFee ?? 1_000_000n; // Fallback to 1 USDC if not loaded
-    const protocolFee = calculatedFee > minFee ? calculatedFee : minFee;
+    const calculatedFee = (investorPortion * protocolFeeBP) / bpPrecision;
+    const protocolFee = calculatedFee > minProtocolFee ? calculatedFee : minProtocolFee;
     const netToInvestors = investorPortion - protocolFee;
 
     return {
@@ -107,7 +163,12 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
       protocolFee,
       netToInvestors,
     };
-  }, [tokenOwnership, totalRevenue, minProtocolFee]);
+  }, [tokenOwnership, totalRevenue, bpPrecision, protocolFeeBP, minProtocolFee, revenueShareBP, decimals]);
+
+  const estimatedRelease = useMemo(() => {
+    if (!autoRelease) return 0n;
+    return (previewRelease as bigint | undefined) ?? 0n;
+  }, [autoRelease, previewRelease]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,20 +180,21 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
       const amountToDistribute = revenueBreakdown.investorPortion;
 
       // Approve if needed
-      if (!allowance || allowance < amountToDistribute) {
-        await writeUsdc({
+      if (!paymentTokenAllowance || paymentTokenAllowance < amountToDistribute) {
+        await writePaymentToken({
           functionName: "approve",
           args: [treasuryAddress, amountToDistribute],
         });
       }
 
-      // Distribute earnings (totalRevenue for tracking, investorAmount for deposit)
+      // Distribute earnings (totalRevenue only; investor amount is computed on-chain)
       await writeTreasury({
         functionName: "distributeEarnings",
-        args: [BigInt(assetId), revenueBreakdown.totalRevenue, amountToDistribute, autoRelease],
+        args: [BigInt(assetId), revenueBreakdown.totalRevenue, autoRelease],
       });
 
       setTotalRevenue("");
+      onSuccess?.();
       onClose();
     } catch (e) {
       console.error("Error distributing earnings:", e);
@@ -144,11 +206,12 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
   if (!isOpen) return null;
 
   const hasExternalHolders = tokenOwnership && tokenOwnership.externalTokens > 0n;
+  const hasEscrowedInvestorTokens = tokenOwnership && tokenOwnership.escrowTokens > 0n;
 
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
           <button
@@ -185,6 +248,15 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
                     </div>
                   </div>
                   <div>
+                    <div className="text-xs opacity-50">Escrowed Tokens</div>
+                    <div className="font-bold">
+                      {tokenOwnership?.escrowTokens.toLocaleString() || "0"}
+                      <span className="text-xs opacity-50 ml-1">
+                        ({tokenOwnership?.escrowPercentage.toFixed(1) || 0}%)
+                      </span>
+                    </div>
+                  </div>
+                  <div>
                     <div className="text-xs opacity-50">Investor Tokens</div>
                     <div className="font-bold">
                       {tokenOwnership?.externalTokens.toLocaleString() || "0"}
@@ -192,6 +264,10 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
                         ({tokenOwnership?.externalPercentage.toFixed(1) || 0}%)
                       </span>
                     </div>
+                  </div>
+                  <div>
+                    <div className="text-xs opacity-50">Total Supply</div>
+                    <div className="font-bold">{tokenOwnership?.totalSupply.toLocaleString() || "0"}</div>
                   </div>
                 </div>
               </div>
@@ -205,26 +281,38 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
                 </div>
               )}
 
+              {hasEscrowedInvestorTokens && (
+                <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg text-xs">
+                  <p className="text-warning font-bold">Warning: Escrowed Investor Tokens Detected</p>
+                  <p className="opacity-80 mt-1">
+                    Some investor tokens are still in marketplace escrow. Distributing earnings now may lead to
+                    confusing claim behavior until those tokens are claimed.
+                  </p>
+                </div>
+              )}
+
               {/* Revenue Input */}
               <div className="divider text-xs opacity-50 my-0">Revenue Details</div>
 
               <div className="form-control">
                 <label className="label py-0">
-                  <span className="label-text text-xs font-bold uppercase opacity-60">Total Revenue Earned (USDC)</span>
+                  <span className="label-text text-xs font-bold uppercase opacity-60">
+                    Total Revenue Earned ({symbol})
+                  </span>
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm opacity-50">$</span>
+                <div className="join w-full">
                   <input
                     type="number"
                     step="0.000001"
                     min="0"
-                    className="input input-bordered input-sm w-full pl-7"
+                    className="input input-bordered input-sm join-item w-full"
                     value={totalRevenue}
                     onChange={e => setTotalRevenue(e.target.value)}
                     placeholder="e.g. 1000.00"
                     required
                     disabled={!hasExternalHolders}
                   />
+                  <span className="join-item flex items-center px-3 bg-base-300 text-xs font-medium">{symbol}</span>
                 </div>
                 <p className="text-xs opacity-50 mt-1">
                   Enter the total revenue generated. We&apos;ll calculate the investor portion automatically.
@@ -239,20 +327,28 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="opacity-70">Your share (kept)</span>
-                      <span className="font-semibold">{formatUsdc(revenueBreakdown.partnerPortion)} USDC</span>
+                      <span className="font-semibold">
+                        {formatTokenAmount(revenueBreakdown.partnerPortion, decimals)} {symbol}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="opacity-70">Investor share</span>
-                      <span className="font-semibold">{formatUsdc(revenueBreakdown.investorPortion)} USDC</span>
+                      <span className="font-semibold">
+                        {formatTokenAmount(revenueBreakdown.investorPortion, decimals)} {symbol}
+                      </span>
                     </div>
                     <div className="border-t border-success/30 pt-2 mt-2">
                       <div className="flex justify-between text-xs">
                         <span className="opacity-50">Protocol fee (2.5%)</span>
-                        <span className="opacity-50">-{formatUsdc(revenueBreakdown.protocolFee)} USDC</span>
+                        <span className="opacity-50">
+                          -{formatTokenAmount(revenueBreakdown.protocolFee, decimals)} {symbol}
+                        </span>
                       </div>
                       <div className="flex justify-between font-bold text-success mt-1">
                         <span>Net to investors</span>
-                        <span>{formatUsdc(revenueBreakdown.netToInvestors)} USDC</span>
+                        <span>
+                          {formatTokenAmount(revenueBreakdown.netToInvestors, decimals)} {symbol}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -268,6 +364,11 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
                       <p className="text-xs opacity-50 mt-0.5">
                         Release locked collateral proportionally as you distribute
                       </p>
+                      {autoRelease && (
+                        <p className="text-xs mt-1 font-medium text-success">
+                          Estimated release: {formatTokenAmount(estimatedRelease, decimals)} {symbol}
+                        </p>
+                      )}
                     </div>
                     <input
                       type="checkbox"
@@ -282,8 +383,8 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
               {/* Info Box */}
               <div className="bg-info/10 p-3 rounded-lg text-xs">
                 <p className="opacity-80">
-                  You deposit only the investor portion ({tokenOwnership?.externalPercentage.toFixed(1) || 0}%). Your
-                  share stays with you. Minimum protocol fee is 1 USDC.
+                  You deposit only the investor portion (capped by the revenue share setting). Your share stays with
+                  you. Minimum protocol fee is 1 {symbol}.
                 </p>
               </div>
             </div>
@@ -306,7 +407,7 @@ export const DistributeEarningsModal = ({ isOpen, onClose, assetId, assetName }:
                     Distributing...
                   </>
                 ) : (
-                  `Distribute ${revenueBreakdown ? formatUsdc(revenueBreakdown.investorPortion) : "0"} USDC`
+                  `Distribute ${revenueBreakdown ? formatTokenAmount(revenueBreakdown.investorPortion, decimals) : "0"} ${symbol}`
                 )}
               </button>
             </div>

@@ -23,6 +23,7 @@ type RoboshareToken @entity(immutable: true) {
   revenueTokenId: BigInt!
   price: BigInt!
   supply: BigInt!
+  targetYieldBP: BigInt!
   maturityDate: BigInt!
   setAtBlock: BigInt!
 }
@@ -70,7 +71,7 @@ type VehicleRegistryContract @entity(immutable: true) {
   address: Bytes!
 }
 
-type Vehicle @entity(immutable: true) {
+type Vehicle @entity(immutable: false) {
   id: ID! # vehicleId
   partner: Bytes!
   vin: String!
@@ -114,11 +115,13 @@ type Listing @entity(immutable: false) {
   pricePerToken: BigInt!
   expiresAt: BigInt!
   buyerPaysFee: Boolean!
+  isPrimary: Boolean!
   status: String! # "active", "completed", "cancelled"
   isCancelled: Boolean!
   isEnded: Boolean!
+  endedAt: BigInt
   claimedAmount: BigInt!
-  refundedUSDC: BigInt!
+  refundedAmount: BigInt!
   createdAt: BigInt!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
@@ -170,7 +173,7 @@ type EarningsDistribution @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type AssetEarnings @entity(immutable: false) {
+type AssetEarning @entity(immutable: false) {
   id: ID! # assetId
   assetId: BigInt!
   totalEarnings: BigInt!

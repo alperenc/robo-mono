@@ -35,7 +35,7 @@ interface IAssetRegistry {
     error AssetNotFound(uint256 assetId);
     error AssetNotActive(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error RevenueTokensNotMinted(uint256 assetId);
-
+    error RevenueTokensAlreadyMinted();
     error AssetNotEligibleForLiquidation(uint256 assetId);
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetAlreadySettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
@@ -49,25 +49,40 @@ interface IAssetRegistry {
 
     function registerAsset(bytes calldata data, uint256 assetValue) external returns (uint256 assetId);
 
-    function mintRevenueTokens(uint256 assetId, uint256 tokenPrice, uint256 maturityDate)
-        external
-        returns (uint256 tokenId, uint256 supply);
-
-    function registerAssetAndMintTokens(
-        bytes calldata data,
-        uint256 assetValue,
-        uint256 tokenPrice,
-        uint256 maturityDate
-    ) external returns (uint256 assetId, uint256 tokenId, uint256 supply);
-
     function registerAssetMintAndList(
         bytes calldata data,
         uint256 assetValue,
         uint256 tokenPrice,
         uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
         uint256 listingDuration,
         bool buyerPaysFee
     ) external returns (uint256 assetId, uint256 tokenId, uint256 supply, uint256 listingId);
+
+    function mintRevenueTokensAndList(
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 listingDuration,
+        bool buyerPaysFee
+    ) external returns (uint256 tokenId, uint256 supply, uint256 listingId);
+
+    /**
+     * @dev Preview revenue token minting for an asset.
+     * Reverts if the asset is invalid or caller is not authorized.
+     * @param assetId The asset ID
+     * @param partner The partner initiating the mint
+     * @param tokenPrice Price per revenue token in USDC
+     * @return tokenId The revenue token ID
+     * @return supply The computed token supply
+     */
+    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
+        external
+        view
+        returns (uint256 tokenId, uint256 supply);
 
     /**
      * @dev Asset Lifecycle
@@ -76,6 +91,9 @@ interface IAssetRegistry {
     function settleAsset(uint256 assetId, uint256 topUpAmount) external;
     function liquidateAsset(uint256 assetId) external;
     function claimSettlement(uint256 assetId, bool autoClaimEarnings)
+        external
+        returns (uint256 claimedAmount, uint256 earningsClaimed);
+    function claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
         external
         returns (uint256 claimedAmount, uint256 earningsClaimed);
     function burnRevenueTokens(uint256 assetId, uint256 amount) external;
@@ -96,7 +114,6 @@ interface IAssetRegistry {
     /**
      * @dev Access control and permissions
      */
-    function isAuthorizedForAsset(address account, uint256 assetId) external view returns (bool);
     function getRegistryForAsset(uint256 assetId) external view returns (address);
 
     /**

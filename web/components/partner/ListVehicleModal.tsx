@@ -1,28 +1,49 @@
 "use client";
 
-import { useState } from "react";
-import { parseUnits } from "viem";
+import { useEffect, useState } from "react";
+import { useEscClose } from "./useEscClose";
+import { formatUnits, parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
-import { formatUsdc } from "~~/utils/formatters";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { formatTokenAmount } from "~~/utils/formatters";
+import { getParsedError } from "~~/utils/scaffold-eth";
 
 interface ListVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   vehicleId: string;
   vin: string;
+  assetName?: string;
+  prefillAmount?: string;
+  isPrimaryListing?: boolean;
 }
 
-export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicleModalProps) => {
+export const ListVehicleModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  vehicleId,
+  vin,
+  assetName,
+  prefillAmount,
+  isPrimaryListing = false,
+}: ListVehicleModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const { symbol, decimals } = usePaymentToken();
   const [formData, setFormData] = useState({
     amount: "",
     pricePerToken: "",
     durationDays: "30",
+    buyerPaysFee: "buyer",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEscClose(isOpen, onClose);
 
   const { writeContractAsync: writeMarketplace } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const { writeContractAsync: writeRoboshareTokens } = useScaffoldWriteContract({ contractName: "RoboshareTokens" });
@@ -36,6 +57,69 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
     watch: true,
   });
 
+  const revenueTokenId = BigInt(vehicleId) + 1n;
+  const { data: baseTokenPrice } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "getTokenPrice",
+    args: [revenueTokenId],
+  });
+  const { data: targetYieldBP } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "getTargetYieldBP",
+    args: [revenueTokenId],
+  });
+
+  const { data: walletBalance } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "balanceOf",
+    args: [connectedAddress, revenueTokenId],
+  });
+  const { data: assetNftBalance } = useScaffoldReadContract({
+    contractName: "RoboshareTokens",
+    functionName: "balanceOf",
+    args: [connectedAddress, BigInt(vehicleId)],
+  });
+  const isPrimaryFlow = isPrimaryListing || ((assetNftBalance as bigint | undefined) ?? 0n) > 0n;
+
+  useEffect(() => {
+    if (!prefillAmount) return;
+    setFormData(prev => (prev.amount ? prev : { ...prev, amount: prefillAmount }));
+  }, [prefillAmount]);
+
+  useEffect(() => {
+    if (!isOpen) setErrorMessage(null);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (prefillAmount) return;
+    if (walletBalance && walletBalance > 0n) {
+      setFormData(prev => (prev.amount ? prev : { ...prev, amount: walletBalance.toString() }));
+    }
+  }, [prefillAmount, walletBalance]);
+
+  useEffect(() => {
+    if (!baseTokenPrice) return;
+    setFormData(prev =>
+      prev.pricePerToken
+        ? prev
+        : {
+            ...prev,
+            pricePerToken: formatUnits(baseTokenPrice, 6)
+              .replace(/\.0+$/, "")
+              .replace(/(\.\d*[1-9])0+$/, "$1"),
+          },
+    );
+  }, [baseTokenPrice]);
+
+  const setPriceFromDelta = (deltaBp: number) => {
+    if (!baseTokenPrice) return;
+    const multiplier = 10000n + BigInt(deltaBp);
+    const nextPrice = (baseTokenPrice * multiplier) / 10000n;
+    const formatted = formatUnits(nextPrice, 6);
+    const trimmed = formatted.replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+    setFormData(prev => ({ ...prev, pricePerToken: trimmed }));
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -47,6 +131,7 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
 
     setIsSubmitting(true);
     try {
+      setErrorMessage(null);
       const tokenId = BigInt(vehicleId) + 1n; // Revenue Token ID
       const durationSeconds = BigInt(parseInt(formData.durationDays) * 24 * 60 * 60);
       const priceBigInt = parseUnits(formData.pricePerToken, 6);
@@ -60,20 +145,21 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
       }
 
       // 2. Create Listing
-      await writeMarketplace({
-        functionName: "createListing",
-        args: [
-          tokenId,
-          BigInt(formData.amount),
-          priceBigInt,
-          durationSeconds,
-          false, // buyerPaysFee
-        ],
-      });
+      const buyerPaysFee = isPrimaryFlow ? true : formData.buyerPaysFee === "buyer";
 
+      const txHash = await writeMarketplace({
+        functionName: "createListing",
+        args: [tokenId, BigInt(formData.amount), priceBigInt, durationSeconds, buyerPaysFee],
+      });
+      if (!txHash) {
+        setErrorMessage("Transaction was not submitted. Please try again.");
+        return;
+      }
+
+      onSuccess?.();
       onClose();
     } catch (e) {
-      console.error("Error listing vehicle:", e);
+      setErrorMessage(getParsedError(e));
     } finally {
       setIsSubmitting(false);
     }
@@ -82,6 +168,12 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
   // Calculate total value
   const totalValue =
     formData.amount && formData.pricePerToken ? parseUnits(formData.pricePerToken, 6) * BigInt(formData.amount) : 0n;
+  const { data: estimatedBuffer } = useScaffoldReadContract({
+    contractName: "Treasury",
+    functionName: "getTotalBufferRequirement",
+    args: [totalValue, (targetYieldBP as bigint) ?? 0n],
+    query: { enabled: isOpen && isPrimaryFlow && totalValue > 0n && targetYieldBP !== undefined },
+  });
 
   // Calculate expiry date
   const expiryDate = new Date(Date.now() + parseInt(formData.durationDays || "0") * 24 * 60 * 60 * 1000);
@@ -98,7 +190,7 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
           <button
@@ -113,19 +205,24 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
           {/* Header */}
           <div className="p-4 border-b border-base-200 shrink-0">
             <h3 className="font-bold text-xl">List Tokens for Sale</h3>
-            <p className="text-sm opacity-60 mt-1">
-              List revenue tokens for vehicle <span className="font-mono font-bold">{vin}</span> on the marketplace.
+            <p className="text-sm opacity-60 mt-1 mb-1">
+              List revenue tokens for <span className="font-semibold">{assetName || "this asset"}</span> (VIN{" "}
+              <span className="font-mono font-bold">{vin}</span>) on the marketplace.
             </p>
           </div>
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
-              <div className="divider text-xs opacity-50 my-0">Listing Details</div>
+              {errorMessage && (
+                <div className="alert alert-error text-sm">
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
-              <div className="bg-base-200 p-4 rounded-lg border border-primary/20">
+              <div className="bg-base-200 p-4 rounded-lg border border-base-300">
                 {/* Row 1: Amount and Price */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div className="form-control">
                     <label className="label py-0">
                       <span className="label-text text-xs font-bold uppercase opacity-60">Tokens to List</span>
@@ -139,66 +236,175 @@ export const ListVehicleModal = ({ isOpen, onClose, vehicleId, vin }: ListVehicl
                       placeholder="e.g. 1000"
                       required
                     />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[25, 50, 75, 100].map(pct => (
+                        <button
+                          key={pct}
+                          type="button"
+                          className="btn btn-xs btn-outline"
+                          onClick={() => {
+                            const base = prefillAmount ? BigInt(prefillAmount) : (walletBalance ?? 0n);
+                            if (base === 0n) return;
+                            const nextAmount = (base * BigInt(pct)) / 100n;
+                            setFormData(prev => ({ ...prev, amount: nextAmount.toString() }));
+                          }}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="form-control">
                     <label className="label py-0">
-                      <span className="label-text text-xs font-bold uppercase opacity-60">Price per Token (USDC)</span>
+                      <span className="label-text text-xs font-bold uppercase opacity-60">
+                        Price per Token ({symbol})
+                      </span>
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm opacity-50">$</span>
+                    <div className="join w-full">
                       <input
                         type="number"
                         step="0.000001"
                         name="pricePerToken"
-                        className="input input-bordered input-sm w-full pl-7"
+                        className="input input-bordered input-sm join-item w-full"
                         value={formData.pricePerToken}
                         onChange={handleInputChange}
                         placeholder="e.g. 1.00"
                         required
                       />
+                      <span className="join-item flex items-center px-3 bg-base-300 text-xs font-medium">{symbol}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[
+                        { label: "-10%", bp: -1000 },
+                        { label: "-5%", bp: -500 },
+                        { label: "0%", bp: 0 },
+                        { label: "+5%", bp: 500 },
+                      ].map(option => (
+                        <button
+                          key={option.label}
+                          type="button"
+                          className="btn btn-xs btn-outline"
+                          onClick={() => setPriceFromDelta(option.bp)}
+                          disabled={!baseTokenPrice}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Row 2: Duration */}
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="form-control">
-                    <label className="label py-0">
-                      <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
-                    </label>
-                    <select
-                      name="durationDays"
-                      className="select select-bordered select-sm w-full"
-                      value={formData.durationDays}
-                      onChange={handleInputChange}
-                    >
-                      <option value="7">7 Days</option>
-                      <option value="14">14 Days</option>
-                      <option value="30">30 Days</option>
-                      <option value="60">60 Days</option>
-                      <option value="90">90 Days</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col items-end pb-1">
-                    <span className="text-[10px] uppercase opacity-50 font-bold">Expires On</span>
-                    <span className="text-sm font-bold text-primary">{formatDate(expiryDate)}</span>
-                  </div>
+                {/* Row 2: Fees + Duration */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                  {isPrimaryFlow ? (
+                    <>
+                      <div className="form-control">
+                        <label className="label py-0">
+                          <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
+                        </label>
+                        <select
+                          name="durationDays"
+                          className="select select-bordered select-sm w-full"
+                          value={formData.durationDays}
+                          onChange={handleInputChange}
+                        >
+                          <option value="7">7 Days</option>
+                          <option value="14">14 Days</option>
+                          <option value="30">30 Days</option>
+                          <option value="60">60 Days</option>
+                          <option value="90">90 Days</option>
+                        </select>
+                        <div className="flex flex-col items-end pt-2 text-right">
+                          <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
+                          <span className="text-sm font-bold text-base-content">{formatDate(expiryDate)}</span>
+                        </div>
+                      </div>
+                      <div className="form-control">
+                        <label className="label py-0">
+                          <span className="label-text text-xs font-bold uppercase opacity-60">Fees</span>
+                        </label>
+                        <select className="select select-bordered select-sm w-full" disabled>
+                          <option>Buyers pay fees</option>
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="form-control">
+                      <label className="label py-0">
+                        <span className="label-text text-xs font-bold uppercase opacity-60">Fees</span>
+                      </label>
+                      <select
+                        name="buyerPaysFee"
+                        className="select select-bordered select-sm w-full"
+                        value={formData.buyerPaysFee}
+                        onChange={handleInputChange}
+                      >
+                        <option value="buyer">Buyer Pays</option>
+                        <option value="seller">Seller Pays</option>
+                      </select>
+                    </div>
+                  )}
+                  {!isPrimaryFlow ? (
+                    <div className="form-control">
+                      <label className="label py-0">
+                        <span className="label-text text-xs font-bold uppercase opacity-60">Listing Duration</span>
+                      </label>
+                      <select
+                        name="durationDays"
+                        className="select select-bordered select-sm w-full"
+                        value={formData.durationDays}
+                        onChange={handleInputChange}
+                      >
+                        <option value="7">7 Days</option>
+                        <option value="14">14 Days</option>
+                        <option value="30">30 Days</option>
+                        <option value="60">60 Days</option>
+                        <option value="90">90 Days</option>
+                      </select>
+                      <div className="flex flex-col items-end pt-2 text-right">
+                        <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
+                        <span className="text-sm font-bold text-base-content">{formatDate(expiryDate)}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
-              {/* Summary Box */}
-              <div className="bg-success/10 p-3 rounded-lg text-xs">
+              {/* Listing Summary */}
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-lg p-3 border border-base-300">
+                <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70 dark:text-white/70 mb-3">
+                  Listing Summary
+                </h4>
                 <div className="flex justify-between items-center">
-                  <span className="opacity-80">Total Listing Value:</span>
-                  <span className="font-bold text-success text-sm">{formatUsdc(totalValue)} USDC</span>
+                  <span className="font-normal dark:text-white/80">Total Listing Value</span>
+                  <span className="font-bold text-success text-xl">
+                    {formatTokenAmount(totalValue, decimals)} {symbol}
+                  </span>
                 </div>
               </div>
+
+              {/* Buffer Terms (Primary only) */}
+              {isPrimaryFlow && (
+                <div className="bg-primary/10 border border-base-300 rounded-lg p-3 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs uppercase opacity-60 font-bold">Estimated Buffer</span>
+                    <span className="font-bold text-sm">
+                      {formatTokenAmount((estimatedBuffer as bigint | undefined) ?? 0n, decimals)} {symbol}
+                    </span>
+                  </div>
+                  <p className="opacity-80 mt-2">
+                    💰 Estimated buffer if this listing fully sells. Actual funding is finalized when the listing ends
+                    based on tokens sold.
+                  </p>
+                </div>
+              )}
 
               {/* Info Box */}
-              <div className="bg-info/10 p-3 rounded-lg text-xs">
-                <p className="opacity-80">
-                  Your tokens will be transferred to the Marketplace contract and listed for sale. Buyers can purchase
-                  partial amounts. Unsold tokens can be reclaimed by ending the listing.
+              <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
+                <p className="opacity-80 mt-1 mb-1">
+                  {isPrimaryFlow
+                    ? "Your tokens are already held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."
+                    : "Your tokens will be transferred to marketplace escrow for sale. Buyers can purchase partial amounts. Unsold tokens will be returned to you when the listing ends."}
                 </p>
               </div>
             </div>
