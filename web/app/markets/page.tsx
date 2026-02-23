@@ -660,8 +660,6 @@ const MarketsPage: NextPage = () => {
     recentPurchases,
     userHoldingsIds,
     userRefundedListingIds,
-    assetActionPreview,
-    assetStatusById,
     address,
     hasLikelyAction,
   ]);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { encodeAbiParameters, parseAbiParameters, parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -188,7 +189,7 @@ export const RegisterVehicleForm = ({
       return canvas.toDataURL("image/jpeg", 0.8);
     }
     return await new Promise((resolve, reject) => {
-      const img = new Image();
+      const img = new window.Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
         const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
@@ -214,18 +215,21 @@ export const RegisterVehicleForm = ({
       img.src = url;
     });
   };
-  const getFingerprint = (data: typeof formData) =>
-    [
-      data.vin,
-      data.make,
-      data.model,
-      data.year,
-      data.manufacturerId,
-      data.optionCodes,
-      data.odometer,
-      data.odometerUnit,
-      imageName || "",
-    ].join("|");
+  const getFingerprint = useCallback(
+    (data: typeof formData) =>
+      [
+        data.vin,
+        data.make,
+        data.model,
+        data.year,
+        data.manufacturerId,
+        data.optionCodes,
+        data.odometer,
+        data.odometerUnit,
+        imageName || "",
+      ].join("|"),
+    [imageName],
+  );
 
   useEffect(() => {
     try {
@@ -246,7 +250,7 @@ export const RegisterVehicleForm = ({
       setProcessedData(null);
       setProcessedFingerprint(null);
     }
-  }, [formData, processedFingerprint, imageName]);
+  }, [formData, processedFingerprint, getFingerprint]);
 
   useEffect(() => {
     const hasMeaningfulInput =
@@ -577,7 +581,14 @@ export const RegisterVehicleForm = ({
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-10 w-10 rounded-lg bg-base-300 overflow-hidden flex items-center justify-center">
                       {imagePreviewUrl ? (
-                        <img src={imagePreviewUrl} alt={imageName} className="h-full w-full object-cover" />
+                        <Image
+                          src={imagePreviewUrl}
+                          alt={imageName}
+                          width={40}
+                          height={40}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
                       ) : (
                         <span className="text-[10px] opacity-60">Image</span>
                       )}

@@ -594,7 +594,6 @@ export function MarketAssetCard({
     hasAvailableTokens,
     soldOutDurationLabel,
     hasUserActiveListingForTokenId,
-    hasUserPrimaryListingForTokenId,
     listingSoldAmount,
     isTokenMatured,
     isCancelled,
