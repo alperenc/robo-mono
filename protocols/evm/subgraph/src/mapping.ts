@@ -33,8 +33,12 @@ import {
   ListingCancelled as ListingCancelledEvent,
   ListingExtended as ListingExtendedEvent,
   ListingEnded as ListingEndedEvent,
-  TokensClaimed as TokensClaimedEvent,
-  RefundClaimed as RefundClaimedEvent
+  PrimaryPoolCreated as PrimaryPoolCreatedEvent,
+  PrimaryPoolPaused as PrimaryPoolPausedEvent,
+  PrimaryPoolUnpaused as PrimaryPoolUnpausedEvent,
+  PrimaryPoolClosed as PrimaryPoolClosedEvent,
+  PrimaryPoolPurchased as PrimaryPoolPurchasedEvent,
+  PrimaryPoolRedeemed as PrimaryPoolRedeemedEvent
 } from "../generated/Marketplace/Marketplace"
 
 import {
@@ -56,9 +60,16 @@ import {
   TokenTrade,
   EarningsDistribution,
   AssetEarning,
-  TokenClaim,
-  RefundClaim
+  PrimaryPool,
+  PrimaryPoolPurchase,
+  PrimaryPoolRedemption
 } from "../generated/schema"
+
+function assetIdFromTokenId(tokenId: BigInt): BigInt {
+  const one = BigInt.fromI32(1)
+  if (tokenId.le(one)) return BigInt.fromI32(0)
+  return tokenId.minus(one)
+}
 
 export function handleMockUSDCTransfer(event: MockUSDCTransferEvent): void {
   let entity = new Transfer(
@@ -295,8 +306,6 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.isCancelled = false
   listing.isEnded = false
   listing.endedAt = null
-  listing.claimedAmount = BigInt.fromI32(0)
-  listing.refundedAmount = BigInt.fromI32(0)
   listing.createdAt = event.block.timestamp
   listing.blockNumber = event.block.number
   listing.blockTimestamp = event.block.timestamp
@@ -332,9 +341,11 @@ export function handleRevenueTokensTraded(event: RevenueTokensTradedEvent): void
   if (listing) {
     listing.amountSold = listing.amountSold.plus(event.params.amount)
     listing.amount = listing.amount.minus(event.params.amount)
-    // Status update is now handled by ListingEnded/ListingCancelled
-    // However, if amount reaches 0, it's effectively "Sold Out", but still "Active" until Ended.
-    // We'll keep status as "active" to reflect it hasn't been settled yet.
+    if (listing.amount.equals(BigInt.fromI32(0))) {
+      listing.status = "sold_out"
+      listing.isEnded = true
+      listing.endedAt = event.block.timestamp
+    }
     listing.save()
   }
 }
@@ -358,48 +369,98 @@ export function handleListingEnded(event: ListingEndedEvent): void {
   }
 }
 
-export function handleTokensClaimed(event: TokensClaimedEvent): void {
-  let claim = new TokenClaim(
-    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
-  )
-  claim.listingId = event.params.listingId
-  claim.buyer = event.params.buyer
-  claim.amount = event.params.amount
-  claim.blockNumber = event.block.number
-  claim.blockTimestamp = event.block.timestamp
-  claim.transactionHash = event.transaction.hash
-  claim.save()
-
-  let listing = Listing.load(event.params.listingId.toString())
-  if (listing) {
-    listing.claimedAmount = listing.claimedAmount.plus(event.params.amount)
-    listing.save()
-  }
-}
-
-export function handleRefundClaimed(event: RefundClaimedEvent): void {
-  let refund = new RefundClaim(
-    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
-  )
-  refund.listingId = event.params.listingId
-  refund.buyer = event.params.buyer
-  refund.amount = event.params.amount // This is USDC amount
-  refund.blockNumber = event.block.number
-  refund.blockTimestamp = event.block.timestamp
-  refund.transactionHash = event.transaction.hash
-  refund.save()
-
-  let listing = Listing.load(event.params.listingId.toString())
-  if (listing) {
-    listing.refundedAmount = listing.refundedAmount.plus(event.params.amount)
-    listing.save()
-  }
-}
-
 export function handleListingExtended(event: ListingExtendedEvent): void {
   let listing = Listing.load(event.params.listingId.toString())
   if (listing) {
     listing.expiresAt = event.params.newExpiresAt
     listing.save()
   }
+}
+
+export function handlePrimaryPoolCreated(event: PrimaryPoolCreatedEvent): void {
+  let pool = new PrimaryPool(event.params.tokenId.toString())
+  pool.tokenId = event.params.tokenId
+  pool.assetId = assetIdFromTokenId(event.params.tokenId)
+  pool.partner = event.params.partner
+  pool.pricePerToken = event.params.pricePerToken
+  pool.maxSupply = event.params.maxSupply
+  pool.immediateProceeds = event.params.immediateProceeds
+  pool.protectionEnabled = event.params.protectionEnabled
+  pool.isPaused = false
+  pool.isClosed = false
+  pool.createdAt = event.block.timestamp
+  pool.pausedAt = null
+  pool.closedAt = null
+  pool.totalPurchased = BigInt.fromI32(0)
+  pool.totalRedeemed = BigInt.fromI32(0)
+  pool.totalPartnerProceedsReleased = BigInt.fromI32(0)
+  pool.totalProtectionCollateralFunded = BigInt.fromI32(0)
+  pool.save()
+}
+
+export function handlePrimaryPoolPaused(event: PrimaryPoolPausedEvent): void {
+  let pool = PrimaryPool.load(event.params.tokenId.toString())
+  if (!pool) return
+  pool.isPaused = true
+  pool.pausedAt = event.block.timestamp
+  pool.save()
+}
+
+export function handlePrimaryPoolUnpaused(event: PrimaryPoolUnpausedEvent): void {
+  let pool = PrimaryPool.load(event.params.tokenId.toString())
+  if (!pool) return
+  pool.isPaused = false
+  pool.save()
+}
+
+export function handlePrimaryPoolClosed(event: PrimaryPoolClosedEvent): void {
+  let pool = PrimaryPool.load(event.params.tokenId.toString())
+  if (!pool) return
+  pool.isClosed = true
+  pool.closedAt = event.block.timestamp
+  pool.save()
+}
+
+export function handlePrimaryPoolPurchased(event: PrimaryPoolPurchasedEvent): void {
+  let purchase = new PrimaryPoolPurchase(
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
+  )
+  purchase.tokenId = event.params.tokenId
+  purchase.buyer = event.params.buyer
+  purchase.amount = event.params.amount
+  purchase.totalCost = event.params.totalCost
+  purchase.protocolFee = event.params.protocolFee
+  purchase.partnerProceeds = event.params.partnerProceeds
+  purchase.protectionFunding = event.params.protectionFunding
+  purchase.blockNumber = event.block.number
+  purchase.blockTimestamp = event.block.timestamp
+  purchase.transactionHash = event.transaction.hash
+  purchase.save()
+
+  let pool = PrimaryPool.load(event.params.tokenId.toString())
+  if (!pool) return
+  pool.totalPurchased = pool.totalPurchased.plus(event.params.amount)
+  pool.totalPartnerProceedsReleased = pool.totalPartnerProceedsReleased.plus(event.params.partnerProceeds)
+  pool.totalProtectionCollateralFunded = pool.totalProtectionCollateralFunded.plus(event.params.protectionFunding)
+  pool.save()
+}
+
+export function handlePrimaryPoolRedeemed(event: PrimaryPoolRedeemedEvent): void {
+  let redemption = new PrimaryPoolRedemption(
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
+  )
+  redemption.tokenId = event.params.tokenId
+  redemption.holder = event.params.holder
+  redemption.amountBurned = event.params.amountBurned
+  redemption.payout = event.params.payout
+  redemption.investorLiquidityAfter = event.params.investorLiquidityAfter
+  redemption.blockNumber = event.block.number
+  redemption.blockTimestamp = event.block.timestamp
+  redemption.transactionHash = event.transaction.hash
+  redemption.save()
+
+  let pool = PrimaryPool.load(event.params.tokenId.toString())
+  if (!pool) return
+  pool.totalRedeemed = pool.totalRedeemed.plus(event.params.amountBurned)
+  pool.save()
 }

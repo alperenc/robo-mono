@@ -120,29 +120,7 @@ type Listing @entity(immutable: false) {
   isCancelled: Boolean!
   isEnded: Boolean!
   endedAt: BigInt
-  claimedAmount: BigInt!
-  refundedAmount: BigInt!
   createdAt: BigInt!
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type TokenClaim @entity(immutable: true) {
-  id: ID! # transaction hash + log index
-  listingId: BigInt!
-  buyer: Bytes!
-  amount: BigInt!
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type RefundClaim @entity(immutable: true) {
-  id: ID! # transaction hash + log index
-  listingId: BigInt!
-  buyer: Bytes!
-  amount: BigInt!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
@@ -181,4 +159,50 @@ type AssetEarning @entity(immutable: false) {
   distributionCount: BigInt!
   lastDistributionAt: BigInt!
   firstDistributionAt: BigInt!
+}
+
+type PrimaryPool @entity(immutable: false) {
+  id: ID! # tokenId
+  tokenId: BigInt!
+  assetId: BigInt!
+  partner: Bytes!
+  pricePerToken: BigInt!
+  maxSupply: BigInt!
+  immediateProceeds: Boolean!
+  protectionEnabled: Boolean!
+  isPaused: Boolean!
+  isClosed: Boolean!
+  createdAt: BigInt!
+  pausedAt: BigInt
+  closedAt: BigInt
+  totalPurchased: BigInt!
+  totalRedeemed: BigInt!
+  totalPartnerProceedsReleased: BigInt!
+  totalProtectionCollateralFunded: BigInt!
+}
+
+type PrimaryPoolPurchase @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  tokenId: BigInt!
+  buyer: Bytes!
+  amount: BigInt!
+  totalCost: BigInt!
+  protocolFee: BigInt!
+  partnerProceeds: BigInt!
+  protectionFunding: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PrimaryPoolRedemption @entity(immutable: true) {
+  id: ID! # transaction hash + log index
+  tokenId: BigInt!
+  holder: Bytes!
+  amountBurned: BigInt!
+  payout: BigInt!
+  investorLiquidityAfter: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
 }
