@@ -196,9 +196,89 @@ contract RegistryRouterTest is BaseTest {
         );
     }
 
+    function testRegisterAssetMintAndCreatePrimaryPoolDirectCall() public {
+        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
+        router.registerAssetMintAndCreatePrimaryPool(
+            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 1000, false, false
+        );
+    }
+
+    function testMintRevenueTokensAndCreatePrimaryPool() public {
+        _ensureState(SetupState.AssetRegistered);
+
+        vm.prank(partner1);
+        (uint256 tokenId, uint256 supply) = router.mintRevenueTokensAndCreatePrimaryPool(
+            scenario.assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+        );
+
+        assertEq(tokenId, scenario.assetId + 1);
+        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+        assertTrue(marketplace.isPrimaryPoolActive(tokenId));
+    }
+
     function testClaimSettlementDirectCallNotAllowed() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.claimSettlement(scenario.assetId, false);
+    }
+
+    function testBurnRevenueTokensForPrimaryRedemptionUnauthorizedCaller() public {
+        _ensureState(SetupState.RevenueTokensPurchased);
+        vm.prank(unauthorized);
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.burnRevenueTokensForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
+    }
+
+    function testBurnRevenueTokensForPrimaryRedemptionInvalidTokenType() public {
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(2)));
+        router.burnRevenueTokensForPrimaryRedemption(buyer, 2, 1);
+    }
+
+    function testBurnRevenueTokensForPrimaryRedemptionUnboundRevenueToken() public {
+        uint256 unboundRevenueTokenId = 999;
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundRevenueTokenId));
+        router.burnRevenueTokensForPrimaryRedemption(buyer, unboundRevenueTokenId, 1);
+    }
+
+    function testBurnRevenueTokensForPrimaryRedemptionSuccess() public {
+        _ensureState(SetupState.RevenueTokensPurchased);
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        assertGt(buyerBalanceBefore, 0);
+
+        vm.prank(address(treasury));
+        router.burnRevenueTokensForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
+
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore - 1);
+    }
+
+    function testMintRevenueTokensForPrimaryPoolUnauthorizedCaller() public {
+        vm.prank(unauthorized);
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.mintRevenueTokensForPrimaryPool(buyer, scenario.revenueTokenId, 1);
+    }
+
+    function testMintRevenueTokensForPrimaryPoolInvalidTokenType() public {
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(2)));
+        router.mintRevenueTokensForPrimaryPool(buyer, 2, 1);
+    }
+
+    function testMintRevenueTokensForPrimaryPoolUnboundRevenueToken() public {
+        uint256 unboundRevenueTokenId = 1000;
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundRevenueTokenId));
+        router.mintRevenueTokensForPrimaryPool(buyer, unboundRevenueTokenId, 1);
+    }
+
+    function testMintRevenueTokensForPrimaryPoolSuccess() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+
+        vm.prank(address(treasury));
+        router.mintRevenueTokensForPrimaryPool(buyer, scenario.revenueTokenId, 1);
+
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore + 1);
     }
 
     function testPreviewLiquidationEligibilityView() public {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ProtocolLib, TokenLib, CollateralLib, AssetLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, CollateralLib } from "../contracts/Libraries.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
@@ -164,18 +164,11 @@ contract BaseTest is Test {
 
     function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
         uint256 maturityDate = block.timestamp + 365 days;
-
-        revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
-
-        vm.startPrank(admin);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, REVENUE_TOKEN_PRICE, supply, maturityDate, 10_000, 1_000);
-        vm.stopPrank();
-
-        _mintRevenueTokensToEscrow(revenueTokenId, supply);
-
-        vm.prank(address(treasury));
-        router.setAssetStatus(scenario.assetId, AssetLib.AssetStatus.Active);
+        vm.prank(partner1);
+        (revenueTokenId,) = assetRegistry.mintRevenueTokensAndCreatePrimaryPool(
+            scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, false
+        );
     }
 
     function _mintRevenueTokensToEscrow(uint256 revenueTokenId, uint256 amount) internal {
@@ -186,8 +179,7 @@ contract BaseTest is Test {
     }
 
     function _setupBuffersLocked() internal {
-        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
-        uint256 baseAmount = listing.soldAmount * listing.pricePerToken;
+        uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(scenario.assetId);
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
         uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP);
         vm.prank(partner1);
@@ -203,45 +195,32 @@ contract BaseTest is Test {
     }
 
     function _setupRevenueTokensListed() internal returns (uint256 listingId) {
-        // Approve marketplace to transfer tokens on behalf of partner1
-        vm.prank(partner1);
+        (uint256 primaryCost,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, LISTING_AMOUNT);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(marketplace), primaryCost);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, LISTING_AMOUNT);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-
-        // Approve treasury for buffer funding at listing end
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        vm.prank(partner1);
         listingId = marketplace.createListing(
             scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
+        vm.stopPrank();
     }
 
     function _setupRevenueTokensPurchased() internal {
-        // Buyer approves USDC for purchase
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, PURCHASE_AMOUNT);
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, PURCHASE_AMOUNT);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-
-        // Buyer purchases tokens
-        marketplace.purchaseTokens(scenario.listingId, PURCHASE_AMOUNT);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, PURCHASE_AMOUNT);
         vm.stopPrank();
     }
 
     function _setupListingEnded() internal {
-        // Partner approves buffer funding and ends listing to release escrowed tokens
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        // Partner ends listing to release escrowed tokens
-        vm.prank(partner1);
-        marketplace.endListing(scenario.listingId);
+        // No-op in primary pool flow.
     }
 
     function _setupRevenueTokensClaimed() internal {
-        // Buyer claims tokens from escrow
-        vm.prank(buyer);
-        marketplace.claimTokens(scenario.listingId);
+        // No-op in immediate settlement: tokens are received at purchase time.
     }
 
     /**

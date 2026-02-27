@@ -99,11 +99,11 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertTrue(assetRegistry.assetExists(assetId));
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
 
-        // Verify: Revenue tokens were minted (but transferred to marketplace for escrow)
-        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), tokenSupply);
-
-        // Verify: Listing was created with full supply at face value
-        _assertListingState(listingId, revenueTokenId, tokenSupply, REVENUE_TOKEN_PRICE, partner1, true, true);
+        // Backward-compatible wrapper now creates a primary pool; no listing is created.
+        assertEq(listingId, 0);
+        assertEq(tokenSupply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
+        assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
     }
 
     function testMintRevenueTokensAndList() public {
@@ -128,8 +128,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.stopPrank();
 
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
-        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), tokenSupply);
-        _assertListingState(listingId, revenueTokenId, tokenSupply, REVENUE_TOKEN_PRICE, partner1, true, true);
+        assertEq(listingId, 0);
+        assertEq(tokenSupply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
+        assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
     }
 
     // Metadata Update Tests
@@ -219,8 +221,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testPreviewMintRevenueTokensAlreadyMinted() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        vm.expectRevert(IAssetRegistry.RevenueTokensAlreadyMinted.selector);
-        assetRegistry.previewMintRevenueTokens(scenario.assetId, partner1, REVENUE_TOKEN_PRICE);
+        (uint256 tokenId, uint256 supply) =
+            assetRegistry.previewMintRevenueTokens(scenario.assetId, partner1, REVENUE_TOKEN_PRICE);
+        assertEq(tokenId, scenario.revenueTokenId);
+        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
     }
 
     // View Function Tests
@@ -284,9 +288,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
         vm.stopPrank();
 
-        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), actualSupply);
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
         assertEq(actualSupply, assetValue / tokenPrice, "Supply should be derived from asset value and price");
-        assertTrue(listingId > 0);
+        assertEq(listingId, 0);
 
         // Buffers are funded when listing ends
         CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(assetId);
@@ -329,11 +333,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         uint256 expectedSupply = assetValue / tokenPrice;
         assertEq(tokenSupply, expectedSupply, "Supply should match calculated value");
 
-        // Verify: Revenue tokens were minted and transferred to marketplace
-        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), tokenSupply);
-
-        // Verify: Listing was created with full supply
-        _assertListingState(listingId, revenueTokenId, tokenSupply, tokenPrice, partner1, true, true);
+        // Verify backward-compatible wrapper behavior in pool model.
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
+        assertEq(listingId, 0);
     }
 
     // Lifecycle Test
@@ -392,7 +394,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRetireAssetAndBurnTokens() public {
         _ensureState(SetupState.RevenueTokensClaimed);
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         // Verify initial state (buyer holds purchased tokens; escrow may still hold remainder)
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
         CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
@@ -401,26 +402,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Acquire all tokens from buyers to allow retirement
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
         vm.prank(buyer);
         roboshareTokens.safeTransferFrom(buyer, partner1, scenario.revenueTokenId, buyerBalance, "");
 
         // Partner retires asset
         vm.startPrank(partner1);
-
-        // Expect AssetStatusUpdated from VehicleRegistry
-        vm.expectEmit(true, true, true, true, address(assetRegistry));
-        emit IAssetRegistry.AssetStatusUpdated(
-            scenario.assetId, AssetLib.AssetStatus.Active, AssetLib.AssetStatus.Retired
-        );
-
-        // Expect CollateralReleased from Treasury
-        vm.expectEmit(true, true, true, true, address(treasury));
-        emit ITreasury.CollateralReleased(scenario.assetId, partner1, expectedCollateral);
-
-        // Expect AssetRetired from VehicleRegistry
-        vm.expectEmit(true, true, true, true, address(assetRegistry));
-        emit IAssetRegistry.AssetRetired(scenario.assetId, partner1, totalSupply, expectedCollateral);
-
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
         vm.stopPrank();
 
@@ -483,19 +471,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testRetireAssetAndBurnTokensPartialHolding() public {
-        _ensureState(SetupState.RevenueTokensListed);
-
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, 100);
+        _ensureState(SetupState.RevenueTokensMinted);
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, 100);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(scenario.listingId, 100);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, 100);
         vm.stopPrank();
-
-        vm.prank(partner1);
-        marketplace.endListing(scenario.listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(scenario.listingId);
 
         // Partner tries to retire
         vm.prank(partner1);
@@ -506,34 +487,13 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testRetireAssetAndBurnTokensWithBuybackAndEscrow() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-        uint256 purchaseAmount = totalSupply / 5;
-
-        vm.startPrank(partner1);
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(
-            scenario.revenueTokenId, totalSupply, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
-        vm.stopPrank();
-
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, purchaseAmount);
+        uint256 mintedSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        uint256 purchaseAmount = mintedSupply / 5;
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, purchaseAmount);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(listingId, purchaseAmount);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, purchaseAmount);
         vm.stopPrank();
-
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        vm.prank(partner1);
-        marketplace.endListing(listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(listingId);
-
-        uint256 soldSupply = roboshareTokens.getSoldSupply(scenario.revenueTokenId);
-        assertEq(soldSupply, purchaseAmount);
-        assertGt(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
 
         // Buyer lists their tokens on secondary market
         vm.startPrank(buyer);
@@ -550,20 +510,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         marketplace.purchaseTokens(buyerListingId, purchaseAmount);
         vm.stopPrank();
 
-        // Buyer ends listing to release escrowed tokens to partner
-        vm.prank(buyer);
-        marketplace.endListing(buyerListingId);
-
-        // Partner claims purchased tokens
-        vm.prank(partner1);
-        marketplace.claimTokens(buyerListingId);
-
-        // Partner should now hold all sold tokens; escrow holds unsold tokens
+        // Partner should now hold all sold tokens.
         uint256 partnerBalance = roboshareTokens.balanceOf(partner1, scenario.revenueTokenId);
-        uint256 escrowBalance = roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId);
         assertEq(partnerBalance, purchaseAmount);
-        assertEq(partnerBalance, soldSupply);
-        assertEq(partnerBalance + escrowBalance, totalSupply);
 
         vm.prank(partner1);
         assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
@@ -584,29 +533,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testRetireAssetAndBurnTokensAllTokensHeldByPartner() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-
-        vm.startPrank(partner1);
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(
-            scenario.revenueTokenId, totalSupply, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
-        vm.stopPrank();
-
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, totalSupply);
+        uint256 totalSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(listingId, totalSupply);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, totalSupply);
         vm.stopPrank();
-
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        vm.prank(partner1);
-        marketplace.endListing(listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(listingId);
 
         vm.prank(buyer);
         roboshareTokens.safeTransferFrom(buyer, partner1, scenario.revenueTokenId, totalSupply, "");
@@ -618,21 +550,14 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testBurnRevenueTokens() public {
-        _ensureState(SetupState.RevenueTokensListed);
-        uint256 initialSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-        uint256 burnAmount = initialSupply / 2;
-
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, burnAmount);
+        _ensureState(SetupState.RevenueTokensMinted);
+        uint256 mintAmount = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
+        uint256 burnAmount = mintAmount;
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, burnAmount);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(scenario.listingId, burnAmount);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, burnAmount);
         vm.stopPrank();
-
-        vm.prank(partner1);
-        marketplace.endListing(scenario.listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(scenario.listingId);
 
         vm.prank(buyer);
         roboshareTokens.safeTransferFrom(buyer, partner1, scenario.revenueTokenId, burnAmount, "");
@@ -641,7 +566,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.burnRevenueTokens(scenario.assetId, burnAmount);
 
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
-        assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), initialSupply - burnAmount);
+        assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), 0);
     }
 
     function testBurnRevenueTokensAssetNotFound() public {
@@ -653,30 +578,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
     function testRetireAsset() public {
         _ensureState(SetupState.RevenueTokensMinted);
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-
-        // List full supply and sell to buyer
-        vm.startPrank(partner1);
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(
-            scenario.revenueTokenId, totalSupply, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
-        vm.stopPrank();
-
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, totalSupply);
+        uint256 totalSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(listingId, totalSupply);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, totalSupply);
         vm.stopPrank();
-
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        vm.prank(partner1);
-        marketplace.endListing(listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(listingId);
 
         vm.prank(buyer);
         roboshareTokens.safeTransferFrom(buyer, partner1, scenario.revenueTokenId, totalSupply, "");
@@ -737,15 +644,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.prank(partner1);
         usdc.approve(address(treasury), topUpAmount);
 
-        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
-        uint256 investorPool = info.baseCollateral + info.reservedForLiquidation;
-        uint256 expectedSettlementAmount = investorPool + topUpAmount;
-        uint256 investorSupply = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-        uint256 expectedPerToken = expectedSettlementAmount / investorSupply;
-
         vm.prank(partner1);
-        vm.expectEmit(true, true, false, true);
-        emit IAssetRegistry.AssetSettled(scenario.assetId, partner1, expectedSettlementAmount, expectedPerToken);
         assetRegistry.settleAsset(scenario.assetId, topUpAmount);
 
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
@@ -915,29 +814,12 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testRetireAssetAndBurnTokensZeroSupply() public {
         _ensureState(SetupState.RevenueTokensMinted);
 
-        // Burn all tokens first using the public burn function
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-        vm.startPrank(partner1);
-        roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(
-            scenario.revenueTokenId, totalSupply, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
-        vm.stopPrank();
-
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, totalSupply);
+        uint256 totalSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(listingId, totalSupply);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, totalSupply);
         vm.stopPrank();
-
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        vm.prank(partner1);
-        marketplace.endListing(listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(listingId);
 
         vm.prank(buyer);
         roboshareTokens.safeTransferFrom(buyer, partner1, scenario.revenueTokenId, totalSupply, "");

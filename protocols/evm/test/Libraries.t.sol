@@ -309,6 +309,12 @@ contract LibrariesTest is Test {
         assertApproxEqAbs(ah.sinceUpdate(), 3 hours, 2);
     }
 
+    function testAssetsTransitionInvalidCurrentStatusPanicsAtEnumCast() public {
+        ah.init(AssetLib.AssetStatus.Pending, 100000e6);
+        vm.expectRevert();
+        ah.setStatusRaw(255);
+    }
+
     // CollateralLib tests
     function testCollateralInitAndView() public {
         // invalid input
@@ -492,6 +498,7 @@ contract LibrariesTest is Test {
 
         (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
             cteh.processInMemory(0, baseEarnings);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(result, -int256(baseEarnings));
         assertEq(replenished, 0);
         assertEq(eBufAfter, 0);
@@ -511,6 +518,7 @@ contract LibrariesTest is Test {
 
         (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
             cteh.processInMemory(200e6, 100e6);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(result, int256(100e6 - replenished));
         assertGt(replenished, 0);
         assertGt(eBufAfter, eBufAfterShortfall);

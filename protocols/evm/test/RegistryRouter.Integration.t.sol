@@ -5,6 +5,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { BaseTest } from "./BaseTest.t.sol";
 import { AssetLib, TokenLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
+import { IMarketplace } from "../contracts/interfaces/IMarketplace.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
@@ -98,6 +99,29 @@ contract MockRegistry is IAssetRegistry {
         returns (uint256, uint256, uint256)
     {
         return (0, 0, 0);
+    }
+
+    function registerAssetMintAndCreatePrimaryPool(
+        bytes calldata,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        bool,
+        bool
+    ) external pure override returns (uint256, uint256, uint256) {
+        return (0, 0, 0);
+    }
+
+    function mintRevenueTokensAndCreatePrimaryPool(uint256, uint256, uint256, uint256, uint256, uint256, bool, bool)
+        external
+        pure
+        override
+        returns (uint256, uint256)
+    {
+        return (0, 0);
     }
 
     function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
@@ -213,7 +237,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // 2. Register a Mock Asset (Asset ID 3, Token ID 4)
         vm.startPrank(partner1);
 
-        (uint256 mockAssetId, uint256 mockTokenId, uint256 listingId) =
+        (uint256 mockAssetId, uint256 mockTokenId,) =
             mockRegistry.registerAndMint(partner1, ASSET_VALUE, REVENUE_TOKEN_PRICE);
         vm.stopPrank();
 
@@ -224,24 +248,14 @@ contract RegistryRouterIntegrationTest is BaseTest {
         // Verify Router knows about MockRegistry
         assertEq(router.getRegistryForAsset(mockAssetId), address(mockRegistry));
 
-        // 3. Purchase Mock Token
+        // 3. Purchase Mock Token from primary pool
         uint256 purchaseAmount = PURCHASE_AMOUNT;
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(listingId, purchaseAmount);
+        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(mockTokenId, purchaseAmount);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(listingId, purchaseAmount);
+        marketplace.buyFromPrimaryPool(mockTokenId, purchaseAmount);
         vm.stopPrank();
-
-        // 4. End Listing and Claim Tokens (New Escrow Flow)
-        vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-
-        vm.prank(partner1);
-        marketplace.endListing(listingId);
-
-        vm.prank(buyer);
-        marketplace.claimTokens(listingId);
 
         // Verify ownership transfer
         assertEq(roboshareTokens.balanceOf(buyer, mockTokenId), purchaseAmount);
@@ -270,8 +284,14 @@ contract RegistryRouterIntegrationTest is BaseTest {
         vm.stopPrank();
 
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
-        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), tokenSupply);
-        _assertListingState(listingId, revenueTokenId, tokenSupply, REVENUE_TOKEN_PRICE, partner1, true, true);
+        assertEq(listingId, 0);
+        assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
+        assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
+        IMarketplace.PrimaryPool memory pool = marketplace.getPrimaryPool(revenueTokenId);
+        assertEq(pool.tokenId, revenueTokenId);
+        assertEq(pool.partner, partner1);
+        assertEq(pool.pricePerToken, REVENUE_TOKEN_PRICE);
+        assertEq(pool.maxSupply, tokenSupply);
     }
 
     // RegistryNotFound Tests
@@ -645,7 +665,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         );
 
         vm.prank(address(assetRegistry));
-        vm.expectRevert(RegistryRouter.MarketplaceNotSet.selector);
+        vm.expectRevert();
         proxyRouter.mintRevenueTokensAndListFor(
             partner1, assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
         );

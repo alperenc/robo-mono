@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { ProtocolLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib } from "../contracts/Libraries.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
+import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
 
 contract TreasuryBadTotalSupplyToken {
     function totalSupply() external pure returns (uint256) {
@@ -349,6 +350,147 @@ contract TreasuryTest is BaseTest {
         );
         treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
+    }
+
+    function testProcessWithdrawalFor() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+        uint256 amount = 50e6;
+        deal(address(usdc), address(treasury), amount);
+
+        vm.prank(address(marketplace));
+        treasury.recordPendingWithdrawal(partner1, amount);
+
+        uint256 before = usdc.balanceOf(partner1);
+        vm.prank(address(marketplace));
+        uint256 withdrawn = treasury.processWithdrawalFor(partner1);
+
+        assertEq(withdrawn, amount);
+        assertEq(usdc.balanceOf(partner1), before + amount);
+        assertEq(treasury.getPendingWithdrawal(partner1), 0);
+    }
+
+    function testPreviewPrimaryRedemptionPayout() public {
+        _ensureState(SetupState.RevenueTokensPurchased);
+        uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+
+        assertEq(treasury.previewPrimaryRedemptionPayout(scenario.assetId, 0, circulatingSupply), 0);
+        assertEq(treasury.previewPrimaryRedemptionPayout(scenario.assetId, 1, 0), 0);
+
+        uint256 payout = treasury.previewPrimaryRedemptionPayout(scenario.assetId, 1, circulatingSupply);
+        assertGt(payout, 0);
+    }
+
+    function testProcessPrimaryPoolPurchaseRevertBranches() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        treasury.processPrimaryPoolPurchase(
+            buyer, scenario.revenueTokenId, 1, unauthorized, REVENUE_TOKEN_PRICE, 0, false, false
+        );
+
+        uint256 unboundRevenueTokenId = 1000;
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.AssetNotFound.selector);
+        treasury.processPrimaryPoolPurchase(
+            buyer, unboundRevenueTokenId, 1, partner1, REVENUE_TOKEN_PRICE, 0, false, false
+        );
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.NotAssetOwner.selector);
+        treasury.processPrimaryPoolPurchase(
+            buyer, scenario.revenueTokenId, 1, partner2, REVENUE_TOKEN_PRICE, 0, false, false
+        );
+    }
+
+    function testProcessPrimaryPoolPurchaseImmediateProceedsAndStatusPromotion() public {
+        _ensureState(SetupState.RevenueTokensMinted);
+
+        uint256 amount = 1;
+        uint256 grossPrincipal = REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
+        uint256 requiredBuffer = treasury.getTotalBufferRequirement(grossPrincipal, targetYieldBP);
+
+        vm.prank(partner1);
+        usdc.approve(address(treasury), requiredBuffer);
+        vm.prank(address(marketplace));
+        treasury.fundBuffersFor(partner1, scenario.assetId, grossPrincipal);
+
+        uint256 pendingBefore = treasury.getPendingWithdrawal(partner1);
+        vm.prank(address(marketplace));
+        (uint256 partnerProceeds, uint256 protectionFunding) = treasury.processPrimaryPoolPurchase(
+            buyer, scenario.revenueTokenId, amount, partner1, grossPrincipal, protocolFee, true, false
+        );
+
+        assertEq(partnerProceeds, grossPrincipal);
+        assertEq(protectionFunding, 0);
+        assertEq(treasury.getPendingWithdrawal(partner1), pendingBefore + grossPrincipal);
+        assertEq(uint8(router.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Earning));
+    }
+
+    function testProcessPrimaryRedemptionSuccess() public {
+        _ensureState(SetupState.RevenueTokensPurchased);
+
+        uint256 burnAmount = PURCHASE_AMOUNT / 2;
+        uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 preview = treasury.previewPrimaryRedemptionPayout(scenario.assetId, burnAmount, circulatingSupply);
+        assertGt(preview, 0);
+
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+        uint256 buyerTokensBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+
+        vm.prank(address(marketplace));
+        uint256 payout =
+            treasury.processPrimaryRedemption(buyer, scenario.assetId, burnAmount, circulatingSupply, preview);
+
+        assertEq(payout, preview);
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + payout);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokensBefore - burnAmount);
+    }
+
+    function testProcessPrimaryRedemptionRevertBranches() public {
+        _ensureState(SetupState.RevenueTokensPurchased);
+        uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.AssetNotFound.selector);
+        treasury.processPrimaryRedemption(buyer, 999, 1, circulatingSupply, 0);
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(scenario.assetId, AssetLib.AssetStatus.Suspended);
+        vm.prank(address(marketplace));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITreasury.AssetNotOperational.selector, scenario.assetId, AssetLib.AssetStatus.Suspended
+            )
+        );
+        treasury.processPrimaryRedemption(buyer, scenario.assetId, 1, circulatingSupply, 0);
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(scenario.assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.InsufficientPrimaryLiquidity.selector);
+        treasury.processPrimaryRedemption(buyer, scenario.assetId, 0, circulatingSupply, 0);
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.InsufficientTokenBalance.selector);
+        treasury.processPrimaryRedemption(unauthorized, scenario.assetId, 1, circulatingSupply, 0);
+
+        uint256 burnAmount = PURCHASE_AMOUNT / 2;
+        uint256 preview = treasury.previewPrimaryRedemptionPayout(scenario.assetId, burnAmount, circulatingSupply);
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.SlippageExceeded.selector);
+        treasury.processPrimaryRedemption(buyer, scenario.assetId, burnAmount, circulatingSupply, preview + 1);
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.InsufficientPrimaryLiquidity.selector);
+        treasury.processPrimaryRedemption(buyer, scenario.assetId, 1, 0, 0);
+
+        vm.prank(address(marketplace));
+        vm.expectRevert(ITreasury.InsufficientPrimaryLiquidity.selector);
+        treasury.processPrimaryRedemption(buyer, scenario.assetId, 1, type(uint256).max, 0);
     }
 
     function testUpgradeUnauthorizedCaller() public {
