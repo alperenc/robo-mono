@@ -8,6 +8,6 @@ interface FinalizeListingModalProps {
   tokenAmount: string;
 }
 
-export const FinalizeListingModal = (_props: FinalizeListingModalProps) => {
+export const FinalizeListingModal = ({}: FinalizeListingModalProps) => {
   return null;
 };

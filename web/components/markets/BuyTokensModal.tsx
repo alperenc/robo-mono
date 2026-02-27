@@ -39,7 +39,6 @@ export function BuyTokensModal({
   vehicleName = "Asset",
   partnerName,
   listedTokens,
-  relatedListingIds = [],
 }: BuyTokensModalProps) {
   const { address } = useAccount();
   const { symbol, decimals } = usePaymentToken();

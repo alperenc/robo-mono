@@ -8,6 +8,6 @@ interface ClaimRefundModalProps {
   vehicleName: string;
 }
 
-export const ClaimRefundModal = (_props: ClaimRefundModalProps) => {
+export const ClaimRefundModal = ({}: ClaimRefundModalProps) => {
   return null;
 };

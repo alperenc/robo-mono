@@ -8,6 +8,6 @@ interface ClaimTokensModalProps {
   vehicleName: string;
 }
 
-export const ClaimTokensModal = (_props: ClaimTokensModalProps) => {
+export const ClaimTokensModal = ({}: ClaimTokensModalProps) => {
   return null;
 };
