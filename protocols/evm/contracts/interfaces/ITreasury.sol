@@ -57,6 +57,8 @@ interface ITreasury {
     error AssetNotEligibleForLiquidation(uint256 assetId);
     error AssetNotOperationalForSettlement(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error NoUnclaimedEarnings();
+    error InsufficientPrimaryLiquidity();
+    error SlippageExceeded();
 
     function releaseCollateral(uint256 assetId) external;
     function releaseCollateralFor(address partner, uint256 assetId) external returns (uint256 releasedCollateral);
@@ -106,6 +108,28 @@ interface ITreasury {
     function creditBaseEscrow(uint256 assetId, uint256 amount) external;
     function recordPendingWithdrawal(address recipient, uint256 amount) external;
     function processWithdrawalFor(address account) external returns (uint256 amount);
+    function processPrimaryPoolPurchase(
+        address buyer,
+        uint256 tokenId,
+        uint256 amount,
+        address partner,
+        uint256 grossPrincipal,
+        uint256 protocolFee,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external returns (uint256 partnerProceeds, uint256 protectionFunding);
+    function getPrimaryInvestorLiquidity(uint256 assetId) external view returns (uint256);
+    function previewPrimaryRedemptionPayout(uint256 assetId, uint256 burnAmount, uint256 circulatingSupply)
+        external
+        view
+        returns (uint256 payout);
+    function processPrimaryRedemption(
+        address holder,
+        uint256 assetId,
+        uint256 burnAmount,
+        uint256 circulatingSupply,
+        uint256 minPayout
+    ) external returns (uint256 payout);
     function treasuryFeeRecipient() external view returns (address);
     function getTotalBufferRequirement(uint256 baseAmount, uint256 yieldBP) external pure returns (uint256);
     function getAssetCollateralInfo(uint256 assetId) external view returns (CollateralLib.CollateralInfo memory);

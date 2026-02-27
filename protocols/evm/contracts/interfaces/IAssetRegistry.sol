@@ -60,6 +60,18 @@ interface IAssetRegistry {
         bool buyerPaysFee
     ) external returns (uint256 assetId, uint256 tokenId, uint256 supply, uint256 listingId);
 
+    function registerAssetMintAndCreatePrimaryPool(
+        bytes calldata data,
+        uint256 assetValue,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external returns (uint256 assetId, uint256 tokenId, uint256 supply);
+
     function mintRevenueTokensAndList(
         uint256 assetId,
         uint256 tokenPrice,
@@ -69,6 +81,17 @@ interface IAssetRegistry {
         uint256 listingDuration,
         bool buyerPaysFee
     ) external returns (uint256 tokenId, uint256 supply, uint256 listingId);
+
+    function mintRevenueTokensAndCreatePrimaryPool(
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external returns (uint256 tokenId, uint256 supply);
 
     /**
      * @dev Preview revenue token minting for an asset.

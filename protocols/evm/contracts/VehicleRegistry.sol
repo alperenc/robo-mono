@@ -208,9 +208,39 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         // Mint Asset NFT
         roboshareTokens.mint(msg.sender, assetId, 1, "");
 
-        // Step 2: Mint revenue tokens and list via Router
-        (revenueTokenId, supply, listingId) = router.mintRevenueTokensAndListFor(
-            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
+        listingDuration;
+        buyerPaysFee;
+
+        // Step 2: Configure token economics and create primary pool via Router
+        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
+            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, 0, false, false
+        );
+        listingId = 0;
+    }
+
+    function registerAssetMintAndCreatePrimaryPool(
+        bytes calldata data,
+        uint256 assetValue,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 supply) {
+        (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
+        roboshareTokens.mint(msg.sender, assetId, 1, "");
+        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
+            msg.sender,
+            assetId,
+            tokenPrice,
+            maturityDate,
+            revenueShareBP,
+            targetYieldBP,
+            maxSupply,
+            immediateProceeds,
+            protectionEnabled
         );
     }
 
@@ -237,8 +267,34 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 listingDuration,
         bool buyerPaysFee
     ) external override onlyAuthorizedPartner returns (uint256 revenueTokenId, uint256 supply, uint256 listingId) {
-        (revenueTokenId, supply, listingId) = router.mintRevenueTokensAndListFor(
-            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
+        listingDuration;
+        buyerPaysFee;
+        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
+            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, 0, false, false
+        );
+        listingId = 0;
+    }
+
+    function mintRevenueTokensAndCreatePrimaryPool(
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external override onlyAuthorizedPartner returns (uint256 revenueTokenId, uint256 supply) {
+        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
+            msg.sender,
+            assetId,
+            tokenPrice,
+            maturityDate,
+            revenueShareBP,
+            targetYieldBP,
+            maxSupply,
+            immediateProceeds,
+            protectionEnabled
         );
     }
 

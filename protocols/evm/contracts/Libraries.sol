@@ -89,7 +89,8 @@ library AssetLib {
     // Asset status enumeration for lifecycle management
     enum AssetStatus {
         Pending, // Asset exists but not operational
-        Active, // Asset is operational and earning
+        Active, // Asset is operational/tradable but earnings not yet enabled
+        Earning, // Asset is operational and earnings-enabled
         Suspended, // Temporarily halted operations
         Expired, // Reached maturity without owner retirement
         Retired // Retired with settlement (Voluntary or Forced)
@@ -156,11 +157,17 @@ library AssetLib {
         }
 
         if (from == AssetStatus.Active) {
+            return to == AssetStatus.Earning || to == AssetStatus.Suspended || to == AssetStatus.Expired
+                || to == AssetStatus.Retired;
+        }
+
+        if (from == AssetStatus.Earning) {
             return to == AssetStatus.Suspended || to == AssetStatus.Expired || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Suspended) {
-            return to == AssetStatus.Active || to == AssetStatus.Expired || to == AssetStatus.Retired;
+            return to == AssetStatus.Active || to == AssetStatus.Earning || to == AssetStatus.Expired
+                || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Expired) {
@@ -185,7 +192,7 @@ library AssetLib {
      * @return Whether asset can be used for operations
      */
     function isOperational(AssetInfo storage info) internal view returns (bool) {
-        return info.status == AssetStatus.Active;
+        return info.status == AssetStatus.Active || info.status == AssetStatus.Earning;
     }
 
     /**

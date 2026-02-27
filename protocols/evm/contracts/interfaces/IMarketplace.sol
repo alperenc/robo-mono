@@ -6,6 +6,20 @@ pragma solidity ^0.8.19;
  * @dev Minimal interface for Marketplace contract, used by asset registries for createListingFor
  */
 interface IMarketplace {
+    struct PrimaryPool {
+        uint256 tokenId;
+        address partner;
+        uint256 pricePerToken;
+        uint256 maxSupply;
+        bool immediateProceeds;
+        bool protectionEnabled;
+        bool isPaused;
+        bool isClosed;
+        uint256 createdAt;
+        uint256 pausedAt;
+        uint256 closedAt;
+    }
+
     struct Listing {
         uint256 listingId;
         uint256 tokenId;
@@ -39,6 +53,15 @@ interface IMarketplace {
         uint256 duration,
         bool buyerPaysFee
     ) external returns (uint256 listingId);
+
+    function createPrimaryPoolFor(
+        address partner,
+        uint256 tokenId,
+        uint256 pricePerToken,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external;
 
     function isAssetEligibleForListing(uint256 assetId) external view returns (bool);
 

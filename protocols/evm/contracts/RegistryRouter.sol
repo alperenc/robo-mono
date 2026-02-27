@@ -181,6 +181,53 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         );
     }
 
+    function mintRevenueTokensAndCreatePrimaryPool(
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external override onlyAuthorizedPartner returns (uint256 tokenId, uint256 supply) {
+        return _mintRevenueTokensAndCreatePrimaryPoolFor(
+                msg.sender,
+                assetId,
+                tokenPrice,
+                maturityDate,
+                revenueShareBP,
+                targetYieldBP,
+                maxSupply,
+                immediateProceeds,
+                protectionEnabled
+            );
+    }
+
+    function mintRevenueTokensAndCreatePrimaryPoolFor(
+        address partner,
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 tokenId, uint256 supply) {
+        return _mintRevenueTokensAndCreatePrimaryPoolFor(
+                partner,
+                assetId,
+                tokenPrice,
+                maturityDate,
+                revenueShareBP,
+                targetYieldBP,
+                maxSupply,
+                immediateProceeds,
+                protectionEnabled
+            );
+    }
+
     /**
      * @dev Registry-only wrapper to mint revenue tokens and list on behalf of a partner.
      */
@@ -212,21 +259,39 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         uint256 listingDuration,
         bool buyerPaysFee
     ) internal returns (uint256 tokenId, uint256 supply, uint256 listingId) {
+        listingDuration;
+        buyerPaysFee;
+        (tokenId, supply) = _mintRevenueTokensAndCreatePrimaryPoolFor(
+            partner, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, 0, false, false
+        );
+        listingId = 0;
+    }
+
+    function _mintRevenueTokensAndCreatePrimaryPoolFor(
+        address partner,
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) internal returns (uint256 tokenId, uint256 supply) {
         address registry = idToRegistry[assetId];
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
 
         (tokenId, supply) = IAssetRegistry(registry).previewMintRevenueTokens(assetId, partner, tokenPrice);
+        uint256 poolMaxSupply = maxSupply == 0 ? supply : maxSupply;
 
         roboshareTokens.setRevenueTokenInfo(tokenId, tokenPrice, supply, maturityDate, revenueShareBP, targetYieldBP);
-        _mintRevenueTokensToEscrow(registry, tokenId, supply);
         emit RevenueTokensMinted(assetId, tokenId, partner, supply * tokenPrice, supply);
-
         IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
-        listingId = IMarketplace(marketplace)
-            .createListingFor(partner, tokenId, supply, tokenPrice, listingDuration, buyerPaysFee);
+        IMarketplace(marketplace)
+            .createPrimaryPoolFor(partner, tokenId, tokenPrice, poolMaxSupply, immediateProceeds, protectionEnabled);
     }
 
     function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
@@ -248,6 +313,20 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         override
         returns (uint256, uint256, uint256, uint256)
     {
+        revert DirectCallNotAllowed();
+    }
+
+    function registerAssetMintAndCreatePrimaryPool(
+        bytes calldata,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        bool,
+        bool
+    ) external pure override returns (uint256, uint256, uint256) {
         revert DirectCallNotAllowed();
     }
 
@@ -517,6 +596,33 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             return;
         }
         roboshareTokens.increaseSoldSupply(revenueTokenId, soldAmount);
+    }
+
+    function mintRevenueTokensForPrimaryPool(address buyer, uint256 tokenId, uint256 amount) external {
+        if (msg.sender != treasury) {
+            revert NotTreasury();
+        }
+        if (!TokenLib.isRevenueToken(tokenId)) {
+            revert RegistryNotFound(tokenId);
+        }
+        if (idToRegistry[tokenId] == address(0)) {
+            revert RegistryNotFound(tokenId);
+        }
+        roboshareTokens.mint(buyer, tokenId, amount, "");
+        roboshareTokens.increaseSoldSupply(tokenId, amount);
+    }
+
+    function burnRevenueTokensForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount) external {
+        if (msg.sender != treasury) {
+            revert NotTreasury();
+        }
+        if (!TokenLib.isRevenueToken(tokenId)) {
+            revert RegistryNotFound(tokenId);
+        }
+        if (idToRegistry[tokenId] == address(0)) {
+            revert RegistryNotFound(tokenId);
+        }
+        roboshareTokens.burn(holder, tokenId, amount);
     }
 
     function _mintRevenueTokensToEscrow(address registry, uint256 revenueTokenId, uint256 amount) internal {

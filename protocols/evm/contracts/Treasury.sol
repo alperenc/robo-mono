@@ -6,6 +6,7 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -219,6 +220,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         totalCollateralDeposited += requiredBufferTotal;
 
         emit CollateralLocked(assetId, partner, requiredBufferTotal);
+
+        if (router.getAssetStatus(assetId) == AssetLib.AssetStatus.Active && _hasSufficientBuffers(assetId, true)) {
+            router.setAssetStatus(assetId, AssetLib.AssetStatus.Earning);
+        }
     }
 
     /**
@@ -339,6 +344,122 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         returns (uint256 amount)
     {
         amount = _processWithdrawalFor(account);
+    }
+
+    function processPrimaryPoolPurchase(
+        address buyer,
+        uint256 tokenId,
+        uint256 amount,
+        address partner,
+        uint256 grossPrincipal,
+        uint256 protocolFee,
+        bool immediateProceeds,
+        bool protectionEnabled
+    )
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+        nonReentrant
+        returns (uint256 partnerProceeds, uint256 protectionFunding)
+    {
+        if (!partnerManager.isAuthorizedPartner(partner)) {
+            revert PartnerManager.UnauthorizedPartner();
+        }
+
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
+        if (!router.assetExists(assetId)) {
+            revert AssetNotFound();
+        }
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert NotAssetOwner();
+        }
+
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
+        collateralInfo.baseCollateral += grossPrincipal;
+        collateralInfo.initialBaseCollateral += grossPrincipal;
+        collateralInfo.totalCollateral += grossPrincipal;
+        if (collateralInfo.lockedAt == 0) {
+            collateralInfo.lockedAt = block.timestamp;
+        }
+        collateralInfo.lastEventTimestamp = block.timestamp;
+        totalCollateralDeposited += grossPrincipal;
+
+        if (protocolFee > 0) {
+            pendingWithdrawals[treasuryFeeRecipient] += protocolFee;
+        }
+
+        bool canRelease = _hasSufficientBuffers(assetId, protectionEnabled);
+        if (immediateProceeds && canRelease) {
+            collateralInfo.baseCollateral -= grossPrincipal;
+            collateralInfo.totalCollateral -= grossPrincipal;
+            pendingWithdrawals[partner] += grossPrincipal;
+            partnerProceeds = grossPrincipal;
+        }
+
+        if (router.getAssetStatus(assetId) == AssetLib.AssetStatus.Active && canRelease) {
+            router.setAssetStatus(assetId, AssetLib.AssetStatus.Earning);
+        }
+
+        router.mintRevenueTokensForPrimaryPool(buyer, tokenId, amount);
+        protectionFunding = 0;
+    }
+
+    function getPrimaryInvestorLiquidity(uint256 assetId) external view returns (uint256) {
+        return assetCollateral[assetId].baseCollateral;
+    }
+
+    function previewPrimaryRedemptionPayout(uint256 assetId, uint256 burnAmount, uint256 circulatingSupply)
+        external
+        view
+        returns (uint256 payout)
+    {
+        if (burnAmount == 0 || circulatingSupply == 0) {
+            return 0;
+        }
+        uint256 investorLiquidity = assetCollateral[assetId].baseCollateral;
+        payout = Math.mulDiv(burnAmount, investorLiquidity, circulatingSupply);
+    }
+
+    function processPrimaryRedemption(
+        address holder,
+        uint256 assetId,
+        uint256 burnAmount,
+        uint256 circulatingSupply,
+        uint256 minPayout
+    ) external onlyRole(AUTHORIZED_CONTRACT_ROLE) nonReentrant returns (uint256 payout) {
+        if (!router.assetExists(assetId)) {
+            revert AssetNotFound();
+        }
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        if (status != AssetLib.AssetStatus.Active && status != AssetLib.AssetStatus.Earning) {
+            revert AssetNotOperational(assetId, status);
+        }
+        if (burnAmount == 0 || circulatingSupply == 0) {
+            revert InsufficientPrimaryLiquidity();
+        }
+
+        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        if (roboshareTokens.balanceOf(holder, tokenId) < burnAmount) {
+            revert InsufficientTokenBalance();
+        }
+
+        // Preserve unclaimed earnings before burn to prevent earnings double-dipping.
+        _snapshotAndClaimEarnings(assetId, holder, false);
+
+        uint256 investorLiquidity = assetCollateral[assetId].baseCollateral;
+        payout = Math.mulDiv(burnAmount, investorLiquidity, circulatingSupply);
+        if (payout == 0 || payout > investorLiquidity) {
+            revert InsufficientPrimaryLiquidity();
+        }
+        if (payout < minPayout) {
+            revert SlippageExceeded();
+        }
+
+        router.burnRevenueTokensForPrimaryRedemption(holder, tokenId, burnAmount);
+
+        assetCollateral[assetId].baseCollateral -= payout;
+        assetCollateral[assetId].totalCollateral -= payout;
+        totalCollateralDeposited = totalCollateralDeposited >= payout ? totalCollateralDeposited - payout : 0;
+        usdc.safeTransfer(holder, payout);
     }
 
     // ============================================
@@ -477,7 +598,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         // Verify asset is still active (not settled/retired)
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
-        if (status != AssetLib.AssetStatus.Active) {
+        if (status != AssetLib.AssetStatus.Earning) {
             revert AssetNotActive(assetId, status);
         }
 
@@ -575,6 +696,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 snapshotAmount)
     {
+        return _snapshotAndClaimEarnings(assetId, holder, autoClaim);
+    }
+
+    function _snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
+        internal
+        returns (uint256 snapshotAmount)
+    {
         EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
 
         // If no earnings were ever distributed, nothing to snapshot
@@ -598,6 +726,19 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         return snapshotAmount;
+    }
+
+    function _hasSufficientBuffers(uint256 assetId, bool protectionEnabled) internal view returns (bool) {
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
+        uint256 baseAmount = assetCollateral[assetId].baseCollateral;
+        (, uint256 requiredEarningsBuffer, uint256 requiredProtocolBuffer,) =
+            CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, targetYieldBP);
+
+        CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
+        bool protocolCovered = collateralInfo.protocolBuffer >= requiredProtocolBuffer;
+        bool protectionCovered = !protectionEnabled || collateralInfo.earningsBuffer >= requiredEarningsBuffer;
+        return protocolCovered && protectionCovered;
     }
 
     /**
