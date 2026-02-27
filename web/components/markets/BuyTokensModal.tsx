@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { useAccount, useReadContracts } from "wagmi";
+import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -66,25 +66,7 @@ export function BuyTokensModal({
     args: [address, revenueTokenId],
   });
 
-  const { data: escrowedBalancesData, refetch: refetchEscrowedBalances } = useReadContracts({
-    contracts: relatedListingIds.map(listingId => ({
-      address: deployedContracts[chainId]?.Marketplace?.address,
-      abi: deployedContracts[chainId]?.Marketplace?.abi,
-      functionName: "buyerTokens",
-      args: [BigInt(listingId), address],
-    })) as any,
-    query: { enabled: !!address && relatedListingIds.length > 0 && isOpen },
-  });
-
-  const cumulativeEscrowedBalance = useMemo(() => {
-    if (!escrowedBalancesData) return 0n;
-    return escrowedBalancesData.reduce((sum, result) => {
-      if (result.status !== "success") return sum;
-      return sum + (result.result as bigint);
-    }, 0n);
-  }, [escrowedBalancesData]);
-
-  const totalUserTokens = (userTokenBalance || 0n) + cumulativeEscrowedBalance;
+  const totalUserTokens = userTokenBalance || 0n;
   const listedTokensCount = useMemo(() => {
     try {
       return listedTokens ? BigInt(listedTokens) : 0n;
@@ -224,7 +206,7 @@ export function BuyTokensModal({
 
       setStep("success");
       // Refetch token balances to show updated holdings
-      await Promise.all([refetchTokenBalance(), refetchEscrowedBalances()]);
+      await refetchTokenBalance();
       // Trigger data refresh
       onPurchaseComplete?.(listing.id);
     } catch (e: any) {

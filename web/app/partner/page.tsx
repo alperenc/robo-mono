@@ -46,7 +46,6 @@ interface SubgraphListing {
   seller: string;
   amount: string;
   amountSold: string;
-  claimedAmount: string;
   pricePerToken: string;
   expiresAt: string;
   isPrimary: boolean;
@@ -66,7 +65,6 @@ const isSameListings = (a: SubgraphListing[], b: SubgraphListing[]) => {
       left.seller !== right.seller ||
       left.amount !== right.amount ||
       left.amountSold !== right.amountSold ||
-      left.claimedAmount !== right.claimedAmount ||
       left.pricePerToken !== right.pricePerToken ||
       left.expiresAt !== right.expiresAt ||
       left.isPrimary !== right.isPrimary ||
@@ -229,7 +227,6 @@ const PartnerDashboard: NextPage = () => {
                     seller
                     amount
                     amountSold
-                    claimedAmount
                     pricePerToken
                     expiresAt
                     isPrimary
@@ -411,7 +408,7 @@ const PartnerDashboard: NextPage = () => {
       const totalSold = assetListings
         .filter(l => l.status !== "cancelled") // Exclude cancelled listings from total sold
         .reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
-      const totalClaimed = assetListings.reduce((acc, l) => acc + BigInt(l.claimedAmount || "0"), 0n);
+      const totalClaimed = totalSold;
 
       const categorizedAsset: CategorizedAsset = {
         ...asset,

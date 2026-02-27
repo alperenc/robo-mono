@@ -63,12 +63,9 @@ interface MarketAssetCardProps {
   hasUserBoughtListing?: boolean;
   tokenTotalSoldAmount?: string;
   onBuyClick?: () => void;
-  onClaimTokensClick?: () => void;
-  onClaimRefundClick?: () => void;
   onClaimEarningsClick?: () => void;
   onClaimSettlementClick?: () => void;
   onListTokensClick?: (amount: string) => void;
-  onFinalizeListingClick?: () => void;
   onEndListingClick?: () => void;
   onCancelListingClick?: () => void;
   onDistributeEarningsClick?: () => void;
@@ -91,12 +88,9 @@ export function MarketAssetCard({
   hasUserBoughtListing = false,
   tokenTotalSoldAmount,
   onBuyClick,
-  onClaimTokensClick,
-  onClaimRefundClick,
   onClaimEarningsClick,
   onClaimSettlementClick,
   onListTokensClick,
-  onFinalizeListingClick,
   onEndListingClick,
   onCancelListingClick,
   onDistributeEarningsClick,
@@ -109,19 +103,6 @@ export function MarketAssetCard({
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const chainNowSec = latestBlock?.timestamp ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
 
-  // Read user's escrowed token balance (marketplace)
-  const { data: escrowedTokens } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "buyerTokens",
-    args: [BigInt(listing.id), address],
-  });
-
-  // Read user's pending refund (marketplace)
-  const { data: pendingRefund } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "buyerPayments",
-    args: [BigInt(listing.id), address],
-  });
   const { data: primaryTokenEscrow } = useScaffoldReadContract({
     contractName: "Marketplace",
     functionName: "tokenEscrow",
@@ -152,13 +133,11 @@ export function MarketAssetCard({
   const benchmarkYieldBP = protocolConfig?.[1];
   const depreciationRateBP = protocolConfig?.[4];
 
-  const canClaimTokens = (escrowedTokens || 0n) > 0n && listing.isEnded && !listing.isCancelled;
-  const canClaimRefund = (pendingRefund || 0n) > 0n && listing.isCancelled;
   const hasAvailableTokens = BigInt(listing.amount) > 0n;
   const hasEarnings = Boolean(earnings && (earnings.distributionCount !== "0" || earnings.totalEarnings !== "0"));
   const canClaimEarnings = (previewClaimAmount || 0n) > 0n;
   const canClaimEarningsOnThisListing = canClaimEarnings && hasUserBoughtListing && !listing.isCancelled;
-  const hasHoldings = (walletTokenBalance || 0n) > 0n || (escrowedTokens || 0n) > 0n;
+  const hasHoldings = (walletTokenBalance || 0n) > 0n;
   const isAssetSettled = Number(assetStatus ?? -1) === 3 || Number(assetStatus ?? -1) === 4;
   const canClaimSettlement = hasHoldings && isAssetSettled;
   const listingSoldAmount = useMemo(() => {
@@ -410,7 +389,8 @@ export function MarketAssetCard({
   const canListTokens = listableTokensAmount > 0n;
 
   const registry = ASSET_REGISTRIES[assetType];
-  const showInvestedBadge = !isCancelled && !isSellerOfListing && ((escrowedTokens || 0n) > 0n || hasUserBoughtListing);
+  const showInvestedBadge =
+    !isCancelled && !isSellerOfListing && ((walletTokenBalance || 0n) > 0n || hasUserBoughtListing);
   const actionState = useMemo(() => {
     type CandidateAction = { label: string; onClick?: () => void; className?: string };
 
@@ -478,9 +458,6 @@ export function MarketAssetCard({
 
     if (canManageOwnListing) {
       if (isSecondaryListing) {
-        if (onFinalizeListingClick) {
-          sellerManagementActions.push({ label: "Finalize Listing", onClick: onFinalizeListingClick });
-        }
         if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
         if (onCancelListingClick) {
           sellerManagementActions.push({
@@ -507,9 +484,7 @@ export function MarketAssetCard({
       }
     }
 
-    if (canClaimRefund) {
-      pushAction({ label: "Claim Refund", onClick: onClaimRefundClick });
-    } else if (canRelistInactiveOwnPrimaryListing) {
+    if (canRelistInactiveOwnPrimaryListing) {
       pushAction({
         label: listTokensLabel,
         onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
@@ -519,14 +494,6 @@ export function MarketAssetCard({
       primarySellerLifecycleActions.forEach(pushAction);
     } else if (sellerManagementActions.length > 0) {
       sellerManagementActions.forEach(pushAction);
-    } else if (canClaimTokens) {
-      pushAction({ label: "Claim Tokens", onClick: onClaimTokensClick });
-      if (hasClaimedTokens) {
-        pushAction({
-          label: listTokensLabel,
-          onClick: () => onListTokensClick?.((walletTokenBalance || 0n).toString()),
-        });
-      }
     } else if (canClaimEarningsOnThisListing) {
       pushAction({ label: "Claim Earnings", onClick: onClaimEarningsClick });
       if (canClaimSettlement) {
@@ -587,8 +554,6 @@ export function MarketAssetCard({
       secondaryActions: [],
     };
   }, [
-    canClaimRefund,
-    canClaimTokens,
     canClaimSettlement,
     canClaimEarningsOnThisListing,
     hasAvailableTokens,
@@ -609,11 +574,8 @@ export function MarketAssetCard({
     onCancelListingClick,
     onDistributeEarningsClick,
     onClaimEarningsClick,
-    onClaimRefundClick,
     onClaimSettlementClick,
-    onClaimTokensClick,
     onEndListingClick,
-    onFinalizeListingClick,
     onListTokensClick,
     onSettleAssetClick,
     walletTokenBalance,

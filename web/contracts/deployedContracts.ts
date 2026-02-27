@@ -5,9850 +5,10650 @@
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
 const deployedContracts = {
-  31337: {
-    MockUSDC: {
-      address: "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35",
-      abi: [
+  "31337": {
+    "MockUSDC": {
+      "address": "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35",
+      "abi": [
         {
-          type: "constructor",
-          inputs: [],
-          stateMutability: "nonpayable",
+          "type": "constructor",
+          "inputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "allowance",
-          inputs: [
+          "type": "function",
+          "name": "allowance",
+          "inputs": [
             {
-              name: "owner",
-              type: "address",
-              internalType: "address",
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "spender",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "spender",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "approve",
-          inputs: [
+          "type": "function",
+          "name": "approve",
+          "inputs": [
             {
-              name: "spender",
-              type: "address",
-              internalType: "address",
+              "name": "spender",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "value",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "balanceOf",
-          inputs: [
+          "type": "function",
+          "name": "balanceOf",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "burn",
-          inputs: [
+          "type": "function",
+          "name": "burn",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "decimals",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "decimals",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "uint8",
-              internalType: "uint8",
-            },
+              "name": "",
+              "type": "uint8",
+              "internalType": "uint8"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "mint",
-          inputs: [
+          "type": "function",
+          "name": "mint",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "name",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "name",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "symbol",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "symbol",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "totalSupply",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "totalSupply",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "transfer",
-          inputs: [
+          "type": "function",
+          "name": "transfer",
+          "inputs": [
             {
-              name: "to",
-              type: "address",
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "value",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "transferFrom",
-          inputs: [
+          "type": "function",
+          "name": "transferFrom",
+          "inputs": [
             {
-              name: "from",
-              type: "address",
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "value",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "event",
-          name: "Approval",
-          inputs: [
+          "type": "event",
+          "name": "Approval",
+          "inputs": [
             {
-              name: "owner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "owner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "spender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "spender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "value",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "Transfer",
-          inputs: [
+          "type": "event",
+          "name": "Transfer",
+          "inputs": [
             {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "value",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "ERC20InsufficientAllowance",
-          inputs: [
+          "type": "error",
+          "name": "ERC20InsufficientAllowance",
+          "inputs": [
             {
-              name: "spender",
-              type: "address",
-              internalType: "address",
+              "name": "spender",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "allowance",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "allowance",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "needed",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+              "name": "needed",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC20InsufficientBalance",
-          inputs: [
+          "type": "error",
+          "name": "ERC20InsufficientBalance",
+          "inputs": [
             {
-              name: "sender",
-              type: "address",
-              internalType: "address",
+              "name": "sender",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "balance",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "balance",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "needed",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+              "name": "needed",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC20InvalidApprover",
-          inputs: [
+          "type": "error",
+          "name": "ERC20InvalidApprover",
+          "inputs": [
             {
-              name: "approver",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "approver",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC20InvalidReceiver",
-          inputs: [
+          "type": "error",
+          "name": "ERC20InvalidReceiver",
+          "inputs": [
             {
-              name: "receiver",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "receiver",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC20InvalidSender",
-          inputs: [
+          "type": "error",
+          "name": "ERC20InvalidSender",
+          "inputs": [
             {
-              name: "sender",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "sender",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC20InvalidSpender",
-          inputs: [
+          "type": "error",
+          "name": "ERC20InvalidSpender",
+          "inputs": [
             {
-              name: "spender",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
+              "name": "spender",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
+      "inheritedFunctions": {}
     },
-    RoboshareTokens: {
-      address: "0x8ce361602B935680E8DeC218b820ff5056BeB7af",
-      abi: [
+    "RoboshareTokens": {
+      "address": "0x8ce361602B935680E8DeC218b820ff5056BeB7af",
+      "abi": [
         {
-          type: "constructor",
-          inputs: [],
-          stateMutability: "nonpayable",
+          "type": "constructor",
+          "inputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "AUTHORIZED_CONTRACT_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "AUTHORIZED_CONTRACT_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "BURNER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "BURNER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "DEFAULT_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "MINTER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "MINTER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADE_INTERFACE_VERSION",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADE_INTERFACE_VERSION",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "URI_SETTER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "URI_SETTER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "balanceOf",
-          inputs: [
+          "type": "function",
+          "name": "balanceOf",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "id",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "balanceOfBatch",
-          inputs: [
+          "type": "function",
+          "name": "balanceOfBatch",
+          "inputs": [
             {
-              name: "accounts",
-              type: "address[]",
-              internalType: "address[]",
+              "name": "accounts",
+              "type": "address[]",
+              "internalType": "address[]"
             },
             {
-              name: "ids",
-              type: "uint256[]",
-              internalType: "uint256[]",
-            },
+              "name": "ids",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256[]",
-              internalType: "uint256[]",
-            },
+              "name": "",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "burn",
-          inputs: [
+          "type": "function",
+          "name": "burn",
+          "inputs": [
             {
-              name: "from",
-              type: "address",
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "id",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "burnBatch",
-          inputs: [
+          "type": "function",
+          "name": "burnBatch",
+          "inputs": [
             {
-              name: "from",
-              type: "address",
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "ids",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "ids",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "amounts",
-              type: "uint256[]",
-              internalType: "uint256[]",
-            },
+              "name": "amounts",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "getAssetIdFromTokenId",
-          inputs: [
+          "type": "function",
+          "name": "getAssetIdFromTokenId",
+          "inputs": [
             {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "pure",
+          "stateMutability": "pure"
         },
         {
-          type: "function",
-          name: "getNextTokenId",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "getNextTokenId",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getRevenueShareBP",
-          inputs: [
+          "type": "function",
+          "name": "getRevenueShareBP",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getRevenueTokenSupply",
-          inputs: [
+          "type": "function",
+          "name": "getRevenueTokenSupply",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getRoleAdmin",
-          inputs: [
+          "type": "function",
+          "name": "getRoleAdmin",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getSalesPenalty",
-          inputs: [
+          "type": "function",
+          "name": "getSalesPenalty",
+          "inputs": [
             {
-              name: "seller",
-              type: "address",
-              internalType: "address",
+              "name": "seller",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "penaltyAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "penaltyAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getSoldSupply",
-          inputs: [
+          "type": "function",
+          "name": "getSoldSupply",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getTargetYieldBP",
-          inputs: [
+          "type": "function",
+          "name": "getTargetYieldBP",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getTokenIdFromAssetId",
-          inputs: [
+          "type": "function",
+          "name": "getTokenIdFromAssetId",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "pure",
+          "stateMutability": "pure"
         },
         {
-          type: "function",
-          name: "getTokenMaturityDate",
-          inputs: [
+          "type": "function",
+          "name": "getTokenMaturityDate",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getTokenPrice",
-          inputs: [
+          "type": "function",
+          "name": "getTokenPrice",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getUserPositions",
-          inputs: [
+          "type": "function",
+          "name": "getUserPositions",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "holder",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "positions",
-              type: "tuple[]",
-              internalType: "struct TokenLib.TokenPosition[]",
-              components: [
+              "name": "positions",
+              "type": "tuple[]",
+              "internalType": "struct TokenLib.TokenPosition[]",
+              "components": [
                 {
-                  name: "uid",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "uid",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "tokenId",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "tokenId",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "amount",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "amount",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "acquiredAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "acquiredAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "soldAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-              ],
-            },
+                  "name": "soldAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "grantRole",
-          inputs: [
+          "type": "function",
+          "name": "grantRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "hasRole",
-          inputs: [
+          "type": "function",
+          "name": "hasRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "increaseSoldSupply",
-          inputs: [
+          "type": "function",
+          "name": "increaseSoldSupply",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "initialize",
-          inputs: [
+          "type": "function",
+          "name": "initialize",
+          "inputs": [
             {
-              name: "defaultAdmin",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "defaultAdmin",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "isApprovedForAll",
-          inputs: [
+          "type": "function",
+          "name": "isApprovedForAll",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "operator",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "operator",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "mint",
-          inputs: [
+          "type": "function",
+          "name": "mint",
+          "inputs": [
             {
-              name: "to",
-              type: "address",
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "id",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "mintBatch",
-          inputs: [
+          "type": "function",
+          "name": "mintBatch",
+          "inputs": [
             {
-              name: "to",
-              type: "address",
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "ids",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "ids",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "amounts",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "onERC1155BatchReceived",
-          inputs: [
+          "type": "function",
+          "name": "onERC1155BatchReceived",
+          "inputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
+              "name": "",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "onERC1155Received",
-          inputs: [
+          "type": "function",
+          "name": "onERC1155Received",
+          "inputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
+              "name": "",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "proxiableUUID",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "proxiableUUID",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "renounceRole",
-          inputs: [
+          "type": "function",
+          "name": "renounceRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "callerConfirmation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "callerConfirmation",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "reserveNextTokenIdPair",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "reserveNextTokenIdPair",
+          "inputs": [],
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "revokeRole",
-          inputs: [
+          "type": "function",
+          "name": "revokeRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "safeBatchTransferFrom",
-          inputs: [
+          "type": "function",
+          "name": "safeBatchTransferFrom",
+          "inputs": [
             {
-              name: "from",
-              type: "address",
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "ids",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "ids",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "values",
-              type: "uint256[]",
-              internalType: "uint256[]",
+              "name": "values",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "safeTransferFrom",
-          inputs: [
+          "type": "function",
+          "name": "safeTransferFrom",
+          "inputs": [
             {
-              name: "from",
-              type: "address",
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "id",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "value",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "setApprovalForAll",
-          inputs: [
+          "type": "function",
+          "name": "setApprovalForAll",
+          "inputs": [
             {
-              name: "operator",
-              type: "address",
-              internalType: "address",
+              "name": "operator",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "approved",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "approved",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "setRevenueTokenInfo",
-          inputs: [
+          "type": "function",
+          "name": "setRevenueTokenInfo",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "price",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "price",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "setURI",
-          inputs: [
+          "type": "function",
+          "name": "setURI",
+          "inputs": [
             {
-              name: "newuri",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "newuri",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "supportsInterface",
-          inputs: [
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
             {
-              name: "interfaceId",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
+              "name": "interfaceId",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "upgradeToAndCall",
-          inputs: [
+          "type": "function",
+          "name": "upgradeToAndCall",
+          "inputs": [
             {
-              name: "newImplementation",
-              type: "address",
-              internalType: "address",
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [],
-          stateMutability: "payable",
+          "outputs": [],
+          "stateMutability": "payable"
         },
         {
-          type: "function",
-          name: "uri",
-          inputs: [
+          "type": "function",
+          "name": "uri",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "ApprovalForAll",
-          inputs: [
+          "type": "event",
+          "name": "ApprovalForAll",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "operator",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "operator",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "approved",
-              type: "bool",
-              indexed: false,
-              internalType: "bool",
-            },
+              "name": "approved",
+              "type": "bool",
+              "indexed": false,
+              "internalType": "bool"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "Initialized",
-          inputs: [
+          "type": "event",
+          "name": "Initialized",
+          "inputs": [
             {
-              name: "version",
-              type: "uint64",
-              indexed: false,
-              internalType: "uint64",
-            },
+              "name": "version",
+              "type": "uint64",
+              "indexed": false,
+              "internalType": "uint64"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RevenueTokenInfoSet",
-          inputs: [
+          "type": "event",
+          "name": "RevenueTokenInfoSet",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "price",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "price",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "supply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "supply",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "maturityDate",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "maturityDate",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RevenueTokenPositionsUpdated",
-          inputs: [
+          "type": "event",
+          "name": "RevenueTokenPositionsUpdated",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RoleAdminChanged",
-          inputs: [
+          "type": "event",
+          "name": "RoleAdminChanged",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "previousAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "previousAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "newAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+              "name": "newAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RoleGranted",
-          inputs: [
+          "type": "event",
+          "name": "RoleGranted",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RoleRevoked",
-          inputs: [
+          "type": "event",
+          "name": "RoleRevoked",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "SoldSupplyUpdated",
-          inputs: [
+          "type": "event",
+          "name": "SoldSupplyUpdated",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "oldSupply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "oldSupply",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "newSupply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "newSupply",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "TransferBatch",
-          inputs: [
+          "type": "event",
+          "name": "TransferBatch",
+          "inputs": [
             {
-              name: "operator",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "operator",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "ids",
-              type: "uint256[]",
-              indexed: false,
-              internalType: "uint256[]",
+              "name": "ids",
+              "type": "uint256[]",
+              "indexed": false,
+              "internalType": "uint256[]"
             },
             {
-              name: "values",
-              type: "uint256[]",
-              indexed: false,
-              internalType: "uint256[]",
-            },
+              "name": "values",
+              "type": "uint256[]",
+              "indexed": false,
+              "internalType": "uint256[]"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "TransferSingle",
-          inputs: [
+          "type": "event",
+          "name": "TransferSingle",
+          "inputs": [
             {
-              name: "operator",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "operator",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "id",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "id",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "value",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "URI",
-          inputs: [
+          "type": "event",
+          "name": "URI",
+          "inputs": [
             {
-              name: "value",
-              type: "string",
-              indexed: false,
-              internalType: "string",
+              "name": "value",
+              "type": "string",
+              "indexed": false,
+              "internalType": "string"
             },
             {
-              name: "id",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
+              "name": "id",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
+          "type": "event",
+          "name": "Upgraded",
+          "inputs": [
             {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "implementation",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AccessControlBadConfirmation",
-          inputs: [],
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AccessControlUnauthorizedAccount",
-          inputs: [
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "neededRole",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
+              "name": "neededRole",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
+          "type": "error",
+          "name": "AddressEmptyCode",
+          "inputs": [
             {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC1155InsufficientBalance",
-          inputs: [
+          "type": "error",
+          "name": "ERC1155InsufficientBalance",
+          "inputs": [
             {
-              name: "sender",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "balance",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "sender",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "needed",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "balance",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1155InvalidApprover",
-          inputs: [
-            {
-              name: "approver",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1155InvalidArrayLength",
-          inputs: [
-            {
-              name: "idsLength",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "needed",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "valuesLength",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC1155InvalidOperator",
-          inputs: [
+          "type": "error",
+          "name": "ERC1155InvalidApprover",
+          "inputs": [
             {
-              name: "operator",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "approver",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC1155InvalidReceiver",
-          inputs: [
+          "type": "error",
+          "name": "ERC1155InvalidArrayLength",
+          "inputs": [
             {
-              name: "receiver",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1155InvalidSender",
-          inputs: [
-            {
-              name: "sender",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1155MissingApprovalForAll",
-          inputs: [
-            {
-              name: "operator",
-              type: "address",
-              internalType: "address",
+              "name": "idsLength",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "owner",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "valuesLength",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
+          "type": "error",
+          "name": "ERC1155InvalidOperator",
+          "inputs": [
             {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "operator",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InsufficientTokenBalance",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidAssetId",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidInitialization",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidRevenueTokenId",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotInitializing",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotRevenueToken",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "RevenueTokenInfoAlreadySet",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "UUPSUnauthorizedCallContext",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "UUPSUnsupportedProxiableUUID",
-          inputs: [
+          "type": "error",
+          "name": "ERC1155InvalidReceiver",
+          "inputs": [
             {
-              name: "slot",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
+              "name": "receiver",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ZeroAddress",
-          inputs: [],
+          "type": "error",
+          "name": "ERC1155InvalidSender",
+          "inputs": [
+            {
+              "name": "sender",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
+        {
+          "type": "error",
+          "name": "ERC1155MissingApprovalForAll",
+          "inputs": [
+            {
+              "name": "operator",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1967InvalidImplementation",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1967NonPayable",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "FailedCall",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InsufficientTokenBalance",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidAssetId",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidInitialization",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidRevenueTokenId",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotInitializing",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotRevenueToken",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "RevenueTokenInfoAlreadySet",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnauthorizedCallContext",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnsupportedProxiableUUID",
+          "inputs": [
+            {
+              "name": "slot",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ZeroAddress",
+          "inputs": []
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
+      "inheritedFunctions": {}
     },
-    ERC1967Proxy: {
-      address: "0x8ce361602b935680e8dec218b820ff5056beb7af",
-      abi: [
+    "PartnerManager": {
+      "address": "0xe1DA8919f262Ee86f9BE05059C9280142CF23f48",
+      "abi": [
         {
-          type: "constructor",
-          inputs: [
+          "type": "constructor",
+          "inputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "payable",
+          "stateMutability": "view"
         },
         {
-          type: "fallback",
-          stateMutability: "payable",
-        },
-        {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
+          "type": "function",
+          "name": "PARTNER_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
+          "type": "function",
+          "name": "UPGRADER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
+          "type": "function",
+          "name": "UPGRADE_INTERFACE_VERSION",
+          "inputs": [],
+          "outputs": [
             {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
+          "type": "function",
+          "name": "authorizePartner",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
+          "type": "function",
+          "name": "changeNameFor",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "newName",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
+        {
+          "type": "function",
+          "name": "getAllPartners",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address[]",
+              "internalType": "address[]"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getPartnerCount",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getPartnerInfo",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "registrationTime",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "isAuthorized",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getPartnerName",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getPartnerRegistrationTime",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getRoleAdmin",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "grantRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "hasRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "initialize",
+          "inputs": [
+            {
+              "name": "defaultAdmin",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "isAuthorizedPartner",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "proxiableUUID",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "renounceRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "callerConfirmation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "revokePartner",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "revokeRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
+            {
+              "name": "interfaceId",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "updateName",
+          "inputs": [
+            {
+              "name": "newName",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "upgradeToAndCall",
+          "inputs": [
+            {
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "payable"
+        },
+        {
+          "type": "event",
+          "name": "Initialized",
+          "inputs": [
+            {
+              "name": "version",
+              "type": "uint64",
+              "indexed": false,
+              "internalType": "uint64"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "PartnerAuthorized",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "indexed": false,
+              "internalType": "string"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "PartnerNameUpdated",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newName",
+              "type": "string",
+              "indexed": false,
+              "internalType": "string"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "PartnerRevoked",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleAdminChanged",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "previousAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "newAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleGranted",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleRevoked",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "Upgraded",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "neededRole",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AddressEmptyCode",
+          "inputs": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AlreadyAuthorized",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "ERC1967InvalidImplementation",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1967NonPayable",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "EmptyName",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "FailedCall",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidInitialization",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotInitializing",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnauthorizedCallContext",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnsupportedProxiableUUID",
+          "inputs": [
+            {
+              "name": "slot",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedPartner",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "ZeroAddress",
+          "inputs": []
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
+      "inheritedFunctions": {}
     },
-    PartnerManager: {
-      address: "0xe1DA8919f262Ee86f9BE05059C9280142CF23f48",
-      abi: [
+    "RegistryRouter": {
+      "address": "0xeD1DB453C3156Ff3155a97AD217b3087D5Dc5f6E",
+      "abi": [
         {
-          type: "constructor",
-          inputs: [],
-          stateMutability: "nonpayable",
+          "type": "constructor",
+          "inputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "DEFAULT_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "AUTHORIZED_REGISTRY_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "PARTNER_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "REGISTRY_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADE_INTERFACE_VERSION",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "authorizePartner",
-          inputs: [
+          "type": "function",
+          "name": "UPGRADE_INTERFACE_VERSION",
+          "inputs": [],
+          "outputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "name",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "changeNameFor",
-          inputs: [
+          "type": "function",
+          "name": "assetExists",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "newName",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "getAllPartners",
-          inputs: [],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "address[]",
-              internalType: "address[]",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getPartnerCount",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "burnRevenueTokens",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "getPartnerInfo",
-          inputs: [
+          "type": "function",
+          "name": "burnRevenueTokensForPrimaryRedemption",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "burnRevenueTokensFromEscrow",
+          "inputs": [
             {
-              name: "name",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "registrationTime",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isAuthorized",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getPartnerName",
-          inputs: [
+          "outputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "claimSettlement",
+          "inputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "autoClaimEarnings",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getPartnerRegistrationTime",
-          inputs: [
+          "outputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "claimSettlementFor",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "autoClaimEarnings",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRoleAdmin",
-          inputs: [
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "claimedAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "earningsClaimed",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "clearTokenEscrow",
+          "inputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "grantRole",
-          inputs: [
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "hasRole",
-          inputs: [
+          "type": "function",
+          "name": "createListingFor",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "seller",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "initialize",
-          inputs: [
+          "type": "function",
+          "name": "creditTokenEscrow",
+          "inputs": [
             {
-              name: "defaultAdmin",
-              type: "address",
-              internalType: "address",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "isAuthorizedPartner",
-          inputs: [
+          "type": "function",
+          "name": "executeLiquidation",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
+              "name": "liquidationAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "proxiableUUID",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "getAssetInfo",
+          "inputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "renounceRole",
-          inputs: [
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "callerConfirmation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "tuple",
+              "internalType": "struct AssetLib.AssetInfo",
+              "components": [
+                {
+                  "name": "assetValue",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "status",
+                  "type": "uint8",
+                  "internalType": "enum AssetLib.AssetStatus"
+                },
+                {
+                  "name": "createdAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "updatedAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "revokePartner",
-          inputs: [
+          "type": "function",
+          "name": "getAssetStatus",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "revokeRole",
-          inputs: [
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "supportsInterface",
-          inputs: [
+          "type": "function",
+          "name": "getRegistryForAsset",
+          "inputs": [
             {
-              name: "interfaceId",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "updateName",
-          inputs: [
+          "type": "function",
+          "name": "getRegistryType",
+          "inputs": [],
+          "outputs": [
             {
-              name: "newName",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "pure"
         },
         {
-          type: "function",
-          name: "upgradeToAndCall",
-          inputs: [
+          "type": "function",
+          "name": "getRegistryVersion",
+          "inputs": [],
+          "outputs": [
             {
-              name: "newImplementation",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "payable",
+          "stateMutability": "pure"
         },
         {
-          type: "event",
-          name: "Initialized",
-          inputs: [
+          "type": "function",
+          "name": "getRoleAdmin",
+          "inputs": [
             {
-              name: "version",
-              type: "uint64",
-              indexed: false,
-              internalType: "uint64",
-            },
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "PartnerAuthorized",
-          inputs: [
+          "outputs": [
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "name",
-              type: "string",
-              indexed: false,
-              internalType: "string",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "PartnerNameUpdated",
-          inputs: [
+          "type": "function",
+          "name": "grantRole",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "newName",
-              type: "string",
-              indexed: false,
-              internalType: "string",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "event",
-          name: "PartnerRevoked",
-          inputs: [
+          "type": "function",
+          "name": "hasRole",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleAdminChanged",
-          inputs: [
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "previousAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "newAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "RoleGranted",
-          inputs: [
+          "type": "function",
+          "name": "idToRegistry",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleRevoked",
-          inputs: [
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
+          "type": "function",
+          "name": "initialize",
+          "inputs": [
             {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "_admin",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "AccessControlBadConfirmation",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "AccessControlUnauthorizedAccount",
-          inputs: [
+          "type": "function",
+          "name": "initiateSettlement",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "neededRole",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "topUpAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-        },
-        {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
+          "outputs": [
             {
-              name: "target",
-              type: "address",
-              internalType: "address",
+              "name": "settlementAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-        },
-        {
-          type: "error",
-          name: "AlreadyAuthorized",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
             {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "EmptyName",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidInitialization",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotInitializing",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "UUPSUnauthorizedCallContext",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "UUPSUnsupportedProxiableUUID",
-          inputs: [
+          "type": "function",
+          "name": "isAssetSolvent",
+          "inputs": [
             {
-              name: "slot",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "UnauthorizedPartner",
-          inputs: [],
+          "type": "function",
+          "name": "liquidateAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "ZeroAddress",
-          inputs: [],
+          "type": "function",
+          "name": "marketplace",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "view"
         },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensAndCreatePrimaryPool",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensAndCreatePrimaryPoolFor",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensAndList",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingDuration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensAndListFor",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingDuration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensForPrimaryPool",
+          "inputs": [
+            {
+              "name": "buyer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "partnerManager",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract PartnerManager"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "previewLiquidationEligibility",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "eligible",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "reason",
+              "type": "uint8",
+              "internalType": "uint8"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "previewMintRevenueTokens",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "processSettlementClaim",
+          "inputs": [
+            {
+              "name": "recipient",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "claimedAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "proxiableUUID",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "recordSoldSupply",
+          "inputs": [
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "soldAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "registerAsset",
+          "inputs": [
+            {
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "registerAssetMintAndCreatePrimaryPool",
+          "inputs": [
+            {
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "registerAssetMintAndList",
+          "inputs": [
+            {
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "releaseCollateralFor",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "releasedCollateral",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "renounceRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "callerConfirmation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "reserveNextTokenIdPair",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "retireAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "retireAssetAndBurnTokens",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "revokeRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "roboshareTokens",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract RoboshareTokens"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "setAssetStatus",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "status",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "setMarketplace",
+          "inputs": [
+            {
+              "name": "_marketplace",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "setTreasury",
+          "inputs": [
+            {
+              "name": "_treasury",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "settleAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "topUpAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "snapshotAndClaimEarnings",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "autoClaim",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "snapshotAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
+            {
+              "name": "interfaceId",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "treasury",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "updatePartnerManager",
+          "inputs": [
+            {
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateRoboshareTokens",
+          "inputs": [
+            {
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "upgradeToAndCall",
+          "inputs": [
+            {
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "payable"
+        },
+        {
+          "type": "event",
+          "name": "AssetExpired",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "liquidationAmount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "AssetRegistered",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "owner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "assetValue",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "status",
+              "type": "uint8",
+              "indexed": false,
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "AssetRetired",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "burnedTokens",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "releasedCollateral",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "AssetSettled",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "settlementAmount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "AssetStatusUpdated",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "oldStatus",
+              "type": "uint8",
+              "indexed": true,
+              "internalType": "enum AssetLib.AssetStatus"
+            },
+            {
+              "name": "newStatus",
+              "type": "uint8",
+              "indexed": true,
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "IdBoundToRegistry",
+          "inputs": [
+            {
+              "name": "id",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "registry",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "Initialized",
+          "inputs": [
+            {
+              "name": "version",
+              "type": "uint64",
+              "indexed": false,
+              "internalType": "uint64"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "PartnerManagerUpdated",
+          "inputs": [
+            {
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RevenueTokensMinted",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "assetValue",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoboshareTokensUpdated",
+          "inputs": [
+            {
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleAdminChanged",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "previousAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "newAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleGranted",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleRevoked",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "SettlementClaimed",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "holder",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "payout",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "Upgraded",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "neededRole",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AddressEmptyCode",
+          "inputs": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetAlreadySettled",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotActive",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotEligibleForLiquidation",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotFound",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotSettled",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "DirectCallNotAllowed",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "ERC1967InvalidImplementation",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1967NonPayable",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "FailedCall",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InsufficientTokenBalance",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "required",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "available",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "InvalidAssetId",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidInitialization",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "MarketplaceNotSet",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotAssetOwner",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotInitializing",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotMarketplace",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotTreasury",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "RegistryNotBoundToAsset",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "RegistryNotFound",
+          "inputs": [
+            {
+              "name": "id",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "RevenueTokensAlreadyMinted",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "RevenueTokensNotMinted",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "TreasuryNotSet",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnauthorizedCallContext",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnsupportedProxiableUUID",
+          "inputs": [
+            {
+              "name": "slot",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedPartner",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "ZeroAddress",
+          "inputs": []
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
+      "inheritedFunctions": {}
     },
-    RegistryRouter: {
-      address: "0xeD1DB453C3156Ff3155a97AD217b3087D5Dc5f6E",
-      abi: [
+    "VehicleRegistry": {
+      "address": "0x12975173B87F7595EE45dFFb2Ab812ECE596Bf84",
+      "abi": [
         {
-          type: "constructor",
-          inputs: [],
-          stateMutability: "nonpayable",
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "AUTHORIZED_REGISTRY_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "ROUTER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "DEFAULT_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "REGISTRY_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADE_INTERFACE_VERSION",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "assetExists",
+          "inputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADE_INTERFACE_VERSION",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "burnRevenueTokens",
+          "inputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "assetExists",
-          inputs: [
+          "type": "function",
+          "name": "claimSettlement",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "autoClaimEarnings",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [
+            {
+              "name": "claimedAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "earningsClaimed",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "burnRevenueTokens",
-          inputs: [
+          "type": "function",
+          "name": "claimSettlementFor",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "autoClaimEarnings",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [
+            {
+              "name": "claimedAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "earningsClaimed",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "burnRevenueTokensFromEscrow",
-          inputs: [
+          "type": "function",
+          "name": "getAssetInfo",
+          "inputs": [
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "claimSettlement",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "autoClaimEarnings",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
-          name: "claimSettlementFor",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "autoClaimEarnings",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "claimedAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "earningsClaimed",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "clearTokenEscrow",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "createListingFor",
-          inputs: [
-            {
-              name: "seller",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "pricePerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "duration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "creditTokenEscrow",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "executeLiquidation",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "liquidationAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "settlementPerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "getAssetInfo",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "tuple",
-              internalType: "struct AssetLib.AssetInfo",
-              components: [
+              "name": "",
+              "type": "tuple",
+              "internalType": "struct AssetLib.AssetInfo",
+              "components": [
                 {
-                  name: "assetValue",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "assetValue",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "status",
-                  type: "uint8",
-                  internalType: "enum AssetLib.AssetStatus",
+                  "name": "status",
+                  "type": "uint8",
+                  "internalType": "enum AssetLib.AssetStatus"
                 },
                 {
-                  name: "createdAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "createdAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "updatedAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "updatedAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getAssetStatus",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getRegistryForAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getRegistryType",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "getRegistryVersion",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "getRoleAdmin",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getVehicleDisplayName",
+          "inputs": [
+            {
+              "name": "vehicleId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getVehicleInfo",
+          "inputs": [
+            {
+              "name": "vehicleId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "vin",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "make",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "model",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "year",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "manufacturerId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "optionCodes",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "dynamicMetadataURI",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "grantRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "hasRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "initialize",
+          "inputs": [
+            {
+              "name": "_admin",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_router",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "liquidateAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensAndCreatePrimaryPool",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "mintRevenueTokensAndList",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingDuration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "partnerManager",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract PartnerManager"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "previewMintRevenueTokens",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "proxiableUUID",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "registerAsset",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "assetValue",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "registerAssetMintAndCreatePrimaryPool",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "assetValue",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "registerAssetMintAndList",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "assetValue",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maturityDate",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueShareBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "targetYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingDuration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "revenueTokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "supply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "renounceRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "callerConfirmation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "retireAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "retireAssetAndBurnTokens",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "revokeRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "roboshareTokens",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract RoboshareTokens"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "router",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract RegistryRouter"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "setAssetStatus",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "status",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "settleAsset",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "topUpAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
+            {
+              "name": "interfaceId",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "updatePartnerManager",
+          "inputs": [
+            {
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateRoboshareTokens",
+          "inputs": [
+            {
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateRouter",
+          "inputs": [
+            {
+              "name": "_router",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateVehicleMetadata",
+          "inputs": [
+            {
+              "name": "vehicleId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "newMetadataURI",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "upgradeToAndCall",
+          "inputs": [
+            {
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "payable"
+        },
+        {
+          "type": "function",
+          "name": "vehicles",
+          "inputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "vehicleId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "assetInfo",
+              "type": "tuple",
+              "internalType": "struct AssetLib.AssetInfo",
+              "components": [
+                {
+                  "name": "assetValue",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
-              ],
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getAssetStatus",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRegistryForAsset",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRegistryType",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
-          name: "getRegistryVersion",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
-          name: "getRoleAdmin",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "grantRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "hasRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "idToRegistry",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "initialize",
-          inputs: [
-            {
-              name: "_admin",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "initiateSettlement",
-          inputs: [
-            {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "topUpAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "settlementAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "settlementPerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "isAssetSolvent",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "liquidateAsset",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "marketplace",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "mintRevenueTokensAndList",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "mintRevenueTokensAndListFor",
-          inputs: [
-            {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "partnerManager",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract PartnerManager",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "previewLiquidationEligibility",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "eligible",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "reason",
-              type: "uint8",
-              internalType: "uint8",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "previewMintRevenueTokens",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "processSettlementClaim",
-          inputs: [
-            {
-              name: "recipient",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "claimedAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "proxiableUUID",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "recordSoldSupply",
-          inputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "soldAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "registerAsset",
-          inputs: [
-            {
-              name: "",
-              type: "bytes",
-              internalType: "bytes",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+                {
+                  "name": "status",
+                  "type": "uint8",
+                  "internalType": "enum AssetLib.AssetStatus"
+                },
+                {
+                  "name": "createdAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "updatedAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            },
+            {
+              "name": "vehicleInfo",
+              "type": "tuple",
+              "internalType": "struct VehicleLib.VehicleInfo",
+              "components": [
+                {
+                  "name": "vin",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "make",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "model",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "year",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "manufacturerId",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "optionCodes",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "dynamicMetadataURI",
+                  "type": "string",
+                  "internalType": "string"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "vinExists",
+          "inputs": [
+            {
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "event",
+          "name": "AssetExpired",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "liquidationAmount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "pure",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "registerAssetMintAndList",
-          inputs: [
-            {
-              name: "",
-              type: "bytes",
-              internalType: "bytes",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
+          "type": "event",
+          "name": "AssetRegistered",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "owner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetValue",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "status",
+              "type": "uint8",
+              "indexed": false,
+              "internalType": "enum AssetLib.AssetStatus"
+            }
           ],
-          stateMutability: "pure",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "releaseCollateralFor",
-          inputs: [
-            {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
+          "type": "event",
+          "name": "AssetRetired",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
-          ],
-          outputs: [
             {
-              name: "releasedCollateral",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "renounceRole",
-          inputs: [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "burnedTokens",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "callerConfirmation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "releasedCollateral",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "reserveNextTokenIdPair",
-          inputs: [],
-          outputs: [
+          "type": "event",
+          "name": "AssetSettled",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "retireAsset",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "settlementAmount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "retireAssetAndBurnTokens",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "revokeRole",
-          inputs: [
+          "type": "event",
+          "name": "AssetStatusUpdated",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "oldStatus",
+              "type": "uint8",
+              "indexed": true,
+              "internalType": "enum AssetLib.AssetStatus"
             },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "roboshareTokens",
-          inputs: [],
-          outputs: [
             {
-              name: "",
-              type: "address",
-              internalType: "contract RoboshareTokens",
-            },
+              "name": "newStatus",
+              "type": "uint8",
+              "indexed": true,
+              "internalType": "enum AssetLib.AssetStatus"
+            }
           ],
-          stateMutability: "view",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "setAssetStatus",
-          inputs: [
+          "type": "event",
+          "name": "Initialized",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "status",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "version",
+              "type": "uint64",
+              "indexed": false,
+              "internalType": "uint64"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "setMarketplace",
-          inputs: [
+          "type": "event",
+          "name": "PartnerManagerUpdated",
+          "inputs": [
             {
-              name: "_marketplace",
-              type: "address",
-              internalType: "address",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "setTreasury",
-          inputs: [
             {
-              name: "_treasury",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "settleAsset",
-          inputs: [
+          "type": "event",
+          "name": "RoboshareTokensUpdated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "topUpAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "snapshotAndClaimEarnings",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "event",
+          "name": "RoleAdminChanged",
+          "inputs": [
             {
-              name: "holder",
-              type: "address",
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "autoClaim",
-              type: "bool",
-              internalType: "bool",
+              "name": "previousAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
-          ],
-          outputs: [
             {
-              name: "snapshotAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "newAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "supportsInterface",
-          inputs: [
+          "type": "event",
+          "name": "RoleGranted",
+          "inputs": [
             {
-              name: "interfaceId",
-              type: "bytes4",
-              internalType: "bytes4",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "treasury",
-          inputs: [],
-          outputs: [
             {
-              name: "",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "updatePartnerManager",
-          inputs: [
             {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "anonymous": false
         },
         {
-          type: "function",
-          name: "updateRoboshareTokens",
-          inputs: [
+          "type": "event",
+          "name": "RoleRevoked",
+          "inputs": [
             {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "upgradeToAndCall",
-          inputs: [
             {
-              name: "newImplementation",
-              type: "address",
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "payable",
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "AssetExpired",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
+          "type": "event",
+          "name": "RouterUpdated",
+          "inputs": [
             {
-              name: "liquidationAmount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "settlementPerToken",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "AssetRegistered",
-          inputs: [
+          "type": "event",
+          "name": "SettlementClaimed",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "owner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "holder",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "assetValue",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "status",
-              type: "uint8",
-              indexed: false,
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "payout",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "AssetRetired",
-          inputs: [
+          "type": "event",
+          "name": "Upgraded",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "burnedTokens",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "releasedCollateral",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "implementation",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "AssetSettled",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
+          "type": "event",
+          "name": "VehicleMetadataUpdated",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "vehicleId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "settlementAmount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "settlementPerToken",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "newMetadataURI",
+              "type": "string",
+              "indexed": false,
+              "internalType": "string"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "AssetStatusUpdated",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "oldStatus",
-              type: "uint8",
-              indexed: true,
-              internalType: "enum AssetLib.AssetStatus",
-            },
+          "type": "event",
+          "name": "VehicleRegistered",
+          "inputs": [
             {
-              name: "newStatus",
-              type: "uint8",
-              indexed: true,
-              internalType: "enum AssetLib.AssetStatus",
+              "name": "vehicleId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "IdBoundToRegistry",
-          inputs: [
             {
-              name: "id",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "registry",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "vin",
+              "type": "string",
+              "indexed": false,
+              "internalType": "string"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "Initialized",
-          inputs: [
-            {
-              name: "version",
-              type: "uint64",
-              indexed: false,
-              internalType: "uint64",
-            },
-          ],
-          anonymous: false,
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
         },
         {
-          type: "event",
-          name: "PartnerManagerUpdated",
-          inputs: [
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
+              "name": "neededRole",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
         },
         {
-          type: "event",
-          name: "RevenueTokensMinted",
-          inputs: [
+          "type": "error",
+          "name": "AddressEmptyCode",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "assetValue",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "event",
-          name: "RoboshareTokensUpdated",
-          inputs: [
+          "type": "error",
+          "name": "AssetAlreadySettled",
+          "inputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
         },
         {
-          type: "event",
-          name: "RoleAdminChanged",
-          inputs: [
+          "type": "error",
+          "name": "AssetNotActive",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "previousAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "newAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-          ],
-          anonymous: false,
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
         },
         {
-          type: "event",
-          name: "RoleGranted",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+          "type": "error",
+          "name": "AssetNotEligibleForLiquidation",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "event",
-          name: "RoleRevoked",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+          "type": "error",
+          "name": "AssetNotFound",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "event",
-          name: "SettlementClaimed",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
+          "type": "error",
+          "name": "AssetNotSettled",
+          "inputs": [
             {
-              name: "holder",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "payout",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
             {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "AccessControlBadConfirmation",
-          inputs: [],
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "AccessControlUnauthorizedAccount",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+          "type": "error",
+          "name": "ERC1967InvalidImplementation",
+          "inputs": [
             {
-              name: "neededRole",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
+              "name": "implementation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
-            {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+          "type": "error",
+          "name": "ERC1967NonPayable",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AssetAlreadySettled",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+          "type": "error",
+          "name": "FailedCall",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AssetNotActive",
-          inputs: [
+          "type": "error",
+          "name": "InsufficientTokenBalance",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
+              "name": "required",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-        },
-        {
-          type: "error",
-          name: "AssetNotEligibleForLiquidation",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+              "name": "available",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "AssetNotFound",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+          "type": "error",
+          "name": "InvalidAssetId",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AssetNotSettled",
-          inputs: [
+          "type": "error",
+          "name": "InvalidAssetStatus",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+              "name": "status",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "DirectCallNotAllowed",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidInitialization",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+          "type": "error",
+          "name": "InvalidMake",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidMetadataURI",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidModel",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InsufficientTokenBalance",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "error",
+          "name": "InvalidStatusTransition",
+          "inputs": [
             {
-              name: "required",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "from",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
             },
             {
-              name: "available",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "InvalidAssetId",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidInitialization",
-          inputs: [],
+              "name": "to",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "MarketplaceNotSet",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidVINLength",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotAssetOwner",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidYear",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotInitializing",
-          inputs: [],
+          "type": "error",
+          "name": "NotAssetOwner",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotMarketplace",
-          inputs: [],
+          "type": "error",
+          "name": "NotInitializing",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotTreasury",
-          inputs: [],
+          "type": "error",
+          "name": "OutstandingTokensHeldByOthers",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "RegistryNotBoundToAsset",
-          inputs: [],
+          "type": "error",
+          "name": "RevenueTokensAlreadyMinted",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "RegistryNotFound",
-          inputs: [
+          "type": "error",
+          "name": "RevenueTokensNotMinted",
+          "inputs": [
             {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "RevenueTokensAlreadyMinted",
-          inputs: [],
+          "type": "error",
+          "name": "UUPSUnauthorizedCallContext",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "RevenueTokensNotMinted",
-          inputs: [
+          "type": "error",
+          "name": "UUPSUnsupportedProxiableUUID",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "TreasuryNotSet",
-          inputs: [],
+              "name": "slot",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "UUPSUnauthorizedCallContext",
-          inputs: [],
+          "type": "error",
+          "name": "UnauthorizedPartner",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "UUPSUnsupportedProxiableUUID",
-          inputs: [
-            {
-              name: "slot",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
+          "type": "error",
+          "name": "VehicleAlreadyExists",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "UnauthorizedPartner",
-          inputs: [],
+          "type": "error",
+          "name": "VehicleDoesNotExist",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "ZeroAddress",
-          inputs: [],
-        },
+          "type": "error",
+          "name": "ZeroAddress",
+          "inputs": []
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
+      "inheritedFunctions": {}
     },
-    VehicleRegistry: {
-      address: "0x12975173B87F7595EE45dFFb2Ab812ECE596Bf84",
-      abi: [
+    "Treasury": {
+      "address": "0x196dBCBb54b8ec4958c959D8949EBFE87aC2Aaaf",
+      "abi": [
         {
-          type: "function",
-          name: "DEFAULT_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "AUTHORIZED_CONTRACT_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "ROUTER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "AUTHORIZED_ROUTER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADE_INTERFACE_VERSION",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "TREASURER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "assetExists",
-          inputs: [
+          "type": "function",
+          "name": "UPGRADER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "burnRevenueTokens",
-          inputs: [
+          "type": "function",
+          "name": "UPGRADE_INTERFACE_VERSION",
+          "inputs": [],
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "claimSettlement",
-          inputs: [
+          "type": "function",
+          "name": "assetCollateral",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "autoClaimEarnings",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "claimedAmount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "initialBaseCollateral",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "earningsClaimed",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "baseCollateral",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "earningsBuffer",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "protocolBuffer",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "totalCollateral",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "isLocked",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "lockedAt",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "lastEventTimestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "reservedForLiquidation",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "liquidationThreshold",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "createdAt",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "claimSettlementFor",
-          inputs: [
+          "type": "function",
+          "name": "assetEarnings",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "autoClaimEarnings",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "claimedAmount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "totalRevenue",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "earningsClaimed",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "totalEarnings",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "totalEarningsPerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentPeriod",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "lastEventTimestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "lastProcessedPeriod",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "cumulativeBenchmarkEarnings",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "cumulativeExcessEarnings",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "isInitialized",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getAssetInfo",
-          inputs: [
+          "type": "function",
+          "name": "assetSettlements",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "tuple",
-              internalType: "struct AssetLib.AssetInfo",
-              components: [
+              "name": "isSettled",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "totalSettlementPool",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "claimAndWithdrawEarnings",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "withdrawn",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "claimEarnings",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "creditBaseEscrow",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "distributeEarnings",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "totalRevenue",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tryAutoRelease",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "collateralReleased",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "executeLiquidation",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "liquidationAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "fundBuffersFor",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "baseAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "getAssetCollateralInfo",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "tuple",
+              "internalType": "struct CollateralLib.CollateralInfo",
+              "components": [
                 {
-                  name: "assetValue",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "initialBaseCollateral",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "status",
-                  type: "uint8",
-                  internalType: "enum AssetLib.AssetStatus",
+                  "name": "baseCollateral",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "createdAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "earningsBuffer",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "updatedAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-              ],
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getAssetStatus",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRegistryForAsset",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRegistryType",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
-          name: "getRegistryVersion",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
-          name: "getRoleAdmin",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getVehicleDisplayName",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getVehicleInfo",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "vin",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "make",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "model",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "year",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "manufacturerId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "optionCodes",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "dynamicMetadataURI",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "grantRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "hasRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "initialize",
-          inputs: [
-            {
-              name: "_admin",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_router",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "liquidateAsset",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "mintRevenueTokensAndList",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "partnerManager",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract PartnerManager",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "previewMintRevenueTokens",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "proxiableUUID",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "registerAsset",
-          inputs: [
-            {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
-            {
-              name: "assetValue",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "registerAssetMintAndList",
-          inputs: [
-            {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
-            {
-              name: "assetValue",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "renounceRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "callerConfirmation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "retireAsset",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "retireAssetAndBurnTokens",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "revokeRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "roboshareTokens",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract RoboshareTokens",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "router",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract RegistryRouter",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "setAssetStatus",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "status",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "settleAsset",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "topUpAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "supportsInterface",
-          inputs: [
-            {
-              name: "interfaceId",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "updatePartnerManager",
-          inputs: [
-            {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateRoboshareTokens",
-          inputs: [
-            {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateRouter",
-          inputs: [
-            {
-              name: "_router",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateVehicleMetadata",
-          inputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "newMetadataURI",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "upgradeToAndCall",
-          inputs: [
-            {
-              name: "newImplementation",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
-          ],
-          outputs: [],
-          stateMutability: "payable",
-        },
-        {
-          type: "function",
-          name: "vehicles",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "vehicleId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "assetInfo",
-              type: "tuple",
-              internalType: "struct AssetLib.AssetInfo",
-              components: [
-                {
-                  name: "assetValue",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "protocolBuffer",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "status",
-                  type: "uint8",
-                  internalType: "enum AssetLib.AssetStatus",
+                  "name": "totalCollateral",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "createdAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "isLocked",
+                  "type": "bool",
+                  "internalType": "bool"
                 },
                 {
-                  name: "updatedAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-              ],
-            },
-            {
-              name: "vehicleInfo",
-              type: "tuple",
-              internalType: "struct VehicleLib.VehicleInfo",
-              components: [
-                {
-                  name: "vin",
-                  type: "string",
-                  internalType: "string",
+                  "name": "lockedAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "make",
-                  type: "string",
-                  internalType: "string",
+                  "name": "lastEventTimestamp",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "model",
-                  type: "string",
-                  internalType: "string",
+                  "name": "reservedForLiquidation",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "year",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "liquidationThreshold",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "manufacturerId",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "optionCodes",
-                  type: "string",
-                  internalType: "string",
-                },
-                {
-                  name: "dynamicMetadataURI",
-                  type: "string",
-                  internalType: "string",
-                },
-              ],
-            },
+                  "name": "createdAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "vinExists",
-          inputs: [
+          "type": "function",
+          "name": "getMarketProjectionConstants",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
+              "name": "benchmarkYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "depreciationRateBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "bpPrecision",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "getPendingWithdrawal",
+          "inputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          stateMutability: "view",
-        },
-        {
-          type: "event",
-          name: "AssetExpired",
-          inputs: [
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "liquidationAmount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "settlementPerToken",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "AssetRegistered",
-          inputs: [
+          "type": "function",
+          "name": "getPrimaryInvestorLiquidity",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "owner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "assetValue",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "status",
-              type: "uint8",
-              indexed: false,
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "AssetRetired",
-          inputs: [
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "burnedTokens",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "releasedCollateral",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "AssetSettled",
-          inputs: [
+          "type": "function",
+          "name": "getProtocolConfig",
+          "inputs": [],
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "bpPrecision",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "benchmarkYieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "settlementAmount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "protocolFeeBP",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "settlementPerToken",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "earlySalePenaltyBP",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "depreciationRateBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "minProtocolFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "minEarlySalePenalty",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "pure"
         },
         {
-          type: "event",
-          name: "AssetStatusUpdated",
-          inputs: [
+          "type": "function",
+          "name": "getRoleAdmin",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "oldStatus",
-              type: "uint8",
-              indexed: true,
-              internalType: "enum AssetLib.AssetStatus",
-            },
-            {
-              name: "newStatus",
-              type: "uint8",
-              indexed: true,
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "Initialized",
-          inputs: [
+          "outputs": [
             {
-              name: "version",
-              type: "uint64",
-              indexed: false,
-              internalType: "uint64",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "PartnerManagerUpdated",
-          inputs: [
+          "type": "function",
+          "name": "getTotalBufferRequirement",
+          "inputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "baseAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "yieldBP",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoboshareTokensUpdated",
-          inputs: [
+          "outputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "pure"
         },
         {
-          type: "event",
-          name: "RoleAdminChanged",
-          inputs: [
+          "type": "function",
+          "name": "getTreasuryStats",
+          "inputs": [],
+          "outputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "totalDeposited",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "previousAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "newAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+              "name": "treasuryBalance",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "RoleGranted",
-          inputs: [
+          "type": "function",
+          "name": "grantRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "event",
-          name: "RoleRevoked",
-          inputs: [
+          "type": "function",
+          "name": "hasRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RouterUpdated",
-          inputs: [
+          "outputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "view"
         },
         {
-          type: "event",
-          name: "SettlementClaimed",
-          inputs: [
+          "type": "function",
+          "name": "initialize",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "_admin",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "holder",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "payout",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "_router",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "_usdc",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_treasuryFeeRecipient",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
+          "type": "function",
+          "name": "initiateSettlement",
+          "inputs": [
             {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "topUpAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "VehicleMetadataUpdated",
-          inputs: [
+          "outputs": [
             {
-              name: "vehicleId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "settlementAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "newMetadataURI",
-              type: "string",
-              indexed: false,
-              internalType: "string",
-            },
+              "name": "settlementPerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "stateMutability": "nonpayable"
         },
         {
-          type: "event",
-          name: "VehicleRegistered",
-          inputs: [
+          "type": "function",
+          "name": "isAssetSolvent",
+          "inputs": [
             {
-              name: "vehicleId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "vin",
-              type: "string",
-              indexed: false,
-              internalType: "string",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "AccessControlBadConfirmation",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "AccessControlUnauthorizedAccount",
-          inputs: [
+          "outputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "neededRole",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
+          "type": "function",
+          "name": "partnerManager",
+          "inputs": [],
+          "outputs": [
             {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "contract PartnerManager"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "AssetAlreadySettled",
-          inputs: [
+          "type": "function",
+          "name": "pendingWithdrawals",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-        },
-        {
-          type: "error",
-          name: "AssetNotActive",
-          inputs: [
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "AssetNotEligibleForLiquidation",
-          inputs: [
+          "type": "function",
+          "name": "previewClaimEarnings",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-        },
-        {
-          type: "error",
-          name: "AssetNotFound",
-          inputs: [
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "AssetNotSettled",
-          inputs: [
+          "type": "function",
+          "name": "previewCollateralRelease",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "assumeNewPeriod",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-        },
-        {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
+          "outputs": [
             {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "releasedAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InsufficientTokenBalance",
-          inputs: [
+          "type": "function",
+          "name": "previewLiquidationEligibility",
+          "inputs": [
             {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "required",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "available",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-        },
-        {
-          type: "error",
-          name: "InvalidAssetId",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidAssetStatus",
-          inputs: [
+          "outputs": [
             {
-              name: "status",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
+              "name": "eligible",
+              "type": "bool",
+              "internalType": "bool"
             },
+            {
+              "name": "reason",
+              "type": "uint8",
+              "internalType": "uint8"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "InvalidInitialization",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidMake",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidMetadataURI",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidModel",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidStatusTransition",
-          inputs: [
+          "type": "function",
+          "name": "previewPrimaryRedemptionPayout",
+          "inputs": [
             {
-              name: "from",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "to",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
+              "name": "burnAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "circulatingSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-        },
-        {
-          type: "error",
-          name: "InvalidVINLength",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidYear",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotAssetOwner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotInitializing",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "OutstandingTokensHeldByOthers",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "RevenueTokensAlreadyMinted",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "RevenueTokensNotMinted",
-          inputs: [
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "payout",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "UUPSUnauthorizedCallContext",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "UUPSUnsupportedProxiableUUID",
-          inputs: [
+          "type": "function",
+          "name": "previewSettlementClaim",
+          "inputs": [
             {
-              name: "slot",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
         },
         {
-          type: "error",
-          name: "UnauthorizedPartner",
-          inputs: [],
+          "type": "function",
+          "name": "processPrimaryPoolPurchase",
+          "inputs": [
+            {
+              "name": "buyer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "grossPrincipal",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "protocolFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "partnerProceeds",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "protectionFunding",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "VehicleAlreadyExists",
-          inputs: [],
+          "type": "function",
+          "name": "processPrimaryRedemption",
+          "inputs": [
+            {
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "burnAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "circulatingSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "minPayout",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "payout",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "VehicleDoesNotExist",
-          inputs: [],
+          "type": "function",
+          "name": "processSettlementClaim",
+          "inputs": [
+            {
+              "name": "recipient",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "claimedAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "error",
-          name: "ZeroAddress",
-          inputs: [],
+          "type": "function",
+          "name": "processWithdrawal",
+          "inputs": [],
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
+        {
+          "type": "function",
+          "name": "processWithdrawalFor",
+          "inputs": [
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "proxiableUUID",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "recordPendingWithdrawal",
+          "inputs": [
+            {
+              "name": "recipient",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "releaseAndWithdrawCollateral",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "withdrawn",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "releaseCollateral",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "releaseCollateralFor",
+          "inputs": [
+            {
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "releasedCollateral",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "releasePartialCollateral",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "renounceRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "callerConfirmation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "revokeRole",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "roboshareTokens",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract RoboshareTokens"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "router",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract RegistryRouter"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "snapshotAndClaimEarnings",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "holder",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "autoClaim",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "snapshotAmount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
+            {
+              "name": "interfaceId",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "totalCollateralDeposited",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "totalEarningsDeposited",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "treasuryFeeRecipient",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "updatePartnerManager",
+          "inputs": [
+            {
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateRoboshareTokens",
+          "inputs": [
+            {
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateRouter",
+          "inputs": [
+            {
+              "name": "_newRouter",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateTreasuryFeeRecipient",
+          "inputs": [
+            {
+              "name": "_treasuryFeeRecipient",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "updateUSDC",
+          "inputs": [
+            {
+              "name": "_usdc",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "upgradeToAndCall",
+          "inputs": [
+            {
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "payable"
+        },
+        {
+          "type": "function",
+          "name": "usdc",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract IERC20"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "event",
+          "name": "BaseEscrowCredited",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "BufferReplenished",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "fromReserved",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "CollateralBuffersUpdated",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "newEarningsBuffer",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "newReservedForLiquidation",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "CollateralLocked",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "CollateralReleased",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "recipient",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "EarningsClaimed",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "holder",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "EarningsDistributed",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "totalRevenue",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "investorEarnings",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            },
+            {
+              "name": "period",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "Initialized",
+          "inputs": [
+            {
+              "name": "version",
+              "type": "uint64",
+              "indexed": false,
+              "internalType": "uint64"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "PartnerManagerUpdated",
+          "inputs": [
+            {
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoboshareTokensUpdated",
+          "inputs": [
+            {
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleAdminChanged",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "previousAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "newAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleGranted",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RoleRevoked",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            },
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "RouterUpdated",
+          "inputs": [
+            {
+              "name": "newRouter",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "SettlementClaimed",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "holder",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "ShortfallReserved",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "TreasuryFeeRecipientUpdated",
+          "inputs": [
+            {
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "Upgraded",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "UsdcUpdated",
+          "inputs": [
+            {
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "WithdrawalProcessed",
+          "inputs": [
+            {
+              "name": "recipient",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "neededRole",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AddressEmptyCode",
+          "inputs": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetAlreadySettled",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotActive",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotEligibleForLiquidation",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotEligibleForLiquidation",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotFound",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "AssetNotOperational",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "status",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotOperationalForLiquidation",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotOperationalForSettlement",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotSettled",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "AssetNotSettled",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "currentStatus",
+              "type": "uint8",
+              "internalType": "enum AssetLib.AssetStatus"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "CollateralAlreadyInitialized",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "CollateralAlreadyLocked",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "ERC1967InvalidImplementation",
+          "inputs": [
+            {
+              "name": "implementation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ERC1967NonPayable",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "EarningsLessThanMinimumFee",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "FailedCall",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InsufficientCollateral",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InsufficientPrimaryLiquidity",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InsufficientTokenBalance",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidAssetId",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidCollateralAmount",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidEarningsAmount",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidInitialization",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidRevenueTokenId",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "InvalidUSDCContract",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "NoCollateralLocked",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoEarningsToClaim",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoEarningsToDistribute",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoInvestors",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoNewEarningsPeriods",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoPendingWithdrawals",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoPriorEarningsDistribution",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NoUnclaimedEarnings",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotAssetOwner",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotInitializing",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "NotRouter",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "OutstandingRevenueTokens",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "ReentrancyGuardReentrantCall",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "SafeCastOverflowedIntToUint",
+          "inputs": [
+            {
+              "name": "value",
+              "type": "int256",
+              "internalType": "int256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "SafeCastOverflowedUintToInt",
+          "inputs": [
+            {
+              "name": "value",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "SafeERC20FailedOperation",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "SlippageExceeded",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnauthorizedCallContext",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UUPSUnsupportedProxiableUUID",
+          "inputs": [
+            {
+              "name": "slot",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "UnauthorizedPartner",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "UnsupportedUSDCDecimals",
+          "inputs": [
+            {
+              "name": "decimals",
+              "type": "uint8",
+              "internalType": "uint8"
+            }
+          ]
+        },
+        {
+          "type": "error",
+          "name": "ZeroAddress",
+          "inputs": []
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
+      "inheritedFunctions": {}
     },
-    Treasury: {
-      address: "0x196dBCBb54b8ec4958c959D8949EBFE87aC2Aaaf",
-      abi: [
+    "Marketplace": {
+      "address": "0x05B4CB126885fb10464fdD12666FEb25E2563B76",
+      "abi": [
         {
-          type: "function",
-          name: "AUTHORIZED_CONTRACT_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "AUTHORIZED_CONTRACT_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "AUTHORIZED_ROUTER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "DEFAULT_ADMIN_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "DEFAULT_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADER_ROLE",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "TREASURER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "UPGRADE_INTERFACE_VERSION",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "string",
+              "internalType": "string"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADER_ROLE",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "assetListings",
+          "inputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "UPGRADE_INTERFACE_VERSION",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "buyFromPrimaryPool",
+          "inputs": [
             {
-              name: "",
-              type: "string",
-              internalType: "string",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "assetCollateral",
-          inputs: [
+          "type": "function",
+          "name": "calculatePurchaseCost",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "initialBaseCollateral",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "totalCost",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "baseCollateral",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "protocolFee",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "earningsBuffer",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "protocolBuffer",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isLocked",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "lockedAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "lastEventTimestamp",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "reservedForLiquidation",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "liquidationThreshold",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "createdAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "expectedPayment",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "assetEarnings",
-          inputs: [
+          "type": "function",
+          "name": "cancelListing",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
-            {
-              name: "totalRevenue",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalEarnings",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalEarningsPerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentPeriod",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "lastEventTimestamp",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "lastProcessedPeriod",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "cumulativeBenchmarkEarnings",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "cumulativeExcessEarnings",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isInitialized",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "assetSettlements",
-          inputs: [
+          "type": "function",
+          "name": "clearTokenEscrow",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "isSettled",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "settlementPerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalSettlementPool",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "claimAndWithdrawEarnings",
-          inputs: [
+          "type": "function",
+          "name": "closePrimaryPool",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
-            {
-              name: "withdrawn",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "claimEarnings",
-          inputs: [
+          "type": "function",
+          "name": "createListing",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "creditBaseEscrow",
-          inputs: [
+          "type": "function",
+          "name": "createListingFor",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "seller",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "distributeEarnings",
-          inputs: [
+          "type": "function",
+          "name": "createPrimaryPool",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "totalRevenue",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "tryAutoRelease",
-              type: "bool",
-              internalType: "bool",
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [
-            {
-              name: "collateralReleased",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "executeLiquidation",
-          inputs: [
+          "type": "function",
+          "name": "createPrimaryPoolFor",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [
-            {
-              name: "liquidationAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "settlementPerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "fundBuffersFor",
-          inputs: [
+          "type": "function",
+          "name": "creditTokenEscrow",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "baseAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "getAssetCollateralInfo",
-          inputs: [
+          "type": "function",
+          "name": "endListing",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "extendListing",
+          "inputs": [
             {
-              name: "",
-              type: "tuple",
-              internalType: "struct CollateralLib.CollateralInfo",
-              components: [
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "additionalDuration",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "getAssetListings",
+          "inputs": [
+            {
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "activeListings",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getCurrentListingId",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getListing",
+          "inputs": [
+            {
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "tuple",
+              "internalType": "struct IMarketplace.Listing",
+              "components": [
                 {
-                  name: "initialBaseCollateral",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "listingId",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "baseCollateral",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "tokenId",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "earningsBuffer",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "amount",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "protocolBuffer",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "soldAmount",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "totalCollateral",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "pricePerToken",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "isLocked",
-                  type: "bool",
-                  internalType: "bool",
+                  "name": "seller",
+                  "type": "address",
+                  "internalType": "address"
                 },
                 {
-                  name: "lockedAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "expiresAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "lastEventTimestamp",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "isActive",
+                  "type": "bool",
+                  "internalType": "bool"
                 },
                 {
-                  name: "reservedForLiquidation",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "isCancelled",
+                  "type": "bool",
+                  "internalType": "bool"
                 },
                 {
-                  name: "liquidationThreshold",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "createdAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
                 },
                 {
-                  name: "createdAt",
-                  type: "uint256",
-                  internalType: "uint256",
+                  "name": "buyerPaysFee",
+                  "type": "bool",
+                  "internalType": "bool"
                 },
-              ],
-            },
+                {
+                  "name": "earlySalePenalty",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "isPrimary",
+                  "type": "bool",
+                  "internalType": "bool"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getPrimaryPool",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "tuple",
+              "internalType": "struct IMarketplace.PrimaryPool",
+              "components": [
+                {
+                  "name": "tokenId",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "partner",
+                  "type": "address",
+                  "internalType": "address"
+                },
+                {
+                  "name": "pricePerToken",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "maxSupply",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "immediateProceeds",
+                  "type": "bool",
+                  "internalType": "bool"
+                },
+                {
+                  "name": "protectionEnabled",
+                  "type": "bool",
+                  "internalType": "bool"
+                },
+                {
+                  "name": "isPaused",
+                  "type": "bool",
+                  "internalType": "bool"
+                },
+                {
+                  "name": "isClosed",
+                  "type": "bool",
+                  "internalType": "bool"
+                },
+                {
+                  "name": "createdAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "pausedAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "closedAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "getRoleAdmin",
+          "inputs": [
+            {
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getMarketProjectionConstants",
-          inputs: [],
-          outputs: [
-            {
-              name: "benchmarkYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "function",
+          "name": "grantRole",
+          "inputs": [
             {
-              name: "depreciationRateBP",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "bpPrecision",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          stateMutability: "pure",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "getPendingWithdrawal",
-          inputs: [
+          "type": "function",
+          "name": "hasRole",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
+            {
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getProtocolConfig",
-          inputs: [],
-          outputs: [
-            {
-              name: "bpPrecision",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "function",
+          "name": "initialize",
+          "inputs": [
             {
-              name: "benchmarkYieldBP",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "_admin",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "protocolFeeBP",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "earlySalePenaltyBP",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "depreciationRateBP",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "_router",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "minProtocolFee",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "_treasury",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "minEarlySalePenalty",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "_usdc",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          stateMutability: "pure",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "getRoleAdmin",
-          inputs: [
+          "type": "function",
+          "name": "isAssetEligibleForListing",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "assetId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getTotalBufferRequirement",
-          inputs: [
-            {
-              name: "baseAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "function",
+          "name": "isPrimaryPoolActive",
+          "inputs": [
             {
-              name: "yieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "pure",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "getTreasuryStats",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "listings",
+          "inputs": [
             {
-              name: "totalDeposited",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
             {
-              name: "treasuryBalance",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "grantRole",
-          inputs: [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "hasRole",
-          inputs: [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "soldAmount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
+              "name": "seller",
+              "type": "address",
+              "internalType": "address"
             },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "initialize",
-          inputs: [
             {
-              name: "_admin",
-              type: "address",
-              internalType: "address",
+              "name": "expiresAt",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
+              "name": "isActive",
+              "type": "bool",
+              "internalType": "bool"
             },
             {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
+              "name": "isCancelled",
+              "type": "bool",
+              "internalType": "bool"
             },
             {
-              name: "_router",
-              type: "address",
-              internalType: "address",
+              "name": "createdAt",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "_usdc",
-              type: "address",
-              internalType: "address",
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "internalType": "bool"
             },
             {
-              name: "_treasuryFeeRecipient",
-              type: "address",
-              internalType: "address",
+              "name": "earlySalePenalty",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "isPrimary",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "initiateSettlement",
-          inputs: [
+          "type": "function",
+          "name": "onERC1155BatchReceived",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "topUpAmount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
-          ],
-          outputs: [
             {
-              name: "settlementAmount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "",
+              "type": "uint256[]",
+              "internalType": "uint256[]"
             },
             {
-              name: "settlementPerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "isAssetSolvent",
-          inputs: [
+          "type": "function",
+          "name": "onERC1155Received",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
-          ],
-          outputs: [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
+              "name": "",
+              "type": "address",
+              "internalType": "address"
             },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "partnerManager",
-          inputs: [],
-          outputs: [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
             {
-              name: "",
-              type: "address",
-              internalType: "contract PartnerManager",
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "pendingWithdrawals",
-          inputs: [
+          "type": "function",
+          "name": "partnerManager",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "contract PartnerManager"
+            }
           ],
-          outputs: [
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "pausePrimaryPool",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "previewClaimEarnings",
-          inputs: [
+          "type": "function",
+          "name": "previewPrimaryPurchase",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "holder",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "totalCost",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "previewCollateralRelease",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "protocolFee",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "assumeNewPeriod",
-              type: "bool",
-              internalType: "bool",
+              "name": "partnerProceeds",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [
             {
-              name: "releasedAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "protectionFunding",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "previewLiquidationEligibility",
-          inputs: [
+          "type": "function",
+          "name": "previewPrimaryRedemption",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "eligible",
-              type: "bool",
-              internalType: "bool",
+              "name": "payout",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "reason",
-              type: "uint8",
-              internalType: "uint8",
+              "name": "investorLiquidity",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "circulatingSupply",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "previewSettlementClaim",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "function",
+          "name": "primaryPoolCreated",
+          "inputs": [
             {
-              name: "holder",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "processSettlementClaim",
-          inputs: [
+          "type": "function",
+          "name": "primaryPools",
+          "inputs": [
             {
-              name: "recipient",
-              type: "address",
-              internalType: "address",
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "partner",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "pricePerToken",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [
             {
-              name: "claimedAmount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "maxSupply",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "processWithdrawal",
-          inputs: [],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "processWithdrawalFor",
-          inputs: [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "immediateProceeds",
+              "type": "bool",
+              "internalType": "bool"
             },
-          ],
-          outputs: [
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "protectionEnabled",
+              "type": "bool",
+              "internalType": "bool"
             },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "proxiableUUID",
-          inputs: [],
-          outputs: [
             {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "isPaused",
+              "type": "bool",
+              "internalType": "bool"
             },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "recordPendingWithdrawal",
-          inputs: [
             {
-              name: "recipient",
-              type: "address",
-              internalType: "address",
+              "name": "isClosed",
+              "type": "bool",
+              "internalType": "bool"
             },
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "createdAt",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "releaseAndWithdrawCollateral",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "pausedAt",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "closedAt",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "proxiableUUID",
+          "inputs": [],
+          "outputs": [
             {
-              name: "withdrawn",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "releaseCollateral",
-          inputs: [
+          "type": "function",
+          "name": "purchaseTokens",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "releaseCollateralFor",
-          inputs: [
+          "type": "function",
+          "name": "redeemPrimaryPool",
+          "inputs": [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "internalType": "uint256"
             },
-          ],
-          outputs: [
             {
-              name: "releasedCollateral",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "minPayout",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "releasePartialCollateral",
-          inputs: [
+          "outputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "payout",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "renounceRole",
-          inputs: [
+          "type": "function",
+          "name": "renounceRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "callerConfirmation",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "callerConfirmation",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "revokeRole",
-          inputs: [
+          "type": "function",
+          "name": "revokeRole",
+          "inputs": [
             {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "role",
+              "type": "bytes32",
+              "internalType": "bytes32"
             },
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "roboshareTokens",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "roboshareTokens",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "contract RoboshareTokens",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "contract RoboshareTokens"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "router",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "router",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "contract RegistryRouter",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "contract RegistryRouter"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "snapshotAndClaimEarnings",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "holder",
-              type: "address",
-              internalType: "address",
-            },
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
             {
-              name: "autoClaim",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "interfaceId",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "snapshotAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
           ],
-          stateMutability: "nonpayable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "supportsInterface",
-          inputs: [
+          "type": "function",
+          "name": "tokenEscrow",
+          "inputs": [
             {
-              name: "interfaceId",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          outputs: [
+          "outputs": [
             {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "totalCollateralDeposited",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "treasury",
+          "inputs": [],
+          "outputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "contract ITreasury"
+            }
           ],
-          stateMutability: "view",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "totalEarningsDeposited",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "unpausePrimaryPool",
+          "inputs": [
             {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "treasuryFeeRecipient",
-          inputs: [],
-          outputs: [
+          "type": "function",
+          "name": "updatePartnerManager",
+          "inputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "_partnerManager",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          stateMutability: "view",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "updatePartnerManager",
-          inputs: [
+          "type": "function",
+          "name": "updateRoboshareTokens",
+          "inputs": [
             {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "_roboshareTokens",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "updateRoboshareTokens",
-          inputs: [
+          "type": "function",
+          "name": "updateRouter",
+          "inputs": [
             {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "_newRouter",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "updateRouter",
-          inputs: [
+          "type": "function",
+          "name": "updateTreasury",
+          "inputs": [
             {
-              name: "_newRouter",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "_treasury",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "updateTreasuryFeeRecipient",
-          inputs: [
+          "type": "function",
+          "name": "updateUSDC",
+          "inputs": [
             {
-              name: "_treasuryFeeRecipient",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "_usdc",
+              "type": "address",
+              "internalType": "address"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "nonpayable"
         },
         {
-          type: "function",
-          name: "updateUSDC",
-          inputs: [
+          "type": "function",
+          "name": "upgradeToAndCall",
+          "inputs": [
             {
-              name: "_usdc",
-              type: "address",
-              internalType: "address",
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
             },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
           ],
-          outputs: [],
-          stateMutability: "nonpayable",
+          "outputs": [],
+          "stateMutability": "payable"
         },
         {
-          type: "function",
-          name: "upgradeToAndCall",
-          inputs: [
-            {
-              name: "newImplementation",
-              type: "address",
-              internalType: "address",
-            },
+          "type": "function",
+          "name": "usdc",
+          "inputs": [],
+          "outputs": [
             {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
+              "name": "",
+              "type": "address",
+              "internalType": "contract IERC20"
+            }
           ],
-          outputs: [],
-          stateMutability: "payable",
+          "stateMutability": "view"
         },
         {
-          type: "function",
-          name: "usdc",
-          inputs: [],
-          outputs: [
+          "type": "event",
+          "name": "Initialized",
+          "inputs": [
             {
-              name: "",
-              type: "address",
-              internalType: "contract IERC20",
-            },
+              "name": "version",
+              "type": "uint64",
+              "indexed": false,
+              "internalType": "uint64"
+            }
           ],
-          stateMutability: "view",
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "BaseEscrowCredited",
-          inputs: [
+          "type": "event",
+          "name": "ListingCancelled",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "seller",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "BufferReplenished",
-          inputs: [
+          "type": "event",
+          "name": "ListingCreated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "fromReserved",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "assetId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "CollateralBuffersUpdated",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "seller",
+              "type": "address",
+              "indexed": false,
+              "internalType": "address"
             },
             {
-              name: "newEarningsBuffer",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "newReservedForLiquidation",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "pricePerToken",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "CollateralLocked",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "expiresAt",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "buyerPaysFee",
+              "type": "bool",
+              "indexed": false,
+              "internalType": "bool"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "isPrimary",
+              "type": "bool",
+              "indexed": false,
+              "internalType": "bool"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "CollateralReleased",
-          inputs: [
+          "type": "event",
+          "name": "ListingEnded",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "recipient",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "seller",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "ListingExtended",
+          "inputs": [
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
+            {
+              "name": "newExpiresAt",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "EarningsClaimed",
-          inputs: [
+          "type": "event",
+          "name": "PartnerManagerUpdated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "holder",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "type": "event",
+          "name": "PrimaryPoolClosed",
+          "inputs": [
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "EarningsDistributed",
-          inputs: [
+          "type": "event",
+          "name": "PrimaryPoolCreated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "partner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "partner",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "totalRevenue",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "pricePerToken",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "investorEarnings",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "maxSupply",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "period",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "immediateProceeds",
+              "type": "bool",
+              "indexed": false,
+              "internalType": "bool"
             },
+            {
+              "name": "protectionEnabled",
+              "type": "bool",
+              "indexed": false,
+              "internalType": "bool"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "Initialized",
-          inputs: [
+          "type": "event",
+          "name": "PrimaryPoolPaused",
+          "inputs": [
             {
-              name: "version",
-              type: "uint64",
-              indexed: false,
-              internalType: "uint64",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "PartnerManagerUpdated",
-          inputs: [
+          "type": "event",
+          "name": "PrimaryPoolPurchased",
+          "inputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "buyer",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoboshareTokensUpdated",
-          inputs: [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "totalCost",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleAdminChanged",
-          inputs: [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "protocolFee",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "previousAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "partnerProceeds",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "newAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+              "name": "protectionFunding",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RoleGranted",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
+          "type": "event",
+          "name": "PrimaryPoolRedeemed",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "holder",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleRevoked",
-          inputs: [
             {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
+              "name": "amountBurned",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "payout",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "investorLiquidityAfter",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "RouterUpdated",
-          inputs: [
+          "type": "event",
+          "name": "PrimaryPoolUnpaused",
+          "inputs": [
             {
-              name: "newRouter",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "SettlementClaimed",
-          inputs: [
+          "type": "event",
+          "name": "RevenueTokensTraded",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true,
+              "internalType": "uint256"
             },
             {
-              name: "holder",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ShortfallReserved",
-          inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "listingId",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
             },
+            {
+              "name": "totalPrice",
+              "type": "uint256",
+              "indexed": false,
+              "internalType": "uint256"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "TreasuryFeeRecipientUpdated",
-          inputs: [
+          "type": "event",
+          "name": "RoboshareTokensUpdated",
+          "inputs": [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
+          "type": "event",
+          "name": "RoleAdminChanged",
+          "inputs": [
             {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "UsdcUpdated",
-          inputs: [
             {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "previousAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
+              "name": "newAdminRole",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
+            }
           ],
-          anonymous: false,
+          "anonymous": false
         },
         {
-          type: "event",
-          name: "WithdrawalProcessed",
-          inputs: [
+          "type": "event",
+          "name": "RoleGranted",
+          "inputs": [
             {
-              name: "recipient",
-              type: "address",
-              indexed: true,
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "AccessControlBadConfirmation",
-          inputs: [],
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AccessControlUnauthorizedAccount",
-          inputs: [
+          "type": "event",
+          "name": "RoleRevoked",
+          "inputs": [
             {
-              name: "account",
-              type: "address",
-              internalType: "address",
+              "name": "role",
+              "type": "bytes32",
+              "indexed": true,
+              "internalType": "bytes32"
             },
             {
-              name: "neededRole",
-              type: "bytes32",
-              internalType: "bytes32",
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
-          ],
-        },
-        {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
             {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AssetAlreadySettled",
-          inputs: [
+          "type": "event",
+          "name": "RouterUpdated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AssetNotActive",
-          inputs: [
+          "type": "event",
+          "name": "TreasuryUpdated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
             {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AssetNotEligibleForLiquidation",
-          inputs: [
+          "type": "event",
+          "name": "Upgraded",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+              "name": "implementation",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AssetNotEligibleForLiquidation",
-          inputs: [
+          "type": "event",
+          "name": "UsdcUpdated",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "oldAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
             },
+            {
+              "name": "newAddress",
+              "type": "address",
+              "indexed": true,
+              "internalType": "address"
+            }
           ],
+          "anonymous": false
         },
         {
-          type: "error",
-          name: "AssetNotFound",
-          inputs: [],
+          "type": "error",
+          "name": "AccessControlBadConfirmation",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AssetNotOperational",
-          inputs: [
+          "type": "error",
+          "name": "AccessControlUnauthorizedAccount",
+          "inputs": [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
+              "name": "account",
+              "type": "address",
+              "internalType": "address"
             },
             {
-              name: "status",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+              "name": "neededRole",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "AssetNotOperationalForLiquidation",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "error",
+          "name": "AddressEmptyCode",
+          "inputs": [
             {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "AssetNotOperationalForSettlement",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+          "type": "error",
+          "name": "AssetNotActive",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AssetNotSettled",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+          "type": "error",
+          "name": "AssetNotEligibleForListing",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "AssetNotSettled",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
+          "type": "error",
+          "name": "ERC1967InvalidImplementation",
+          "inputs": [
             {
-              name: "currentStatus",
-              type: "uint8",
-              internalType: "enum AssetLib.AssetStatus",
-            },
-          ],
+              "name": "implementation",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "CollateralAlreadyInitialized",
-          inputs: [],
+          "type": "error",
+          "name": "ERC1967NonPayable",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "CollateralAlreadyLocked",
-          inputs: [],
+          "type": "error",
+          "name": "FailedCall",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+          "type": "error",
+          "name": "FeesExceedPrice",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
+          "type": "error",
+          "name": "InsufficientPayment",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "EarningsLessThanMinimumFee",
-          inputs: [],
+          "type": "error",
+          "name": "InsufficientTokenBalance",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidAmount",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InsufficientCollateral",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidDuration",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InsufficientTokenBalance",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidInitialization",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InvalidAssetId",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidMaxSupply",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InvalidCollateralAmount",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidPrice",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InvalidEarningsAmount",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidRevenueTokenId",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InvalidInitialization",
-          inputs: [],
+          "type": "error",
+          "name": "InvalidTokenType",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "InvalidUSDCContract",
-          inputs: [
+          "type": "error",
+          "name": "InvalidUSDCContract",
+          "inputs": [
             {
-              name: "token",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "NoCollateralLocked",
-          inputs: [],
+          "type": "error",
+          "name": "ListingIsCancelled",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoEarningsToClaim",
-          inputs: [],
+          "type": "error",
+          "name": "ListingNotActive",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoEarningsToDistribute",
-          inputs: [],
+          "type": "error",
+          "name": "ListingNotCancelled",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoInvestors",
-          inputs: [],
+          "type": "error",
+          "name": "ListingNotEnded",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoNewEarningsPeriods",
-          inputs: [],
+          "type": "error",
+          "name": "ListingNotFound",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoPendingWithdrawals",
-          inputs: [],
+          "type": "error",
+          "name": "ListingOwnerCannotPurchase",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoPriorEarningsDistribution",
-          inputs: [],
+          "type": "error",
+          "name": "NoRefundToClaim",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NoUnclaimedEarnings",
-          inputs: [],
+          "type": "error",
+          "name": "NoTokensToClaim",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotAssetOwner",
-          inputs: [],
+          "type": "error",
+          "name": "NotInitializing",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotInitializing",
-          inputs: [],
+          "type": "error",
+          "name": "NotListingOwner",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "NotRouter",
-          inputs: [],
+          "type": "error",
+          "name": "NotPoolPartner",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "OutstandingRevenueTokens",
-          inputs: [],
+          "type": "error",
+          "name": "PrimaryListingRequiresBuyerPaysFee",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "ReentrancyGuardReentrantCall",
-          inputs: [],
+          "type": "error",
+          "name": "PrimaryListingsDisabled",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "SafeCastOverflowedIntToUint",
-          inputs: [
-            {
-              name: "value",
-              type: "int256",
-              internalType: "int256",
-            },
-          ],
+          "type": "error",
+          "name": "PrimaryPoolAlreadyClosed",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "SafeCastOverflowedUintToInt",
-          inputs: [
-            {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+          "type": "error",
+          "name": "PrimaryPoolAlreadyCreated",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "SafeERC20FailedOperation",
-          inputs: [
-            {
-              name: "token",
-              type: "address",
-              internalType: "address",
-            },
-          ],
+          "type": "error",
+          "name": "PrimaryPoolNotActive",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "PrimaryPoolNotFound",
+          "inputs": []
+        },
+        {
+          "type": "error",
+          "name": "PrimaryRedemptionNotAllowed",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "UUPSUnauthorizedCallContext",
-          inputs: [],
+          "type": "error",
+          "name": "ReentrancyGuardReentrantCall",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "UUPSUnsupportedProxiableUUID",
-          inputs: [
+          "type": "error",
+          "name": "SafeERC20FailedOperation",
+          "inputs": [
             {
-              name: "slot",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "UnauthorizedPartner",
-          inputs: [],
+          "type": "error",
+          "name": "UUPSUnauthorizedCallContext",
+          "inputs": []
         },
         {
-          type: "error",
-          name: "UnsupportedUSDCDecimals",
-          inputs: [
+          "type": "error",
+          "name": "UUPSUnsupportedProxiableUUID",
+          "inputs": [
             {
-              name: "decimals",
-              type: "uint8",
-              internalType: "uint8",
-            },
-          ],
+              "name": "slot",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ]
         },
         {
-          type: "error",
-          name: "ZeroAddress",
-          inputs: [],
+          "type": "error",
+          "name": "UnsupportedUSDCDecimals",
+          "inputs": [
+            {
+              "name": "decimals",
+              "type": "uint8",
+              "internalType": "uint8"
+            }
+          ]
         },
+        {
+          "type": "error",
+          "name": "ZeroAddress",
+          "inputs": []
+        }
       ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
-    },
-    Marketplace: {
-      address: "0x05B4CB126885fb10464fdD12666FEb25E2563B76",
-      abi: [
-        {
-          type: "function",
-          name: "AUTHORIZED_CONTRACT_ROLE",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "DEFAULT_ADMIN_ROLE",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "UPGRADER_ROLE",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "UPGRADE_INTERFACE_VERSION",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "assetListings",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "buyerPayments",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "buyerTokens",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "calculatePurchaseCost",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "totalCost",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "protocolFee",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "expectedPayment",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "cancelListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "claimRefund",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "claimTokens",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "clearTokenEscrow",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "createListing",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "pricePerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "duration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "createListingFor",
-          inputs: [
-            {
-              name: "seller",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "pricePerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "duration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "creditTokenEscrow",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "endListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "extendListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "additionalDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "finalizeListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "withdrawn",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "getAssetListings",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "activeListings",
-              type: "uint256[]",
-              internalType: "uint256[]",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getCurrentListingId",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "tuple",
-              internalType: "struct IMarketplace.Listing",
-              components: [
-                {
-                  name: "listingId",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "tokenId",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "amount",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "soldAmount",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "pricePerToken",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "seller",
-                  type: "address",
-                  internalType: "address",
-                },
-                {
-                  name: "expiresAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "isActive",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
-                  name: "isCancelled",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
-                  name: "createdAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "buyerPaysFee",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
-                  name: "earlySalePenalty",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "isPrimary",
-                  type: "bool",
-                  internalType: "bool",
-                },
-              ],
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getRoleAdmin",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "grantRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "hasRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "initialize",
-          inputs: [
-            {
-              name: "_admin",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_router",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_treasury",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "_usdc",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "isAssetEligibleForListing",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "listingProceeds",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "listingProtocolFees",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "listings",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "soldAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "pricePerToken",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "expiresAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isActive",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "isCancelled",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "createdAt",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "earlySalePenalty",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "isPrimary",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "onERC1155BatchReceived",
-          inputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "",
-              type: "uint256[]",
-              internalType: "uint256[]",
-            },
-            {
-              name: "",
-              type: "uint256[]",
-              internalType: "uint256[]",
-            },
-            {
-              name: "",
-              type: "bytes",
-              internalType: "bytes",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "onERC1155Received",
-          inputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "bytes",
-              internalType: "bytes",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "partnerManager",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract PartnerManager",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "proxiableUUID",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "purchaseTokens",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "renounceRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "callerConfirmation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "revokeRole",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "roboshareTokens",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract RoboshareTokens",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "router",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract RegistryRouter",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "supportsInterface",
-          inputs: [
-            {
-              name: "interfaceId",
-              type: "bytes4",
-              internalType: "bytes4",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "tokenEscrow",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "treasury",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract ITreasury",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "updatePartnerManager",
-          inputs: [
-            {
-              name: "_partnerManager",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateRoboshareTokens",
-          inputs: [
-            {
-              name: "_roboshareTokens",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateRouter",
-          inputs: [
-            {
-              name: "_newRouter",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateTreasury",
-          inputs: [
-            {
-              name: "_treasury",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "updateUSDC",
-          inputs: [
-            {
-              name: "_usdc",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "upgradeToAndCall",
-          inputs: [
-            {
-              name: "newImplementation",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
-          ],
-          outputs: [],
-          stateMutability: "payable",
-        },
-        {
-          type: "function",
-          name: "usdc",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "contract IERC20",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "event",
-          name: "Initialized",
-          inputs: [
-            {
-              name: "version",
-              type: "uint64",
-              indexed: false,
-              internalType: "uint64",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ListingCancelled",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ListingCreated",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "tokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "assetId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: false,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "pricePerToken",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "expiresAt",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              indexed: false,
-              internalType: "bool",
-            },
-            {
-              name: "isPrimary",
-              type: "bool",
-              indexed: false,
-              internalType: "bool",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ListingEnded",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ListingExtended",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "newExpiresAt",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ListingSettled",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sellerProceeds",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "protocolFees",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "PartnerManagerUpdated",
-          inputs: [
-            {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "ProtocolFeeRecorded",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RefundClaimed",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "buyer",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RevenueTokensTraded",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "totalPrice",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoboshareTokensUpdated",
-          inputs: [
-            {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleAdminChanged",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "previousAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "newAdminRole",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleGranted",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RoleRevoked",
-          inputs: [
-            {
-              name: "role",
-              type: "bytes32",
-              indexed: true,
-              internalType: "bytes32",
-            },
-            {
-              name: "account",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "RouterUpdated",
-          inputs: [
-            {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "SalesProceedsRecorded",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "TokensClaimed",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "buyer",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "TreasuryUpdated",
-          inputs: [
-            {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "Upgraded",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "UsdcUpdated",
-          inputs: [
-            {
-              name: "oldAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "newAddress",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "AccessControlBadConfirmation",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "AccessControlUnauthorizedAccount",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "neededRole",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
-            {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "AssetNotActive",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "AssetNotEligibleForListing",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FeesExceedPrice",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InsufficientPayment",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InsufficientTokenBalance",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidAmount",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidDuration",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidInitialization",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidPrice",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidRevenueTokenId",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidTokenType",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "InvalidUSDCContract",
-          inputs: [
-            {
-              name: "token",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ListingIsCancelled",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingNotActive",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingNotCancelled",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingNotEnded",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingNotFound",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingOwnerCannotPurchase",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NoCollateralLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NoRefundToClaim",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NoTokensToClaim",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotInitializing",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NotListingOwner",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "PrimaryListingRequiresBuyerPaysFee",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ReentrancyGuardReentrantCall",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "SafeERC20FailedOperation",
-          inputs: [
-            {
-              name: "token",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "UUPSUnauthorizedCallContext",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "UUPSUnsupportedProxiableUUID",
-          inputs: [
-            {
-              name: "slot",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "UnsupportedUSDCDecimals",
-          inputs: [
-            {
-              name: "decimals",
-              type: "uint8",
-              internalType: "uint8",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ZeroAddress",
-          inputs: [],
-        },
-      ],
-      inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
-      deploymentScript: "Deploy.s.sol",
-    },
-  },
+      "inheritedFunctions": {}
+    }
+  }
 } as const;
 
 export default deployedContracts satisfies GenericContractsDeclaration;

@@ -12,14 +12,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { BuyTokensModal } from "~~/components/markets/BuyTokensModal";
 import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
-import { ClaimRefundModal } from "~~/components/markets/ClaimRefundModal";
 import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
-import { ClaimTokensModal } from "~~/components/markets/ClaimTokensModal";
 import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
 import { CancelListingModal } from "~~/components/partner/CancelListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
-import { FinalizeListingModal } from "~~/components/partner/FinalizeListingModal";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
@@ -43,8 +40,6 @@ interface SubgraphListing {
   isCancelled: boolean;
   isEnded: boolean;
   endedAt?: string | null;
-  claimedAmount: string;
-  refundedAmount: string;
   createdAt: string;
 }
 
@@ -98,7 +93,6 @@ const MarketsPage: NextPage = () => {
   const [assetEarnings, setAssetEarnings] = useState<SubgraphAssetEarnings[]>([]);
   const [partners, setPartners] = useState<SubgraphPartner[]>([]);
   const [userListingIds, setUserListingIds] = useState<Set<string>>(new Set());
-  const [userRefundedListingIds, setUserRefundedListingIds] = useState<Set<string>>(new Set());
   const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
   const [soldOutAtByListing, setSoldOutAtByListing] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
@@ -126,12 +120,9 @@ const MarketsPage: NextPage = () => {
   // Modal states
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
-  const [isClaimTokensOpen, setIsClaimTokensOpen] = useState(false);
-  const [isClaimRefundOpen, setIsClaimRefundOpen] = useState(false);
   const [isClaimEarningsOpen, setIsClaimEarningsOpen] = useState(false);
   const [isClaimSettlementOpen, setIsClaimSettlementOpen] = useState(false);
   const [isListTokensOpen, setIsListTokensOpen] = useState(false);
-  const [isFinalizeListingOpen, setIsFinalizeListingOpen] = useState(false);
   const [isEndListingOpen, setIsEndListingOpen] = useState(false);
   const [isCancelListingOpen, setIsCancelListingOpen] = useState(false);
   const [isDistributeEarningsOpen, setIsDistributeEarningsOpen] = useState(false);
@@ -159,9 +150,6 @@ const MarketsPage: NextPage = () => {
         tokenTrades(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
           listingId
         }
-        refundClaims(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
-          listingId
-        }
       `
           : "";
 
@@ -186,8 +174,6 @@ const MarketsPage: NextPage = () => {
                 isCancelled
                 isEnded
                 endedAt
-                claimedAmount
-                refundedAmount
                 createdAt
               }
               vehicles(first: 100) {
@@ -269,13 +255,6 @@ const MarketsPage: NextPage = () => {
         } else {
           setUserListingIds(new Set());
         }
-
-        if (data?.refundClaims) {
-          const ids = new Set<string>(data.refundClaims.map((c: any) => c.listingId));
-          setUserRefundedListingIds(ids);
-        } else {
-          setUserRefundedListingIds(new Set());
-        }
       } catch (e: any) {
         console.error("Error fetching market data:", e);
         setError(e.message || "Failed to fetch market data");
@@ -292,20 +271,12 @@ const MarketsPage: NextPage = () => {
     isLoading: isLoadingHoldings,
     refetch: refetchHoldings,
   } = useReadContracts({
-    contracts: listings.flatMap(l => [
-      {
-        address: deployedContracts[31337]?.Marketplace?.address,
-        abi: deployedContracts[31337]?.Marketplace?.abi,
-        functionName: "buyerTokens",
-        args: [BigInt(l.id), address],
-      },
-      {
-        address: deployedContracts[31337]?.RoboshareTokens?.address,
-        abi: deployedContracts[31337]?.RoboshareTokens?.abi,
-        functionName: "balanceOf",
-        args: [address, BigInt(l.assetId) + 1n],
-      },
-    ]) as any,
+    contracts: listings.map(l => ({
+      address: deployedContracts[31337]?.RoboshareTokens?.address,
+      abi: deployedContracts[31337]?.RoboshareTokens?.abi,
+      functionName: "balanceOf",
+      args: [address, BigInt(l.tokenId)],
+    })) as any,
     // Also used for action-priority sorting and CTA visibility heuristics, not just the holdings-only filter.
     query: { enabled: !!address && listings.length > 0 },
   });
@@ -370,7 +341,6 @@ const MarketsPage: NextPage = () => {
   // Reset user-specific filters when the account changes
   useEffect(() => {
     setUserListingIds(new Set());
-    setUserRefundedListingIds(new Set());
     setRecentPurchases(new Set());
   }, [address]);
 
@@ -386,13 +356,9 @@ const MarketsPage: NextPage = () => {
     const ids = new Set<string>();
     if (holdingsData) {
       listings.forEach((listing, index) => {
-        const escrowResult = holdingsData[index * 2];
-        const walletResult = holdingsData[index * 2 + 1];
-
-        const hasEscrow = escrowResult?.status === "success" && (escrowResult.result as bigint) > 0n;
+        const walletResult = holdingsData[index];
         const hasWallet = walletResult?.status === "success" && (walletResult.result as bigint) > 0n;
-
-        if (hasEscrow || hasWallet) {
+        if (hasWallet) {
           ids.add(listing.id);
         }
       });
@@ -532,8 +498,7 @@ const MarketsPage: NextPage = () => {
 
       const isSeller = listing.seller.toLowerCase() === address.toLowerCase();
       const hasBoughtListing = userListingIds.has(listing.id) || recentPurchases.has(listing.id);
-      const hasTokensOrEscrowForListing = userHoldingsIds.has(listing.id);
-      const refundAlreadyClaimed = userRefundedListingIds.has(listing.id);
+      const hasTokensForListing = userHoldingsIds.has(listing.id);
       const preview = assetActionPreview.get(listing.assetId);
       const assetStatus = assetStatusById.get(listing.assetId) ?? -1;
       const isAssetSettled = assetStatus === 3 || assetStatus === 4;
@@ -542,7 +507,7 @@ const MarketsPage: NextPage = () => {
 
       // Cancelled listings stay in the "cancelled last" bucket, but can still be actionable for refund claims.
       if (isCancelled) {
-        return hasTokensOrEscrowForListing && !refundAlreadyClaimed;
+        return false;
       }
 
       // Seller-managed listings are often actionable while the listing is live/expired.
@@ -556,20 +521,12 @@ const MarketsPage: NextPage = () => {
 
       // Buyer/holder actions that the card can actually surface.
       if (hasBoughtListing && hasClaimableEarnings) return true;
-      if (hasTokensOrEscrowForListing && hasClaimableSettlement) return true;
+      if (hasTokensForListing && hasClaimableSettlement) return true;
 
       // Conservative fallback: do not prioritize based on holdings/history alone.
       return false;
     },
-    [
-      address,
-      assetActionPreview,
-      assetStatusById,
-      recentPurchases,
-      userHoldingsIds,
-      userListingIds,
-      userRefundedListingIds,
-    ],
+    [address, assetActionPreview, assetStatusById, recentPurchases, userHoldingsIds, userListingIds],
   );
 
   // Filter and sort listings
@@ -587,12 +544,6 @@ const MarketsPage: NextPage = () => {
     if (showOnlyHoldings) {
       if (!address) return [];
       filtered = filtered.filter(l => {
-        const isCancelled = l.isCancelled || l.status === "cancelled";
-        if (isCancelled) {
-          const hasTokens = userHoldingsIds.has(l.id);
-          const hasUserRefund = userRefundedListingIds.has(l.id);
-          if (hasUserRefund && !hasTokens) return false;
-        }
         // Include if user traded in this listing (subgraph)
         if (userListingIds.has(l.id)) return true;
         // Include if user recently purchased (optimistic)
@@ -659,7 +610,6 @@ const MarketsPage: NextPage = () => {
     userListingIds,
     recentPurchases,
     userHoldingsIds,
-    userRefundedListingIds,
     address,
     hasLikelyAction,
   ]);
@@ -899,14 +849,6 @@ const MarketsPage: NextPage = () => {
                   setSelectedListing(listing);
                   setIsBuyModalOpen(true);
                 }}
-                onClaimTokensClick={() => {
-                  setSelectedListing(listing);
-                  setIsClaimTokensOpen(true);
-                }}
-                onClaimRefundClick={() => {
-                  setSelectedListing(listing);
-                  setIsClaimRefundOpen(true);
-                }}
                 onClaimEarningsClick={() => {
                   setSelectedListing(listing);
                   setIsClaimEarningsOpen(true);
@@ -919,10 +861,6 @@ const MarketsPage: NextPage = () => {
                   setSelectedListing(listing);
                   setPrefillListAmount(amount);
                   setIsListTokensOpen(true);
-                }}
-                onFinalizeListingClick={() => {
-                  setSelectedListing(listing);
-                  setIsFinalizeListingOpen(true);
                 }}
                 onEndListingClick={() => {
                   setSelectedListing(listing);
@@ -1021,44 +959,6 @@ const MarketsPage: NextPage = () => {
       {/* Claim Modals */}
       {selectedListing && (
         <>
-          <ClaimTokensModal
-            isOpen={isClaimTokensOpen}
-            onClose={() => {
-              setIsClaimTokensOpen(false);
-              setSelectedListing(null);
-              fetchData(false);
-              refetchHoldings();
-            }}
-            listingId={selectedListing.id}
-            tokenAmount={(() => {
-              // Note: MarketAssetCard reads actual escrowed amount from contract
-              // Here we just pass a placeholder or we could fetch it.
-              // For better UX, we'll let the modal fetch it or pass it if we had it.
-              // Actually, the modal should read it from contract.
-              // But I defined the modal to take `tokenAmount` as prop.
-              // I'll update the modal to read it internally.
-              return "0"; // Modal will fetch
-            })()}
-            vehicleName={(() => {
-              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
-              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
-            })()}
-          />
-          <ClaimRefundModal
-            isOpen={isClaimRefundOpen}
-            onClose={() => {
-              setIsClaimRefundOpen(false);
-              setSelectedListing(null);
-              fetchData(false);
-              refetchHoldings();
-            }}
-            listingId={selectedListing.id}
-            refundAmount="0" // Modal will fetch
-            vehicleName={(() => {
-              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
-              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
-            })()}
-          />
           <ClaimEarningsModal
             isOpen={isClaimEarningsOpen}
             onClose={() => {
@@ -1111,21 +1011,6 @@ const MarketsPage: NextPage = () => {
             return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
           })()}
           prefillAmount={prefillListAmount}
-        />
-      )}
-
-      {selectedListing && (
-        <FinalizeListingModal
-          isOpen={isFinalizeListingOpen}
-          onSuccess={() => {
-            applyListingActionSuccess(selectedListing.id, { isEnded: true, status: "ended" });
-          }}
-          onClose={() => {
-            setIsFinalizeListingOpen(false);
-            setSelectedListing(null);
-          }}
-          listingId={selectedListing.id}
-          tokenAmount={selectedListing.amount}
         />
       )}
 
