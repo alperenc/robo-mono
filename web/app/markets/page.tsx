@@ -14,7 +14,6 @@ import { BuyTokensModal } from "~~/components/markets/BuyTokensModal";
 import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
 import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
-import { CancelListingModal } from "~~/components/partner/CancelListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
@@ -37,7 +36,6 @@ interface SubgraphListing {
   buyerPaysFee: boolean;
   isPrimary: boolean;
   status: string;
-  isCancelled: boolean;
   isEnded: boolean;
   endedAt?: string | null;
   createdAt: string;
@@ -124,7 +122,6 @@ const MarketsPage: NextPage = () => {
   const [isClaimSettlementOpen, setIsClaimSettlementOpen] = useState(false);
   const [isListTokensOpen, setIsListTokensOpen] = useState(false);
   const [isEndListingOpen, setIsEndListingOpen] = useState(false);
-  const [isCancelListingOpen, setIsCancelListingOpen] = useState(false);
   const [isDistributeEarningsOpen, setIsDistributeEarningsOpen] = useState(false);
   const [isSettleAssetOpen, setIsSettleAssetOpen] = useState(false);
   const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
@@ -171,7 +168,6 @@ const MarketsPage: NextPage = () => {
                 expiresAt
                 buyerPaysFee
                 status
-                isCancelled
                 isEnded
                 endedAt
                 createdAt
@@ -231,13 +227,12 @@ const MarketsPage: NextPage = () => {
             if (!prevListing) return listing;
 
             // Protect optimistic terminal transitions from stale subgraph snapshots.
-            const hasOptimisticTerminal = prevListing.isEnded || prevListing.isCancelled;
-            const incomingIsTerminal = listing.isEnded || listing.isCancelled;
+            const hasOptimisticTerminal = prevListing.isEnded;
+            const incomingIsTerminal = listing.isEnded;
             if (hasOptimisticTerminal && !incomingIsTerminal) {
               return {
                 ...listing,
                 isEnded: prevListing.isEnded,
-                isCancelled: prevListing.isCancelled,
                 status: prevListing.status,
               };
             }
@@ -327,7 +322,7 @@ const MarketsPage: NextPage = () => {
       let changed = false;
       const nowSec = Math.floor(Date.now() / 1000).toString();
       for (const listing of listings) {
-        const isActive = !listing.isCancelled && !listing.isEnded && listing.status !== "expired";
+        const isActive = !listing.isEnded && listing.status !== "expired";
         const isSoldOut = listing.amount === "0";
         if (isActive && isSoldOut && !next[listing.id]) {
           next[listing.id] = nowSec;
@@ -428,7 +423,6 @@ const MarketsPage: NextPage = () => {
   const tokenSoldTotals = useMemo(() => {
     const totals = new Map<string, bigint>();
     for (const listing of listings) {
-      if (listing.isCancelled) continue;
       const sold = listing.amountSold ? BigInt(listing.amountSold) : 0n;
       if (sold <= 0n) continue;
       totals.set(listing.tokenId, (totals.get(listing.tokenId) ?? 0n) + sold);
@@ -454,11 +448,7 @@ const MarketsPage: NextPage = () => {
 
       const soldSupplyForAllocation = tokenSoldTotals.get(listing.tokenId) ?? listingSoldAmount;
       const listingActualEarnings =
-        listing.isCancelled ||
-        !earning ||
-        earning.totalEarnings === "0" ||
-        listingSoldAmount <= 0n ||
-        soldSupplyForAllocation <= 0n
+        !earning || earning.totalEarnings === "0" || listingSoldAmount <= 0n || soldSupplyForAllocation <= 0n
           ? 0n
           : (BigInt(earning.totalEarnings) * listingSoldAmount) / soldSupplyForAllocation;
 
@@ -489,10 +479,9 @@ const MarketsPage: NextPage = () => {
   const hasLikelyAction = useCallback(
     (listing: SubgraphListing): boolean => {
       // Generic actionable state for any user (e.g. buyable active listings).
-      const isCancelled = listing.isCancelled || listing.status === "cancelled";
       const isEndedOrExpired = listing.isEnded || listing.status === "expired";
       const hasAvailableTokens = BigInt(listing.amount) > 0n;
-      if (!isCancelled && !isEndedOrExpired && hasAvailableTokens) return true;
+      if (!isEndedOrExpired && hasAvailableTokens) return true;
 
       if (!address) return false;
 
@@ -505,15 +494,10 @@ const MarketsPage: NextPage = () => {
       const hasClaimableEarnings = (preview?.claimableEarnings ?? 0n) > 0n;
       const hasClaimableSettlement = (preview?.claimableSettlement ?? 0n) > 0n;
 
-      // Cancelled listings stay in the "cancelled last" bucket, but can still be actionable for refund claims.
-      if (isCancelled) {
-        return false;
-      }
-
       // Seller-managed listings are often actionable while the listing is live/expired.
       // Ended seller listings can still be actionable while the underlying asset remains unsettled
       // (e.g. Distribute Earnings / Settle Asset on primary listings).
-      if (isSeller && !isCancelled && (!listing.isEnded || !isAssetSettled)) return true;
+      if (isSeller && (!listing.isEnded || !isAssetSettled)) return true;
 
       // Non-ended listings the user participated in often still expose actionable CTAs
       // (e.g. claim earnings on expired listings) even when generic availability is zero.
@@ -558,12 +542,7 @@ const MarketsPage: NextPage = () => {
 
     // Sort (active listings first)
     filtered.sort((a, b) => {
-      // Keep cancelled listings pinned to the end regardless of selected sort.
-      const aCancelled = a.isCancelled || a.status === "cancelled";
-      const bCancelled = b.isCancelled || b.status === "cancelled";
-      if (aCancelled !== bCancelled) return aCancelled ? 1 : -1;
-
-      // For non-cancelled listings, surface listings that likely have user actions first.
+      // Surface listings that likely have user actions first.
       const aHasAction = hasLikelyAction(a);
       const bHasAction = hasLikelyAction(b);
       if (aHasAction !== bHasAction) return aHasAction ? -1 : 1;
@@ -630,7 +609,7 @@ const MarketsPage: NextPage = () => {
     if (!address) return counts;
     const lower = address.toLowerCase();
     for (const listing of listings) {
-      const isActive = !listing.isCancelled && !listing.isEnded && listing.status !== "expired";
+      const isActive = !listing.isEnded && listing.status !== "expired";
       if (!isActive) continue;
       if (listing.seller.toLowerCase() !== lower) continue;
       counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
@@ -866,10 +845,6 @@ const MarketsPage: NextPage = () => {
                   setSelectedListing(listing);
                   setIsEndListingOpen(true);
                 }}
-                onCancelListingClick={() => {
-                  setSelectedListing(listing);
-                  setIsCancelListingOpen(true);
-                }}
                 onDistributeEarningsClick={() => {
                   setSelectedListing(listing);
                   setIsDistributeEarningsOpen(true);
@@ -924,7 +899,7 @@ const MarketsPage: NextPage = () => {
             if (!address) return "0";
             const tokenId = selectedListing.tokenId;
             const sellerListings = listings.filter(l => {
-              const isActive = !l.isCancelled && !l.isEnded && l.status !== "expired";
+              const isActive = !l.isEnded && l.status !== "expired";
               return isActive && l.tokenId === tokenId && l.seller.toLowerCase() === address.toLowerCase();
             });
             const total = sellerListings.reduce((sum, l) => sum + BigInt(l.amount), 0n);
@@ -950,9 +925,7 @@ const MarketsPage: NextPage = () => {
             const token = tokens.find(t => t.revenueTokenId === tokenId);
             return token?.supply;
           })()}
-          relatedListingIds={listings
-            .filter(l => l.tokenId === selectedListing.tokenId && !l.isCancelled && l.status !== "cancelled")
-            .map(l => l.id)}
+          relatedListingIds={listings.filter(l => l.tokenId === selectedListing.tokenId).map(l => l.id)}
         />
       )}
 
@@ -1065,21 +1038,6 @@ const MarketsPage: NextPage = () => {
             const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
             return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
           })()}
-        />
-      )}
-
-      {selectedListing && (
-        <CancelListingModal
-          isOpen={isCancelListingOpen}
-          onSuccess={() => {
-            refreshMarketsAfterSuccess();
-          }}
-          onClose={() => {
-            setIsCancelListingOpen(false);
-            setSelectedListing(null);
-          }}
-          listingId={selectedListing.id}
-          isPrimary={selectedListing.isPrimary}
         />
       )}
     </div>

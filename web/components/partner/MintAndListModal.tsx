@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
@@ -28,7 +26,6 @@ export const MintAndListModal = ({
   assetValue,
   isPrimaryListing = true,
 }: MintAndListModalProps) => {
-  const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -39,7 +36,6 @@ export const MintAndListModal = ({
     tokenPrice: "",
     revenueShareBP: "",
     targetYieldBP: "",
-    listingDurationDays: "30",
   });
 
   const assetValueBigInt = assetValue ? BigInt(assetValue) : 0n;
@@ -53,9 +49,6 @@ export const MintAndListModal = ({
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
 
   const { writeContractAsync: writeVehicleRegistry } = useScaffoldWriteContract({ contractName: "VehicleRegistry" });
-  const { writeContractAsync: writeRoboshareTokens } = useScaffoldWriteContract({ contractName: "RoboshareTokens" });
-
-  const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
 
   const { data: requiredCollateral } = useScaffoldReadContract({
     contractName: "Treasury",
@@ -63,14 +56,6 @@ export const MintAndListModal = ({
     args: [assetValueBigInt, targetYieldBP],
     watch: true,
     query: { enabled: currentStep >= 1 },
-  });
-
-  const { data: isApproved } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "isApprovedForAll",
-    args: [connectedAddress, marketplaceAddress],
-    watch: true,
-    query: { enabled: currentStep >= 2 },
   });
 
   useEscClose(isOpen, onClose);
@@ -94,9 +79,6 @@ export const MintAndListModal = ({
         formData.maturityMonths.trim()
       );
     }
-    if (currentStep === 2) {
-      return formData.listingDurationDays.trim();
-    }
     return true;
   })();
 
@@ -104,8 +86,7 @@ export const MintAndListModal = ({
     (showValidation || touchedFields[field as string]) && !formData[field]?.trim();
   const inputClass = (base: string, field: keyof typeof formData) => `${base} ${isMissing(field) ? "input-error" : ""}`;
   const markRequiredForStep = () => {
-    const requiredFields =
-      currentStep === 1 ? ["tokenPrice", "revenueShareBP", "targetYieldBP", "maturityMonths"] : ["listingDurationDays"];
+    const requiredFields = ["tokenPrice", "revenueShareBP", "targetYieldBP", "maturityMonths"];
     const nextTouched: Record<string, boolean> = {};
     requiredFields.forEach(field => {
       nextTouched[field] = true;
@@ -131,58 +112,28 @@ export const MintAndListModal = ({
     }
   };
 
-  const handleMintAndList = async () => {
-    if (!marketplaceAddress) return;
-
+  const handleCreatePrimaryPool = async () => {
     setIsProcessing(true);
     try {
       const maturityTimestamp = BigInt(
         Math.floor(Date.now() / 1000) + parseInt(formData.maturityMonths) * 30 * 24 * 60 * 60,
       );
-      const listingDurationSeconds = BigInt(parseInt(formData.listingDurationDays) * 24 * 60 * 60);
-
-      if (!isApproved) {
-        await writeRoboshareTokens(
-          {
-            functionName: "setApprovalForAll",
-            args: [marketplaceAddress, true],
-          },
-          { blockConfirmations: 1 },
-        );
-      }
 
       await writeVehicleRegistry({
-        functionName: "mintRevenueTokensAndList",
-        args: [
-          BigInt(vehicleId),
-          tokenPriceBigInt,
-          maturityTimestamp,
-          revenueShareBP,
-          targetYieldBP,
-          listingDurationSeconds,
-          true,
-        ],
+        functionName: "mintRevenueTokensAndCreatePrimaryPool",
+        args: [BigInt(vehicleId), tokenPriceBigInt, maturityTimestamp, revenueShareBP, targetYieldBP, 0n, false, false],
       });
       onSuccess?.();
       onClose();
     } catch (e) {
       console.error("Error:", e);
-      notification.error(`Mint & List failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+      notification.error(`Primary pool creation failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
   if (!isOpen) return null;
-
-  const listingExpiryDate = new Date(Date.now() + parseInt(formData.listingDurationDays || "0") * 24 * 60 * 60 * 1000);
-  const formatDate = (date: Date) =>
-    date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
 
   return (
     <div className="modal modal-open">
@@ -197,7 +148,7 @@ export const MintAndListModal = ({
             <button type="button" className="btn btn-xs btn-ghost btn-circle" onClick={handleBack}>
               ←
             </button>
-            {currentStep === 1 ? "Financial Terms" : "Marketplace Listing"}
+            {currentStep === 1 ? "Financial Terms" : "Primary Pool Review"}
           </h3>
         </div>
 
@@ -312,7 +263,7 @@ export const MintAndListModal = ({
             <div className="flex flex-col justify-between h-full gap-3">
               <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-xl p-4 border border-base-300">
                 <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70 dark:text-white/70 mb-4">
-                  Listing Summary
+                  Pool Summary
                 </h4>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
@@ -329,7 +280,7 @@ export const MintAndListModal = ({
                   </div>
                   <div className="divider my-1 opacity-20"></div>
                   <div className="flex justify-between items-center">
-                    <span className="font-normal dark:text-white/80">Total Listing Value</span>
+                    <span className="font-normal dark:text-white/80">Total Pool Value</span>
                     <span className="font-bold text-success text-xl">
                       {assetValue ? `${formatTokenAmount(assetValueBigInt, decimals)} ${symbol}` : "—"}
                     </span>
@@ -346,47 +297,28 @@ export const MintAndListModal = ({
                     </span>
                   </div>
                   <p className="text-xs opacity-80 mt-2">
-                    💰 Estimated buffer if the listing fully sells. The actual buffer is funded when the listing ends,
-                    based on tokens sold.
+                    Estimated partner-funded buffer at full subscription. Investor principal is not used to fund
+                    buffers.
                   </p>
                 </div>
               )}
 
               <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
-                <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Listing Options</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="form-control">
-                    <label className="label pb-1">
-                      <span className="label-text font-normal">Listing Duration</span>
-                      {isMissing("listingDurationDays") && <span className="label-text-alt text-error">Required</span>}
-                    </label>
-                    <select
-                      name="listingDurationDays"
-                      className={`select select-bordered w-full ${
-                        isMissing("listingDurationDays") ? "select-error" : ""
-                      }`}
-                      value={formData.listingDurationDays}
-                      onChange={handleInputChange}
-                      onBlur={handleFieldBlur}
-                    >
-                      <option value="7">7 Days</option>
-                      <option value="14">14 Days</option>
-                      <option value="30">30 Days</option>
-                      <option value="60">60 Days</option>
-                      <option value="90">90 Days</option>
-                    </select>
-                    <div className="flex flex-col items-end pt-2 text-right">
-                      <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
-                      <span className="text-sm font-bold text-base-content">{formatDate(listingExpiryDate)}</span>
-                    </div>
+                <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Primary Pool Defaults</h4>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-70">Max Supply</span>
+                    <span className="font-semibold">
+                      {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "—"} Tokens
+                    </span>
                   </div>
-                  <div className="form-control">
-                    <label className="label pb-1">
-                      <span className="label-text font-normal">Fees</span>
-                    </label>
-                    <select className="select select-bordered w-full" disabled={isPrimaryListing}>
-                      <option>Buyers pay fees</option>
-                    </select>
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-70">Proceeds Profile</span>
+                    <span className="font-semibold">Early Liquidity</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-70">Protection</span>
+                    <span className="font-semibold">Disabled</span>
                   </div>
                 </div>
               </div>
@@ -394,8 +326,8 @@ export const MintAndListModal = ({
               <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
                 <p className="opacity-80 mt-1 mb-1">
                   {isPrimaryListing
-                    ? "Your tokens will be held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."
-                    : "Your tokens will be transferred to marketplace escrow for sale. Buyers can purchase partial amounts. Unsold tokens will be returned to you when the listing ends."}
+                    ? "This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen."
+                    : "Secondary listings still require seller-owned tokens and settle immediately on purchase."}
                 </p>
               </div>
             </div>
@@ -414,11 +346,11 @@ export const MintAndListModal = ({
             <button
               type="button"
               className="btn btn-primary w-full"
-              onClick={currentStep === 2 ? handleMintAndList : handleNext}
+              onClick={currentStep === 2 ? handleCreatePrimaryPool : handleNext}
               disabled={isProcessing || !isStepValid}
             >
               {isProcessing ? <span className="loading loading-spinner loading-xs"></span> : null}
-              {isProcessing ? "Processing..." : currentStep === 2 ? "Go Live" : "Continue →"}
+              {isProcessing ? "Processing..." : currentStep === 2 ? "Create Primary Pool" : "Continue →"}
             </button>
           </div>
           {!isStepValid && (

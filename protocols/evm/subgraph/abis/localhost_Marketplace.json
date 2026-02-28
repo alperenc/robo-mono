@@ -129,38 +129,6 @@
   },
   {
     "type": "function",
-    "name": "cancelListing",
-    "inputs": [
-      {
-        "name": "listingId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "clearTokenEscrow",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "closePrimaryPool",
     "inputs": [
       {
@@ -328,24 +296,6 @@
   },
   {
     "type": "function",
-    "name": "creditTokenEscrow",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "endListing",
     "inputs": [
       {
@@ -460,11 +410,6 @@
           },
           {
             "name": "isActive",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "isCancelled",
             "type": "bool",
             "internalType": "bool"
           },
@@ -754,11 +699,6 @@
       },
       {
         "name": "isActive",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "isCancelled",
         "type": "bool",
         "internalType": "bool"
       },
@@ -1341,25 +1281,6 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ListingCancelled",
-    "inputs": [
-      {
-        "name": "listingId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "seller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1983,17 +1904,7 @@
   },
   {
     "type": "error",
-    "name": "ListingIsCancelled",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "ListingNotActive",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ListingNotCancelled",
     "inputs": []
   },
   {
@@ -2009,11 +1920,6 @@
   {
     "type": "error",
     "name": "ListingOwnerCannotPurchase",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NoRefundToClaim",
     "inputs": []
   },
   {

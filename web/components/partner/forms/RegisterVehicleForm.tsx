@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { encodeAbiParameters, parseAbiParameters, parseUnits } from "viem";
 import { useAccount } from "wagmi";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
@@ -22,7 +21,7 @@ interface RegisterVehicleFormProps {
 const STEP_TITLES = {
   1: "Vehicle Details",
   2: "Financial Terms",
-  3: "Marketplace Listing",
+  3: "Primary Pool Review",
 };
 
 export const RegisterVehicleForm = ({
@@ -61,8 +60,6 @@ export const RegisterVehicleForm = ({
     assetValue: "",
     revenueShareBP: "",
     targetYieldBP: "",
-    // Step 3: Listing
-    listingDurationDays: "30",
   });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -78,16 +75,6 @@ export const RegisterVehicleForm = ({
   } = useScaffoldWriteContract({
     contractName: "VehicleRegistry",
   });
-  const {
-    writeContractAsync: writeRoboshareTokens,
-    isMining: isWritingRoboshareTokens,
-    isPending: isRoboshareWritePending,
-  } = useScaffoldWriteContract({
-    contractName: "RoboshareTokens",
-  });
-
-  const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
-
   const tokenPriceBigInt = formData.tokenPrice ? parseUnits(formData.tokenPrice, 6) : 0n;
   const assetValueBigInt = formData.assetValue ? parseUnits(formData.assetValue, 6) : 0n;
   const toBasisPoints = (value: string) => {
@@ -97,29 +84,12 @@ export const RegisterVehicleForm = ({
   };
   const revenueShareBP = toBasisPoints(formData.revenueShareBP);
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
-  const listingExpiryDate = new Date(Date.now() + parseInt(formData.listingDurationDays || "0") * 24 * 60 * 60 * 1000);
-  const formatListingDate = (date: Date) =>
-    date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
   const { data: requiredCollateral } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "getTotalBufferRequirement",
     args: [assetValueBigInt, targetYieldBP],
     watch: true,
     query: { enabled: currentStep >= 2 },
-  });
-
-  const { data: isApproved } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "isApprovedForAll",
-    args: [connectedAddress, marketplaceAddress],
-    watch: true,
-    query: { enabled: currentStep >= 3 },
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -391,8 +361,8 @@ export const RegisterVehicleForm = ({
     }
   };
 
-  // Step 3 action: Register, Mint & List
-  const handleRegisterMintAndList = async () => {
+  // Step 3 action: Register and create the primary pool.
+  const handleRegisterAndCreatePrimaryPool = async () => {
     setIsProcessing(true);
     setIsAwaitingSignature(true);
     try {
@@ -402,23 +372,9 @@ export const RegisterVehicleForm = ({
       const maturityTimestamp = BigInt(
         Math.floor(Date.now() / 1000) + parseInt(formData.maturityMonths) * 30 * 24 * 60 * 60,
       );
-      const listingDurationSeconds = BigInt(parseInt(formData.listingDurationDays) * 24 * 60 * 60);
-
-      // Approve marketplace for tokens if needed (wait for confirmation)
-      if (!isApproved) {
-        await writeRoboshareTokens(
-          {
-            functionName: "setApprovalForAll",
-            args: [marketplaceAddress, true],
-          },
-          { blockConfirmations: 1 },
-        );
-      }
-
-      // Execute the main transaction
 
       await writeVehicleRegistry({
-        functionName: "registerAssetMintAndList",
+        functionName: "registerAssetMintAndCreatePrimaryPool",
         args: [
           encodedData,
           assetValueBigInt,
@@ -426,8 +382,9 @@ export const RegisterVehicleForm = ({
           maturityTimestamp,
           revenueShareBP,
           targetYieldBP,
-          listingDurationSeconds,
-          true,
+          0n,
+          false,
+          false,
         ],
       });
       onSuccess?.();
@@ -470,12 +427,15 @@ export const RegisterVehicleForm = ({
   };
 
   const isRegisterOnly = maxStep === 1 && !allowMintList;
-  const isTxPending =
-    isWritingVehicleRegistry || isWritingRoboshareTokens || isVehicleWritePending || isRoboshareWritePending;
+  const isTxPending = isWritingVehicleRegistry || isVehicleWritePending;
   const isBusy = isProcessing || isTxPending || isAwaitingSignature;
   const isLastStep = currentStep === 3;
-  const primaryLabel = isRegisterOnly ? "Register" : isLastStep ? "Go Live" : "Continue →";
-  const primaryAction = isRegisterOnly ? handleRegisterOnly : isLastStep ? handleRegisterMintAndList : handleNext;
+  const primaryLabel = isRegisterOnly ? "Register" : isLastStep ? "Create Primary Pool" : "Continue →";
+  const primaryAction = isRegisterOnly
+    ? handleRegisterOnly
+    : isLastStep
+      ? handleRegisterAndCreatePrimaryPool
+      : handleNext;
   const isMissing = (field: keyof typeof formData) =>
     (showValidation || touchedFields[field as string]) && !formData[field]?.trim();
   const inputClass = (base: string, field: keyof typeof formData) => `${base} ${isMissing(field) ? "input-error" : ""}`;
@@ -485,7 +445,7 @@ export const RegisterVehicleForm = ({
         ? ["assetValue", "vin", "make", "model", "year"]
         : currentStep === 2
           ? ["tokenPrice", "revenueShareBP", "targetYieldBP", "maturityMonths"]
-          : ["listingDurationDays"];
+          : [];
     const nextTouched: Record<string, boolean> = {};
     requiredFields.forEach(field => {
       nextTouched[field] = true;
@@ -512,7 +472,7 @@ export const RegisterVehicleForm = ({
       );
     }
     if (currentStep === 3) {
-      return formData.listingDurationDays.trim();
+      return true;
     }
     return true;
   })();
@@ -854,13 +814,13 @@ export const RegisterVehicleForm = ({
           </div>
         )}
 
-        {/* Step 3: Marketplace Listing */}
+        {/* Step 3: Primary Pool Review */}
         {currentStep === 3 && (
           <div className="flex flex-col justify-between h-full gap-3">
-            {/* Listing Summary */}
+            {/* Primary Pool Summary */}
             <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-xl p-4 border border-base-300">
               <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70 dark:text-white/70 mb-4">
-                Listing Summary
+                Pool Summary
               </h4>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -877,7 +837,7 @@ export const RegisterVehicleForm = ({
                 </div>
                 <div className="divider my-1 opacity-20"></div>
                 <div className="flex justify-between items-center">
-                  <span className="font-normal dark:text-white/80">Total Listing Value</span>
+                  <span className="font-normal dark:text-white/80">Total Pool Value</span>
                   <span className="font-bold text-success text-xl">
                     {formData.assetValue ? `${Number(formData.assetValue).toLocaleString()} ${symbol}` : "—"}
                   </span>
@@ -894,46 +854,27 @@ export const RegisterVehicleForm = ({
                   </span>
                 </div>
                 <p className="text-xs opacity-80 mt-2">
-                  💰 Estimated buffer if the listing fully sells. The actual buffer is funded when the listing ends,
-                  based on tokens sold.
+                  Estimated partner-funded buffer at full subscription. Investor principal is not used to fund buffers.
                 </p>
               </div>
             )}
 
-            {/* Listing Configuration */}
             <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
-              <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Listing Options</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="form-control">
-                  <label className="label pb-1">
-                    <span className="label-text font-normal">Listing Duration</span>
-                    {isMissing("listingDurationDays") && <span className="label-text-alt text-error">Required</span>}
-                  </label>
-                  <select
-                    name="listingDurationDays"
-                    className={`select select-bordered w-full ${isMissing("listingDurationDays") ? "select-error" : ""}`}
-                    value={formData.listingDurationDays}
-                    onChange={handleInputChange}
-                    onBlur={handleFieldBlur}
-                  >
-                    <option value="7">7 Days</option>
-                    <option value="14">14 Days</option>
-                    <option value="30">30 Days</option>
-                    <option value="60">60 Days</option>
-                    <option value="90">90 Days</option>
-                  </select>
-                  <div className="flex flex-col items-end pt-2 text-right">
-                    <span className="text-xs uppercase opacity-50 font-bold">Expires On</span>
-                    <span className="text-sm font-bold text-base-content">{formatListingDate(listingExpiryDate)}</span>
-                  </div>
+              <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Primary Pool Defaults</h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="opacity-70">Max Supply</span>
+                  <span className="font-semibold">
+                    {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "—"} Tokens
+                  </span>
                 </div>
-                <div className="form-control">
-                  <label className="label pb-1">
-                    <span className="label-text font-normal">Fees</span>
-                  </label>
-                  <select className="select select-bordered w-full" disabled={isPrimaryListing}>
-                    <option>Buyers pay fees</option>
-                  </select>
+                <div className="flex justify-between items-center">
+                  <span className="opacity-70">Proceeds Profile</span>
+                  <span className="font-semibold">Early Liquidity</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="opacity-70">Protection</span>
+                  <span className="font-semibold">Disabled</span>
                 </div>
               </div>
             </div>
@@ -941,8 +882,8 @@ export const RegisterVehicleForm = ({
             <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
               <p className="opacity-80 mt-1 mb-1">
                 {isPrimaryListing
-                  ? "Your tokens will be held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."
-                  : "Your tokens will be transferred to marketplace escrow for sale. Buyers can purchase partial amounts. Unsold tokens will be returned to you when the listing ends."}
+                  ? "This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen."
+                  : "Secondary listings still require seller-owned tokens and settle immediately on purchase."}
               </p>
             </div>
           </div>
@@ -999,7 +940,7 @@ export const RegisterVehicleForm = ({
               }}
               disabled={isBusy || !isStepValid}
             >
-              Continue to Mint & List
+              Continue to Create Pool
             </button>
           </div>
         )}

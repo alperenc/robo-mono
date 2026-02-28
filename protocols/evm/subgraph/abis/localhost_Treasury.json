@@ -268,7 +268,7 @@
   },
   {
     "type": "function",
-    "name": "creditBaseEscrow",
+    "name": "creditBaseLiquidity",
     "inputs": [
       {
         "name": "assetId",
@@ -435,29 +435,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getMarketProjectionConstants",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "benchmarkYieldBP",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "depreciationRateBP",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "bpPrecision",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -1391,7 +1368,7 @@
   },
   {
     "type": "event",
-    "name": "BaseEscrowCredited",
+    "name": "BaseLiquidityCredited",
     "inputs": [
       {
         "name": "assetId",
@@ -2145,17 +2122,6 @@
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "SafeCastOverflowedIntToUint",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "int256",
-        "internalType": "int256"
-      }
-    ]
   },
   {
     "type": "error",

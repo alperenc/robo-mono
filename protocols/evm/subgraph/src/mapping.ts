@@ -30,7 +30,6 @@ import {
   Marketplace,
   ListingCreated as ListingCreatedEvent,
   RevenueTokensTraded as RevenueTokensTradedEvent,
-  ListingCancelled as ListingCancelledEvent,
   ListingExtended as ListingExtendedEvent,
   ListingEnded as ListingEndedEvent,
   PrimaryPoolCreated as PrimaryPoolCreatedEvent,
@@ -303,7 +302,6 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.buyerPaysFee = event.params.buyerPaysFee
   listing.isPrimary = event.params.isPrimary
   listing.status = "active"
-  listing.isCancelled = false
   listing.isEnded = false
   listing.endedAt = null
   listing.createdAt = event.block.timestamp
@@ -346,15 +344,6 @@ export function handleRevenueTokensTraded(event: RevenueTokensTradedEvent): void
       listing.isEnded = true
       listing.endedAt = event.block.timestamp
     }
-    listing.save()
-  }
-}
-
-export function handleListingCancelled(event: ListingCancelledEvent): void {
-  let listing = Listing.load(event.params.listingId.toString())
-  if (listing) {
-    listing.status = "cancelled"
-    listing.isCancelled = true
     listing.save()
   }
 }

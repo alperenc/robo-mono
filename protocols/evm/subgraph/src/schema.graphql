@@ -116,8 +116,7 @@ type Listing @entity(immutable: false) {
   expiresAt: BigInt!
   buyerPaysFee: Boolean!
   isPrimary: Boolean!
-  status: String! # "active", "completed", "cancelled"
-  isCancelled: Boolean!
+  status: String! # "active", "sold_out", "ended"
   isEnded: Boolean!
   endedAt: BigInt
   createdAt: BigInt!

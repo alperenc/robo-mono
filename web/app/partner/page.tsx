@@ -6,7 +6,6 @@ import { NextPage } from "next";
 import { formatUnits } from "viem";
 import { useAccount, useBlock, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
-import { CancelListingModal } from "~~/components/partner/CancelListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
@@ -146,7 +145,6 @@ const PartnerDashboard: NextPage = () => {
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
   const [extendListingModalOpen, setExtendListingModalOpen] = useState(false);
   const [endListingModalOpen, setEndListingModalOpen] = useState(false);
-  const [cancelListingModalOpen, setCancelListingModalOpen] = useState(false);
   const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const skipNextCloseRefreshRef = useRef(false);
@@ -406,7 +404,7 @@ const PartnerDashboard: NextPage = () => {
       const assetListings = listings.filter(l => l.assetId === asset.id);
       const activeAssetListings = assetListings.filter(l => l.status === "active");
       const totalSold = assetListings
-        .filter(l => l.status !== "cancelled") // Exclude cancelled listings from total sold
+        .filter(l => l.status !== "ended") // Exclude ended listings from total sold
         .reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
       const totalClaimed = totalSold;
 
@@ -970,11 +968,6 @@ const PartnerDashboard: NextPage = () => {
 
                 // Action definitions
                 const actionEnd = { label: "End Listing", onClick: () => openModal(setEndListingModalOpen) };
-                const actionCancel = {
-                  label: "Cancel Listing",
-                  onClick: () => openModal(setCancelListingModalOpen),
-                  className: "text-error",
-                };
                 const actionExtend = { label: "Extend Listing", onClick: () => openModal(setExtendListingModalOpen) };
                 const actionDistribute = {
                   label: "Distribute Earnings",
@@ -991,7 +984,6 @@ const PartnerDashboard: NextPage = () => {
                     className: "btn btn-primary",
                   };
                   secondaryActions.push(actionEnd);
-                  secondaryActions.push(actionCancel);
                 } else {
                   // Case 2: Active (regardless of sales) -> Priority is Extend Listing
                   primaryAction = {
@@ -1005,13 +997,11 @@ const PartnerDashboard: NextPage = () => {
                     secondaryActions.push(actionDistribute);
                   }
                   if (isUnsold) {
-                    // No sales: End, Cancel
+                    // No sales: End
                     secondaryActions.push(actionEnd);
-                    secondaryActions.push(actionCancel);
                   } else {
-                    // Partial sales: End, Cancel
+                    // Partial sales: End
                     secondaryActions.push(actionEnd);
-                    secondaryActions.push(actionCancel);
                   }
                 }
 
@@ -1183,16 +1173,6 @@ const PartnerDashboard: NextPage = () => {
                   tokenId={selectedListing.tokenId}
                   amountSold={selectedListing.amountSold}
                   pricePerToken={selectedListing.pricePerToken}
-                  isPrimary={isPrimaryListing}
-                />
-                <CancelListingModal
-                  isOpen={cancelListingModalOpen}
-                  onClose={() => {
-                    setCancelListingModalOpen(false);
-                    refetchPending();
-                    triggerRefresh();
-                  }}
-                  listingId={selectedListing.id}
                   isPrimary={isPrimaryListing}
                 />
               </>
