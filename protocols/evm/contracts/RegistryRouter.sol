@@ -107,8 +107,8 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev Create a listing on behalf of a seller. Can only be called by authorized registries.
-     * Routes to marketplace.createListingFor for registries implementing registerAssetMintAndList.
+     * @dev Create a secondary listing on behalf of a seller. Can only be called by authorized registries.
+     * This is used for secondary inventory only; primary issuance now uses primary pools.
      * @param seller The address of the seller (partner)
      * @param tokenId The revenue share token ID
      * @param amount Number of tokens to list
@@ -167,20 +167,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         revert DirectCallNotAllowed();
     }
 
-    function mintRevenueTokensAndList(
-        uint256 assetId,
-        uint256 tokenPrice,
-        uint256 maturityDate,
-        uint256 revenueShareBP,
-        uint256 targetYieldBP,
-        uint256 listingDuration,
-        bool buyerPaysFee
-    ) external override onlyAuthorizedPartner returns (uint256 tokenId, uint256 supply, uint256 listingId) {
-        return _mintRevenueTokensAndListFor(
-            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
-        );
-    }
-
     function mintRevenueTokensAndCreatePrimaryPool(
         uint256 assetId,
         uint256 tokenPrice,
@@ -228,45 +214,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             );
     }
 
-    /**
-     * @dev Registry-only wrapper to mint revenue tokens and list on behalf of a partner.
-     */
-    function mintRevenueTokensAndListFor(
-        address partner,
-        uint256 assetId,
-        uint256 tokenPrice,
-        uint256 maturityDate,
-        uint256 revenueShareBP,
-        uint256 targetYieldBP,
-        uint256 listingDuration,
-        bool buyerPaysFee
-    ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 tokenId, uint256 supply, uint256 listingId) {
-        return _mintRevenueTokensAndListFor(
-            partner, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, listingDuration, buyerPaysFee
-        );
-    }
-
-    /**
-     * @dev Shared mint + list flow used by direct callers and registry wrappers.
-     */
-    function _mintRevenueTokensAndListFor(
-        address partner,
-        uint256 assetId,
-        uint256 tokenPrice,
-        uint256 maturityDate,
-        uint256 revenueShareBP,
-        uint256 targetYieldBP,
-        uint256 listingDuration,
-        bool buyerPaysFee
-    ) internal returns (uint256 tokenId, uint256 supply, uint256 listingId) {
-        listingDuration;
-        buyerPaysFee;
-        (tokenId, supply) = _mintRevenueTokensAndCreatePrimaryPoolFor(
-            partner, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, 0, false, false
-        );
-        listingId = 0;
-    }
-
     function _mintRevenueTokensAndCreatePrimaryPoolFor(
         address partner,
         uint256 assetId,
@@ -305,15 +252,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert RegistryNotFound(assetId);
         }
         return IAssetRegistry(registry).previewMintRevenueTokens(assetId, partner, tokenPrice);
-    }
-
-    function registerAssetMintAndList(bytes calldata, uint256, uint256, uint256, uint256, uint256, uint256, bool)
-        external
-        pure
-        override
-        returns (uint256, uint256, uint256, uint256)
-    {
-        revert DirectCallNotAllowed();
     }
 
     function registerAssetMintAndCreatePrimaryPool(
@@ -553,51 +491,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         return ITreasury(treasury).releaseCollateralFor(partner, assetId);
     }
 
-    /**
-     * @dev Clear unsold escrow for a tokenId (called by registry at settlement).
-     */
-    function clearTokenEscrow(uint256 assetId) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 amount) {
-        // Verify this registry owns the asset
-        if (idToRegistry[assetId] != msg.sender) {
-            revert RegistryNotBoundToAsset();
-        }
-        if (marketplace == address(0)) {
-            revert MarketplaceNotSet();
-        }
-
-        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        amount = IMarketplace(marketplace).clearTokenEscrow(tokenId);
-    }
-
-    function creditTokenEscrow(uint256 assetId, uint256 amount) external onlyRole(AUTHORIZED_REGISTRY_ROLE) {
-        if (idToRegistry[assetId] != msg.sender) {
-            revert RegistryNotBoundToAsset();
-        }
-        if (marketplace == address(0)) {
-            revert MarketplaceNotSet();
-        }
-
-        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        IMarketplace(marketplace).creditTokenEscrow(tokenId, amount);
-    }
-
-    /**
-     * @dev Record sold supply for primary listings (called by Marketplace after a listing ends).
-     * Allows multiple listings per asset owner; sold supply accumulates.
-     */
-    function recordSoldSupply(uint256 revenueTokenId, uint256 soldAmount) external {
-        if (msg.sender != marketplace) {
-            revert NotMarketplace();
-        }
-        if (idToRegistry[revenueTokenId] == address(0)) {
-            revert RegistryNotFound(revenueTokenId);
-        }
-        if (soldAmount == 0) {
-            return;
-        }
-        roboshareTokens.increaseSoldSupply(revenueTokenId, soldAmount);
-    }
-
     function mintRevenueTokensForPrimaryPool(address buyer, uint256 tokenId, uint256 amount) external {
         if (msg.sender != treasury) {
             revert NotTreasury();
@@ -609,7 +502,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert RegistryNotFound(tokenId);
         }
         roboshareTokens.mint(buyer, tokenId, amount, "");
-        roboshareTokens.increaseSoldSupply(tokenId, amount);
     }
 
     function burnRevenueTokensForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount) external {
@@ -623,35 +515,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert RegistryNotFound(tokenId);
         }
         roboshareTokens.burn(holder, tokenId, amount);
-    }
-
-    function _mintRevenueTokensToEscrow(address registry, uint256 revenueTokenId, uint256 amount) internal {
-        if (idToRegistry[revenueTokenId] != registry) {
-            revert RegistryNotBoundToAsset();
-        }
-        if (marketplace == address(0)) {
-            revert MarketplaceNotSet();
-        }
-        roboshareTokens.mint(marketplace, revenueTokenId, amount, "");
-        IMarketplace(marketplace).creditTokenEscrow(revenueTokenId, amount);
-    }
-
-    function burnRevenueTokensFromEscrow(uint256 revenueTokenId)
-        external
-        onlyRole(AUTHORIZED_REGISTRY_ROLE)
-        returns (uint256 amount)
-    {
-        if (idToRegistry[revenueTokenId] != msg.sender) {
-            revert RegistryNotBoundToAsset();
-        }
-        if (marketplace == address(0)) {
-            revert MarketplaceNotSet();
-        }
-
-        amount = IMarketplace(marketplace).clearTokenEscrow(revenueTokenId);
-        if (amount > 0) {
-            roboshareTokens.burn(marketplace, revenueTokenId, amount);
-        }
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {

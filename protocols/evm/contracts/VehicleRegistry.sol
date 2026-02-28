@@ -172,52 +172,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         roboshareTokens.mint(msg.sender, assetId, 1, ""); // Mint 1 vehicle NFT to partner
     }
 
-    /**
-     * @dev Register a vehicle, mint revenue tokens, and list for sale - all in one transaction.
-     * Combines registration, minting, and listing in a single flow.
-     * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
-     * @param data Encoded vehicle data (same as registerAsset)
-     * @param assetValue Total value of the asset in USDC
-     * @param tokenPrice Price per revenue token in USDC
-     * @param maturityDate Maturity date for the revenue tokens
-     * @param listingDuration Duration of the marketplace listing in seconds
-     * @param buyerPaysFee If true, buyer pays protocol fee
-     * @return assetId The registered asset ID
-     * @return revenueTokenId The minted revenue token ID
-     * @return supply The minted revenue token supply
-     * @return listingId The created marketplace listing ID
-     */
-    function registerAssetMintAndList(
-        bytes calldata data,
-        uint256 assetValue,
-        uint256 tokenPrice,
-        uint256 maturityDate,
-        uint256 revenueShareBP,
-        uint256 targetYieldBP,
-        uint256 listingDuration,
-        bool buyerPaysFee
-    )
-        external
-        override
-        onlyAuthorizedPartner
-        returns (uint256 assetId, uint256 revenueTokenId, uint256 supply, uint256 listingId)
-    {
-        // Step 1: Register vehicle (reuses existing logic)
-        (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
-
-        // Mint Asset NFT
-        roboshareTokens.mint(msg.sender, assetId, 1, "");
-
-        listingDuration;
-        buyerPaysFee;
-
-        // Step 2: Configure token economics and create primary pool via Router
-        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
-            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, 0, false, false
-        );
-        listingId = 0;
-    }
-
     function registerAssetMintAndCreatePrimaryPool(
         bytes calldata data,
         uint256 assetValue,
@@ -242,37 +196,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             immediateProceeds,
             protectionEnabled
         );
-    }
-
-    /**
-     * @dev Mint revenue tokens for an existing asset and list for sale - all in one transaction.
-     * IMPORTANT: Partner must have approved marketplace for token transfers before calling.
-     * @param assetId The registered asset ID
-     * @param tokenPrice Price per revenue token in USDC
-     * @param maturityDate Maturity date for the revenue tokens
-     * @param revenueShareBP Max investor share of reported revenue (basis points)
-     * @param targetYieldBP Target yield for buffer benchmarks (basis points)
-     * @param listingDuration Duration of the marketplace listing in seconds
-     * @param buyerPaysFee If true, buyer pays protocol fee
-     * @return revenueTokenId The minted revenue token ID
-     * @return supply The minted revenue token supply
-     * @return listingId The created marketplace listing ID
-     */
-    function mintRevenueTokensAndList(
-        uint256 assetId,
-        uint256 tokenPrice,
-        uint256 maturityDate,
-        uint256 revenueShareBP,
-        uint256 targetYieldBP,
-        uint256 listingDuration,
-        bool buyerPaysFee
-    ) external override onlyAuthorizedPartner returns (uint256 revenueTokenId, uint256 supply, uint256 listingId) {
-        listingDuration;
-        buyerPaysFee;
-        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
-            msg.sender, assetId, tokenPrice, maturityDate, revenueShareBP, targetYieldBP, 0, false, false
-        );
-        listingId = 0;
     }
 
     function mintRevenueTokensAndCreatePrimaryPool(
@@ -368,9 +291,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
         }
 
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        router.burnRevenueTokensFromEscrow(revenueTokenId);
-
         // Trigger Treasury Settlement via Router
         (uint256 settlementAmount, uint256 settlementPerToken) =
             router.initiateSettlement(msg.sender, assetId, topUpAmount);
@@ -394,9 +314,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (info.status == AssetLib.AssetStatus.Retired || info.status == AssetLib.AssetStatus.Expired) {
             revert AssetAlreadySettled(assetId, info.status);
         }
-
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        router.burnRevenueTokensFromEscrow(revenueTokenId);
 
         // Trigger Treasury Liquidation via Router
         (uint256 liquidationAmount, uint256 settlementPerToken) = router.executeLiquidation(assetId);
@@ -493,8 +410,8 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     /**
      * @dev Retire an asset and burn all partner's revenue tokens.
-     * Convenience function for the full retirement flow.
-     * Burns tokens first, then retires asset. Treasury will verify 0 supply.
+     * Convenience function for the full retirement flow when the partner already holds all outstanding tokens.
+     * Burns the partner-held outstanding supply first, then retires the asset. Treasury will verify 0 supply.
      */
     function retireAssetAndBurnTokens(uint256 assetId) external override onlyAuthorizedPartner {
         if (!assetExists(assetId)) {
@@ -512,29 +429,12 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 burnedTokens = 0;
         if (totalSupply > 0) {
             uint256 partnerBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-            if (partnerBalance < totalSupply) {
-                uint256 soldSupply = roboshareTokens.getSoldSupply(revenueTokenId);
-                address marketplace = router.marketplace();
-                uint256 escrowBalance = roboshareTokens.balanceOf(marketplace, revenueTokenId);
-
-                // Allow retirement if partner holds all sold tokens and the rest are escrowed unsold tokens
-                if (partnerBalance >= soldSupply && partnerBalance + escrowBalance == totalSupply) {
-                    if (escrowBalance > 0) {
-                        roboshareTokens.burn(marketplace, revenueTokenId, escrowBalance);
-                        burnedTokens += escrowBalance;
-                    }
-                    if (partnerBalance > 0) {
-                        burnRevenueTokens(assetId, partnerBalance);
-                        burnedTokens += partnerBalance;
-                    }
-                } else {
-                    revert OutstandingTokensHeldByOthers();
-                }
-            } else {
-                // Use existing burnRevenueTokens function
-                burnRevenueTokens(assetId, partnerBalance);
-                burnedTokens = partnerBalance;
+            if (partnerBalance != totalSupply) {
+                revert OutstandingTokensHeldByOthers();
             }
+
+            burnRevenueTokens(assetId, partnerBalance);
+            burnedTokens = partnerBalance;
         }
 
         // Call internal _retireAsset (Treasury will verify 0 token supply)

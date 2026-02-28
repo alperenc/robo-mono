@@ -63,10 +63,7 @@ contract Marketplace is
     error ListingOwnerCannotPurchase();
     error PrimaryListingRequiresBuyerPaysFee();
     error ListingNotEnded();
-    error ListingIsCancelled();
-    error ListingNotCancelled();
     error NoTokensToClaim();
-    error NoRefundToClaim();
     error InvalidUSDCContract(address token);
     error UnsupportedUSDCDecimals(uint8 decimals);
     error PrimaryListingsDisabled();
@@ -100,7 +97,6 @@ contract Marketplace is
         uint256 totalPrice
     );
 
-    event ListingCancelled(uint256 indexed listingId, address indexed seller);
     event ListingEnded(uint256 indexed listingId, address indexed seller);
 
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
@@ -433,7 +429,6 @@ contract Marketplace is
             seller: seller,
             expiresAt: expiresAt,
             isActive: true,
-            isCancelled: false,
             createdAt: block.timestamp,
             buyerPaysFee: buyerPaysFee,
             earlySalePenalty: earlySalePenalty,
@@ -514,9 +509,9 @@ contract Marketplace is
         Listing storage listing = listings[listingId];
 
         if (listing.listingId == 0) revert ListingNotFound();
-        if (listing.seller != msg.sender) revert NotListingOwner();
+        if (listing.seller != msg.sender && block.timestamp <= listing.expiresAt) revert NotListingOwner();
 
-        bool isSoldOut = (!listing.isActive && listing.amount == 0 && !listing.isCancelled);
+        bool isSoldOut = (!listing.isActive && listing.amount == 0);
         if (!listing.isActive && !isSoldOut) revert ListingNotActive();
 
         listing.isActive = false;
@@ -526,33 +521,7 @@ contract Marketplace is
             listing.amount = 0;
         }
 
-        emit ListingEnded(listingId, msg.sender);
-    }
-
-    /**
-     * @dev Cancels an active listing and returns unsold inventory.
-     */
-    function cancelListing(uint256 listingId) external nonReentrant {
-        Listing storage listing = listings[listingId];
-
-        if (listing.listingId == 0) revert ListingNotFound();
-        if (listing.seller != msg.sender) {
-            if (block.timestamp <= listing.expiresAt) {
-                revert NotListingOwner();
-            }
-        }
-        if (!listing.isActive) revert ListingNotActive();
-
-        listing.isActive = false;
-        listing.isCancelled = true;
-
-        uint256 totalReturn = listing.amount;
-        if (totalReturn > 0) {
-            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, totalReturn, "");
-        }
-        listing.amount = 0;
-
-        emit ListingCancelled(listingId, msg.sender);
+        emit ListingEnded(listingId, listing.seller);
     }
 
     /**
@@ -569,25 +538,6 @@ contract Marketplace is
         listing.expiresAt += additionalDuration;
 
         emit ListingExtended(listingId, listing.expiresAt);
-    }
-
-    /**
-     * @dev Clears token escrow balance for authorized orchestrators.
-     */
-    function clearTokenEscrow(uint256 tokenId) external onlyRole(AUTHORIZED_CONTRACT_ROLE) returns (uint256 amount) {
-        amount = tokenEscrow[tokenId];
-        if (amount > 0) {
-            tokenEscrow[tokenId] = 0;
-        }
-    }
-
-    /**
-     * @dev Credits token escrow balance for authorized orchestrators.
-     */
-    function creditTokenEscrow(uint256 tokenId, uint256 amount) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
-        if (amount > 0) {
-            tokenEscrow[tokenId] += amount;
-        }
     }
 
     /**

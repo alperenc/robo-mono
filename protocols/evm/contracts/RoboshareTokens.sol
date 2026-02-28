@@ -44,7 +44,6 @@ contract RoboshareTokens is
         uint256 indexed revenueTokenId, address indexed from, address indexed to, uint256 amount
     );
     event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate);
-    event SoldSupplyUpdated(uint256 indexed revenueTokenId, uint256 oldSupply, uint256 newSupply);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -202,23 +201,6 @@ contract RoboshareTokens is
             revert NotRevenueToken();
         }
         return _revenueTokenInfos[revenueTokenId].tokenSupply;
-    }
-
-    function getSoldSupply(uint256 revenueTokenId) external view returns (uint256) {
-        if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert NotRevenueToken();
-        }
-        return _revenueTokenInfos[revenueTokenId].soldSupply;
-    }
-
-    function increaseSoldSupply(uint256 revenueTokenId, uint256 amount) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
-        if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert NotRevenueToken();
-        }
-        TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
-        uint256 oldSupply = info.soldSupply;
-        info.soldSupply = oldSupply + amount;
-        emit SoldSupplyUpdated(revenueTokenId, oldSupply, info.soldSupply);
     }
 
     /**

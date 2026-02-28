@@ -389,7 +389,6 @@ library TokenLib {
         uint256 tokenId; // ERC1155 token ID
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
         uint256 tokenSupply; // Total number of tokens issued
-        uint256 soldSupply; // Total sold supply (net of cancelled listings)
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
         uint256 maturityDate; // Date by which the revenue commitment ends
         uint256 revenueShareBP; // Max investor share of reported revenue (basis points)
@@ -444,7 +443,6 @@ library TokenLib {
         info.tokenId = tokenId;
         info.tokenPrice = tokenPrice;
         info.tokenSupply = 0; // Initialize to 0, will be updated by minting/burning
-        info.soldSupply = 0;
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
         info.maturityDate = maturityDate;
@@ -623,6 +621,25 @@ library CollateralLib {
         bool isSettled;
         uint256 settlementPerToken;
         uint256 totalSettlementPool;
+    }
+
+    enum ReleaseEligibility {
+        Eligible,
+        NoCollateralLocked,
+        NoPriorEarnings,
+        NoNewEarningsPeriods
+    }
+
+    struct ReleaseCalculation {
+        ReleaseEligibility status;
+        CollateralInfo collateral;
+        uint256 newLastProcessedPeriod;
+        uint256 shortfallAmount;
+        uint256 replenishmentAmount;
+        uint256 excessEarnings;
+        uint256 grossRelease;
+        uint256 protocolFee;
+        uint256 partnerRelease;
     }
 
     /**
@@ -884,6 +901,139 @@ library CollateralLib {
         return (0, 0);
     }
 
+    function calculateReleaseFees(uint256 releaseAmount) internal pure returns (uint256 partnerRelease, uint256 fee) {
+        fee = ProtocolLib.calculateProtocolFee(releaseAmount);
+        if (fee > releaseAmount) {
+            fee = releaseAmount;
+        }
+        partnerRelease = releaseAmount - fee;
+    }
+
+    function previewCollateralAfterMissedEarningsShortfall(CollateralInfo memory info, uint256 benchmarkEarnings)
+        internal
+        pure
+        returns (CollateralInfo memory)
+    {
+        processEarningsForBuffersInMemory(info, 0, benchmarkEarnings);
+        return info;
+    }
+
+    function applyRealizedVsBenchmarkToCollateral(
+        CollateralInfo memory info,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    )
+        internal
+        pure
+        returns (
+            CollateralInfo memory updated,
+            uint256 shortfallAmount,
+            uint256 replenishmentAmount,
+            uint256 excessEarnings
+        )
+    {
+        updated = info;
+
+        if (realizedEarnings < benchmarkEarnings) {
+            shortfallAmount = benchmarkEarnings - realizedEarnings;
+
+            if (updated.earningsBuffer >= shortfallAmount) {
+                updated.earningsBuffer -= shortfallAmount;
+                updated.reservedForLiquidation += shortfallAmount;
+            } else {
+                updated.reservedForLiquidation += updated.earningsBuffer;
+                updated.earningsBuffer = 0;
+            }
+
+            updated.totalCollateral = updated.baseCollateral + updated.earningsBuffer + updated.protocolBuffer;
+            return (updated, shortfallAmount, 0, 0);
+        }
+
+        if (realizedEarnings > benchmarkEarnings) {
+            excessEarnings = realizedEarnings - benchmarkEarnings;
+            (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
+                updated.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+            );
+            uint256 bufferDeficit =
+                benchmarkEarningsBuffer > updated.earningsBuffer ? benchmarkEarningsBuffer - updated.earningsBuffer : 0;
+
+            if (updated.reservedForLiquidation > 0) {
+                uint256 toReplenish =
+                    bufferDeficit < updated.reservedForLiquidation ? bufferDeficit : updated.reservedForLiquidation;
+                toReplenish = toReplenish < excessEarnings ? toReplenish : excessEarnings;
+
+                if (toReplenish > 0) {
+                    updated.earningsBuffer += toReplenish;
+                    updated.reservedForLiquidation -= toReplenish;
+                    updated.totalCollateral = updated.baseCollateral + updated.earningsBuffer + updated.protocolBuffer;
+                    replenishmentAmount = toReplenish;
+                    excessEarnings -= toReplenish;
+                }
+            }
+        }
+    }
+
+    function calculateReleasePreview(
+        CollateralInfo memory collateralInfo,
+        bool assumeNewPeriod,
+        bool earningsInitialized,
+        uint256 currentPeriod,
+        uint256 lastProcessedPeriod,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    ) internal view returns (ReleaseCalculation memory calc) {
+        if (!collateralInfo.isLocked) {
+            calc.status = ReleaseEligibility.NoCollateralLocked;
+            return calc;
+        }
+
+        calc.collateral = collateralInfo;
+
+        if (!earningsInitialized || currentPeriod == 0) {
+            if (!assumeNewPeriod) {
+                calc.status = ReleaseEligibility.NoPriorEarnings;
+                return calc;
+            }
+
+            calc.status = ReleaseEligibility.Eligible;
+            calc.newLastProcessedPeriod = currentPeriod + 1;
+            calc.grossRelease = calculateCollateralRelease(calc.collateral);
+            if (calc.grossRelease > 0) {
+                (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+            }
+            return calc;
+        }
+
+        if (currentPeriod <= lastProcessedPeriod) {
+            if (!assumeNewPeriod) {
+                calc.status = ReleaseEligibility.NoNewEarningsPeriods;
+                return calc;
+            }
+
+            calc.status = ReleaseEligibility.Eligible;
+            calc.newLastProcessedPeriod = currentPeriod + 1;
+            calc.grossRelease = calculateCollateralRelease(calc.collateral);
+            if (calc.grossRelease > 0) {
+                (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+            }
+            return calc;
+        }
+
+        calc.status = ReleaseEligibility.Eligible;
+        calc.newLastProcessedPeriod = currentPeriod;
+
+        (calc.collateral, calc.shortfallAmount, calc.replenishmentAmount, calc.excessEarnings) =
+            applyRealizedVsBenchmarkToCollateral(calc.collateral, realizedEarnings, benchmarkEarnings);
+
+        calc.grossRelease = calculateCollateralRelease(calc.collateral);
+        if (calc.grossRelease > calc.collateral.totalCollateral) {
+            calc.grossRelease = calc.collateral.totalCollateral;
+        }
+        if (calc.grossRelease > 0) {
+            (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+        }
+    }
+
     /**
      * @dev Get benchmark earnings buffer amount based on current base collateral
      * @param baseCollateral Current base collateral amount
@@ -1111,6 +1261,31 @@ library EarningsLib {
         updateClaimPeriods(earningsInfo, holder, positions);
 
         return snapshotAmount;
+    }
+
+    function sumRealizedEarnings(
+        EarningsInfo storage earningsInfo,
+        uint256 fromPeriodExclusive,
+        uint256 toPeriodInclusive
+    ) internal view returns (uint256 realizedEarnings) {
+        for (uint256 i = fromPeriodExclusive + 1; i <= toPeriodInclusive; i++) {
+            realizedEarnings += earningsInfo.periods[i].totalEarnings;
+        }
+    }
+
+    function previewSettledEarnings(EarningsInfo storage earningsInfo, address holder) internal view returns (uint256) {
+        if (earningsInfo.hasClaimedSettledEarnings[holder]) {
+            return 0;
+        }
+        return earningsInfo.settledEarningsSnapshot[holder];
+    }
+
+    function previewEarningsForHolder(
+        EarningsInfo storage earningsInfo,
+        address holder,
+        TokenLib.TokenPosition[] memory positions
+    ) internal view returns (uint256) {
+        return calculateEarningsForPositions(earningsInfo, holder, positions);
     }
 
     /**

@@ -14,7 +14,7 @@ interface ITreasury {
     event CollateralReleased(uint256 indexed assetId, address indexed recipient, uint256 amount);
     event WithdrawalProcessed(address indexed recipient, uint256 amount);
     event CollateralLocked(uint256 indexed assetId, address indexed partner, uint256 amount);
-    event BaseEscrowCredited(uint256 indexed assetId, uint256 amount);
+    event BaseLiquidityCredited(uint256 indexed assetId, uint256 amount);
     event ShortfallReserved(uint256 indexed assetId, uint256 amount);
     event BufferReplenished(uint256 indexed assetId, uint256 amount, uint256 fromReserved);
     event CollateralBuffersUpdated(
@@ -94,10 +94,6 @@ interface ITreasury {
             uint256 minProtocolFee,
             uint256 minEarlySalePenalty
         );
-    function getMarketProjectionConstants()
-        external
-        pure
-        returns (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision);
     function claimEarnings(uint256 assetId) external;
     function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
         external
@@ -105,7 +101,7 @@ interface ITreasury {
     function releasePartialCollateral(uint256 assetId) external;
     function releaseAndWithdrawCollateral(uint256 assetId) external returns (uint256 withdrawn);
     function claimAndWithdrawEarnings(uint256 assetId) external returns (uint256 withdrawn);
-    function creditBaseEscrow(uint256 assetId, uint256 amount) external;
+    function creditBaseLiquidity(uint256 assetId, uint256 amount) external;
     function recordPendingWithdrawal(address recipient, uint256 amount) external;
     function processWithdrawalFor(address account) external returns (uint256 amount);
     function processPrimaryPoolPurchase(

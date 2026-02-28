@@ -29,7 +29,6 @@ interface IMarketplace {
         address seller;
         uint256 expiresAt;
         bool isActive;
-        bool isCancelled;
         uint256 createdAt;
         bool buyerPaysFee;
         uint256 earlySalePenalty;
@@ -66,8 +65,4 @@ interface IMarketplace {
     function isAssetEligibleForListing(uint256 assetId) external view returns (bool);
 
     function tokenEscrow(uint256 tokenId) external view returns (uint256);
-
-    function clearTokenEscrow(uint256 tokenId) external returns (uint256 amount);
-
-    function creditTokenEscrow(uint256 tokenId, uint256 amount) external;
 }

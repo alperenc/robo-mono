@@ -5,7 +5,6 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -25,34 +24,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     using TokenLib for TokenLib.TokenInfo;
     using EarningsLib for EarningsLib.EarningsInfo;
     using SafeERC20 for IERC20;
-    using SafeCast for int256;
-
-    enum ReleaseEligibility {
-        Eligible,
-        NoCollateralLocked,
-        NoPriorEarnings,
-        NoNewEarningsPeriods
-    }
-
-    enum LiquidationEligibilityReason {
-        EligibleByMaturity,
-        EligibleByInsolvency,
-        AlreadySettled,
-        NotEligible
-    }
-
-    struct ReleaseCalculation {
-        ReleaseEligibility status;
-        CollateralLib.CollateralInfo collateral;
-        uint256 newLastProcessedPeriod;
-        uint256 shortfallAmount;
-        uint256 replenishmentAmount;
-        uint256 excessEarnings;
-        uint256 grossRelease;
-        uint256 protocolFee;
-        uint256 partnerRelease;
-    }
-
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
     bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
@@ -155,11 +126,11 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     /**
-     * @dev Credit escrowed investor proceeds as base collateral.
+     * @dev Credits investor principal into the pool's base liquidity.
      * @param assetId The ID of the asset
-     * @param amount Escrowed proceeds to credit
+     * @param amount Principal amount to credit
      */
-    function creditBaseEscrow(uint256 assetId, uint256 amount)
+    function creditBaseLiquidity(uint256 assetId, uint256 amount)
         external
         onlyRole(AUTHORIZED_CONTRACT_ROLE)
         nonReentrant
@@ -167,6 +138,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         if (amount == 0) {
             return;
         }
+        _creditBaseCollateral(assetId, amount);
+
+        emit ITreasury.BaseLiquidityCredited(assetId, amount);
+    }
+
+    function _creditBaseCollateral(uint256 assetId, uint256 amount) internal {
         CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
 
         collateralInfo.baseCollateral += amount;
@@ -178,8 +155,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             collateralInfo.lockedAt = block.timestamp;
         }
         collateralInfo.lastEventTimestamp = block.timestamp;
-
-        emit ITreasury.BaseEscrowCredited(assetId, amount);
     }
 
     function _fundBuffersFor(address partner, uint256 assetId, uint256 baseAmount) internal {
@@ -221,9 +196,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         emit CollateralLocked(assetId, partner, requiredBufferTotal);
 
-        if (router.getAssetStatus(assetId) == AssetLib.AssetStatus.Active && _hasSufficientBuffers(assetId, true)) {
-            router.setAssetStatus(assetId, AssetLib.AssetStatus.Earning);
-        }
+        _maybePromoteToEarning(assetId, true);
     }
 
     /**
@@ -308,17 +281,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Process withdrawal from pending withdrawals
      */
     function processWithdrawal() external nonReentrant {
-        uint256 amount = pendingWithdrawals[msg.sender];
+        uint256 amount = _processWithdrawalFor(msg.sender);
         if (amount == 0) {
             revert NoPendingWithdrawals();
         }
-
-        pendingWithdrawals[msg.sender] = 0;
-
-        // Transfer USDC back to partner
-        usdc.safeTransfer(msg.sender, amount);
-
-        emit WithdrawalProcessed(msg.sender, amount);
     }
 
     /**
@@ -373,30 +339,19 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert NotAssetOwner();
         }
 
+        _creditBaseCollateral(assetId, grossPrincipal);
         CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
-        collateralInfo.baseCollateral += grossPrincipal;
-        collateralInfo.initialBaseCollateral += grossPrincipal;
-        collateralInfo.totalCollateral += grossPrincipal;
-        if (collateralInfo.lockedAt == 0) {
-            collateralInfo.lockedAt = block.timestamp;
-        }
-        collateralInfo.lastEventTimestamp = block.timestamp;
-        totalCollateralDeposited += grossPrincipal;
 
         if (protocolFee > 0) {
             pendingWithdrawals[treasuryFeeRecipient] += protocolFee;
         }
 
-        bool canRelease = _hasSufficientBuffers(assetId, protectionEnabled);
+        bool canRelease = _maybePromoteToEarning(assetId, protectionEnabled);
         if (immediateProceeds && canRelease) {
             collateralInfo.baseCollateral -= grossPrincipal;
             collateralInfo.totalCollateral -= grossPrincipal;
             pendingWithdrawals[partner] += grossPrincipal;
             partnerProceeds = grossPrincipal;
-        }
-
-        if (router.getAssetStatus(assetId) == AssetLib.AssetStatus.Active && canRelease) {
-            router.setAssetStatus(assetId, AssetLib.AssetStatus.Earning);
         }
 
         router.mintRevenueTokensForPrimaryPool(buyer, tokenId, amount);
@@ -430,7 +385,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert AssetNotFound();
         }
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
-        if (status != AssetLib.AssetStatus.Active && status != AssetLib.AssetStatus.Earning) {
+        if (!_isOperationalStatus(status)) {
             revert AssetNotOperational(assetId, status);
         }
         if (burnAmount == 0 || circulatingSupply == 0) {
@@ -541,7 +496,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
-        bool isSettled = (status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired);
+        bool isSettled = _isSettledStatus(status);
 
         uint256 unclaimedAmount;
 
@@ -607,17 +562,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         // Note: tokenTotalSupply > 0 is guaranteed for Active assets since
         // assets can only become Active after minting tokens and locking collateral.
 
-        uint256 soldSupply = roboshareTokens.getSoldSupply(revenueTokenId);
-
-        // If no investor tokens exist, cannot distribute
-        if (soldSupply == 0) {
-            revert NoInvestors();
-        }
-
         uint256 partnerTokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-        uint256 investorSupply = soldSupply > partnerTokenBalance ? soldSupply - partnerTokenBalance : 0;
+        uint256 investorSupply = tokenTotalSupply > partnerTokenBalance ? tokenTotalSupply - partnerTokenBalance : 0;
 
-        // If no investor tokens exist (all sold tokens held by partner), cannot distribute
+        // If no investor tokens exist (all outstanding tokens held by partner), cannot distribute
         if (investorSupply == 0) {
             revert NoInvestors();
         }
@@ -728,6 +676,16 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         return snapshotAmount;
     }
 
+    function _maybePromoteToEarning(uint256 assetId, bool protectionEnabled)
+        internal
+        returns (bool hasSufficientBuffers)
+    {
+        hasSufficientBuffers = _hasSufficientBuffers(assetId, protectionEnabled);
+        if (router.getAssetStatus(assetId) == AssetLib.AssetStatus.Active && hasSufficientBuffers) {
+            router.setAssetStatus(assetId, AssetLib.AssetStatus.Earning);
+        }
+    }
+
     function _hasSufficientBuffers(uint256 assetId, bool protectionEnabled) internal view returns (bool) {
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
@@ -755,15 +713,15 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     {
         CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
-        ReleaseCalculation memory calc = _calculateReleasePreview(assetId, false);
-        if (calc.status != ReleaseEligibility.Eligible) {
+        CollateralLib.ReleaseCalculation memory calc = _calculateReleasePreview(assetId, false);
+        if (calc.status != CollateralLib.ReleaseEligibility.Eligible) {
             if (allowSkip) {
                 return 0;
             }
-            if (calc.status == ReleaseEligibility.NoCollateralLocked) {
+            if (calc.status == CollateralLib.ReleaseEligibility.NoCollateralLocked) {
                 revert NoCollateralLocked();
             }
-            if (calc.status == ReleaseEligibility.NoPriorEarnings) {
+            if (calc.status == CollateralLib.ReleaseEligibility.NoPriorEarnings) {
                 revert NoPriorEarningsDistribution();
             }
             revert NoNewEarningsPeriods();
@@ -843,11 +801,22 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     {
         CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
         if (settlement.isSettled) {
-            return (false, uint8(LiquidationEligibilityReason.AlreadySettled));
+            return (false, 2);
         }
 
-        CollateralLib.CollateralInfo memory simulatedCollateral =
-            _previewCollateralAfterMissedEarningsShortfall(assetId);
+        CollateralLib.CollateralInfo memory simulatedCollateral = assetCollateral[assetId];
+        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
+        if (simulatedCollateral.isLocked && earningsInfo.lastEventTimestamp > 0) {
+            uint256 elapsed = block.timestamp - earningsInfo.lastEventTimestamp;
+            if (elapsed > 0) {
+                uint256 revenueTokenIdForYield = TokenLib.getTokenIdFromAssetId(assetId);
+                uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenIdForYield);
+                uint256 benchmarkEarnings =
+                    EarningsLib.calculateEarnings(simulatedCollateral.initialBaseCollateral, elapsed, targetYieldBP);
+                simulatedCollateral =
+                    CollateralLib.previewCollateralAfterMissedEarningsShortfall(simulatedCollateral, benchmarkEarnings);
+            }
+        }
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
@@ -855,13 +824,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         bool isSolvent = CollateralLib.isSolventMemory(simulatedCollateral);
 
         if (isMatured) {
-            return (true, uint8(LiquidationEligibilityReason.EligibleByMaturity));
+            return (true, 0);
         }
         if (!isSolvent) {
-            return (true, uint8(LiquidationEligibilityReason.EligibleByInsolvency));
+            return (true, 1);
         }
 
-        return (false, uint8(LiquidationEligibilityReason.NotEligible));
+        return (false, 3);
     }
 
     /**
@@ -971,10 +940,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
         uint256 benchmarkEarnings =
             EarningsLib.calculateEarnings(collateralInfo.initialBaseCollateral, elapsed, targetYieldBP);
-
-        (int256 earningsResult,) = CollateralLib.processEarningsForBuffers(collateralInfo, 0, benchmarkEarnings);
-        if (earningsResult < 0) {
-            uint256 shortfallAmount = (-earningsResult).toUint256();
+        (CollateralLib.CollateralInfo memory updated, uint256 shortfallAmount,,) =
+            CollateralLib.applyRealizedVsBenchmarkToCollateral(collateralInfo, 0, benchmarkEarnings);
+        collateralInfo.earningsBuffer = updated.earningsBuffer;
+        collateralInfo.protocolBuffer = updated.protocolBuffer;
+        collateralInfo.reservedForLiquidation = updated.reservedForLiquidation;
+        collateralInfo.totalCollateral = updated.totalCollateral;
+        if (shortfallAmount > 0) {
             emit ShortfallReserved(assetId, shortfallAmount);
         }
 
@@ -982,35 +954,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         collateralInfo.lastEventTimestamp = block.timestamp;
         earningsInfo.lastEventTimestamp = block.timestamp;
-    }
-
-    function _previewCollateralAfterMissedEarningsShortfall(uint256 assetId)
-        internal
-        view
-        returns (CollateralLib.CollateralInfo memory collateralInfo)
-    {
-        collateralInfo = assetCollateral[assetId];
-        EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
-
-        if (!collateralInfo.isLocked) {
-            return collateralInfo;
-        }
-
-        if (earningsInfo.lastEventTimestamp == 0) {
-            return collateralInfo;
-        }
-
-        uint256 elapsed = block.timestamp - earningsInfo.lastEventTimestamp;
-        if (elapsed == 0) {
-            return collateralInfo;
-        }
-
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 benchmarkEarnings =
-            EarningsLib.calculateEarnings(collateralInfo.initialBaseCollateral, elapsed, targetYieldBP);
-
-        CollateralLib.processEarningsForBuffersInMemory(collateralInfo, 0, benchmarkEarnings);
     }
 
     /**
@@ -1123,8 +1066,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         view
         returns (uint256 releasedAmount)
     {
-        ReleaseCalculation memory calc = _calculateReleasePreview(assetId, assumeNewPeriod);
-        if (calc.status != ReleaseEligibility.Eligible) {
+        CollateralLib.ReleaseCalculation memory calc = _calculateReleasePreview(assetId, assumeNewPeriod);
+        if (calc.status != CollateralLib.ReleaseEligibility.Eligible) {
             return 0;
         }
         return calc.partnerRelease;
@@ -1133,135 +1076,35 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     function _calculateReleasePreview(uint256 assetId, bool assumeNewPeriod)
         internal
         view
-        returns (ReleaseCalculation memory calc)
+        returns (CollateralLib.ReleaseCalculation memory calc)
     {
         CollateralLib.CollateralInfo memory collateralInfo = assetCollateral[assetId];
         EarningsLib.EarningsInfo storage earningsInfo = assetEarnings[assetId];
-
-        if (!collateralInfo.isLocked) {
-            calc.status = ReleaseEligibility.NoCollateralLocked;
-            return calc;
-        }
-        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
-            if (assumeNewPeriod) {
-                calc.status = ReleaseEligibility.Eligible;
-                calc.collateral = collateralInfo;
-                calc.newLastProcessedPeriod = earningsInfo.currentPeriod + 1;
-            } else {
-                calc.status = ReleaseEligibility.NoPriorEarnings;
-                return calc;
-            }
-        }
-        if (calc.status == ReleaseEligibility.Eligible && assumeNewPeriod && earningsInfo.currentPeriod == 0) {
-            uint256 releasePreview = CollateralLib.calculateCollateralRelease(calc.collateral);
-            if (releasePreview > 0) {
-                (calc.partnerRelease, calc.protocolFee) = _applyReleaseFees(releasePreview);
-            }
-            calc.status =
-                calc.partnerRelease > 0 ? ReleaseEligibility.Eligible : ReleaseEligibility.NoNewEarningsPeriods;
-            return calc;
-        }
-        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
-            calc.status = ReleaseEligibility.NoPriorEarnings;
-            return calc;
-        }
-        if (earningsInfo.currentPeriod <= earningsInfo.lastProcessedPeriod) {
-            if (assumeNewPeriod) {
-                calc.status = ReleaseEligibility.Eligible;
-                calc.collateral = collateralInfo;
-                calc.newLastProcessedPeriod = earningsInfo.currentPeriod + 1;
-
-                uint256 releasePreview = CollateralLib.calculateCollateralRelease(calc.collateral);
-                if (releasePreview > 0) {
-                    (calc.partnerRelease, calc.protocolFee) = _applyReleaseFees(releasePreview);
-                }
-                calc.status =
-                    calc.partnerRelease > 0 ? ReleaseEligibility.Eligible : ReleaseEligibility.NoNewEarningsPeriods;
-                return calc;
-            }
-            calc.status = ReleaseEligibility.NoNewEarningsPeriods;
-            return calc;
-        }
-
-        calc.status = ReleaseEligibility.Eligible;
-        calc.collateral = collateralInfo;
-        calc.newLastProcessedPeriod = earningsInfo.currentPeriod;
-
-        uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 benchmarkEarnings =
-            EarningsLib.calculateEarnings(collateralInfo.initialBaseCollateral, timeSinceLastEvent, targetYieldBP);
-
-        uint256 realizedEarnings = 0;
-        for (uint256 i = earningsInfo.lastProcessedPeriod + 1; i <= earningsInfo.currentPeriod; i++) {
-            realizedEarnings += earningsInfo.periods[i].totalEarnings;
-        }
-
-        if (realizedEarnings < benchmarkEarnings) {
-            uint256 shortfallAmount = benchmarkEarnings - realizedEarnings;
-            if (calc.collateral.earningsBuffer >= shortfallAmount) {
-                calc.collateral.earningsBuffer -= shortfallAmount;
-                calc.collateral.reservedForLiquidation += shortfallAmount;
-            } else {
-                calc.collateral.reservedForLiquidation += calc.collateral.earningsBuffer;
-                calc.collateral.earningsBuffer = 0;
-            }
-            calc.collateral.totalCollateral =
-                calc.collateral.baseCollateral + calc.collateral.earningsBuffer + calc.collateral.protocolBuffer;
-            calc.shortfallAmount = shortfallAmount;
-        } else if (realizedEarnings > benchmarkEarnings) {
-            uint256 excessEarnings = realizedEarnings - benchmarkEarnings;
-            (, uint256 benchmarkEarningsBuffer,,) = CollateralLib.calculateCollateralRequirements(
-                calc.collateral.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+        uint256 benchmarkEarnings;
+        uint256 realizedEarnings;
+        if (
+            collateralInfo.isLocked && earningsInfo.isInitialized && earningsInfo.currentPeriod > 0
+                && earningsInfo.currentPeriod > earningsInfo.lastProcessedPeriod
+        ) {
+            uint256 timeSinceLastEvent = block.timestamp - collateralInfo.lastEventTimestamp;
+            uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
+            benchmarkEarnings =
+                EarningsLib.calculateEarnings(collateralInfo.initialBaseCollateral, timeSinceLastEvent, targetYieldBP);
+            realizedEarnings = EarningsLib.sumRealizedEarnings(
+                earningsInfo, earningsInfo.lastProcessedPeriod, earningsInfo.currentPeriod
             );
-            uint256 bufferDeficit = benchmarkEarningsBuffer > calc.collateral.earningsBuffer
-                ? benchmarkEarningsBuffer - calc.collateral.earningsBuffer
-                : 0;
-
-            if (calc.collateral.reservedForLiquidation > 0) {
-                uint256 toReplenish = bufferDeficit < calc.collateral.reservedForLiquidation
-                    ? bufferDeficit
-                    : calc.collateral.reservedForLiquidation;
-                toReplenish = toReplenish < excessEarnings ? toReplenish : excessEarnings;
-
-                if (toReplenish > 0) {
-                    calc.collateral.earningsBuffer += toReplenish;
-                    calc.collateral.reservedForLiquidation -= toReplenish;
-                    calc.collateral.totalCollateral = calc.collateral.baseCollateral + calc.collateral.earningsBuffer
-                        + calc.collateral.protocolBuffer;
-                    calc.replenishmentAmount = toReplenish;
-                    excessEarnings -= toReplenish;
-                }
-            }
-
-            calc.excessEarnings = excessEarnings;
         }
 
-        uint256 releaseAmount = CollateralLib.calculateCollateralRelease(calc.collateral);
-        if (releaseAmount == 0) {
-            return calc;
-        }
-        if (releaseAmount > calc.collateral.totalCollateral) {
-            releaseAmount = calc.collateral.totalCollateral;
-        }
-
-        calc.grossRelease = releaseAmount;
-        calc.protocolFee = ProtocolLib.calculateProtocolFee(releaseAmount);
-        if (calc.protocolFee > releaseAmount) {
-            calc.protocolFee = releaseAmount;
-        }
-        calc.partnerRelease = releaseAmount - calc.protocolFee;
-
-        return calc;
-    }
-
-    function _applyReleaseFees(uint256 releaseAmount) internal pure returns (uint256 partnerRelease, uint256 fee) {
-        fee = ProtocolLib.calculateProtocolFee(releaseAmount);
-        if (fee > releaseAmount) {
-            fee = releaseAmount;
-        }
-        partnerRelease = releaseAmount - fee;
+        return CollateralLib.calculateReleasePreview(
+            collateralInfo,
+            assumeNewPeriod,
+            earningsInfo.isInitialized,
+            earningsInfo.currentPeriod,
+            earningsInfo.lastProcessedPeriod,
+            realizedEarnings,
+            benchmarkEarnings
+        );
     }
 
     /**
@@ -1285,13 +1128,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
-        if (!settlement.isSettled) {
-            return 0;
-        }
-
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
-        if (tokenBalance == 0) {
+        if (!settlement.isSettled || tokenBalance == 0) {
             return 0;
         }
 
@@ -1315,13 +1154,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
-        bool isSettled = (status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired);
+        bool isSettled = _isSettledStatus(status);
 
         if (isSettled) {
-            if (earningsInfo.hasClaimedSettledEarnings[holder]) {
-                return 0;
-            }
-            return earningsInfo.settledEarningsSnapshot[holder];
+            return EarningsLib.previewSettledEarnings(earningsInfo, holder);
         }
 
         if (roboshareTokens.balanceOf(holder, assetId) > 0) {
@@ -1334,7 +1170,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
-        return EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
+        return EarningsLib.previewEarningsForHolder(earningsInfo, holder, positions);
     }
 
     /**
@@ -1359,23 +1195,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             uint256 minEarlySalePenalty
         )
     {
-        return (
-            ProtocolLib.BP_PRECISION,
-            ProtocolLib.BENCHMARK_YIELD_BP,
-            ProtocolLib.PROTOCOL_FEE_BP,
-            ProtocolLib.EARLY_SALE_PENALTY_BP,
-            ProtocolLib.DEPRECIATION_RATE_BP,
-            ProtocolLib.MIN_PROTOCOL_FEE,
-            ProtocolLib.MIN_EARLY_SALE_PENALTY
-        );
-    }
-
-    function getMarketProjectionConstants()
-        external
-        pure
-        returns (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision)
-    {
-        return (ProtocolLib.BENCHMARK_YIELD_BP, ProtocolLib.DEPRECIATION_RATE_BP, ProtocolLib.BP_PRECISION);
+        return _getProtocolConfigValues();
     }
 
     // Admin Functions
@@ -1468,6 +1288,38 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         address oldAddress = treasuryFeeRecipient;
         treasuryFeeRecipient = _treasuryFeeRecipient;
         emit TreasuryFeeRecipientUpdated(oldAddress, _treasuryFeeRecipient);
+    }
+
+    function _getProtocolConfigValues()
+        internal
+        pure
+        returns (
+            uint256 bpPrecision,
+            uint256 benchmarkYieldBP,
+            uint256 protocolFeeBP,
+            uint256 earlySalePenaltyBP,
+            uint256 depreciationRateBP,
+            uint256 minProtocolFee,
+            uint256 minEarlySalePenalty
+        )
+    {
+        return (
+            ProtocolLib.BP_PRECISION,
+            ProtocolLib.BENCHMARK_YIELD_BP,
+            ProtocolLib.PROTOCOL_FEE_BP,
+            ProtocolLib.EARLY_SALE_PENALTY_BP,
+            ProtocolLib.DEPRECIATION_RATE_BP,
+            ProtocolLib.MIN_PROTOCOL_FEE,
+            ProtocolLib.MIN_EARLY_SALE_PENALTY
+        );
+    }
+
+    function _isOperationalStatus(AssetLib.AssetStatus status) internal pure returns (bool) {
+        return status == AssetLib.AssetStatus.Active || status == AssetLib.AssetStatus.Earning;
+    }
+
+    function _isSettledStatus(AssetLib.AssetStatus status) internal pure returns (bool) {
+        return status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired;
     }
 
     // UUPS Upgrade authorization
