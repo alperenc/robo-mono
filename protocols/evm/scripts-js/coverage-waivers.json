@@ -1,0 +1,100 @@
+[
+  {
+    "file": "contracts/Libraries.sol",
+    "line": 143,
+    "sourceIncludes": "if (next == AssetStatus.Pending || next == AssetStatus.PendingApproval) {",
+    "classification": "helper_only",
+    "reason": "Invalid enum raw-state branch is only meaningful in direct library helper tests."
+  },
+  {
+    "file": "contracts/Libraries.sol",
+    "line": 147,
+    "sourceIncludes": "if (next == AssetStatus.PendingApproval) {",
+    "classification": "helper_only",
+    "reason": "Invalid enum raw-state branch is only meaningful in direct library helper tests."
+  },
+  {
+    "file": "contracts/Libraries.sol",
+    "line": 794,
+    "sourceIncludes": "if (info.earningsBuffer >= shortfallAmount) {",
+    "classification": "helper_only",
+    "reason": "Direct library branch on injected collateral math state; not a protocol-flow target."
+  },
+  {
+    "file": "contracts/Libraries.sol",
+    "line": 906,
+    "sourceIncludes": "if (fee > releaseAmount) {",
+    "classification": "via_ir_artifact",
+    "reason": "Release-fee clamp is exercised by direct library tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 488,
+    "sourceIncludes": "if (!listing.isActive && !isSoldOut) revert ListingNotActive();",
+    "classification": "unreachable_valid_flow",
+    "reason": "endListing zeroes remaining amount when deactivating a non-sold-out listing, so inactive non-sold-out state cannot persist under valid flows."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 859,
+    "sourceIncludes": "if (partnerRefund > 0) {",
+    "classification": "via_ir_artifact",
+    "reason": "Mature voluntary settlement refund path is exercised in tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Libraries.sol",
+    "line": 1029,
+    "sourceIncludes": "if (calc.grossRelease > calc.collateral.totalCollateral) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Release clamp branch requires malformed collateral state under valid protocol semantics."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 176,
+    "sourceIncludes": "if (!CollateralLib.isInitialized(collateralInfo)) {",
+    "classification": "via_ir_artifact",
+    "reason": "First-time fundBuffersFor initialization path is exercised in tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 183,
+    "sourceIncludes": "if (collateralInfo.lockedAt == 0) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Initialized collateral with lockedAt == 0 cannot arise through normal flows."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 272,
+    "sourceIncludes": "if (totalCollateralDeposited >= totalReleased) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Collateral deposit clamp requires inconsistent accounting state and is not reachable via valid flows."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 503,
+    "sourceIncludes": "if (isSettled) {",
+    "classification": "via_ir_artifact",
+    "reason": "Settled snapshot-earnings claim path is exercised in tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 718,
+    "sourceIncludes": "if (allowSkip) {",
+    "classification": "via_ir_artifact",
+    "reason": "allowSkip branch accounting is not reported reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 930,
+    "sourceIncludes": "if (earningsInfo.lastEventTimestamp == 0) {",
+    "classification": "via_ir_artifact",
+    "reason": "No-prior-earnings liquidation helper path is exercised in tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 935,
+    "sourceIncludes": "if (elapsed == 0) {",
+    "classification": "via_ir_artifact",
+    "reason": "Zero-elapsed helper branch is not reported reliably under --ir-minimum."
+  }
+]

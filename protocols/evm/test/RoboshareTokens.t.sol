@@ -222,24 +222,6 @@ contract RoboshareTokensTest is BaseTest {
         roboshareTokens.getRevenueTokenSupply(assetId);
     }
 
-    function testGetSoldSupplyNotRevenueToken() public {
-        uint256 assetId = 101; // An odd number, not a revenue token
-
-        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.getSoldSupply(assetId);
-    }
-
-    function testIncreaseSoldSupplyNotRevenueToken() public {
-        uint256 assetId = 101; // An odd number, not a revenue token
-
-        vm.startPrank(admin);
-        roboshareTokens.grantRole(roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(this));
-        vm.stopPrank();
-
-        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.increaseSoldSupply(assetId, 1);
-    }
-
     function testGetTokenMaturityDateNotRevenueToken() public {
         uint256 assetId = 101; // An odd number, not a revenue token
 
@@ -262,7 +244,7 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testGetSalesPenaltyAssetOwner() public {
-        _ensureState(SetupState.RevenueTokensMinted);
+        _ensureState(SetupState.PrimaryPoolCreated);
 
         uint256 penalty = roboshareTokens.getSalesPenalty(partner1, scenario.revenueTokenId, 1);
         assertEq(penalty, 0);
@@ -354,7 +336,7 @@ contract RoboshareTokensTest is BaseTest {
     }
 
     function testGetUserPositionsNotRevenueToken() public {
-        _ensureState(SetupState.RevenueTokensMinted); // Creates assetId (odd) and revenueTokenId (even)
+        _ensureState(SetupState.PrimaryPoolCreated); // Creates assetId (odd) and revenueTokenId (even)
 
         // Attempt to get positions for the vehicle NFT ID, which is not a revenue token
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
@@ -431,12 +413,12 @@ contract RoboshareTokensTest is BaseTest {
         assertEq(roboshareTokens.getAssetIdFromTokenId(tokenId), expectedAssetId);
     }
 
-    function testGetAssetIdFromTokenIdInvalid() public {
-        // ID 0 -> InvalidRevenueTokenId
+    function testGetAssetIdFromTokenIdInvalidRevenueTokenIdZero() public {
         vm.expectRevert(TokenLib.InvalidRevenueTokenId.selector);
         roboshareTokens.getAssetIdFromTokenId(0);
+    }
 
-        // Odd ID -> InvalidRevenueTokenId
+    function testGetAssetIdFromTokenIdInvalidRevenueTokenIdOdd() public {
         vm.expectRevert(TokenLib.InvalidRevenueTokenId.selector);
         roboshareTokens.getAssetIdFromTokenId(1001);
     }
@@ -448,12 +430,12 @@ contract RoboshareTokensTest is BaseTest {
         assertEq(roboshareTokens.getTokenIdFromAssetId(assetId), expectedTokenId);
     }
 
-    function testGetTokenIdFromAssetIdInvalid() public {
-        // ID 0 -> InvalidAssetId
+    function testGetTokenIdFromAssetIdInvalidAssetIdZero() public {
         vm.expectRevert(TokenLib.InvalidAssetId.selector);
         roboshareTokens.getTokenIdFromAssetId(0);
+    }
 
-        // Even ID -> InvalidAssetId
+    function testGetTokenIdFromAssetIdInvalidAssetIdEven() public {
         vm.expectRevert(TokenLib.InvalidAssetId.selector);
         roboshareTokens.getTokenIdFromAssetId(1002);
     }

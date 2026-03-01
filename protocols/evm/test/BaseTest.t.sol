@@ -13,20 +13,17 @@ import { Marketplace } from "../contracts/Marketplace.sol";
 import { DeployForTest } from "../script/DeployForTest.s.sol";
 
 contract BaseTest is Test {
+    // Shared fixture ladder. Only include protocol states that are broadly reusable across suites.
+    // Scenario-specific flows such as secondary listings should use dedicated helpers instead.
     enum SetupState {
         None,
         ContractsDeployed,
         InitialAccountsSetup,
         AssetRegistered,
-        RevenueTokensMinted,
-        RevenueTokensListed,
-        RevenueTokensPurchased,
-        BuffersLocked,
-        ListingEnded,
-        RevenueTokensClaimed,
-        EarningsDistributed,
-        AssetWithPartialCollateralRelease,
-        AssetWithFullCollateralRelease
+        PrimaryPoolCreated,
+        PurchasedFromPrimaryPool,
+        BuffersFunded,
+        EarningsDistributed
     }
 
     SetupState private currentState;
@@ -63,15 +60,16 @@ contract BaseTest is Test {
     // Test marketplace parameters
     uint256 constant REVENUE_TOKEN_PRICE = 100 * 10 ** 6; // $100 USDC
     uint256 constant ASSET_VALUE = 100000 * 10 ** 6; // $100,000 USDC
-    uint256 constant LISTING_AMOUNT = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
+    uint256 constant PRIMARY_PURCHASE_AMOUNT = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
+    uint256 constant SECONDARY_LISTING_AMOUNT = PRIMARY_PURCHASE_AMOUNT / 2;
     uint256 constant LISTING_DURATION = 30 days;
-    uint256 constant PURCHASE_AMOUNT = LISTING_AMOUNT / 5;
+    uint256 constant SECONDARY_PURCHASE_AMOUNT = SECONDARY_LISTING_AMOUNT / 2;
     uint256 constant EARNINGS_AMOUNT = 1000 * 1e6;
     uint256 constant SMALL_EARNINGS_AMOUNT = 100 * 1e6;
     uint256 constant LARGE_EARNINGS_AMOUNT = 10000 * 1e6;
-    uint256 constant TOP_UP_AMOUNT = 1000 * 1e6;
+    uint256 constant SETTLEMENT_TOP_UP_AMOUNT = (PRIMARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE) / 10;
 
-    // Storage for test scenario states
+    // Shared scenario handles populated by the fixture helpers below.
     struct TestScenario {
         uint256 assetId;
         uint256 revenueTokenId;
@@ -100,34 +98,20 @@ contract BaseTest is Test {
             currentState = SetupState.AssetRegistered;
         }
 
-        if (requiredState >= SetupState.RevenueTokensMinted && currentState < SetupState.RevenueTokensMinted) {
-            scenario.revenueTokenId = _setupRevenueTokensMinted();
-            currentState = SetupState.RevenueTokensMinted;
+        if (requiredState >= SetupState.PrimaryPoolCreated && currentState < SetupState.PrimaryPoolCreated) {
+            scenario.revenueTokenId = _setupPrimaryPoolCreated();
+            currentState = SetupState.PrimaryPoolCreated;
         }
 
-        if (requiredState >= SetupState.RevenueTokensListed && currentState < SetupState.RevenueTokensListed) {
-            scenario.listingId = _setupRevenueTokensListed();
-            currentState = SetupState.RevenueTokensListed;
+        if (requiredState >= SetupState.PurchasedFromPrimaryPool && currentState < SetupState.PurchasedFromPrimaryPool)
+        {
+            _setupPurchasedFromPrimaryPool();
+            currentState = SetupState.PurchasedFromPrimaryPool;
         }
 
-        if (requiredState >= SetupState.RevenueTokensPurchased && currentState < SetupState.RevenueTokensPurchased) {
-            _setupRevenueTokensPurchased();
-            currentState = SetupState.RevenueTokensPurchased;
-        }
-
-        if (requiredState >= SetupState.BuffersLocked && currentState < SetupState.BuffersLocked) {
-            _setupBuffersLocked();
-            currentState = SetupState.BuffersLocked;
-        }
-
-        if (requiredState >= SetupState.ListingEnded && currentState < SetupState.ListingEnded) {
-            _setupListingEnded();
-            currentState = SetupState.ListingEnded;
-        }
-
-        if (requiredState >= SetupState.RevenueTokensClaimed && currentState < SetupState.RevenueTokensClaimed) {
-            _setupRevenueTokensClaimed();
-            currentState = SetupState.RevenueTokensClaimed;
+        if (requiredState >= SetupState.BuffersFunded && currentState < SetupState.BuffersFunded) {
+            _setupBuffersFunded();
+            currentState = SetupState.BuffersFunded;
         }
 
         if (requiredState >= SetupState.EarningsDistributed && currentState < SetupState.EarningsDistributed) {
@@ -162,23 +146,37 @@ contract BaseTest is Test {
         );
     }
 
-    function _setupRevenueTokensMinted() internal returns (uint256 revenueTokenId) {
+    function _setupPrimaryPoolCreated() internal returns (uint256 revenueTokenId) {
         uint256 maturityDate = block.timestamp + 365 days;
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         vm.prank(partner1);
-        (revenueTokenId,) = assetRegistry.mintRevenueTokensAndCreatePrimaryPool(
+        (revenueTokenId,) = assetRegistry.createRevenueTokenPool(
             scenario.assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, false
         );
     }
 
-    function _mintRevenueTokensToEscrow(uint256 revenueTokenId, uint256 amount) internal {
-        vm.prank(address(router));
-        roboshareTokens.mint(address(marketplace), revenueTokenId, amount, "");
-        vm.prank(address(router));
-        marketplace.creditTokenEscrow(revenueTokenId, amount);
+    function _setupAdditionalAssetAndPrimaryPool(address partner, string memory vin)
+        internal
+        returns (uint256 assetId, uint256 revenueTokenId, uint256 supply)
+    {
+        vm.prank(partner);
+        assetId = assetRegistry.registerAsset(
+            abi.encode(
+                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            ASSET_VALUE
+        );
+
+        supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(partner);
+        (revenueTokenId,) = assetRegistry.createRevenueTokenPool(
+            assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, false
+        );
     }
 
-    function _setupBuffersLocked() internal {
+    function _setupBuffersFunded() internal {
         uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(scenario.assetId);
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
         uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP);
@@ -188,39 +186,47 @@ contract BaseTest is Test {
         treasury.fundBuffersFor(partner1, scenario.assetId, baseAmount);
     }
 
-    function _setupBaseEscrowCredited(uint256 amount) internal {
+    function _creditBaseLiquidity(uint256 amount) internal {
         deal(address(usdc), address(treasury), usdc.balanceOf(address(treasury)) + amount);
         vm.prank(address(marketplace));
-        treasury.creditBaseEscrow(scenario.assetId, amount);
+        treasury.creditBaseLiquidity(scenario.assetId, amount);
     }
 
-    function _setupRevenueTokensListed() internal returns (uint256 listingId) {
-        (uint256 primaryCost,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, LISTING_AMOUNT);
+    /**
+     * @dev Creates a reusable secondary-listing scenario where the asset owner buys from the
+     * primary pool and lists the acquired tokens on the secondary market.
+     */
+    function _setupSecondaryListingScenario() internal returns (uint256 listingId) {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        (uint256 primaryCost,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
 
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), primaryCost);
-        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, LISTING_AMOUNT);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
         listingId = marketplace.createListing(
-            scenario.revenueTokenId, LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+            scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
         vm.stopPrank();
     }
 
-    function _setupRevenueTokensPurchased() internal {
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, PURCHASE_AMOUNT);
+    function _ensureSecondaryListingScenario() internal returns (uint256 listingId) {
+        if (scenario.listingId != 0) {
+            return scenario.listingId;
+        }
+
+        scenario.listingId = _setupSecondaryListingScenario();
+        return scenario.listingId;
+    }
+
+    function _setupPurchasedFromPrimaryPool() internal {
+        (uint256 expectedPayment,,,) =
+            marketplace.previewPrimaryPurchase(scenario.revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, PURCHASE_AMOUNT);
+        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
         vm.stopPrank();
-    }
-
-    function _setupListingEnded() internal {
-        // No-op in primary pool flow.
-    }
-
-    function _setupRevenueTokensClaimed() internal {
-        // No-op in immediate settlement: tokens are received at purchase time.
     }
 
     /**
@@ -234,7 +240,7 @@ contract BaseTest is Test {
 
         // Calculate investor portion based on token ownership
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 investorTokens = roboshareTokens.getSoldSupply(revenueTokenId);
+        uint256 investorTokens = _getInvestorSupply(revenueTokenId, partner1);
         uint256 revenueShareBP = roboshareTokens.getRevenueShareBP(revenueTokenId);
         uint256 cap = (totalEarningsAmount * revenueShareBP) / ProtocolLib.BP_PRECISION;
         uint256 soldShare = (totalEarningsAmount * investorTokens) / totalSupply;
@@ -244,6 +250,12 @@ contract BaseTest is Test {
         usdc.approve(address(treasury), investorAmount);
         treasury.distributeEarnings(scenario.assetId, totalEarningsAmount, false);
         vm.stopPrank();
+    }
+
+    function _getInvestorSupply(uint256 revenueTokenId, address partner) internal view returns (uint256) {
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+        uint256 partnerBalance = roboshareTokens.balanceOf(partner, revenueTokenId);
+        return totalSupply > partnerBalance ? totalSupply - partnerBalance : 0;
     }
 
     // ========================================

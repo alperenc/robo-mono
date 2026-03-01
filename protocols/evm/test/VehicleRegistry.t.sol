@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { BaseTest } from "./BaseTest.t.sol";
-import { VehicleLib, AssetLib } from "../contracts/Libraries.sol";
+import { VehicleLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
@@ -136,7 +136,7 @@ contract VehicleRegistryTest is BaseTest {
         );
     }
 
-    function testRegisterVehicleInvalidYear() public {
+    function testRegisterVehicleInvalidYearTooLow() public {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
@@ -146,7 +146,10 @@ contract VehicleRegistryTest is BaseTest {
             ),
             ASSET_VALUE
         );
+    }
 
+    function testRegisterVehicleInvalidYearTooHigh() public {
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(
@@ -187,33 +190,6 @@ contract VehicleRegistryTest is BaseTest {
         assertEq(manufacturerId, TEST_MANUFACTURER_ID);
         assertEq(optionCodes, TEST_OPTION_CODES);
         assertEq(metadataUri, TEST_METADATA_URI);
-    }
-
-    function testRegisterAssetMintAndCreatePrimaryPool() public {
-        _ensureState(SetupState.InitialAccountsSetup);
-
-        bytes memory vehicleData = abi.encode(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
-
-        vm.prank(partner1);
-        (uint256 assetId, uint256 revenueTokenId, uint256 supply) = assetRegistry.registerAssetMintAndCreatePrimaryPool(
-            vehicleData,
-            ASSET_VALUE,
-            REVENUE_TOKEN_PRICE,
-            block.timestamp + 365 days,
-            10_000,
-            1_000,
-            ASSET_VALUE / REVENUE_TOKEN_PRICE,
-            false,
-            false
-        );
-
-        assertEq(assetId, 1);
-        assertEq(revenueTokenId, 2);
-        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
-        assertTrue(marketplace.isPrimaryPoolActive(revenueTokenId));
-        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
     }
 
     // ============ Admin Function Tests ============

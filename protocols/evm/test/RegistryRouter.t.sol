@@ -189,31 +189,11 @@ contract RegistryRouterTest is BaseTest {
         router.registerAsset(bytes(""), ASSET_VALUE);
     }
 
-    function testRegisterAssetMintAndListDirectCall() public {
+    function testRegisterAssetAndCreateRevenueTokenPoolDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetMintAndList(
-            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
-        );
-    }
-
-    function testRegisterAssetMintAndCreatePrimaryPoolDirectCall() public {
-        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetMintAndCreatePrimaryPool(
+        router.registerAssetAndCreateRevenueTokenPool(
             bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 1000, false, false
         );
-    }
-
-    function testMintRevenueTokensAndCreatePrimaryPool() public {
-        _ensureState(SetupState.AssetRegistered);
-
-        vm.prank(partner1);
-        (uint256 tokenId, uint256 supply) = router.mintRevenueTokensAndCreatePrimaryPool(
-            scenario.assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
-        );
-
-        assertEq(tokenId, scenario.assetId + 1);
-        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
-        assertTrue(marketplace.isPrimaryPoolActive(tokenId));
     }
 
     function testClaimSettlementDirectCallNotAllowed() public {
@@ -222,7 +202,7 @@ contract RegistryRouterTest is BaseTest {
     }
 
     function testBurnRevenueTokensForPrimaryRedemptionUnauthorizedCaller() public {
-        _ensureState(SetupState.RevenueTokensPurchased);
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
         vm.prank(unauthorized);
         vm.expectRevert(RegistryRouter.NotTreasury.selector);
         router.burnRevenueTokensForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
@@ -241,8 +221,8 @@ contract RegistryRouterTest is BaseTest {
         router.burnRevenueTokensForPrimaryRedemption(buyer, unboundRevenueTokenId, 1);
     }
 
-    function testBurnRevenueTokensForPrimaryRedemptionSuccess() public {
-        _ensureState(SetupState.RevenueTokensPurchased);
+    function testBurnRevenueTokensForPrimaryRedemption() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
         uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         assertGt(buyerBalanceBefore, 0);
 
@@ -260,8 +240,8 @@ contract RegistryRouterTest is BaseTest {
 
     function testMintRevenueTokensForPrimaryPoolInvalidTokenType() public {
         vm.prank(address(treasury));
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(2)));
-        router.mintRevenueTokensForPrimaryPool(buyer, 2, 1);
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(1)));
+        router.mintRevenueTokensForPrimaryPool(buyer, 1, 1);
     }
 
     function testMintRevenueTokensForPrimaryPoolUnboundRevenueToken() public {
@@ -271,8 +251,8 @@ contract RegistryRouterTest is BaseTest {
         router.mintRevenueTokensForPrimaryPool(buyer, unboundRevenueTokenId, 1);
     }
 
-    function testMintRevenueTokensForPrimaryPoolSuccess() public {
-        _ensureState(SetupState.RevenueTokensMinted);
+    function testMintRevenueTokensForPrimaryPool() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
         uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
         vm.prank(address(treasury));
@@ -282,7 +262,7 @@ contract RegistryRouterTest is BaseTest {
     }
 
     function testPreviewLiquidationEligibilityView() public {
-        _ensureState(SetupState.RevenueTokensMinted);
+        _ensureState(SetupState.PrimaryPoolCreated);
         (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);
         assertFalse(eligible);
         assertEq(reason, 3); // NotEligible
