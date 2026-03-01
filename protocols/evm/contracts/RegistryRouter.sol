@@ -46,7 +46,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     event IdBoundToRegistry(uint256 indexed id, address indexed registry);
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
-    event RevenueTokensMinted(
+    event RevenueTokenPoolCreated(
         uint256 indexed assetId,
         uint256 indexed revenueTokenId,
         address indexed partner,
@@ -107,29 +107,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev Create a secondary listing on behalf of a seller. Can only be called by authorized registries.
-     * This is used for secondary inventory only; primary issuance now uses primary pools.
-     * @param seller The address of the seller (partner)
-     * @param tokenId The revenue share token ID
-     * @param amount Number of tokens to list
-     * @param pricePerToken Price per token in USDC
-     * @param duration Listing duration in seconds
-     * @param buyerPaysFee If true, buyer pays protocol fee
-     */
-    function createListingFor(
-        address seller,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 pricePerToken,
-        uint256 duration,
-        bool buyerPaysFee
-    ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 listingId) {
-        if (marketplace == address(0)) revert MarketplaceNotSet();
-        return
-            IMarketplace(marketplace).createListingFor(seller, tokenId, amount, pricePerToken, duration, buyerPaysFee);
-    }
-
-    /**
      * @dev Internal helper to bind ID to registry
      */
     function _bindId(uint256 id, address registry) internal {
@@ -167,7 +144,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         revert DirectCallNotAllowed();
     }
 
-    function mintRevenueTokensAndCreatePrimaryPool(
+    function createRevenueTokenPool(
         uint256 assetId,
         uint256 tokenPrice,
         uint256 maturityDate,
@@ -177,20 +154,20 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         bool immediateProceeds,
         bool protectionEnabled
     ) external override onlyAuthorizedPartner returns (uint256 tokenId, uint256 supply) {
-        return _mintRevenueTokensAndCreatePrimaryPoolFor(
-                msg.sender,
-                assetId,
-                tokenPrice,
-                maturityDate,
-                revenueShareBP,
-                targetYieldBP,
-                maxSupply,
-                immediateProceeds,
-                protectionEnabled
-            );
+        return _createRevenueTokenPoolFor(
+            msg.sender,
+            assetId,
+            tokenPrice,
+            maturityDate,
+            revenueShareBP,
+            targetYieldBP,
+            maxSupply,
+            immediateProceeds,
+            protectionEnabled
+        );
     }
 
-    function mintRevenueTokensAndCreatePrimaryPoolFor(
+    function createRevenueTokenPoolFor(
         address partner,
         uint256 assetId,
         uint256 tokenPrice,
@@ -201,7 +178,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         bool immediateProceeds,
         bool protectionEnabled
     ) external onlyRole(AUTHORIZED_REGISTRY_ROLE) returns (uint256 tokenId, uint256 supply) {
-        return _mintRevenueTokensAndCreatePrimaryPoolFor(
+        return _createRevenueTokenPoolFor(
                 partner,
                 assetId,
                 tokenPrice,
@@ -214,7 +191,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             );
     }
 
-    function _mintRevenueTokensAndCreatePrimaryPoolFor(
+    function _createRevenueTokenPoolFor(
         address partner,
         uint256 assetId,
         uint256 tokenPrice,
@@ -230,18 +207,18 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert RegistryNotFound(assetId);
         }
 
-        (tokenId, supply) = IAssetRegistry(registry).previewMintRevenueTokens(assetId, partner, tokenPrice);
+        (tokenId, supply) = IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
         uint256 poolMaxSupply = maxSupply == 0 ? supply : maxSupply;
 
         roboshareTokens.setRevenueTokenInfo(tokenId, tokenPrice, supply, maturityDate, revenueShareBP, targetYieldBP);
-        emit RevenueTokensMinted(assetId, tokenId, partner, supply * tokenPrice, supply);
+        emit RevenueTokenPoolCreated(assetId, tokenId, partner, supply * tokenPrice, supply);
         IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         IMarketplace(marketplace)
             .createPrimaryPoolFor(partner, tokenId, tokenPrice, poolMaxSupply, immediateProceeds, protectionEnabled);
     }
 
-    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
         external
         view
         override
@@ -251,10 +228,10 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        return IAssetRegistry(registry).previewMintRevenueTokens(assetId, partner, tokenPrice);
+        return IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
     }
 
-    function registerAssetMintAndCreatePrimaryPool(
+    function registerAssetAndCreateRevenueTokenPool(
         bytes calldata,
         uint256,
         uint256,

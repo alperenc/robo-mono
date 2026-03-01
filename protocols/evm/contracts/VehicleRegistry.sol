@@ -172,7 +172,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         roboshareTokens.mint(msg.sender, assetId, 1, ""); // Mint 1 vehicle NFT to partner
     }
 
-    function registerAssetMintAndCreatePrimaryPool(
+    function registerAssetAndCreateRevenueTokenPool(
         bytes calldata data,
         uint256 assetValue,
         uint256 tokenPrice,
@@ -185,7 +185,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     ) external override onlyAuthorizedPartner returns (uint256 assetId, uint256 revenueTokenId, uint256 supply) {
         (assetId, revenueTokenId) = _registerVehicle(data, assetValue);
         roboshareTokens.mint(msg.sender, assetId, 1, "");
-        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
+        (revenueTokenId, supply) = router.createRevenueTokenPoolFor(
             msg.sender,
             assetId,
             tokenPrice,
@@ -198,7 +198,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         );
     }
 
-    function mintRevenueTokensAndCreatePrimaryPool(
+    function createRevenueTokenPool(
         uint256 assetId,
         uint256 tokenPrice,
         uint256 maturityDate,
@@ -208,7 +208,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         bool immediateProceeds,
         bool protectionEnabled
     ) external override onlyAuthorizedPartner returns (uint256 revenueTokenId, uint256 supply) {
-        (revenueTokenId, supply) = router.mintRevenueTokensAndCreatePrimaryPoolFor(
+        (revenueTokenId, supply) = router.createRevenueTokenPoolFor(
             msg.sender,
             assetId,
             tokenPrice,
@@ -221,7 +221,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         );
     }
 
-    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
         external
         view
         override

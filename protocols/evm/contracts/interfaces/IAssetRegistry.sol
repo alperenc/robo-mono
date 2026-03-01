@@ -49,7 +49,7 @@ interface IAssetRegistry {
 
     function registerAsset(bytes calldata data, uint256 assetValue) external returns (uint256 assetId);
 
-    function registerAssetMintAndCreatePrimaryPool(
+    function registerAssetAndCreateRevenueTokenPool(
         bytes calldata data,
         uint256 assetValue,
         uint256 tokenPrice,
@@ -61,7 +61,7 @@ interface IAssetRegistry {
         bool protectionEnabled
     ) external returns (uint256 assetId, uint256 tokenId, uint256 supply);
 
-    function mintRevenueTokensAndCreatePrimaryPool(
+    function createRevenueTokenPool(
         uint256 assetId,
         uint256 tokenPrice,
         uint256 maturityDate,
@@ -73,15 +73,15 @@ interface IAssetRegistry {
     ) external returns (uint256 tokenId, uint256 supply);
 
     /**
-     * @dev Preview revenue token minting for an asset.
+     * @dev Preview revenue token pool creation for an asset.
      * Reverts if the asset is invalid or caller is not authorized.
      * @param assetId The asset ID
-     * @param partner The partner initiating the mint
+     * @param partner The partner initiating the pool creation
      * @param tokenPrice Price per revenue token in USDC
      * @return tokenId The revenue token ID
      * @return supply The computed token supply
      */
-    function previewMintRevenueTokens(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
         external
         view
         returns (uint256 tokenId, uint256 supply);

@@ -212,7 +212,7 @@ contract Marketplace is
         if (primaryPoolCreated[tokenId]) revert PrimaryPoolAlreadyCreated();
 
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetEligibleForListing(assetId)) revert AssetNotEligibleForListing();
+        if (!isAssetMarketOperational(assetId)) revert AssetNotEligibleForListing();
         if (roboshareTokens.balanceOf(partner, assetId) == 0) revert NotPoolPartner();
 
         primaryPools[tokenId] = IMarketplace.PrimaryPool({
@@ -298,7 +298,7 @@ contract Marketplace is
         if (amount == 0) revert InvalidAmount();
 
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetEligibleForListing(assetId)) revert AssetNotActive();
+        if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
 
         uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
         if (currentSupply + amount > pool.maxSupply) revert InvalidAmount();
@@ -357,7 +357,7 @@ contract Marketplace is
         if (amount == 0) revert InvalidAmount();
 
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetEligibleForListing(assetId)) revert AssetNotActive();
+        if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
 
         uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
         payout = treasury.processPrimaryRedemption(msg.sender, assetId, amount, circulatingSupply, minPayout);
@@ -374,39 +374,12 @@ contract Marketplace is
         nonReentrant
         returns (uint256 listingId)
     {
-        return _createListingFor(msg.sender, tokenId, amount, pricePerToken, duration, buyerPaysFee);
-    }
-
-    /**
-     * @dev Creates a secondary listing on behalf of seller.
-     */
-    function createListingFor(
-        address seller,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 pricePerToken,
-        uint256 duration,
-        bool buyerPaysFee
-    ) external override onlyRole(AUTHORIZED_CONTRACT_ROLE) nonReentrant returns (uint256 listingId) {
-        return _createListingFor(seller, tokenId, amount, pricePerToken, duration, buyerPaysFee);
-    }
-
-    /**
-     * @dev Internal listing creation path.
-     */
-    function _createListingFor(
-        address seller,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 pricePerToken,
-        uint256 duration,
-        bool buyerPaysFee
-    ) internal returns (uint256 listingId) {
+        address seller = msg.sender;
         if (!TokenLib.isRevenueToken(tokenId)) revert InvalidTokenType();
         if (pricePerToken == 0) revert InvalidPrice();
 
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetEligibleForListing(assetId)) revert AssetNotEligibleForListing();
+        if (!isAssetMarketOperational(assetId)) revert AssetNotEligibleForListing();
 
         uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
         if (amount == 0 || amount > tokenSupply) revert InvalidAmount();
@@ -450,7 +423,7 @@ contract Marketplace is
         if (listing.listingId == 0) revert ListingNotFound();
 
         uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
-        if (!isAssetEligibleForListing(assetId)) revert AssetNotActive();
+        if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
         if (msg.sender == listing.seller) revert ListingOwnerCannotPurchase();
         if (!listing.isActive) revert ListingNotActive();
         if (amount == 0 || amount > listing.amount) revert InvalidAmount();
@@ -615,9 +588,9 @@ contract Marketplace is
     }
 
     /**
-     * @dev Returns whether asset is eligible for market operations.
+     * @dev Returns whether asset is operational for market activity.
      */
-    function isAssetEligibleForListing(uint256 assetId) public view override returns (bool) {
+    function isAssetMarketOperational(uint256 assetId) public view override returns (bool) {
         if (!router.assetExists(assetId)) return false;
 
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
