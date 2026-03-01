@@ -9,7 +9,7 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { notification } from "~~/utils/scaffold-eth";
 
-interface MintAndListModalProps {
+interface CreateRevenueTokenPoolModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -18,14 +18,14 @@ interface MintAndListModalProps {
   isPrimaryListing?: boolean;
 }
 
-export const MintAndListModal = ({
+export const CreateRevenueTokenPoolModal = ({
   isOpen,
   onClose,
   onSuccess,
   vehicleId,
   assetValue,
   isPrimaryListing = true,
-}: MintAndListModalProps) => {
+}: CreateRevenueTokenPoolModalProps) => {
   const { symbol, decimals } = usePaymentToken();
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -120,7 +120,7 @@ export const MintAndListModal = ({
       );
 
       await writeVehicleRegistry({
-        functionName: "mintRevenueTokensAndCreatePrimaryPool",
+        functionName: "createRevenueTokenPool",
         args: [BigInt(vehicleId), tokenPriceBigInt, maturityTimestamp, revenueShareBP, targetYieldBP, 0n, false, false],
       });
       onSuccess?.();

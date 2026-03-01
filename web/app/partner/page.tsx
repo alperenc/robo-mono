@@ -6,11 +6,11 @@ import { NextPage } from "next";
 import { formatUnits } from "viem";
 import { useAccount, useBlock, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
+import { CreateRevenueTokenPoolModal } from "~~/components/partner/CreateRevenueTokenPoolModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndListingModal } from "~~/components/partner/EndListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
 import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
-import { MintAndListModal } from "~~/components/partner/MintAndListModal";
 import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
@@ -139,7 +139,7 @@ const PartnerDashboard: NextPage = () => {
   const [selectedCategorizedAsset, setSelectedCategorizedAsset] = useState<CategorizedAsset | null>(null);
   const [listModalOpen, setListModalOpen] = useState(false);
   const [listPrefillAmount, setListPrefillAmount] = useState<string | undefined>(undefined);
-  const [mintAndListModalOpen, setMintAndListModalOpen] = useState(false);
+  const [createRevenueTokenPoolModalOpen, setCreateRevenueTokenPoolModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [distributeEarningsModalOpen, setDistributeEarningsModalOpen] = useState(false);
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
@@ -463,9 +463,9 @@ const PartnerDashboard: NextPage = () => {
     setListModalOpen(true);
   };
 
-  const openMintAndListModal = (asset: DashboardAsset) => {
+  const openCreateRevenueTokenPoolModal = (asset: DashboardAsset) => {
     setSelectedAsset(asset);
-    setMintAndListModalOpen(true);
+    setCreateRevenueTokenPoolModalOpen(true);
   };
 
   if (!connectedAddress) {
@@ -1044,7 +1044,7 @@ const PartnerDashboard: NextPage = () => {
                         }
                       : {
                           label: "Mint & List",
-                          onClick: () => openMintAndListModal(asset),
+                          onClick: () => openCreateRevenueTokenPoolModal(asset),
                           className:
                             "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                         }
@@ -1083,11 +1083,11 @@ const PartnerDashboard: NextPage = () => {
       />
 
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
-        <MintAndListModal
-          isOpen={mintAndListModalOpen}
+        <CreateRevenueTokenPoolModal
+          isOpen={createRevenueTokenPoolModalOpen}
           onSuccess={handleFlowSuccess}
           onClose={() => {
-            setMintAndListModalOpen(false);
+            setCreateRevenueTokenPoolModalOpen(false);
             refreshOnModalClose();
           }}
           vehicleId={selectedAsset.id}

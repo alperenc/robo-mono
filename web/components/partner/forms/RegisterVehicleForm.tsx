@@ -374,7 +374,7 @@ export const RegisterVehicleForm = ({
       );
 
       await writeVehicleRegistry({
-        functionName: "registerAssetMintAndCreatePrimaryPool",
+        functionName: "registerAssetAndCreateRevenueTokenPool",
         args: [
           encodedData,
           assetValueBigInt,
