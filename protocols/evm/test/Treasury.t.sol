@@ -144,7 +144,7 @@ contract TreasuryTest is BaseTest {
     // Collateral Calculation Tests
 
     function testGetTotalBufferRequirement() public view {
-        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP);
+        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
         (,, uint256 expectedTotal) = _calculateExpectedBuffers(ASSET_VALUE);
         assertEq(requirement, expectedTotal);
     }
@@ -357,17 +357,6 @@ contract TreasuryTest is BaseTest {
         assertEq(withdrawn, amount);
         assertEq(usdc.balanceOf(partner1), before + amount);
         assertEq(treasury.getPendingWithdrawal(partner1), 0);
-    }
-
-    function testPreviewPrimaryRedemptionPayout() public {
-        _ensureState(SetupState.PurchasedFromPrimaryPool);
-        uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-
-        assertEq(treasury.previewPrimaryRedemptionPayout(scenario.assetId, 0, circulatingSupply), 0);
-        assertEq(treasury.previewPrimaryRedemptionPayout(scenario.assetId, 1, 0), 0);
-
-        uint256 payout = treasury.previewPrimaryRedemptionPayout(scenario.assetId, 1, circulatingSupply);
-        assertGt(payout, 0);
     }
 
     function testUpgradeUnauthorizedCaller() public {

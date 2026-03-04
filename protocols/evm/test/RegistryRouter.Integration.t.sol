@@ -5,7 +5,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { BaseTest } from "./BaseTest.t.sol";
 import { AssetLib, TokenLib } from "../contracts/Libraries.sol";
 import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
-import { IMarketplace } from "../contracts/interfaces/IMarketplace.sol";
+import { Marketplace } from "../contracts/Marketplace.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { Treasury } from "../contracts/Treasury.sol";
@@ -227,7 +227,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         // 3. Purchase Mock Token from primary pool
         uint256 purchaseAmount = PRIMARY_PURCHASE_AMOUNT;
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(mockTokenId, purchaseAmount);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(mockTokenId, purchaseAmount);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -263,11 +263,71 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
         assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
-        IMarketplace.PrimaryPool memory pool = marketplace.getPrimaryPool(revenueTokenId);
+        Marketplace.PrimaryPool memory pool = marketplace.getPrimaryPool(revenueTokenId);
         assertEq(pool.tokenId, revenueTokenId);
         assertEq(pool.partner, partner1);
         assertEq(pool.pricePerToken, REVENUE_TOKEN_PRICE);
         assertEq(pool.maxSupply, tokenSupply);
+    }
+
+    function testBurnRevenueTokensFromHolderForPrimaryRedemptionUnauthorizedCaller() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+        vm.prank(unauthorized);
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.burnRevenueTokensFromHolderForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
+    }
+
+    function testBurnRevenueTokensFromHolderForPrimaryRedemptionInvalidTokenType() public {
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(2)));
+        router.burnRevenueTokensFromHolderForPrimaryRedemption(buyer, 2, 1);
+    }
+
+    function testBurnRevenueTokensFromHolderForPrimaryRedemptionUnboundRevenueToken() public {
+        uint256 unboundRevenueTokenId = 999;
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundRevenueTokenId));
+        router.burnRevenueTokensFromHolderForPrimaryRedemption(buyer, unboundRevenueTokenId, 1);
+    }
+
+    function testBurnRevenueTokensFromHolderForPrimaryRedemption() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        assertGt(buyerBalanceBefore, 0);
+
+        vm.prank(address(treasury));
+        router.burnRevenueTokensFromHolderForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
+
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore - 1);
+    }
+
+    function testMintRevenueTokensToBuyerFromPrimaryPoolUnauthorizedCaller() public {
+        vm.prank(unauthorized);
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.mintRevenueTokensToBuyerFromPrimaryPool(buyer, scenario.revenueTokenId, 1);
+    }
+
+    function testMintRevenueTokensToBuyerFromPrimaryPoolInvalidTokenType() public {
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(1)));
+        router.mintRevenueTokensToBuyerFromPrimaryPool(buyer, 1, 1);
+    }
+
+    function testMintRevenueTokensToBuyerFromPrimaryPoolUnboundRevenueToken() public {
+        uint256 unboundRevenueTokenId = 1000;
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundRevenueTokenId));
+        router.mintRevenueTokensToBuyerFromPrimaryPool(buyer, unboundRevenueTokenId, 1);
+    }
+
+    function testMintRevenueTokensToBuyerFromPrimaryPool() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+
+        vm.prank(address(treasury));
+        router.mintRevenueTokensToBuyerFromPrimaryPool(buyer, scenario.revenueTokenId, 1);
+
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore + 1);
     }
 
     // RegistryNotFound Tests
@@ -416,7 +476,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         router.executeLiquidation(assetId);
     }
 
-    function testProcessSettlementClaimRegistryNotBoundToAsset() public {
+    function testProcessSettlementClaimForRegistryNotBoundToAsset() public {
         uint256 assetId = 100;
         address unauthorizedRegistry = makeAddr("unauthorizedRegistry");
 
@@ -426,7 +486,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
 
         vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
-        router.processSettlementClaim(partner1, assetId, 100);
+        router.processSettlementClaimFor(partner1, assetId, 100);
     }
 
     // TreasuryNotSet Tests
@@ -481,11 +541,11 @@ contract RegistryRouterIntegrationTest is BaseTest {
         proxyRouter.executeLiquidation(assetId);
     }
 
-    function testProcessSettlementClaimTreasuryNotSet() public {
+    function testProcessSettlementClaimForTreasuryNotSet() public {
         (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
         vm.prank(address(assetRegistry));
         vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
-        proxyRouter.processSettlementClaim(partner1, assetId, 100);
+        proxyRouter.processSettlementClaimFor(partner1, assetId, 100);
     }
 
     function testSnapshotAndClaimEarningsTreasuryNotSet() public {

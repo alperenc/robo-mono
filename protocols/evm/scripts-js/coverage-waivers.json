@@ -15,7 +15,7 @@
   },
   {
     "file": "contracts/Libraries.sol",
-    "line": 794,
+    "line": 816,
     "sourceIncludes": "if (info.earningsBuffer >= shortfallAmount) {",
     "classification": "helper_only",
     "reason": "Direct library branch on injected collateral math state; not a protocol-flow target."
@@ -29,14 +29,14 @@
   },
   {
     "file": "contracts/Marketplace.sol",
-    "line": 488,
+    "line": 463,
     "sourceIncludes": "if (!listing.isActive && !isSoldOut) revert ListingNotActive();",
     "classification": "unreachable_valid_flow",
     "reason": "endListing zeroes remaining amount when deactivating a non-sold-out listing, so inactive non-sold-out state cannot persist under valid flows."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 859,
+    "line": 853,
     "sourceIncludes": "if (partnerRefund > 0) {",
     "classification": "via_ir_artifact",
     "reason": "Mature voluntary settlement refund path is exercised in tests but not mapped reliably under --ir-minimum."
@@ -50,14 +50,21 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 176,
+    "line": 163,
+    "sourceIncludes": "if (baseAmount == 0) {",
+    "classification": "via_ir_artifact",
+    "reason": "Invalid collateral amount via fundBuffers(assetId) is exercised in tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 213,
     "sourceIncludes": "if (!CollateralLib.isInitialized(collateralInfo)) {",
     "classification": "via_ir_artifact",
     "reason": "First-time fundBuffersFor initialization path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 183,
+    "line": 196,
     "sourceIncludes": "if (collateralInfo.lockedAt == 0) {",
     "classification": "unreachable_valid_flow",
     "reason": "Initialized collateral with lockedAt == 0 cannot arise through normal flows."
@@ -71,28 +78,35 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 503,
+    "line": 358,
+    "sourceIncludes": "if (immediateProceeds && canRelease) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "fundBuffers(assetId) only sizes buffers against current base liquidity, so the post-purchase sufficiency check cannot be satisfied through a valid external flow before this branch executes."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 514,
     "sourceIncludes": "if (isSettled) {",
     "classification": "via_ir_artifact",
     "reason": "Settled snapshot-earnings claim path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 718,
+    "line": 712,
     "sourceIncludes": "if (allowSkip) {",
     "classification": "via_ir_artifact",
     "reason": "allowSkip branch accounting is not reported reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 930,
+    "line": 941,
     "sourceIncludes": "if (earningsInfo.lastEventTimestamp == 0) {",
     "classification": "via_ir_artifact",
     "reason": "No-prior-earnings liquidation helper path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 935,
+    "line": 929,
     "sourceIncludes": "if (elapsed == 0) {",
     "classification": "via_ir_artifact",
     "reason": "Zero-elapsed helper branch is not reported reliably under --ir-minimum."

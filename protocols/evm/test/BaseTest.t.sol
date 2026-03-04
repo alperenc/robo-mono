@@ -179,11 +179,11 @@ contract BaseTest is Test {
     function _setupBuffersFunded() internal {
         uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(scenario.assetId);
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
-        uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP);
+        uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP, false);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
-        vm.prank(address(marketplace));
-        treasury.fundBuffersFor(partner1, scenario.assetId, baseAmount);
+        vm.prank(partner1);
+        treasury.fundBuffers(scenario.assetId);
     }
 
     function _creditBaseLiquidity(uint256 amount) internal {
@@ -199,7 +199,7 @@ contract BaseTest is Test {
     function _setupSecondaryListingScenario() internal returns (uint256 listingId) {
         _ensureState(SetupState.PrimaryPoolCreated);
 
-        (uint256 primaryCost,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
+        (uint256 primaryCost,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
 
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), primaryCost);
@@ -221,7 +221,7 @@ contract BaseTest is Test {
     }
 
     function _setupPurchasedFromPrimaryPool() internal {
-        (uint256 expectedPayment,,,) =
+        (uint256 expectedPayment,,) =
             marketplace.previewPrimaryPurchase(scenario.revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);

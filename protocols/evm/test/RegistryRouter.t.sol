@@ -201,66 +201,6 @@ contract RegistryRouterTest is BaseTest {
         router.claimSettlement(scenario.assetId, false);
     }
 
-    function testBurnRevenueTokensForPrimaryRedemptionUnauthorizedCaller() public {
-        _ensureState(SetupState.PurchasedFromPrimaryPool);
-        vm.prank(unauthorized);
-        vm.expectRevert(RegistryRouter.NotTreasury.selector);
-        router.burnRevenueTokensForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
-    }
-
-    function testBurnRevenueTokensForPrimaryRedemptionInvalidTokenType() public {
-        vm.prank(address(treasury));
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(2)));
-        router.burnRevenueTokensForPrimaryRedemption(buyer, 2, 1);
-    }
-
-    function testBurnRevenueTokensForPrimaryRedemptionUnboundRevenueToken() public {
-        uint256 unboundRevenueTokenId = 999;
-        vm.prank(address(treasury));
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundRevenueTokenId));
-        router.burnRevenueTokensForPrimaryRedemption(buyer, unboundRevenueTokenId, 1);
-    }
-
-    function testBurnRevenueTokensForPrimaryRedemption() public {
-        _ensureState(SetupState.PurchasedFromPrimaryPool);
-        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-        assertGt(buyerBalanceBefore, 0);
-
-        vm.prank(address(treasury));
-        router.burnRevenueTokensForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
-
-        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore - 1);
-    }
-
-    function testMintRevenueTokensForPrimaryPoolUnauthorizedCaller() public {
-        vm.prank(unauthorized);
-        vm.expectRevert(RegistryRouter.NotTreasury.selector);
-        router.mintRevenueTokensForPrimaryPool(buyer, scenario.revenueTokenId, 1);
-    }
-
-    function testMintRevenueTokensForPrimaryPoolInvalidTokenType() public {
-        vm.prank(address(treasury));
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(1)));
-        router.mintRevenueTokensForPrimaryPool(buyer, 1, 1);
-    }
-
-    function testMintRevenueTokensForPrimaryPoolUnboundRevenueToken() public {
-        uint256 unboundRevenueTokenId = 1000;
-        vm.prank(address(treasury));
-        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, unboundRevenueTokenId));
-        router.mintRevenueTokensForPrimaryPool(buyer, unboundRevenueTokenId, 1);
-    }
-
-    function testMintRevenueTokensForPrimaryPool() public {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-
-        vm.prank(address(treasury));
-        router.mintRevenueTokensForPrimaryPool(buyer, scenario.revenueTokenId, 1);
-
-        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore + 1);
-    }
-
     function testPreviewLiquidationEligibilityView() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);

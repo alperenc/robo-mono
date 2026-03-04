@@ -14,6 +14,39 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.InitialAccountsSetup);
     }
 
+    function _setupProtectedPoolWithPurchaseAndBuffers() internal returns (uint256 assetId, uint256 revenueTokenId) {
+        string memory vin = _generateVin(999);
+        vm.prank(partner1);
+        assetId = assetRegistry.registerAsset(
+            abi.encode(
+                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            ASSET_VALUE
+        );
+
+        uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(partner1);
+        (revenueTokenId,) = assetRegistry.createRevenueTokenPool(
+            assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, true
+        );
+
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+        marketplace.buyFromPrimaryPool(revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
+        vm.stopPrank();
+
+        uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(assetId);
+        uint256 yieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
+        uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP, true);
+        vm.prank(partner1);
+        usdc.approve(address(treasury), requiredCollateral);
+        vm.prank(partner1);
+        treasury.fundBuffers(assetId);
+    }
+
     function testRetireAssetOutstandingTokens() public {
         _ensureState(SetupState.BuffersFunded);
         // Don't burn tokens
@@ -119,6 +152,46 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
     }
 
+    function testRegisterAssetAndCreateRevenueTokenPoolUnauthorizedPartner() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+
+        bytes memory vehicleData = abi.encode(
+            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+        );
+
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        vm.prank(unauthorized);
+        assetRegistry.registerAssetAndCreateRevenueTokenPool(
+            vehicleData,
+            ASSET_VALUE,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            ASSET_VALUE / REVENUE_TOKEN_PRICE,
+            false,
+            false
+        );
+    }
+
+    function testCreateRevenueTokenPoolUnauthorizedPartner() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+
+        vm.prank(partner1);
+        uint256 assetId = assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            ASSET_VALUE
+        );
+
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        vm.prank(unauthorized);
+        assetRegistry.createRevenueTokenPool(
+            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+        );
+    }
+
     // Metadata Update Tests
 
     function testUpdateVehicleMetadata() public {
@@ -153,7 +226,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
     }
 
-    function testUpdateMetadataUnauthorizedPartner() public {
+    function testUpdateVehicleMetadataUnauthorizedPartner() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
@@ -180,7 +253,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
     }
 
-    function testUpdateMetadataVehicleDoesNotExist() public {
+    function testUpdateVehicleMetadataVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         vm.prank(partner1);
         assetRegistry.updateVehicleMetadata(999, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
@@ -207,7 +280,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testPreviewMintRevenueTokensAlreadyMinted() public {
         _ensureState(SetupState.PrimaryPoolCreated);
 
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, 1);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, 1);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromPrimaryPool(scenario.revenueTokenId, 1);
@@ -445,7 +518,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.PrimaryPoolCreated);
 
         uint256 purchaseAmount = 100;
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, purchaseAmount);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, purchaseAmount);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromPrimaryPool(scenario.revenueTokenId, purchaseAmount);
@@ -463,7 +536,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         uint256 mintedSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         uint256 purchaseAmount = mintedSupply / 5;
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, purchaseAmount);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, purchaseAmount);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromPrimaryPool(scenario.revenueTokenId, purchaseAmount);
@@ -478,10 +551,10 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         vm.stopPrank();
 
         // Partner buys back all sold tokens
-        (,, expectedPayment) = marketplace.calculatePurchaseCost(buyerListingId, purchaseAmount);
+        (,, expectedPayment) = marketplace.previewSecondaryPurchase(buyerListingId, purchaseAmount);
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(buyerListingId, purchaseAmount);
+        marketplace.buyFromSecondaryListing(buyerListingId, purchaseAmount);
         vm.stopPrank();
 
         // Partner should now hold all outstanding tokens.
@@ -509,7 +582,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.PrimaryPoolCreated);
 
         uint256 totalSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromPrimaryPool(scenario.revenueTokenId, totalSupply);
@@ -528,7 +601,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureState(SetupState.PrimaryPoolCreated);
         uint256 mintAmount = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
         uint256 burnAmount = mintAmount;
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, burnAmount);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, burnAmount);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromPrimaryPool(scenario.revenueTokenId, burnAmount);
@@ -554,7 +627,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testRetireAsset() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         uint256 totalSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
-        (uint256 expectedPayment,,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, totalSupply);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromPrimaryPool(scenario.revenueTokenId, totalSupply);
@@ -634,7 +707,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Warp to maturity
         vm.warp(maturityDate + 1);
 
-        uint256 expectedLiquidationAmount = _expectedLiquidationAfterMissedShortfall();
+        uint256 expectedLiquidationAmount =
+            _expectedLiquidationAfterMissedShortfall(scenario.assetId, scenario.revenueTokenId);
         assetRegistry.liquidateAsset(scenario.assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         uint256 expectedPerToken = totalSupply > 0 ? expectedLiquidationAmount / totalSupply : 0;
@@ -658,38 +732,41 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testLiquidateAssetAfterMissedEarningsShortfall() public {
-        _ensureState(SetupState.BuffersFunded);
+        (uint256 assetId, uint256 revenueTokenId) = _setupProtectedPoolWithPurchaseAndBuffers();
 
-        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(scenario.assetId);
-        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
-        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(scenario.assetId);
-        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
+        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(assetId);
+        uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
+        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(assetId);
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
         uint256 elapsedToDeplete = (infoBefore.earningsBuffer * ProtocolLib.YEARLY_INTERVAL * ProtocolLib.BP_PRECISION)
             / (infoBefore.initialBaseCollateral * targetYieldBP);
         uint256 warpTo = lastEventTimestamp + elapsedToDeplete + 1;
         require(warpTo < maturityDate, "Test assumes delinquency before maturity");
         vm.warp(warpTo);
 
-        uint256 expectedLiquidationAmount = _expectedLiquidationAfterMissedShortfall();
+        uint256 expectedLiquidationAmount = _expectedLiquidationAfterMissedShortfall(assetId, revenueTokenId);
 
-        assetRegistry.liquidateAsset(scenario.assetId);
+        assetRegistry.liquidateAsset(assetId);
 
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         uint256 expectedPerToken = totalSupply > 0 ? expectedLiquidationAmount / totalSupply : 0;
 
-        (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) =
-            treasury.assetSettlements(scenario.assetId);
+        (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) = treasury.assetSettlements(assetId);
         assertTrue(isSettled);
         assertEq(totalSettlementPool, expectedLiquidationAmount);
         assertEq(settlementPerToken, expectedPerToken);
-        assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Expired));
+        assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Expired));
     }
 
-    function _expectedLiquidationAfterMissedShortfall() internal view returns (uint256) {
-        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(scenario.assetId);
-        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(scenario.assetId);
+    function _expectedLiquidationAfterMissedShortfall(uint256 assetId, uint256 revenueTokenId)
+        internal
+        view
+        returns (uint256)
+    {
+        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(assetId);
+        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(assetId);
         uint256 elapsed = block.timestamp - lastEventTimestamp;
-        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
         uint256 baseEarnings = EarningsLib.calculateEarnings(infoBefore.initialBaseCollateral, elapsed, targetYieldBP);
         uint256 reservedIncrease = baseEarnings < infoBefore.earningsBuffer ? baseEarnings : infoBefore.earningsBuffer;
         return infoBefore.baseCollateral + infoBefore.reservedForLiquidation + reservedIncrease;

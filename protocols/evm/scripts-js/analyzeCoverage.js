@@ -8,12 +8,12 @@ const __dirname = path.dirname(__filename);
 const lcovPath = path.join(__dirname, "../lcov.info");
 const waiversPath = path.join(__dirname, "./coverage-waivers.json");
 
-function getRepoRoot() {
-  return path.resolve(__dirname, "../..");
+function getEvmRoot() {
+  return path.resolve(__dirname, "..");
 }
 
 function getAbsoluteContractPath(relativeContractPath) {
-  return path.join(getRepoRoot(), relativeContractPath);
+  return path.join(getEvmRoot(), relativeContractPath);
 }
 
 function findLineBySnippet(relativeContractPath, sourceIncludes) {

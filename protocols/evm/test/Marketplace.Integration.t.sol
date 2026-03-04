@@ -118,10 +118,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         if (buyerBalance == 0) {
             (,, uint256 expectedPayment) =
-                marketplace.calculatePurchaseCost(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+                marketplace.previewSecondaryPurchase(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
             vm.startPrank(buyer);
             usdc.approve(address(marketplace), expectedPayment);
-            marketplace.purchaseTokens(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+            marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
             vm.stopPrank();
 
             vm.prank(partner1);
@@ -171,11 +171,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(listing.isPrimary);
     }
 
-    function testCreatePrimaryPoolAssetNotEligibleForListing() public {
+    function testCreatePrimaryPoolAssetNotMarketOperational() public {
         (, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(partner1);
-        vm.expectRevert(Marketplace.AssetNotEligibleForListing.selector);
+        vm.expectRevert(Marketplace.AssetNotMarketOperational.selector);
         marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
     }
 
@@ -391,12 +391,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 100, false, false);
 
-        (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds, uint256 protectionFunding) =
+        (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds) =
             marketplace.previewPrimaryPurchase(tokenId, 0);
         assertEq(totalCost, 0);
         assertEq(protocolFee, 0);
         assertEq(partnerProceeds, 0);
-        assertEq(protectionFunding, 0);
     }
 
     function testPausePrimaryPoolPrimaryPoolNotFound() public {
@@ -411,11 +410,40 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 100, true, false);
 
-        (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds,) =
+        (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds) =
             marketplace.previewPrimaryPurchase(tokenId, 1);
         assertGt(totalCost, 0);
         assertGt(protocolFee, 0);
         assertEq(partnerProceeds, REVENUE_TOKEN_PRICE);
+    }
+
+    function testPreviewPrimaryPoolBufferRequirements() public {
+        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, true);
+
+        (uint256 protocolBuffer, uint256 protectionBuffer, uint256 totalBuffer) =
+            marketplace.previewPrimaryPoolBufferRequirements(tokenId, ASSET_VALUE);
+        uint256 protocolOnly = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, false);
+        uint256 withProtection = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
+
+        assertEq(protocolBuffer, protocolOnly);
+        assertEq(totalBuffer, withProtection);
+        assertEq(protectionBuffer, withProtection - protocolOnly);
+    }
+
+    function testGetPrimaryPoolProtectionEnabled() public {
+        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, true);
+
+        assertTrue(marketplace.getPrimaryPoolProtectionEnabled(tokenId));
     }
 
     function testRedeemPrimaryPoolInvalidAmount() public {
@@ -561,11 +589,11 @@ contract MarketplaceIntegrationTest is BaseTest {
 
     // Purchase Listing Tests
 
-    function testPurchaseTokensBuyerPaysFee() public {
+    function testBuyFromSecondaryListingBuyerPaysFee() public {
         _ensureSecondaryListingScenario();
 
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+            marketplace.previewSecondaryPurchase(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         uint256 sellerReceives = totalPrice;
 
         vm.startPrank(buyer);
@@ -577,7 +605,7 @@ contract MarketplaceIntegrationTest is BaseTest {
             scenario.revenueTokenId, partner1, buyer, SECONDARY_PURCHASE_AMOUNT, scenario.listingId, totalPrice
         );
 
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
 
         BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
@@ -603,20 +631,20 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.soldAmount, SECONDARY_PURCHASE_AMOUNT);
     }
 
-    function testPurchaseTokensListingOwnerCannotPurchase() public {
+    function testBuyFromSecondaryListingListingOwnerCannotPurchase() public {
         _ensureSecondaryListingScenario();
 
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, 1);
+        (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(scenario.listingId, 1);
         _fundAddressWithUsdc(partner1, expectedPayment);
 
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), expectedPayment);
         vm.expectRevert(Marketplace.ListingOwnerCannotPurchase.selector);
-        marketplace.purchaseTokens(scenario.listingId, 1);
+        marketplace.buyFromSecondaryListing(scenario.listingId, 1);
         vm.stopPrank();
     }
 
-    function testPurchaseTokensEarlySalePenalty() public {
+    function testBuyFromSecondaryListingEarlySalePenalty() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
         uint256 earlySalePenalty =
@@ -632,7 +660,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // 3. Calculate expected costs, including the penalty
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(newListingId, SECONDARY_PURCHASE_AMOUNT);
+            marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
 
         Marketplace.Listing memory listing = marketplace.getListing(newListingId);
         assertEq(listing.earlySalePenalty, earlySalePenalty, "Listing early sale penalty mismatch");
@@ -643,7 +671,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
-        marketplace.purchaseTokens(newListingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(newListingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
 
         BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
@@ -666,14 +694,14 @@ contract MarketplaceIntegrationTest is BaseTest {
         );
     }
 
-    function testPurchaseTokensSellerPaysFee() public {
+    function testBuyFromSecondaryListingSellerPaysFee() public {
         _ensureSecondaryListingScenario();
 
         // Create a secondary listing with seller paying the fee
         uint256 newListingId = _setupSecondaryListing(partner2, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, false);
 
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(newListingId, SECONDARY_PURCHASE_AMOUNT);
+            marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
         uint256 sellerReceives = totalPrice - protocolFee;
         Marketplace.Listing memory listing = marketplace.getListing(newListingId);
 
@@ -682,7 +710,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
 
-        marketplace.purchaseTokens(newListingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(newListingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
 
         BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
@@ -709,7 +737,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         );
     }
 
-    function testPurchaseTokensCompletelyExhaustsListing() public {
+    function testBuyFromSecondaryListingCompletelyExhaustsListing() public {
         _ensureSecondaryListingScenario();
 
         uint256 totalPrice = SECONDARY_LISTING_AMOUNT * REVENUE_TOKEN_PRICE;
@@ -717,7 +745,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), totalPrice + protocolFee);
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_LISTING_AMOUNT);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_LISTING_AMOUNT);
         vm.stopPrank();
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
@@ -734,7 +762,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(marketplace.tokenEscrow(scenario.revenueTokenId), remaining);
     }
 
-    function testPurchaseTokensInsufficientPayment() public {
+    function testBuyFromSecondaryListingInsufficientPayment() public {
         _ensureSecondaryListingScenario();
 
         uint256 totalPrice = SECONDARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
@@ -748,11 +776,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         usdc.approve(address(marketplace), requiredPayment);
 
         vm.expectRevert(); // ERC20: transfer amount exceeds balance
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
     }
 
-    function testPurchaseTokensExpired() public {
+    function testBuyFromSecondaryListingExpired() public {
         _ensureSecondaryListingScenario();
 
         // Create a secondary listing to ensure expiry applies
@@ -769,20 +797,20 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         _setupExpiredListing(secondaryListingId);
 
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(secondaryListingId, 100);
+        (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(secondaryListingId, 100);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(secondaryListingId, 100);
+        marketplace.buyFromSecondaryListing(secondaryListingId, 100);
         vm.stopPrank();
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), transferAmount - 100);
     }
 
-    function testPurchaseTokensInvalidAmount() public {
+    function testBuyFromSecondaryListingInvalidAmount() public {
         _ensureSecondaryListingScenario();
 
         vm.expectRevert(Marketplace.InvalidAmount.selector);
         vm.prank(buyer);
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_LISTING_AMOUNT + 1);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_LISTING_AMOUNT + 1);
     }
 
     // End Listing Tests
@@ -791,10 +819,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureSecondaryListingScenario();
 
         // 1. Purchase some tokens to have them in escrow
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        (,, uint256 expectedPayment) =
+            marketplace.previewSecondaryPurchase(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
 
         uint256 partnerBalanceBefore = roboshareTokens.balanceOf(partner1, scenario.revenueTokenId);
@@ -845,11 +874,12 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 secondaryListingId =
             _setupSecondaryListing(partner2, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, true);
 
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
+        (,, uint256 expectedPayment) =
+            marketplace.previewSecondaryPurchase(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
 
         Marketplace.Listing memory listingAfter = marketplace.getListing(secondaryListingId);
@@ -920,10 +950,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureSecondaryListingScenario();
 
         // Buy all tokens
-        (,, uint256 payment) = marketplace.calculatePurchaseCost(scenario.listingId, SECONDARY_LISTING_AMOUNT);
+        (,, uint256 payment) = marketplace.previewSecondaryPurchase(scenario.listingId, SECONDARY_LISTING_AMOUNT);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), payment);
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_LISTING_AMOUNT);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_LISTING_AMOUNT);
         vm.stopPrank();
 
         // Check state before ending
@@ -1021,7 +1051,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureSecondaryListingScenario();
 
         (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+            marketplace.previewSecondaryPurchase(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
 
         assertEq(totalCost, SECONDARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE);
         assertEq(protocolFee, ProtocolLib.calculateProtocolFee(totalCost));
@@ -1043,32 +1073,32 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     // Fuzz Tests
-    function testFuzzPurchaseTokens(uint256 purchaseAmount) public {
+    function testFuzzBuyFromSecondaryListing(uint256 purchaseAmount) public {
         _ensureSecondaryListingScenario();
 
         vm.assume(purchaseAmount > 0 && purchaseAmount <= SECONDARY_LISTING_AMOUNT);
 
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, purchaseAmount);
+        (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(scenario.listingId, purchaseAmount);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(scenario.listingId, purchaseAmount);
+        marketplace.buyFromSecondaryListing(scenario.listingId, purchaseAmount);
         vm.stopPrank();
 
         // Immediate token transfer
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), purchaseAmount);
     }
 
-    function testPurchaseTokensListingNotFound() public {
+    function testBuyFromSecondaryListingListingNotFound() public {
         _ensureSecondaryListingScenario();
         uint256 nonExistentListingId = 999;
 
         vm.prank(buyer);
         vm.expectRevert(Marketplace.ListingNotFound.selector);
-        marketplace.purchaseTokens(nonExistentListingId, 1);
+        marketplace.buyFromSecondaryListing(nonExistentListingId, 1);
     }
 
-    function testPurchaseTokensInactiveListing() public {
+    function testBuyFromSecondaryListingInactiveListing() public {
         _ensureSecondaryListingScenario();
 
         // Deactivate listing by cancelling it
@@ -1078,7 +1108,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         // Attempt to purchase from the now-inactive listing
         vm.prank(buyer);
         vm.expectRevert(Marketplace.ListingNotActive.selector);
-        marketplace.purchaseTokens(scenario.listingId, 1);
+        marketplace.buyFromSecondaryListing(scenario.listingId, 1);
     }
 
     function testFuzzCreateListing(uint256 amount, uint256 price, uint256 duration) public {
@@ -1101,7 +1131,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.expiresAt, block.timestamp + duration);
     }
 
-    function testPurchaseTokensMinimumProtocolFee() public {
+    function testBuyFromSecondaryListingMinimumProtocolFee() public {
         // 1. Setup with a very low price to ensure percentage-based protocol fee calculates to zero
         uint256 lowPrice = 30; // Total price < 40 results in a percentage fee of 0
         uint256 purchaseAmount = 1;
@@ -1118,7 +1148,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // 2. Calculate costs - protocolFee should now be MINIMUM_PROTOCOL_FEE
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
-            marketplace.calculatePurchaseCost(listingId, purchaseAmount);
+            marketplace.previewSecondaryPurchase(listingId, purchaseAmount);
 
         assertEq(protocolFee, ProtocolLib.MIN_PROTOCOL_FEE, "Protocol fee should be the minimum fee");
         assertEq(
@@ -1129,7 +1159,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), expectedPayment);
         BalanceSnapshot memory beforePurchase = _takeBalanceSnapshot(scenario.revenueTokenId);
-        marketplace.purchaseTokens(listingId, purchaseAmount);
+        marketplace.buyFromSecondaryListing(listingId, purchaseAmount);
         BalanceSnapshot memory afterPurchase = _takeBalanceSnapshot(scenario.revenueTokenId);
         vm.stopPrank();
 
@@ -1150,7 +1180,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         );
     }
 
-    function testPurchaseTokensFeesExceedPriceBuyerPays() public {
+    function testBuyFromSecondaryListingFeesExceedPriceBuyerPays() public {
         _ensureSecondaryListingScenario();
 
         // Transfer tokens to buyer so a penalty applies on re-sale
@@ -1167,11 +1197,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), 2_000_000); // Approve more than enough
         vm.expectRevert(Marketplace.FeesExceedPrice.selector);
-        marketplace.purchaseTokens(listingId, 1);
+        marketplace.buyFromSecondaryListing(listingId, 1);
         vm.stopPrank();
     }
 
-    function testPurchaseTokensFeesExceedPriceSellerPays() public {
+    function testBuyFromSecondaryListingFeesExceedPriceSellerPays() public {
         _ensureSecondaryListingScenario();
 
         // Transfer tokens to a secondary seller so a penalty applies
@@ -1190,7 +1220,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), 1000); // Approve more than enough
         vm.expectRevert(Marketplace.FeesExceedPrice.selector);
-        marketplace.purchaseTokens(listingId, 1);
+        marketplace.buyFromSecondaryListing(listingId, 1);
         vm.stopPrank();
     }
 
@@ -1210,25 +1240,26 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.startPrank(partner1);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        vm.expectRevert(Marketplace.AssetNotEligibleForListing.selector);
+        vm.expectRevert(Marketplace.AssetNotMarketOperational.selector);
         marketplace.createListing(
             scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
         vm.stopPrank();
     }
 
-    function testPurchaseTokensAssetNotActive() public {
+    function testBuyFromSecondaryListingAssetNotActive() public {
         _ensureSecondaryListingScenario();
 
         // Settle asset
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        (,, uint256 expectedPayment) =
+            marketplace.previewSecondaryPurchase(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         vm.expectRevert(Marketplace.AssetNotActive.selector);
-        marketplace.purchaseTokens(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
     }
 
@@ -1238,10 +1269,11 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 secondaryListingId =
             _setupSecondaryListing(partner2, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, true);
 
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
+        (,, uint256 expectedPayment) =
+            marketplace.previewSecondaryPurchase(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
         vm.startPrank(partner1);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
+        marketplace.buyFromSecondaryListing(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
         vm.stopPrank();
 
         // Tokens transfer immediately
@@ -1249,10 +1281,10 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function _purchaseListingTokens(uint256 amount) internal {
-        (,, uint256 expectedPayment) = marketplace.calculatePurchaseCost(scenario.listingId, amount);
+        (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(scenario.listingId, amount);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.purchaseTokens(scenario.listingId, amount);
+        marketplace.buyFromSecondaryListing(scenario.listingId, amount);
         vm.stopPrank();
     }
 
