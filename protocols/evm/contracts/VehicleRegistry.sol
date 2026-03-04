@@ -84,41 +84,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
     }
 
-    /**
-     * @dev Internal function to register vehicle data only
-     */
-    function _registerVehicle(bytes calldata data, uint256 assetValue)
-        internal
-        returns (uint256 vehicleId, uint256 revenueTokenId)
-    {
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory dynamicMetadataURI
-        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
-
-        if (vinExists[vin]) revert VehicleAlreadyExists();
-
-        // Get a unique pair of IDs from the Router (which calls RoboshareTokens)
-        (vehicleId, revenueTokenId) = router.reserveNextTokenIdPair();
-
-        // Initialize vehicle data using new VehicleLib structure
-        VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
-        VehicleLib.initializeVehicle(
-            vehicle, vehicleId, assetValue, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
-        );
-
-        // Mark VIN as used
-        vinExists[vin] = true;
-
-        emit AssetRegistered(vehicleId, msg.sender, assetValue, vehicle.assetInfo.status);
-        emit VehicleRegistered(vehicleId, msg.sender, vin);
-    }
-
     // View Functions
 
     /**
@@ -355,47 +320,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return _claimSettlementFor(account, assetId, autoClaimEarnings);
     }
 
-    function _claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
-        internal
-        returns (uint256 claimedAmount, uint256 earningsClaimed)
-    {
-        if (!assetExists(assetId)) {
-            revert AssetNotFound(assetId);
-        }
-
-        AssetLib.AssetInfo storage info = vehicles[assetId].assetInfo;
-
-        // Verify asset is settled
-        if (info.status != AssetLib.AssetStatus.Retired && info.status != AssetLib.AssetStatus.Expired) {
-            revert AssetNotSettled(assetId, info.status);
-        }
-
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 balance = roboshareTokens.balanceOf(account, revenueTokenId);
-
-        if (balance == 0) {
-            revert InsufficientTokenBalance(revenueTokenId, 1, balance);
-        }
-
-        // Snapshot (and optionally claim) earnings BEFORE burning tokens
-        // This preserves earnings so they can be claimed later even after tokens are burned
-        uint256 snapshotAmount = router.snapshotAndClaimEarnings(assetId, account, autoClaimEarnings);
-
-        // Only return earnings if they were actually claimed (autoClaim=true)
-        // When autoClaim=false, earnings are snapshotted for later claim via claimEarnings()
-        if (autoClaimEarnings) {
-            earningsClaimed = snapshotAmount;
-        }
-
-        // Burn tokens (positions will be deleted)
-        roboshareTokens.burn(account, revenueTokenId, balance);
-
-        // Process Claim via Router -> Treasury
-        claimedAmount = router.processSettlementClaim(account, assetId, balance);
-
-        emit SettlementClaimed(assetId, account, balance, claimedAmount);
-    }
-
     /**
      * @dev Retire an asset.
      * Requires 0 revenue token supply.
@@ -442,25 +366,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     /**
-     * @dev Internal function to handle asset retirement logic.
-     * Verifies status, updates status to Retired, and triggers collateral release via Router.
-     */
-    function _retireAsset(uint256 assetId, address partner, uint256 burnedTokens) internal {
-        // Verify asset is active
-        if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
-            revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
-        }
-
-        // Update Status using internal helper
-        _setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
-
-        // Trigger Treasury Settlement via Router
-        uint256 releasedCollateral = router.releaseCollateralFor(partner, assetId);
-
-        emit AssetRetired(assetId, partner, burnedTokens, releasedCollateral);
-    }
-
-    /**
      * @dev Update asset status. Only callable by Router.
      */
     function setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) external override onlyRole(ROUTER_ROLE) {
@@ -469,18 +374,6 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         }
 
         _setAssetStatus(assetId, status);
-    }
-
-    /**
-     * @dev Internal helper to update asset status and emit event.
-     */
-    function _setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) internal {
-        AssetLib.AssetStatus oldStatus = vehicles[assetId].assetInfo.status;
-
-        // Use library for validation and updates
-        AssetLib.updateAssetStatus(vehicles[assetId].assetInfo, status);
-
-        emit AssetStatusUpdated(assetId, oldStatus, status);
     }
 
     /**
@@ -570,6 +463,91 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         router = RegistryRouter(_router);
         _grantRole(ROUTER_ROLE, _router);
         emit RouterUpdated(oldAddress, _router);
+    }
+
+    function _claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
+        internal
+        returns (uint256 claimedAmount, uint256 earningsClaimed)
+    {
+        if (!assetExists(assetId)) {
+            revert AssetNotFound(assetId);
+        }
+
+        AssetLib.AssetInfo storage info = vehicles[assetId].assetInfo;
+        if (info.status != AssetLib.AssetStatus.Retired && info.status != AssetLib.AssetStatus.Expired) {
+            revert AssetNotSettled(assetId, info.status);
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 balance = roboshareTokens.balanceOf(account, revenueTokenId);
+        if (balance == 0) {
+            revert InsufficientTokenBalance(revenueTokenId, 1, balance);
+        }
+
+        uint256 snapshotAmount = router.snapshotAndClaimEarnings(assetId, account, autoClaimEarnings);
+        if (autoClaimEarnings) {
+            earningsClaimed = snapshotAmount;
+        }
+
+        roboshareTokens.burn(account, revenueTokenId, balance);
+        claimedAmount = router.processSettlementClaimFor(account, assetId, balance);
+
+        emit SettlementClaimed(assetId, account, balance, claimedAmount);
+    }
+
+    /**
+     * @dev Internal function to handle asset retirement logic.
+     */
+    function _retireAsset(uint256 assetId, address partner, uint256 burnedTokens) internal {
+        if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
+            revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
+        }
+
+        _setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
+        uint256 releasedCollateral = router.releaseCollateralFor(partner, assetId);
+
+        emit AssetRetired(assetId, partner, burnedTokens, releasedCollateral);
+    }
+
+    /**
+     * @dev Internal helper to update asset status and emit event.
+     */
+    function _setAssetStatus(uint256 assetId, AssetLib.AssetStatus status) internal {
+        AssetLib.AssetStatus oldStatus = vehicles[assetId].assetInfo.status;
+        AssetLib.updateAssetStatus(vehicles[assetId].assetInfo, status);
+        emit AssetStatusUpdated(assetId, oldStatus, status);
+    }
+
+    /**
+     * @dev Internal function to register vehicle data only.
+     */
+    function _registerVehicle(bytes calldata data, uint256 assetValue)
+        internal
+        returns (uint256 vehicleId, uint256 revenueTokenId)
+    {
+        (
+            string memory vin,
+            string memory make,
+            string memory model,
+            uint256 year,
+            uint256 manufacturerId,
+            string memory optionCodes,
+            string memory dynamicMetadataURI
+        ) = abi.decode(data, (string, string, string, uint256, uint256, string, string));
+
+        if (vinExists[vin]) revert VehicleAlreadyExists();
+
+        (vehicleId, revenueTokenId) = router.reserveNextTokenIdPair();
+
+        VehicleLib.Vehicle storage vehicle = vehicles[vehicleId];
+        VehicleLib.initializeVehicle(
+            vehicle, vehicleId, assetValue, vin, make, model, year, manufacturerId, optionCodes, dynamicMetadataURI
+        );
+
+        vinExists[vin] = true;
+
+        emit AssetRegistered(vehicleId, msg.sender, assetValue, vehicle.assetInfo.status);
+        emit VehicleRegistered(vehicleId, msg.sender, vin);
     }
 
     // UUPS Upgrade authorization

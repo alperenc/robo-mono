@@ -402,6 +402,15 @@ library TokenLib {
     error InvalidRevenueTokenId();
 
     /**
+     * @dev Checks if a token ID corresponds to a revenue share token (even numbers).
+     * @param tokenId The ID of the token to check.
+     * @return True if the token is a revenue share token, false otherwise.
+     */
+    function isRevenueToken(uint256 tokenId) internal pure returns (bool) {
+        return tokenId != 0 && tokenId % 2 == 0;
+    }
+
+    /**
      * @dev Get asset ID from token ID
      */
     function getAssetIdFromTokenId(uint256 tokenId) internal pure returns (uint256) {
@@ -534,15 +543,6 @@ library TokenLib {
             }
         }
         return totalPenalty;
-    }
-
-    /**
-     * @dev Checks if a token ID corresponds to a revenue share token (even numbers).
-     * @param tokenId The ID of the token to check.
-     * @return True if the token is a revenue share token, false otherwise.
-     */
-    function isRevenueToken(uint256 tokenId) internal pure returns (bool) {
-        return tokenId != 0 && tokenId % 2 == 0;
     }
 
     /**
@@ -718,6 +718,28 @@ library CollateralLib {
             return 0;
         }
         return block.timestamp - info.lockedAt;
+    }
+
+    /**
+     * @dev Check if asset collateral is solvent
+     * @param info Storage reference to collateral info
+     * @return True if solvent (has buffer remaining OR no deficit)
+     */
+    function isSolvent(CollateralInfo storage info) internal view returns (bool) {
+        return _isSolvent(info.earningsBuffer, info.reservedForLiquidation);
+    }
+
+    /**
+     * @dev In-memory solvency check for preview/simulation paths.
+     * @param info Memory copy of collateral info
+     * @return True if solvent (has buffer remaining OR no deficit)
+     */
+    function isSolventMemory(CollateralInfo memory info) internal pure returns (bool) {
+        return _isSolvent(info.earningsBuffer, info.reservedForLiquidation);
+    }
+
+    function _isSolvent(uint256 earningsBuffer, uint256 reservedForLiquidation) private pure returns (bool) {
+        return earningsBuffer > 0 || reservedForLiquidation == 0;
     }
 
     /**
@@ -973,6 +995,22 @@ library CollateralLib {
         }
     }
 
+    function applyRealizedVsBenchmarkToCollateralInStorage(
+        CollateralInfo storage info,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    ) internal returns (uint256 shortfallAmount, uint256 replenishmentAmount, uint256 excessEarnings) {
+        (CollateralInfo memory updated, uint256 shortfall, uint256 replenishment, uint256 excess) =
+            applyRealizedVsBenchmarkToCollateral(info, realizedEarnings, benchmarkEarnings);
+
+        info.earningsBuffer = updated.earningsBuffer;
+        info.protocolBuffer = updated.protocolBuffer;
+        info.reservedForLiquidation = updated.reservedForLiquidation;
+        info.totalCollateral = updated.totalCollateral;
+
+        return (shortfall, replenishment, excess);
+    }
+
     function calculateReleasePreview(
         CollateralInfo memory collateralInfo,
         bool assumeNewPeriod,
@@ -1032,29 +1070,6 @@ library CollateralLib {
         if (calc.grossRelease > 0) {
             (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
         }
-    }
-
-    /**
-     * @dev Get benchmark earnings buffer amount based on current base collateral
-     * @param baseCollateral Current base collateral amount
-     * @return Benchmark earnings buffer amount
-     */
-    /**
-     * @dev Check if asset collateral is solvent
-     * @param info Storage reference to collateral info
-     * @return True if solvent (has buffer remaining OR no deficit)
-     */
-    function isSolvent(CollateralInfo storage info) internal view returns (bool) {
-        return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
-    }
-
-    /**
-     * @dev In-memory solvency check for preview/simulation paths.
-     * @param info Memory copy of collateral info
-     * @return True if solvent (has buffer remaining OR no deficit)
-     */
-    function isSolventMemory(CollateralInfo memory info) internal pure returns (bool) {
-        return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
     }
 }
 
@@ -1144,6 +1159,24 @@ library EarningsLib {
     }
 
     /**
+     * @dev Get period number at specific timestamp
+     * @param earningsInfo Storage reference to earnings info
+     * @param timestamp Timestamp to find period for
+     * @return period Period number at timestamp
+     */
+    function getPeriodAtTimestamp(EarningsInfo storage earningsInfo, uint256 timestamp)
+        internal
+        view
+        returns (uint256 period)
+    {
+        period = earningsInfo.currentPeriod;
+        while (period > 0 && earningsInfo.periods[period].timestamp > timestamp) {
+            period--;
+        }
+        return period;
+    }
+
+    /**
      * @dev Calculate unclaimed earnings for a token holder
      * @param earningsInfo Storage reference to earnings info
      * @param tokenBalance Current token balance
@@ -1218,24 +1251,6 @@ library EarningsLib {
             TokenLib.TokenPosition memory position = positions[i];
             earningsInfo.positionsLastClaimedPeriod[holder][position.tokenId][position.uid] = earningsInfo.currentPeriod;
         }
-    }
-
-    /**
-     * @dev Get period number at specific timestamp
-     * @param earningsInfo Storage reference to earnings info
-     * @param timestamp Timestamp to find period for
-     * @return period Period number at timestamp
-     */
-    function getPeriodAtTimestamp(EarningsInfo storage earningsInfo, uint256 timestamp)
-        internal
-        view
-        returns (uint256 period)
-    {
-        period = earningsInfo.currentPeriod;
-        while (period > 0 && earningsInfo.periods[period].timestamp > timestamp) {
-            period--;
-        }
-        return period;
     }
 
     /**

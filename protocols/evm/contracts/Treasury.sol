@@ -15,6 +15,7 @@ import { ProtocolLib, TokenLib, CollateralLib, EarningsLib, AssetLib } from "./L
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RegistryRouter } from "./RegistryRouter.sol";
+import { IMarketplace } from "./interfaces/IMarketplace.sol";
 
 /**
  * @dev Treasury contract for USDC-based collateral management and earnings distribution.
@@ -35,16 +36,16 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     RegistryRouter public router;
     IERC20 public usdc;
 
-    // Storage mappings
-    mapping(uint256 => CollateralLib.CollateralInfo) public assetCollateral; // Collateral storage - assetId => CollateralInfo
-    mapping(uint256 => EarningsLib.EarningsInfo) public assetEarnings; // Earnings tracking - assetId => EarningsInfo
-    mapping(uint256 => CollateralLib.SettlementInfo) public assetSettlements; // Settlement info - assetId => SettlementInfo
-    mapping(address => uint256) public pendingWithdrawals;
+    // Treasury configuration
+    address public treasuryFeeRecipient;
 
-    // Treasury state
+    // Treasury storage
+    mapping(uint256 => CollateralLib.CollateralInfo) public assetCollateral; // assetId => CollateralInfo
+    mapping(uint256 => EarningsLib.EarningsInfo) public assetEarnings; // assetId => EarningsInfo
+    mapping(uint256 => CollateralLib.SettlementInfo) public assetSettlements; // assetId => SettlementInfo
+    mapping(address => uint256) public pendingWithdrawals;
     uint256 public totalCollateralDeposited;
     uint256 public totalEarningsDeposited;
-    address public treasuryFeeRecipient;
 
     // Internal Errors (not part of public API)
     error ZeroAddress();
@@ -103,26 +104,25 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     // Collateral Locking Functions
 
     /**
-     * @dev Fund protection buffers for an asset (Marketplace flow).
-     * @param partner The partner who owns the asset
+     * @dev Fund the currently required partner buffers for an asset using live pool liquidity.
      * @param assetId The ID of the asset to fund buffers for
-     * @param baseAmount Base amount used to size buffers (investor proceeds for this listing)
      */
-    function fundBuffersFor(address partner, uint256 assetId, uint256 baseAmount)
-        external
-        onlyRole(AUTHORIZED_CONTRACT_ROLE)
-        nonReentrant
-    {
-        if (!partnerManager.isAuthorizedPartner(partner)) {
-            revert PartnerManager.UnauthorizedPartner();
-        }
+    function fundBuffers(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
         if (!router.assetExists(assetId)) {
             revert AssetNotFound();
         }
-        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
             revert NotAssetOwner();
         }
-        _fundBuffersFor(partner, assetId, baseAmount);
+
+        uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        bool protectionEnabled = IMarketplace(router.marketplace()).getPrimaryPoolProtectionEnabled(tokenId);
+        uint256 baseAmount = assetCollateral[assetId].baseCollateral;
+        if (baseAmount == 0) {
+            revert CollateralLib.InvalidCollateralAmount();
+        }
+
+        _fundCurrentBuffers(msg.sender, assetId, baseAmount, protectionEnabled);
     }
 
     /**
@@ -157,7 +157,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         collateralInfo.lastEventTimestamp = block.timestamp;
     }
 
-    function _fundBuffersFor(address partner, uint256 assetId, uint256 baseAmount) internal {
+    function _fundCurrentBuffers(address partner, uint256 assetId, uint256 baseAmount, bool protectionEnabled)
+        internal
+    {
         if (baseAmount == 0) {
             revert CollateralLib.InvalidCollateralAmount();
         }
@@ -171,13 +173,24 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         (, uint256 requiredEarningsBuffer, uint256 requiredProtocolBuffer,) =
             CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, targetYieldBP);
 
-        uint256 requiredBufferTotal = requiredEarningsBuffer + requiredProtocolBuffer;
+        uint256 dueEarningsBuffer = protectionEnabled && requiredEarningsBuffer > collateralInfo.earningsBuffer
+            ? requiredEarningsBuffer - collateralInfo.earningsBuffer
+            : 0;
+        uint256 dueProtocolBuffer = requiredProtocolBuffer > collateralInfo.protocolBuffer
+            ? requiredProtocolBuffer - collateralInfo.protocolBuffer
+            : 0;
+        uint256 requiredBufferTotal = dueEarningsBuffer + dueProtocolBuffer;
+
+        if (requiredBufferTotal == 0) {
+            _maybePromoteToEarning(assetId, protectionEnabled);
+            return;
+        }
 
         if (!CollateralLib.isInitialized(collateralInfo)) {
-            CollateralLib.initializeCollateralInfo(collateralInfo, 0, requiredEarningsBuffer, requiredProtocolBuffer);
+            CollateralLib.initializeCollateralInfo(collateralInfo, 0, dueEarningsBuffer, dueProtocolBuffer);
         } else {
-            collateralInfo.earningsBuffer += requiredEarningsBuffer;
-            collateralInfo.protocolBuffer += requiredProtocolBuffer;
+            collateralInfo.earningsBuffer += dueEarningsBuffer;
+            collateralInfo.protocolBuffer += dueProtocolBuffer;
             collateralInfo.totalCollateral += requiredBufferTotal;
             collateralInfo.isLocked = true;
             if (collateralInfo.lockedAt == 0) {
@@ -196,7 +209,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         emit CollateralLocked(assetId, partner, requiredBufferTotal);
 
-        _maybePromoteToEarning(assetId, true);
+        _maybePromoteToEarning(assetId, protectionEnabled);
     }
 
     /**
@@ -312,7 +325,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         amount = _processWithdrawalFor(account);
     }
 
-    function processPrimaryPoolPurchase(
+    function processPrimaryPoolPurchaseFor(
         address buyer,
         uint256 tokenId,
         uint256 amount,
@@ -321,12 +334,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         uint256 protocolFee,
         bool immediateProceeds,
         bool protectionEnabled
-    )
-        external
-        onlyRole(AUTHORIZED_CONTRACT_ROLE)
-        nonReentrant
-        returns (uint256 partnerProceeds, uint256 protectionFunding)
-    {
+    ) external onlyRole(AUTHORIZED_CONTRACT_ROLE) nonReentrant returns (uint256 partnerProceeds) {
         if (!partnerManager.isAuthorizedPartner(partner)) {
             revert PartnerManager.UnauthorizedPartner();
         }
@@ -346,6 +354,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             pendingWithdrawals[treasuryFeeRecipient] += protocolFee;
         }
 
+        // Partner proceeds only unlock when the current post-purchase liquidity is already
+        // sufficiently buffered. Because this purchase credits base collateral first, a new buy
+        // typically increases the required buffers and keeps proceeds locked until the partner
+        // funds the newly due amount.
         bool canRelease = _maybePromoteToEarning(assetId, protectionEnabled);
         if (immediateProceeds && canRelease) {
             collateralInfo.baseCollateral -= grossPrincipal;
@@ -354,8 +366,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             partnerProceeds = grossPrincipal;
         }
 
-        router.mintRevenueTokensForPrimaryPool(buyer, tokenId, amount);
-        protectionFunding = 0;
+        router.mintRevenueTokensToBuyerFromPrimaryPool(buyer, tokenId, amount);
     }
 
     function getPrimaryInvestorLiquidity(uint256 assetId) external view returns (uint256) {
@@ -374,7 +385,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         payout = Math.mulDiv(burnAmount, investorLiquidity, circulatingSupply);
     }
 
-    function processPrimaryRedemption(
+    function processPrimaryRedemptionFor(
         address holder,
         uint256 assetId,
         uint256 burnAmount,
@@ -409,7 +420,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert SlippageExceeded();
         }
 
-        router.burnRevenueTokensForPrimaryRedemption(holder, tokenId, burnAmount);
+        router.burnRevenueTokensFromHolderForPrimaryRedemption(holder, tokenId, burnAmount);
 
         assetCollateral[assetId].baseCollateral -= payout;
         assetCollateral[assetId].totalCollateral -= payout;
@@ -940,12 +951,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
         uint256 benchmarkEarnings =
             EarningsLib.calculateEarnings(collateralInfo.initialBaseCollateral, elapsed, targetYieldBP);
-        (CollateralLib.CollateralInfo memory updated, uint256 shortfallAmount,,) =
-            CollateralLib.applyRealizedVsBenchmarkToCollateral(collateralInfo, 0, benchmarkEarnings);
-        collateralInfo.earningsBuffer = updated.earningsBuffer;
-        collateralInfo.protocolBuffer = updated.protocolBuffer;
-        collateralInfo.reservedForLiquidation = updated.reservedForLiquidation;
-        collateralInfo.totalCollateral = updated.totalCollateral;
+        (uint256 shortfallAmount,,) =
+            CollateralLib.applyRealizedVsBenchmarkToCollateralInStorage(collateralInfo, 0, benchmarkEarnings);
         if (shortfallAmount > 0) {
             emit ShortfallReserved(assetId, shortfallAmount);
         }
@@ -1006,7 +1013,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Process settlement claim (called by Registry via Router)
      * Transfers USDC for burned tokens
      */
-    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+    function processSettlementClaimFor(address recipient, uint256 assetId, uint256 amount)
         external
         override
         onlyRole(AUTHORIZED_ROUTER_ROLE)
@@ -1040,10 +1047,14 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @param yieldBP Yield in basis points
      * @return Total buffer requirement in USDC
      */
-    function getTotalBufferRequirement(uint256 baseAmount, uint256 yieldBP) external pure returns (uint256) {
+    function getTotalBufferRequirement(uint256 baseAmount, uint256 yieldBP, bool protectionEnabled)
+        external
+        pure
+        returns (uint256)
+    {
         (, uint256 earningsBuffer, uint256 protocolBuffer,) =
             CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, yieldBP);
-        return earningsBuffer + protocolBuffer;
+        return protocolBuffer + (protectionEnabled ? earningsBuffer : 0);
     }
 
     /**

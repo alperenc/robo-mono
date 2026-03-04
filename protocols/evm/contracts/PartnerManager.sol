@@ -14,12 +14,6 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
     bytes32 public constant PARTNER_ADMIN_ROLE = keccak256("PARTNER_ADMIN_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    // Partner state
-    mapping(address => bool) private _authorizedPartners;
-    mapping(address => string) private _partnerNames;
-    mapping(address => uint256) private _partnerRegistrationTime;
-    address[] private _allPartners;
-
     // Errors
     error ZeroAddress();
     error AlreadyAuthorized();
@@ -30,6 +24,12 @@ contract PartnerManager is Initializable, AccessControlUpgradeable, UUPSUpgradea
     event PartnerAuthorized(address indexed partner, string name);
     event PartnerRevoked(address indexed partner);
     event PartnerNameUpdated(address indexed partner, string newName);
+
+    // Partner state
+    mapping(address => bool) private _authorizedPartners;
+    mapping(address => string) private _partnerNames;
+    mapping(address => uint256) private _partnerRegistrationTime;
+    address[] private _allPartners;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {

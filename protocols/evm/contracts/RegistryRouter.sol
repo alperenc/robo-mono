@@ -34,18 +34,16 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
     // Errors
     error ZeroAddress();
-    error DirectCallNotAllowed();
     error RegistryNotFound(uint256 id);
     error RegistryNotBoundToAsset();
     error TreasuryNotSet();
     error MarketplaceNotSet();
     error NotTreasury();
     error NotMarketplace();
+    error DirectCallNotAllowed();
 
     // Events
     event IdBoundToRegistry(uint256 indexed id, address indexed registry);
-    event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
-    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event RevenueTokenPoolCreated(
         uint256 indexed assetId,
         uint256 indexed revenueTokenId,
@@ -53,6 +51,8 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         uint256 assetValue,
         uint256 supply
     );
+    event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
+    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -77,41 +77,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
 
         roboshareTokens = RoboshareTokens(_roboshareTokens);
         partnerManager = PartnerManager(_partnerManager);
-    }
-
-    /**
-     * @dev Set the Treasury address
-     */
-    function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_treasury == address(0)) revert ZeroAddress();
-        treasury = _treasury;
-    }
-
-    /**
-     * @dev Set the Marketplace address
-     */
-    function setMarketplace(address _marketplace) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_marketplace == address(0)) revert ZeroAddress();
-        marketplace = _marketplace;
-    }
-
-    function _onlyAuthorizedPartner() internal view {
-        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
-            revert PartnerManager.UnauthorizedPartner();
-        }
-    }
-
-    modifier onlyAuthorizedPartner() {
-        _onlyAuthorizedPartner();
-        _;
-    }
-
-    /**
-     * @dev Internal helper to bind ID to registry
-     */
-    function _bindId(uint256 id, address registry) internal {
-        idToRegistry[id] = registry;
-        emit IdBoundToRegistry(id, registry);
     }
 
     /**
@@ -189,33 +154,6 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
                 immediateProceeds,
                 protectionEnabled
             );
-    }
-
-    function _createRevenueTokenPoolFor(
-        address partner,
-        uint256 assetId,
-        uint256 tokenPrice,
-        uint256 maturityDate,
-        uint256 revenueShareBP,
-        uint256 targetYieldBP,
-        uint256 maxSupply,
-        bool immediateProceeds,
-        bool protectionEnabled
-    ) internal returns (uint256 tokenId, uint256 supply) {
-        address registry = idToRegistry[assetId];
-        if (registry == address(0)) {
-            revert RegistryNotFound(assetId);
-        }
-
-        (tokenId, supply) = IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
-        uint256 poolMaxSupply = maxSupply == 0 ? supply : maxSupply;
-
-        roboshareTokens.setRevenueTokenInfo(tokenId, tokenPrice, supply, maturityDate, revenueShareBP, targetYieldBP);
-        emit RevenueTokenPoolCreated(assetId, tokenId, partner, supply * tokenPrice, supply);
-        IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
-
-        IMarketplace(marketplace)
-            .createPrimaryPoolFor(partner, tokenId, tokenPrice, poolMaxSupply, immediateProceeds, protectionEnabled);
     }
 
     function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
@@ -324,7 +262,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
      * @dev Forward settlement claim processing from Registry to Treasury.
      * Callable only by authorized registries.
      */
-    function processSettlementClaim(address recipient, uint256 assetId, uint256 amount)
+    function processSettlementClaimFor(address recipient, uint256 assetId, uint256 amount)
         external
         onlyRole(AUTHORIZED_REGISTRY_ROLE)
         returns (uint256 claimedAmount)
@@ -338,7 +276,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert TreasuryNotSet();
         }
 
-        return ITreasury(treasury).processSettlementClaim(recipient, assetId, amount);
+        return ITreasury(treasury).processSettlementClaimFor(recipient, assetId, amount);
     }
 
     /**
@@ -468,7 +406,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         return ITreasury(treasury).releaseCollateralFor(partner, assetId);
     }
 
-    function mintRevenueTokensForPrimaryPool(address buyer, uint256 tokenId, uint256 amount) external {
+    function mintRevenueTokensToBuyerFromPrimaryPool(address buyer, uint256 tokenId, uint256 amount) external {
         if (msg.sender != treasury) {
             revert NotTreasury();
         }
@@ -481,7 +419,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         roboshareTokens.mint(buyer, tokenId, amount, "");
     }
 
-    function burnRevenueTokensForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount) external {
+    function burnRevenueTokensFromHolderForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount) external {
         if (msg.sender != treasury) {
             revert NotTreasury();
         }
@@ -507,6 +445,22 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
+     * @dev Set the Treasury address
+     */
+    function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_treasury == address(0)) revert ZeroAddress();
+        treasury = _treasury;
+    }
+
+    /**
+     * @dev Set the Marketplace address
+     */
+    function setMarketplace(address _marketplace) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_marketplace == address(0)) revert ZeroAddress();
+        marketplace = _marketplace;
+    }
+
+    /**
      * @dev Update RoboshareTokens contract reference
      * @param _roboshareTokens New RoboshareTokens contract address
      */
@@ -528,6 +482,52 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         address oldPartnerManager = address(partnerManager);
         partnerManager = PartnerManager(_partnerManager);
         emit PartnerManagerUpdated(oldPartnerManager, _partnerManager);
+    }
+
+    modifier onlyAuthorizedPartner() {
+        _onlyAuthorizedPartner();
+        _;
+    }
+
+    function _onlyAuthorizedPartner() internal view {
+        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
+            revert PartnerManager.UnauthorizedPartner();
+        }
+    }
+
+    /**
+     * @dev Internal helper to bind ID to registry.
+     */
+    function _bindId(uint256 id, address registry) internal {
+        idToRegistry[id] = registry;
+        emit IdBoundToRegistry(id, registry);
+    }
+
+    function _createRevenueTokenPoolFor(
+        address partner,
+        uint256 assetId,
+        uint256 tokenPrice,
+        uint256 maturityDate,
+        uint256 revenueShareBP,
+        uint256 targetYieldBP,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) internal returns (uint256 tokenId, uint256 supply) {
+        address registry = idToRegistry[assetId];
+        if (registry == address(0)) {
+            revert RegistryNotFound(assetId);
+        }
+
+        (tokenId, supply) = IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
+        uint256 poolMaxSupply = maxSupply == 0 ? supply : maxSupply;
+
+        roboshareTokens.setRevenueTokenInfo(tokenId, tokenPrice, supply, maturityDate, revenueShareBP, targetYieldBP);
+        emit RevenueTokenPoolCreated(assetId, tokenId, partner, supply * tokenPrice, supply);
+        IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        IMarketplace(marketplace)
+            .createPrimaryPoolFor(partner, tokenId, tokenPrice, poolMaxSupply, immediateProceeds, protectionEnabled);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }

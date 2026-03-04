@@ -28,12 +28,6 @@ contract RoboshareTokens is
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
-    // Token ID counter
-    uint256 private _tokenIdCounter;
-
-    // Stores TokenInfo structs for each token ID, which includes position tracking
-    mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
-
     // Errors
     error ZeroAddress();
     error NotRevenueToken();
@@ -44,6 +38,10 @@ contract RoboshareTokens is
         uint256 indexed revenueTokenId, address indexed from, address indexed to, uint256 amount
     );
     event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate);
+
+    // Token state
+    uint256 private _tokenIdCounter;
+    mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -117,14 +115,6 @@ contract RoboshareTokens is
     }
 
     /**
-     * @dev Sets the base URI for all token types. Requires URI_SETTER_ROLE.
-     * @param newuri The new URI for tokens.
-     */
-    function setURI(string memory newuri) external onlyRole(URI_SETTER_ROLE) {
-        _setURI(newuri);
-    }
-
-    /**
      * @dev Mint tokens to specified address. Requires MINTER_ROLE.
      * @param to The address to mint tokens to.
      * @param id The ID of the token to mint.
@@ -167,6 +157,14 @@ contract RoboshareTokens is
      */
     function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external onlyRole(BURNER_ROLE) {
         _burnBatch(from, ids, amounts);
+    }
+
+    /**
+     * @dev Sets the base URI for all token types. Requires URI_SETTER_ROLE.
+     * @param newuri The new URI for tokens.
+     */
+    function setURI(string memory newuri) external onlyRole(URI_SETTER_ROLE) {
+        _setURI(newuri);
     }
 
     /**
@@ -302,18 +300,6 @@ contract RoboshareTokens is
     }
 
     /**
-     * @dev Override supportsInterface to include all inherited interfaces.
-     */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155Upgradeable, ERC1155HolderUpgradeable, AccessControlUpgradeable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
-
-    /**
      * @dev Overrides _update to implement automatic position tracking for revenue tokens.
      * Called on all mints, burns, and transfers.
      */
@@ -344,9 +330,16 @@ contract RoboshareTokens is
     }
 
     /**
-     * @dev Required override for UUPS upgrades.
+     * @dev Override supportsInterface to include all inherited interfaces.
      */
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC1155Upgradeable, ERC1155HolderUpgradeable, AccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
 
     /**
      * @dev Internal function to update token positions using FIFO logic.
@@ -370,4 +363,9 @@ contract RoboshareTokens is
             TokenLib.addPosition(tokenInfo, to, amount);
         }
     }
+
+    /**
+     * @dev Required override for UUPS upgrades.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
 }

@@ -8,7 +8,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ProtocolLib, TokenLib, AssetLib } from "./Libraries.sol";
+import { ProtocolLib, TokenLib, AssetLib, CollateralLib } from "./Libraries.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
@@ -28,6 +28,35 @@ contract Marketplace is
 {
     using SafeERC20 for IERC20;
 
+    struct PrimaryPool {
+        uint256 tokenId;
+        address partner;
+        uint256 pricePerToken;
+        uint256 maxSupply;
+        bool immediateProceeds;
+        bool protectionEnabled;
+        bool isPaused;
+        bool isClosed;
+        uint256 createdAt;
+        uint256 pausedAt;
+        uint256 closedAt;
+    }
+
+    struct Listing {
+        uint256 listingId;
+        uint256 tokenId;
+        uint256 amount;
+        uint256 soldAmount;
+        uint256 pricePerToken;
+        address seller;
+        uint256 expiresAt;
+        bool isActive;
+        uint256 createdAt;
+        bool buyerPaysFee;
+        uint256 earlySalePenalty;
+        bool isPrimary;
+    }
+
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
@@ -36,74 +65,36 @@ contract Marketplace is
     RegistryRouter public router;
     ITreasury public treasury;
     IERC20 public usdc;
-
     uint256 private _listingIdCounter;
-
+    mapping(uint256 => PrimaryPool) public primaryPools;
+    mapping(uint256 => bool) public primaryPoolCreated;
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => uint256[]) public assetListings;
     mapping(uint256 => uint256) public tokenEscrow;
 
-    mapping(uint256 => IMarketplace.PrimaryPool) public primaryPools;
-    mapping(uint256 => bool) public primaryPoolCreated;
-
     error ZeroAddress();
+    error InvalidUSDCContract(address token);
+    error UnsupportedUSDCDecimals(uint8 decimals);
     error InvalidTokenType();
     error InvalidPrice();
-    error InvalidAmount();
     error InvalidMaxSupply();
+    error PrimaryPoolAlreadyCreated();
+    error AssetNotMarketOperational();
+    error NotPoolPartner();
+    error PrimaryPoolNotFound();
+    error PrimaryPoolAlreadyClosed();
+    error PrimaryPoolNotActive();
+    error InvalidAmount();
+    error AssetNotActive();
+    error InsufficientPayment();
     error InsufficientTokenBalance();
     error ListingNotActive();
-    error AssetNotActive();
-    error AssetNotEligibleForListing();
     error ListingNotFound();
     error FeesExceedPrice();
-    error InsufficientPayment();
     error NotListingOwner();
     error InvalidDuration();
     error ListingOwnerCannotPurchase();
-    error PrimaryListingRequiresBuyerPaysFee();
-    error ListingNotEnded();
-    error NoTokensToClaim();
-    error InvalidUSDCContract(address token);
-    error UnsupportedUSDCDecimals(uint8 decimals);
-    error PrimaryListingsDisabled();
-    error PrimaryPoolAlreadyCreated();
-    error PrimaryPoolNotFound();
-    error PrimaryPoolNotActive();
-    error PrimaryPoolAlreadyClosed();
-    error NotPoolPartner();
     error PrimaryRedemptionNotAllowed();
-
-    event ListingCreated(
-        uint256 indexed listingId,
-        uint256 indexed tokenId,
-        uint256 indexed assetId,
-        address seller,
-        uint256 amount,
-        uint256 pricePerToken,
-        uint256 expiresAt,
-        bool buyerPaysFee,
-        bool isPrimary
-    );
-
-    event ListingExtended(uint256 indexed listingId, uint256 newExpiresAt);
-
-    event RevenueTokensTraded(
-        uint256 indexed tokenId,
-        address indexed from,
-        address indexed to,
-        uint256 amount,
-        uint256 listingId,
-        uint256 totalPrice
-    );
-
-    event ListingEnded(uint256 indexed listingId, address indexed seller);
-
-    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
-    event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
-    event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
-    event RouterUpdated(address indexed oldAddress, address indexed newAddress);
-    event TreasuryUpdated(address indexed oldAddress, address indexed newAddress);
 
     event PrimaryPoolCreated(
         uint256 indexed tokenId,
@@ -122,8 +113,7 @@ contract Marketplace is
         uint256 amount,
         uint256 totalCost,
         uint256 protocolFee,
-        uint256 partnerProceeds,
-        uint256 protectionFunding
+        uint256 partnerProceeds
     );
     event PrimaryPoolRedeemed(
         uint256 indexed tokenId,
@@ -132,6 +122,32 @@ contract Marketplace is
         uint256 payout,
         uint256 investorLiquidityAfter
     );
+    event ListingCreated(
+        uint256 indexed listingId,
+        uint256 indexed tokenId,
+        uint256 indexed assetId,
+        address seller,
+        uint256 amount,
+        uint256 pricePerToken,
+        uint256 expiresAt,
+        bool buyerPaysFee,
+        bool isPrimary
+    );
+    event RevenueTokensTraded(
+        uint256 indexed tokenId,
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint256 listingId,
+        uint256 totalPrice
+    );
+    event ListingEnded(uint256 indexed listingId, address indexed seller);
+    event ListingExtended(uint256 indexed listingId, uint256 newExpiresAt);
+    event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
+    event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
+    event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
+    event RouterUpdated(address indexed oldAddress, address indexed newAddress);
+    event TreasuryUpdated(address indexed oldAddress, address indexed newAddress);
 
     /**
      * @dev Initializes core dependencies and admin roles.
@@ -196,48 +212,10 @@ contract Marketplace is
     }
 
     /**
-     * @dev Internal primary pool creation path with validations.
-     */
-    function _createPrimaryPoolFor(
-        address partner,
-        uint256 tokenId,
-        uint256 pricePerToken,
-        uint256 maxSupply,
-        bool immediateProceeds,
-        bool protectionEnabled
-    ) internal {
-        if (!TokenLib.isRevenueToken(tokenId)) revert InvalidTokenType();
-        if (pricePerToken == 0) revert InvalidPrice();
-        if (maxSupply == 0) revert InvalidMaxSupply();
-        if (primaryPoolCreated[tokenId]) revert PrimaryPoolAlreadyCreated();
-
-        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetMarketOperational(assetId)) revert AssetNotEligibleForListing();
-        if (roboshareTokens.balanceOf(partner, assetId) == 0) revert NotPoolPartner();
-
-        primaryPools[tokenId] = IMarketplace.PrimaryPool({
-            tokenId: tokenId,
-            partner: partner,
-            pricePerToken: pricePerToken,
-            maxSupply: maxSupply,
-            immediateProceeds: immediateProceeds,
-            protectionEnabled: protectionEnabled,
-            isPaused: false,
-            isClosed: false,
-            createdAt: block.timestamp,
-            pausedAt: 0,
-            closedAt: 0
-        });
-        primaryPoolCreated[tokenId] = true;
-
-        emit PrimaryPoolCreated(tokenId, partner, pricePerToken, maxSupply, immediateProceeds, protectionEnabled);
-    }
-
-    /**
      * @dev Pauses a primary pool.
      */
     function pausePrimaryPool(uint256 tokenId) external {
-        IMarketplace.PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
         _onlyPoolPartnerOrAdmin(pool.partner);
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isPaused = true;
@@ -249,7 +227,7 @@ contract Marketplace is
      * @dev Unpauses a previously paused primary pool.
      */
     function unpausePrimaryPool(uint256 tokenId) external {
-        IMarketplace.PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
         _onlyPoolPartnerOrAdmin(pool.partner);
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isPaused = false;
@@ -260,7 +238,7 @@ contract Marketplace is
      * @dev Permanently closes a primary pool.
      */
     function closePrimaryPool(uint256 tokenId) external {
-        IMarketplace.PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
         _onlyPoolPartnerOrAdmin(pool.partner);
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isClosed = true;
@@ -274,10 +252,10 @@ contract Marketplace is
     function previewPrimaryPurchase(uint256 tokenId, uint256 amount)
         external
         view
-        returns (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds, uint256 protectionFunding)
+        returns (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds)
     {
-        IMarketplace.PrimaryPool storage pool = _getPrimaryPool(tokenId);
-        if (amount == 0) return (0, 0, 0, 0);
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        if (amount == 0) return (0, 0, 0);
 
         uint256 grossPrincipal = amount * pool.pricePerToken;
         protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
@@ -286,14 +264,31 @@ contract Marketplace is
         if (pool.immediateProceeds) {
             partnerProceeds = grossPrincipal;
         }
-        protectionFunding = 0;
+    }
+
+    /**
+     * @dev Previews protocol/protection buffer requirements for a primary pool.
+     */
+    function previewPrimaryPoolBufferRequirements(uint256 tokenId, uint256 baseAmount)
+        external
+        view
+        returns (uint256 protocolBuffer, uint256 protectionBuffer, uint256 totalBuffer)
+    {
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(tokenId);
+        (, uint256 requiredEarningsBuffer, uint256 requiredProtocolBuffer,) =
+            CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, targetYieldBP);
+
+        protocolBuffer = requiredProtocolBuffer;
+        protectionBuffer = pool.protectionEnabled ? requiredEarningsBuffer : 0;
+        totalBuffer = protocolBuffer + protectionBuffer;
     }
 
     /**
      * @dev Buys tokens from a primary pool and settles immediately.
      */
     function buyFromPrimaryPool(uint256 tokenId, uint256 amount) external nonReentrant {
-        IMarketplace.PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
         if (pool.isPaused || pool.isClosed) revert PrimaryPoolNotActive();
         if (amount == 0) revert InvalidAmount();
 
@@ -311,7 +306,7 @@ contract Marketplace is
 
         usdc.safeTransferFrom(msg.sender, address(treasury), totalCost);
 
-        (uint256 partnerProceeds, uint256 protectionFunding) = treasury.processPrimaryPoolPurchase(
+        uint256 partnerProceeds = treasury.processPrimaryPoolPurchaseFor(
             msg.sender,
             tokenId,
             amount,
@@ -322,9 +317,7 @@ contract Marketplace is
             pool.protectionEnabled
         );
 
-        emit PrimaryPoolPurchased(
-            tokenId, msg.sender, amount, totalCost, protocolFee, partnerProceeds, protectionFunding
-        );
+        emit PrimaryPoolPurchased(tokenId, msg.sender, amount, totalCost, protocolFee, partnerProceeds);
     }
 
     /**
@@ -352,7 +345,7 @@ contract Marketplace is
         nonReentrant
         returns (uint256 payout)
     {
-        IMarketplace.PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        PrimaryPool storage pool = _getPrimaryPool(tokenId);
         if (pool.isPaused || pool.isClosed) revert PrimaryPoolNotActive();
         if (amount == 0) revert InvalidAmount();
 
@@ -360,7 +353,7 @@ contract Marketplace is
         if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
 
         uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
-        payout = treasury.processPrimaryRedemption(msg.sender, assetId, amount, circulatingSupply, minPayout);
+        payout = treasury.processPrimaryRedemptionFor(msg.sender, assetId, amount, circulatingSupply, minPayout);
 
         uint256 investorLiquidityAfter = treasury.getPrimaryInvestorLiquidity(assetId);
         emit PrimaryPoolRedeemed(tokenId, msg.sender, amount, payout, investorLiquidityAfter);
@@ -379,7 +372,7 @@ contract Marketplace is
         if (pricePerToken == 0) revert InvalidPrice();
 
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetMarketOperational(assetId)) revert AssetNotEligibleForListing();
+        if (!isAssetMarketOperational(assetId)) revert AssetNotMarketOperational();
 
         uint256 tokenSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
         if (amount == 0 || amount > tokenSupply) revert InvalidAmount();
@@ -418,7 +411,7 @@ contract Marketplace is
     /**
      * @dev Purchases tokens from a secondary listing with immediate settlement.
      */
-    function purchaseTokens(uint256 listingId, uint256 amount) external nonReentrant {
+    function buyFromSecondaryListing(uint256 listingId, uint256 amount) external nonReentrant {
         Listing storage listing = listings[listingId];
         if (listing.listingId == 0) revert ListingNotFound();
 
@@ -523,8 +516,12 @@ contract Marketplace is
     /**
      * @dev Returns primary pool details.
      */
-    function getPrimaryPool(uint256 tokenId) external view returns (IMarketplace.PrimaryPool memory) {
+    function getPrimaryPool(uint256 tokenId) external view returns (PrimaryPool memory) {
         return _getPrimaryPool(tokenId);
+    }
+
+    function getPrimaryPoolProtectionEnabled(uint256 tokenId) external view returns (bool) {
+        return _getPrimaryPool(tokenId).protectionEnabled;
     }
 
     /**
@@ -532,7 +529,7 @@ contract Marketplace is
      */
     function isPrimaryPoolActive(uint256 tokenId) external view returns (bool) {
         if (!primaryPoolCreated[tokenId]) return false;
-        IMarketplace.PrimaryPool storage pool = primaryPools[tokenId];
+        PrimaryPool storage pool = primaryPools[tokenId];
         return !pool.isPaused && !pool.isClosed;
     }
 
@@ -566,7 +563,7 @@ contract Marketplace is
     /**
      * @dev Calculates purchase cost and fees for listing buy.
      */
-    function calculatePurchaseCost(uint256 listingId, uint256 amount)
+    function previewSecondaryPurchase(uint256 listingId, uint256 amount)
         external
         view
         returns (uint256 totalCost, uint256 protocolFee, uint256 expectedPayment)
@@ -590,7 +587,7 @@ contract Marketplace is
     /**
      * @dev Returns whether asset is operational for market activity.
      */
-    function isAssetMarketOperational(uint256 assetId) public view override returns (bool) {
+    function isAssetMarketOperational(uint256 assetId) public view returns (bool) {
         if (!router.assetExists(assetId)) return false;
 
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
@@ -618,27 +615,6 @@ contract Marketplace is
         address oldAddress = address(usdc);
         usdc = IERC20(_usdc);
         emit UsdcUpdated(oldAddress, _usdc);
-    }
-
-    /**
-     * @dev Validates USDC-compatible ERC20 contract (6 decimals).
-     */
-    function _validateUSDCContract(address token) internal view {
-        try IERC20(token).totalSupply() returns (uint256) { }
-        catch {
-            revert InvalidUSDCContract(token);
-        }
-
-        uint8 tokenDecimals;
-        try IERC20Metadata(token).decimals() returns (uint8 d) {
-            tokenDecimals = d;
-        } catch {
-            revert InvalidUSDCContract(token);
-        }
-
-        if (tokenDecimals != 6) {
-            revert UnsupportedUSDCDecimals(tokenDecimals);
-        }
     }
 
     /**
@@ -691,7 +667,45 @@ contract Marketplace is
         return this.onERC1155BatchReceived.selector;
     }
 
-    function _getPrimaryPool(uint256 tokenId) internal view returns (IMarketplace.PrimaryPool storage pool) {
+    /**
+     * @dev Internal primary pool creation path with validations.
+     */
+    function _createPrimaryPoolFor(
+        address partner,
+        uint256 tokenId,
+        uint256 pricePerToken,
+        uint256 maxSupply,
+        bool immediateProceeds,
+        bool protectionEnabled
+    ) internal {
+        if (!TokenLib.isRevenueToken(tokenId)) revert InvalidTokenType();
+        if (pricePerToken == 0) revert InvalidPrice();
+        if (maxSupply == 0) revert InvalidMaxSupply();
+        if (primaryPoolCreated[tokenId]) revert PrimaryPoolAlreadyCreated();
+
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
+        if (!isAssetMarketOperational(assetId)) revert AssetNotMarketOperational();
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) revert NotPoolPartner();
+
+        primaryPools[tokenId] = PrimaryPool({
+            tokenId: tokenId,
+            partner: partner,
+            pricePerToken: pricePerToken,
+            maxSupply: maxSupply,
+            immediateProceeds: immediateProceeds,
+            protectionEnabled: protectionEnabled,
+            isPaused: false,
+            isClosed: false,
+            createdAt: block.timestamp,
+            pausedAt: 0,
+            closedAt: 0
+        });
+        primaryPoolCreated[tokenId] = true;
+
+        emit PrimaryPoolCreated(tokenId, partner, pricePerToken, maxSupply, immediateProceeds, protectionEnabled);
+    }
+
+    function _getPrimaryPool(uint256 tokenId) internal view returns (PrimaryPool storage pool) {
         if (!primaryPoolCreated[tokenId]) revert PrimaryPoolNotFound();
         pool = primaryPools[tokenId];
     }
@@ -699,6 +713,27 @@ contract Marketplace is
     function _onlyPoolPartnerOrAdmin(address partner) internal view {
         if (msg.sender != partner && !hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
             revert NotPoolPartner();
+        }
+    }
+
+    /**
+     * @dev Validates USDC-compatible ERC20 contract (6 decimals).
+     */
+    function _validateUSDCContract(address token) internal view {
+        try IERC20(token).totalSupply() returns (uint256) { }
+        catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        uint8 tokenDecimals;
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            tokenDecimals = d;
+        } catch {
+            revert InvalidUSDCContract(token);
+        }
+
+        if (tokenDecimals != 6) {
+            revert UnsupportedUSDCDecimals(tokenDecimals);
         }
     }
 }
