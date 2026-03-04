@@ -7,11 +7,11 @@ import { formatUnits } from "viem";
 import { useAccount, useBlock, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { CreateRevenueTokenPoolModal } from "~~/components/partner/CreateRevenueTokenPoolModal";
+import { CreateSecondaryListingModal } from "~~/components/partner/CreateSecondaryListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EnableProceedsModal } from "~~/components/partner/EnableProceedsModal";
-import { EndListingModal } from "~~/components/partner/EndListingModal";
+import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
-import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
 import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
@@ -154,15 +154,15 @@ const PartnerDashboard: NextPage = () => {
   const [maxStep, setMaxStep] = useState<1 | 3>(3);
   const [selectedAsset, setSelectedAsset] = useState<DashboardAsset | null>(null);
   const [selectedCategorizedAsset, setSelectedCategorizedAsset] = useState<CategorizedAsset | null>(null);
-  const [listModalOpen, setListModalOpen] = useState(false);
+  const [createSecondaryListingModalOpen, setCreateSecondaryListingModalOpen] = useState(false);
   const [listPrefillAmount, setListPrefillAmount] = useState<string | undefined>(undefined);
   const [createRevenueTokenPoolModalOpen, setCreateRevenueTokenPoolModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [distributeEarningsModalOpen, setDistributeEarningsModalOpen] = useState(false);
-  const [fundBuffersModalOpen, setFundBuffersModalOpen] = useState(false);
+  const [enableProceedsModalOpen, setEnableProceedsModalOpen] = useState(false);
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
   const [extendListingModalOpen, setExtendListingModalOpen] = useState(false);
-  const [endListingModalOpen, setEndListingModalOpen] = useState(false);
+  const [endSecondaryListingModalOpen, setEndSecondaryListingModalOpen] = useState(false);
   const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const skipNextCloseRefreshRef = useRef(false);
@@ -635,7 +635,7 @@ const PartnerDashboard: NextPage = () => {
   const openListModal = (asset: DashboardAsset, prefillAmount?: string) => {
     setSelectedAsset(asset);
     setListPrefillAmount(prefillAmount);
-    setListModalOpen(true);
+    setCreateSecondaryListingModalOpen(true);
   };
 
   const openCreateRevenueTokenPoolModal = (asset: DashboardAsset) => {
@@ -1132,7 +1132,7 @@ const PartnerDashboard: NextPage = () => {
                     label: "Enable Proceeds",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
-                      setFundBuffersModalOpen(true);
+                      setEnableProceedsModalOpen(true);
                     },
                     className:
                       "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
@@ -1236,7 +1236,7 @@ const PartnerDashboard: NextPage = () => {
                 };
 
                 // Action definitions
-                const actionEnd = { label: "End Listing", onClick: () => openModal(setEndListingModalOpen) };
+                const actionEnd = { label: "End Listing", onClick: () => openModal(setEndSecondaryListingModalOpen) };
                 const actionExtend = { label: "Extend Listing", onClick: () => openModal(setExtendListingModalOpen) };
                 const actionDistribute = {
                   label: "Distribute Earnings",
@@ -1366,11 +1366,11 @@ const PartnerDashboard: NextPage = () => {
       )}
 
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
-        <ListVehicleModal
-          isOpen={listModalOpen}
+        <CreateSecondaryListingModal
+          isOpen={createSecondaryListingModalOpen}
           onSuccess={handleFlowSuccess}
           onClose={() => {
-            setListModalOpen(false);
+            setCreateSecondaryListingModalOpen(false);
             setListPrefillAmount(undefined);
             refreshOnModalClose();
           }}
@@ -1402,10 +1402,10 @@ const PartnerDashboard: NextPage = () => {
             assetName={getAssetDisplayName(selectedCategorizedAsset)}
           />
           <EnableProceedsModal
-            isOpen={fundBuffersModalOpen}
+            isOpen={enableProceedsModalOpen}
             onSuccess={handleFlowSuccess}
             onClose={() => {
-              setFundBuffersModalOpen(false);
+              setEnableProceedsModalOpen(false);
               refreshOnModalClose();
             }}
             assetId={selectedCategorizedAsset.id}
@@ -1442,10 +1442,10 @@ const PartnerDashboard: NextPage = () => {
                   listingId={selectedListing.id}
                   currentExpiresAt={BigInt(selectedListing.expiresAt)}
                 />
-                <EndListingModal
-                  isOpen={endListingModalOpen}
+                <EndSecondaryListingModal
+                  isOpen={endSecondaryListingModalOpen}
                   onClose={() => {
-                    setEndListingModalOpen(false);
+                    setEndSecondaryListingModalOpen(false);
                     refetchPending();
                     triggerRefresh();
                   }}

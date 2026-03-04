@@ -34,7 +34,7 @@ interface PrimaryPurchaseTarget {
   currentSupply?: string;
 }
 
-interface BuyTokensModalProps {
+interface AcquirePositionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPurchaseComplete?: (id: string) => void;
@@ -47,7 +47,7 @@ interface BuyTokensModalProps {
 
 const PERCENTAGE_OPTIONS = [25, 50, 75, 100];
 
-export function BuyTokensModal({
+export function AcquirePositionModal({
   isOpen,
   onClose,
   onPurchaseComplete,
@@ -56,7 +56,7 @@ export function BuyTokensModal({
   vehicleName = "Asset",
   partnerName,
   listedTokens,
-}: BuyTokensModalProps) {
+}: AcquirePositionModalProps) {
   const { address } = useAccount();
   const { symbol, decimals } = usePaymentToken();
   const [inputAmount, setInputAmount] = useState("");

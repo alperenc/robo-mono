@@ -10,15 +10,15 @@ import {
   BriefcaseIcon,
   Squares2X2Icon,
 } from "@heroicons/react/24/outline";
-import { BuyTokensModal } from "~~/components/markets/BuyTokensModal";
+import { AcquirePositionModal } from "~~/components/markets/AcquirePositionModal";
 import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
 import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
 import { PrimaryPoolCard } from "~~/components/markets/PrimaryPoolCard";
 import { RedeemLiquidityModal } from "~~/components/markets/RedeemLiquidityModal";
+import { CreateSecondaryListingModal } from "~~/components/partner/CreateSecondaryListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
-import { EndListingModal } from "~~/components/partner/EndListingModal";
-import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
+import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -178,7 +178,7 @@ const MarketsPage: NextPage = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             query: `
-            query GetMarketListings {
+            query GetMarketsPageData {
               listings(first: 100, orderBy: createdAt, orderDirection: desc) {
                 id
                 tokenId
@@ -1268,7 +1268,7 @@ const MarketsPage: NextPage = () => {
 
       {/* Buy Tokens Modal */}
       {(selectedListing || selectedPool) && (
-        <BuyTokensModal
+        <AcquirePositionModal
           isOpen={isBuyModalOpen}
           onClose={() => {
             setIsBuyModalOpen(false);
@@ -1373,7 +1373,7 @@ const MarketsPage: NextPage = () => {
       )}
 
       {(selectedListing || selectedPool) && isListTokensOpen && (
-        <ListVehicleModal
+        <CreateSecondaryListingModal
           isOpen={isListTokensOpen}
           onSuccess={() => {
             refreshMarketsAfterSuccess();
@@ -1400,7 +1400,7 @@ const MarketsPage: NextPage = () => {
       )}
 
       {selectedListing && (
-        <EndListingModal
+        <EndSecondaryListingModal
           isOpen={isEndListingOpen}
           onSuccess={() => {
             applyListingActionSuccess(selectedListing.id, { isEnded: true, status: "ended" });

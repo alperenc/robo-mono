@@ -11,7 +11,7 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { getParsedError } from "~~/utils/scaffold-eth";
 
-interface ListVehicleModalProps {
+interface CreateSecondaryListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -22,7 +22,7 @@ interface ListVehicleModalProps {
   isPrimaryListing?: boolean;
 }
 
-export const ListVehicleModal = ({
+export const CreateSecondaryListingModal = ({
   isOpen,
   onClose,
   onSuccess,
@@ -31,7 +31,7 @@ export const ListVehicleModal = ({
   assetName,
   prefillAmount,
   isPrimaryListing = false,
-}: ListVehicleModalProps) => {
+}: CreateSecondaryListingModalProps) => {
   const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
   const [formData, setFormData] = useState({

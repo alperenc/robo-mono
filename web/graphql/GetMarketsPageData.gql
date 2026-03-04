@@ -1,4 +1,4 @@
-query GetMarketListings {
+query GetMarketsPageData {
   listings(first: 100, orderBy: createdAt, orderDirection: desc) {
     id
     tokenId

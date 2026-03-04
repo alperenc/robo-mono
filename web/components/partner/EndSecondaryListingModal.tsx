@@ -10,7 +10,7 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { getParsedError } from "~~/utils/scaffold-eth";
 
-interface EndListingModalProps {
+interface EndSecondaryListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -22,7 +22,7 @@ interface EndListingModalProps {
   isPrimary?: boolean;
 }
 
-export const EndListingModal = ({
+export const EndSecondaryListingModal = ({
   isOpen,
   onClose,
   onSuccess,
@@ -32,7 +32,7 @@ export const EndListingModal = ({
   amountSold,
   pricePerToken,
   isPrimary,
-}: EndListingModalProps) => {
+}: EndSecondaryListingModalProps) => {
   const { address } = useAccount();
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const {
