@@ -383,7 +383,6 @@ export function handlePrimaryPoolCreated(event: PrimaryPoolCreatedEvent): void {
   pool.totalPurchased = BigInt.fromI32(0)
   pool.totalRedeemed = BigInt.fromI32(0)
   pool.totalPartnerProceedsReleased = BigInt.fromI32(0)
-  pool.totalProtectionCollateralFunded = BigInt.fromI32(0)
   pool.save()
 }
 
@@ -420,7 +419,6 @@ export function handlePrimaryPoolPurchased(event: PrimaryPoolPurchasedEvent): vo
   purchase.totalCost = event.params.totalCost
   purchase.protocolFee = event.params.protocolFee
   purchase.partnerProceeds = event.params.partnerProceeds
-  purchase.protectionFunding = event.params.protectionFunding
   purchase.blockNumber = event.block.number
   purchase.blockTimestamp = event.block.timestamp
   purchase.transactionHash = event.transaction.hash
@@ -430,7 +428,6 @@ export function handlePrimaryPoolPurchased(event: PrimaryPoolPurchasedEvent): vo
   if (!pool) return
   pool.totalPurchased = pool.totalPurchased.plus(event.params.amount)
   pool.totalPartnerProceedsReleased = pool.totalPartnerProceedsReleased.plus(event.params.partnerProceeds)
-  pool.totalProtectionCollateralFunded = pool.totalProtectionCollateralFunded.plus(event.params.protectionFunding)
   pool.save()
 }
 

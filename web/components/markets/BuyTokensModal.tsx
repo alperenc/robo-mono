@@ -1,17 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
-interface BuyTokensModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onPurchaseComplete?: (listingId: string) => void;
+interface SecondaryPurchaseTarget {
+  kind: "secondary";
   listing: {
     id: string;
     tokenId: string;
@@ -21,11 +19,30 @@ interface BuyTokensModalProps {
     seller: string;
     buyerPaysFee?: boolean;
   };
+}
+
+interface PrimaryPurchaseTarget {
+  kind: "primary";
+  pool: {
+    id: string;
+    tokenId: string;
+    assetId: string;
+    pricePerToken: string;
+    maxSupply: string;
+    partner: string;
+  };
+  currentSupply?: string;
+}
+
+interface BuyTokensModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onPurchaseComplete?: (id: string) => void;
+  purchaseTarget: SecondaryPurchaseTarget | PrimaryPurchaseTarget;
   totalSupply?: string;
   vehicleName?: string;
   partnerName?: string;
   listedTokens?: string;
-  relatedListingIds?: string[];
 }
 
 const PERCENTAGE_OPTIONS = [25, 50, 75, 100];
@@ -34,7 +51,7 @@ export function BuyTokensModal({
   isOpen,
   onClose,
   onPurchaseComplete,
-  listing,
+  purchaseTarget,
   totalSupply,
   vehicleName = "Asset",
   partnerName,
@@ -42,27 +59,38 @@ export function BuyTokensModal({
 }: BuyTokensModalProps) {
   const { address } = useAccount();
   const { symbol, decimals } = usePaymentToken();
-  const [amount, setAmount] = useState("");
+  const [inputAmount, setInputAmount] = useState("");
   const [step, setStep] = useState<"input" | "approving" | "purchasing" | "success" | "error">("input");
   const [error, setError] = useState<string | null>(null);
 
-  // Contract addresses
-  const chainId = 31337; // localhost
+  const chainId = 31337;
   const marketplaceAddress = deployedContracts[chainId]?.Marketplace?.address;
 
-  // Read payment token balance
+  const tokenId = purchaseTarget.kind === "secondary" ? purchaseTarget.listing.tokenId : purchaseTarget.pool.tokenId;
+  const unitPrice =
+    purchaseTarget.kind === "secondary" ? purchaseTarget.listing.pricePerToken : purchaseTarget.pool.pricePerToken;
+  const unitPriceRaw = BigInt(unitPrice);
+  const isPrimaryPurchase = purchaseTarget.kind === "primary";
+  const availableAmount =
+    purchaseTarget.kind === "secondary"
+      ? BigInt(purchaseTarget.listing.amount)
+      : (() => {
+          const maxSupply = BigInt(purchaseTarget.pool.maxSupply);
+          const currentSupply = BigInt(purchaseTarget.currentSupply || "0");
+          return maxSupply > currentSupply ? maxSupply - currentSupply : 0n;
+        })();
+  const buyerPaysFee = purchaseTarget.kind === "secondary" ? (purchaseTarget.listing.buyerPaysFee ?? true) : true;
+
   const { data: paymentTokenBalance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "balanceOf",
     args: [address],
   });
 
-  // Read user's current revenue token balance (wallet)
-  const revenueTokenId = BigInt(listing.assetId) + 1n;
   const { data: userTokenBalance, refetch: refetchTokenBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "balanceOf",
-    args: [address, revenueTokenId],
+    args: [address, BigInt(tokenId)],
   });
 
   const totalUserTokens = userTokenBalance || 0n;
@@ -74,7 +102,6 @@ export function BuyTokensModal({
     }
   }, [listedTokens]);
 
-  // Read payment token allowance for Marketplace
   const { data: paymentTokenAllowance, refetch: refetchAllowance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "allowance",
@@ -82,95 +109,129 @@ export function BuyTokensModal({
     watch: true,
   });
 
-  // Calculate purchase cost
-  const { data: purchaseCostData } = useScaffoldReadContract({
+  const secondaryPurchasePreview = useScaffoldReadContract({
     contractName: "Marketplace",
-    functionName: "calculatePurchaseCost",
-    args: [BigInt(listing.id), amount ? BigInt(amount) : 0n],
+    functionName: "previewSecondaryPurchase",
+    args:
+      purchaseTarget.kind === "secondary"
+        ? [BigInt(purchaseTarget.listing.id), inputAmount ? BigInt(inputAmount) : 0n]
+        : [0n, 0n],
+    query: { enabled: purchaseTarget.kind === "secondary" },
   });
 
-  // Write contracts
   const { writeContractAsync: approvePaymentToken, isPending: isApproving } = useScaffoldWriteContract({
     contractName: "MockUSDC",
   });
 
-  const { writeContractAsync: purchaseTokens, isPending: isPurchasing } = useScaffoldWriteContract({
+  const { writeContractAsync: submitPurchase, isPending: isPurchasing } = useScaffoldWriteContract({
     contractName: "Marketplace",
   });
 
-  // Calculate max affordable tokens based on payment token balance
   const maxAffordableTokens = useMemo(() => {
     if (!paymentTokenBalance) return 0n;
 
-    const pricePerToken = BigInt(listing.pricePerToken);
+    const pricePerToken = BigInt(unitPrice);
     if (pricePerToken === 0n) return 0n;
 
-    // Rough estimate (not accounting for fees exactly, but close enough)
-    const buyerPaysFee = listing.buyerPaysFee ?? true;
-    const feeMultiplier = buyerPaysFee ? 103n : 100n; // ~3% protocol fee buffer
+    const feeMultiplier = buyerPaysFee ? 103n : 100n;
     const effectivePricePerToken = (pricePerToken * feeMultiplier) / 100n;
 
     return paymentTokenBalance / effectivePricePerToken;
-  }, [paymentTokenBalance, listing.pricePerToken, listing.buyerPaysFee]);
+  }, [paymentTokenBalance, unitPrice, buyerPaysFee]);
 
-  // Max tokens = min(listing amount, affordable tokens)
   const maxTokens = useMemo(() => {
-    const listingAmount = BigInt(listing.amount);
-    return maxAffordableTokens < listingAmount ? maxAffordableTokens : listingAmount;
-  }, [maxAffordableTokens, listing.amount]);
+    return maxAffordableTokens < availableAmount ? maxAffordableTokens : availableAmount;
+  }, [maxAffordableTokens, availableAmount]);
 
-  // Parse cost data
-  const totalCost = purchaseCostData?.[0] ?? 0n;
-  const protocolFee = purchaseCostData?.[1] ?? 0n;
-  const expectedPayment = purchaseCostData?.[2] ?? 0n;
+  const primaryContributionRaw = useMemo(() => {
+    if (!isPrimaryPurchase || !inputAmount) return 0n;
+    try {
+      return parseUnits(inputAmount, decimals);
+    } catch {
+      return 0n;
+    }
+  }, [decimals, inputAmount, isPrimaryPurchase]);
 
-  // Check if approval needed
+  const purchaseAmount = useMemo(() => {
+    if (!inputAmount) return 0n;
+    if (!isPrimaryPurchase) return BigInt(inputAmount);
+    if (unitPriceRaw === 0n) return 0n;
+    return primaryContributionRaw / unitPriceRaw;
+  }, [inputAmount, isPrimaryPurchase, primaryContributionRaw, unitPriceRaw]);
+
+  const primaryPurchasePreview = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "previewPrimaryPurchase",
+    args: [BigInt(tokenId), purchaseAmount],
+    query: { enabled: isPrimaryPurchase },
+  });
+
+  const totalCost = (isPrimaryPurchase ? primaryPurchasePreview.data?.[0] : secondaryPurchasePreview.data?.[0]) ?? 0n;
+  const protocolFee = (isPrimaryPurchase ? primaryPurchasePreview.data?.[1] : secondaryPurchasePreview.data?.[1]) ?? 0n;
+  const expectedPayment =
+    purchaseTarget.kind === "secondary"
+      ? (secondaryPurchasePreview.data?.[2] ?? 0n)
+      : (primaryPurchasePreview.data?.[0] ?? 0n);
+  const principalAmount = isPrimaryPurchase ? purchaseAmount * unitPriceRaw : totalCost;
+  const formattedPrincipal = formatUnits(principalAmount, decimals);
+
   const needsApproval = useMemo(() => {
     if (!paymentTokenAllowance || !expectedPayment) return true;
     return paymentTokenAllowance < expectedPayment;
   }, [paymentTokenAllowance, expectedPayment]);
 
-  // Format values for display
   const formattedBalance = paymentTokenBalance ? formatUnits(paymentTokenBalance, decimals) : "0";
   const formattedCost = formatUnits(totalCost, decimals);
   const formattedFee = formatUnits(protocolFee, decimals);
   const formattedTotal = formatUnits(expectedPayment, decimals);
-  const pricePerTokenDisplay = formatUnits(BigInt(listing.pricePerToken), decimals);
+  const pricePerTokenDisplay = formatUnits(BigInt(unitPrice), decimals);
+  const formattedContribution = formatUnits(primaryContributionRaw, decimals);
+  const maxContributionRaw = maxTokens * unitPriceRaw;
+  const maxContributionDisplay = formatUnits(maxContributionRaw, decimals);
 
-  // Handle percentage selection
   const handlePercentageSelect = useCallback(
     (percentage: number) => {
+      if (isPrimaryPurchase) {
+        const contribution = (maxContributionRaw * BigInt(percentage)) / 100n;
+        setInputAmount(formatUnits(contribution, decimals));
+        return;
+      }
       const tokens = (maxTokens * BigInt(percentage)) / 100n;
-      setAmount(tokens.toString());
+      setInputAmount(tokens.toString());
     },
-    [maxTokens],
+    [decimals, isPrimaryPurchase, maxContributionRaw, maxTokens],
   );
 
-  // Handle slider change
   const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const percentage = parseInt(e.target.value);
+      if (isPrimaryPurchase) {
+        const contribution = (maxContributionRaw * BigInt(percentage)) / 100n;
+        setInputAmount(formatUnits(contribution, decimals));
+        return;
+      }
       const tokens = (maxTokens * BigInt(percentage)) / 100n;
-      setAmount(tokens.toString());
+      setInputAmount(tokens.toString());
     },
-    [maxTokens],
+    [decimals, isPrimaryPurchase, maxContributionRaw, maxTokens],
   );
 
-  // Current percentage for slider
   const currentPercentage = useMemo(() => {
-    if (!amount || maxTokens === 0n) return 0;
-    return Number((BigInt(amount) * 100n) / maxTokens);
-  }, [amount, maxTokens]);
+    if (!inputAmount) return 0;
+    if (isPrimaryPurchase) {
+      if (maxContributionRaw === 0n || primaryContributionRaw === 0n) return 0;
+      return Number((primaryContributionRaw * 100n) / maxContributionRaw);
+    }
+    if (maxTokens === 0n) return 0;
+    return Number((BigInt(inputAmount) * 100n) / maxTokens);
+  }, [inputAmount, isPrimaryPurchase, maxContributionRaw, maxTokens, primaryContributionRaw]);
 
-  // Handle combined approve + purchase flow
   const handleBuy = async () => {
-    if (!amount || BigInt(amount) === 0n) return;
+    if (!inputAmount || purchaseAmount === 0n) return;
     if (!marketplaceAddress) {
       setError("Marketplace address not found");
       return;
     }
-
-    // Ensure we have a valid payment amount
     if (expectedPayment === 0n) {
       setError("Calculating payment amount...");
       return;
@@ -179,48 +240,38 @@ export function BuyTokensModal({
     setError(null);
 
     try {
-      // Step 1: Approve if needed
       if (needsApproval) {
         setStep("approving");
-
-        try {
-          await approvePaymentToken({
-            functionName: "approve",
-            args: [marketplaceAddress, expectedPayment],
-          });
-        } catch (approveError: any) {
-          console.error("Approval failed:", approveError);
-          throw new Error(`Approval failed: ${approveError.message || "Unknown error"}`);
-        }
-
+        await approvePaymentToken({ functionName: "approve", args: [marketplaceAddress, expectedPayment] });
         await refetchAllowance();
       }
 
-      // Step 2: Purchase
       setStep("purchasing");
-      await purchaseTokens({
-        functionName: "purchaseTokens",
-        args: [BigInt(listing.id), BigInt(amount)],
-      });
+      if (purchaseTarget.kind === "secondary") {
+        await submitPurchase({
+          functionName: "buyFromSecondaryListing",
+          args: [BigInt(purchaseTarget.listing.id), purchaseAmount],
+        });
+      } else {
+        await submitPurchase({
+          functionName: "buyFromPrimaryPool",
+          args: [BigInt(purchaseTarget.pool.tokenId), purchaseAmount],
+        });
+      }
 
       setStep("success");
-      // Refetch token balances to show updated holdings
       await refetchTokenBalance();
-      // Trigger data refresh
-      onPurchaseComplete?.(listing.id);
+      onPurchaseComplete?.(purchaseTarget.kind === "secondary" ? purchaseTarget.listing.id : purchaseTarget.pool.id);
     } catch (e: any) {
-      console.error("Transaction error:", e);
-      // Extract inner error message if possible
       const message = e.message || e.shortMessage || "Transaction failed";
       setError(message);
       setStep("error");
     }
   };
 
-  // Reset on close
   useEffect(() => {
     if (!isOpen) {
-      setAmount("");
+      setInputAmount("");
       setStep("input");
       setError(null);
     }
@@ -228,83 +279,89 @@ export function BuyTokensModal({
 
   if (!isOpen) return null;
 
-  const isLoading = isApproving || isPurchasing;
-  const hasValidAmount = amount && BigInt(amount) > 0n && BigInt(amount) <= BigInt(listing.amount);
+  const hasValidAmount = purchaseAmount > 0n && purchaseAmount <= availableAmount;
   const hasInsufficientBalance = expectedPayment > (paymentTokenBalance ?? 0n);
+  const successOwnershipBase = totalSupply ? BigInt(totalSupply) : 0n;
 
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
-        {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
           onClick={onClose}
-          disabled={isLoading}
+          disabled={isApproving || isPurchasing}
         >
           <XMarkIcon className="w-5 h-5" />
         </button>
 
-        {/* Header */}
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl">Buy Revenue Tokens</h3>
+          <h3 className="font-bold text-xl">
+            {purchaseTarget.kind === "primary" ? "Add Liquidity" : "Buy Revenue Tokens"}
+          </h3>
           <p className="text-sm opacity-60 mt-1">{vehicleName}</p>
           {partnerName && <p className="text-xs opacity-50">by {partnerName}</p>}
         </div>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {step === "success" ? (
             <div className="text-center text-base-content">
               <div className="text-6xl mb-4">🎉</div>
-              <h4 className="text-xl font-bold text-success mb-2">Purchase Complete!</h4>
-
+              <h4 className="text-xl font-bold text-success mb-2">
+                {isPrimaryPurchase ? "Liquidity Added!" : "Purchase Complete!"}
+              </h4>
               <div className="alert text-sm mb-4 text-left bg-base-200/70 text-base-content border border-base-300">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  className="stroke-current shrink-0 w-6 h-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
                 <span>
-                  Tokens are held in escrow. You can claim them once the listing ends or is finalized by the seller.
+                  {isPrimaryPurchase
+                    ? "Your contribution settled immediately. Your revenue-rights position for this asset is now active."
+                    : "Tokens settle immediately. They are now in your wallet and available for use or relisting."}
                 </span>
               </div>
-
               <p className="text-base-content/80 mb-4">
-                You&apos;ve acquired <span className="font-bold">{Number(amount).toLocaleString()}</span> revenue rights
-                tokens for {vehicleName}.
+                {isPrimaryPurchase ? (
+                  <>
+                    You&apos;ve added{" "}
+                    <span className="font-bold">
+                      {Number(formattedContribution).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>{" "}
+                    {symbol} to the {vehicleName} offering.
+                  </>
+                ) : (
+                  <>
+                    You&apos;ve acquired <span className="font-bold">{purchaseAmount.toLocaleString()}</span> revenue
+                    rights tokens for {vehicleName}.
+                  </>
+                )}
               </p>
-
-              {/* Ownership percentage */}
-              {totalSupply && (
+              {successOwnershipBase > 0n && (
                 <div className="bg-base-100/70 dark:bg-base-100/15 border border-base-300/60 rounded-lg p-4 mb-4 text-base-content">
-                  <div className="text-sm text-base-content/70 mb-1">This Purchase</div>
-                  <div className="text-2xl font-bold text-base-content">
-                    {((Number(amount) / Number(totalSupply)) * 100).toFixed(2)}%
+                  <div className="text-sm text-base-content/70 mb-1">
+                    {isPrimaryPurchase ? "Position Added" : "This Purchase"}
                   </div>
-                  <div className="text-xs text-base-content/60">of total revenue rights</div>
-                </div>
-              )}
-
-              {/* Total holdings after purchase */}
-              {totalSupply && (
-                <div className="bg-success/20 dark:bg-success/15 border border-success/30 rounded-lg p-4 text-base-content">
-                  <div className="text-sm text-base-content/70 mb-1">Your Cumulative Holdings</div>
-                  <div className="text-2xl font-bold text-success">
-                    {((Number(totalUserTokens + listedTokensCount) / Number(totalSupply)) * 100).toFixed(2)}%
+                  <div className="text-2xl font-bold text-base-content">
+                    {((Number(purchaseAmount) / Number(successOwnershipBase)) * 100).toFixed(2)}%
                   </div>
                   <div className="text-xs text-base-content/60">
-                    {Number(totalUserTokens + listedTokensCount).toLocaleString()} tokens
+                    of {purchaseTarget.kind === "primary" ? "the asset's revenue rights" : "total revenue rights"}
                   </div>
-                  {listedTokensCount > 0n && (
+                </div>
+              )}
+              {successOwnershipBase > 0n && (
+                <div className="bg-success/20 dark:bg-success/15 border border-success/30 rounded-lg p-4 text-base-content">
+                  <div className="text-sm text-base-content/70 mb-1">
+                    {isPrimaryPurchase ? "Your Total Position" : "Your Cumulative Holdings"}
+                  </div>
+                  <div className="text-2xl font-bold text-success">
+                    {((Number(totalUserTokens + listedTokensCount) / Number(successOwnershipBase)) * 100).toFixed(2)}%
+                  </div>
+                  {isPrimaryPurchase ? (
+                    <div className="text-xs text-base-content/60">of the asset&apos;s total revenue rights</div>
+                  ) : (
+                    <div className="text-xs text-base-content/60">
+                      {Number(totalUserTokens + listedTokensCount).toLocaleString()} tokens
+                    </div>
+                  )}
+                  {!isPrimaryPurchase && listedTokensCount > 0n && (
                     <div className="text-xs text-base-content/50">
                       {Number(listedTokensCount).toLocaleString()} listed tokens
                     </div>
@@ -314,7 +371,6 @@ export function BuyTokensModal({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {/* Asset Info */}
               <div className="bg-base-200 rounded-lg p-3">
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Price per Token:</span>
@@ -324,11 +380,16 @@ export function BuyTokensModal({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Available:</span>
-                  <span>{Number(listing.amount).toLocaleString()} tokens</span>
+                  <span>{availableAmount.toLocaleString()} tokens</span>
                 </div>
+                {purchaseTarget.kind === "primary" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="opacity-70">Current Supply:</span>
+                    <span>{BigInt(purchaseTarget.currentSupply || "0").toLocaleString()} tokens</span>
+                  </div>
+                )}
               </div>
 
-              {/* Payment Token Balance */}
               <div className="flex justify-between items-center">
                 <span className="text-sm opacity-70">Your {symbol} Balance</span>
                 <span className="font-mono">
@@ -336,39 +397,51 @@ export function BuyTokensModal({
                 </span>
               </div>
 
-              {/* Amount Input */}
               <div className="form-control">
                 <label className="label py-1">
-                  <span className="label-text text-xs font-bold uppercase opacity-60">Amount to Buy</span>
-                  <span className="label-text-alt">Max: {maxTokens.toString()}</span>
+                  <span className="label-text text-xs font-bold uppercase opacity-60">
+                    {isPrimaryPurchase ? `Contribution (${symbol})` : "Amount to Buy"}
+                  </span>
+                  <span className="label-text-alt">
+                    {isPrimaryPurchase ? "Max contribution: " : "Max: "}
+                    {isPrimaryPurchase
+                      ? `${Number(maxContributionDisplay).toLocaleString(undefined, { minimumFractionDigits: 2 })} ${symbol}`
+                      : maxTokens.toString()}
+                  </span>
                 </label>
                 <input
                   type="number"
                   className="input input-bordered w-full"
-                  placeholder="0"
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                  max={maxTokens.toString()}
+                  placeholder={isPrimaryPurchase ? "0.00" : "0"}
+                  value={inputAmount}
+                  onChange={e => setInputAmount(e.target.value)}
+                  max={isPrimaryPurchase ? maxContributionDisplay : maxTokens.toString()}
                   min="0"
-                  disabled={isLoading}
+                  step={isPrimaryPurchase ? "0.01" : "1"}
+                  disabled={isApproving || isPurchasing}
                 />
               </div>
 
-              {/* Percentage Quick Selectors */}
+              {isPrimaryPurchase && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="opacity-70">Revenue Rights Position</span>
+                  <span className="font-mono">{purchaseAmount.toLocaleString()} units</span>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 {PERCENTAGE_OPTIONS.map(pct => (
                   <button
                     key={pct}
                     className={`btn btn-sm flex-1 ${currentPercentage === pct ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handlePercentageSelect(pct)}
-                    disabled={isLoading || maxTokens === 0n}
+                    disabled={isApproving || isPurchasing || maxTokens === 0n}
                   >
                     {pct}%
                   </button>
                 ))}
               </div>
 
-              {/* Slider */}
               <div>
                 <input
                   type="range"
@@ -377,7 +450,7 @@ export function BuyTokensModal({
                   value={currentPercentage}
                   onChange={handleSliderChange}
                   className="range range-primary range-sm w-full"
-                  disabled={isLoading || maxTokens === 0n}
+                  disabled={isApproving || isPurchasing || maxTokens === 0n}
                 />
                 <div className="flex justify-between text-xs opacity-50 mt-1">
                   <span>0%</span>
@@ -386,13 +459,15 @@ export function BuyTokensModal({
                 </div>
               </div>
 
-              {/* Cost Breakdown */}
               {hasValidAmount && (
                 <div className="bg-base-200 rounded-lg p-3 space-y-1">
                   <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
+                    <span>{isPrimaryPurchase ? "Contribution" : "Subtotal"}</span>
                     <span>
-                      {Number(formattedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                      {Number(isPrimaryPurchase ? formattedPrincipal : formattedCost).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      {symbol}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm opacity-70">
@@ -414,7 +489,6 @@ export function BuyTokensModal({
                 </div>
               )}
 
-              {/* Error Display */}
               {error && (
                 <div className="alert alert-error">
                   <span className="text-sm">{error}</span>
@@ -424,7 +498,6 @@ export function BuyTokensModal({
           )}
         </div>
 
-        {/* Sticky Footer */}
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
           <div className="flex gap-3">
             {step === "success" ? (
@@ -433,27 +506,30 @@ export function BuyTokensModal({
               </button>
             ) : (
               <>
-                <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isLoading}>
+                <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isApproving || isPurchasing}>
                   Cancel
                 </button>
-
                 <button
                   className="btn btn-primary flex-1"
                   onClick={handleBuy}
-                  disabled={isLoading || !hasValidAmount || hasInsufficientBalance}
+                  disabled={Boolean(isApproving || isPurchasing || !hasValidAmount || hasInsufficientBalance)}
                 >
                   {isApproving ? (
                     <>
-                      <span className="loading loading-spinner loading-sm"></span>
-                      Approving...
+                      <span className="loading loading-spinner loading-sm"></span>Approving...
                     </>
                   ) : isPurchasing ? (
                     <>
-                      <span className="loading loading-spinner loading-sm"></span>
-                      Completing...
+                      <span className="loading loading-spinner loading-sm"></span>Completing...
                     </>
                   ) : needsApproval ? (
-                    "Approve & Buy"
+                    isPrimaryPurchase ? (
+                      "Approve & Add"
+                    ) : (
+                      "Approve & Buy"
+                    )
+                  ) : purchaseTarget.kind === "primary" ? (
+                    "Add Liquidity"
                   ) : (
                     "Buy Tokens"
                   )}

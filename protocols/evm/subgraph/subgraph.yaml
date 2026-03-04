@@ -173,7 +173,7 @@ dataSources:
         - event: PrimaryPoolClosed(indexed uint256)
           handler: handlePrimaryPoolClosed
         - event: PrimaryPoolPurchased(indexed uint256,indexed
-            address,uint256,uint256,uint256,uint256,uint256)
+            address,uint256,uint256,uint256,uint256)
           handler: handlePrimaryPoolPurchased
         - event: PrimaryPoolRedeemed(indexed uint256,indexed
             address,uint256,uint256,uint256)

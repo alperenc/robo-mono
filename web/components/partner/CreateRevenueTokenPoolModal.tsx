@@ -36,6 +36,8 @@ export const CreateRevenueTokenPoolModal = ({
     tokenPrice: "",
     revenueShareBP: "",
     targetYieldBP: "",
+    immediateProceeds: false,
+    protectionEnabled: false,
   });
 
   const assetValueBigInt = assetValue ? BigInt(assetValue) : 0n;
@@ -47,13 +49,16 @@ export const CreateRevenueTokenPoolModal = ({
   };
   const revenueShareBP = toBasisPoints(formData.revenueShareBP);
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
+  const proceedsProfileLabel = formData.immediateProceeds ? "Earlier Proceeds Release" : "Gradual Proceeds Release";
+  const protectionLabel = formData.protectionEnabled ? "Enabled" : "Disabled";
+  const bufferRequirementLabel = formData.protectionEnabled ? "Estimated Total Buffer" : "Required Protocol Buffer";
 
   const { writeContractAsync: writeVehicleRegistry } = useScaffoldWriteContract({ contractName: "VehicleRegistry" });
 
   const { data: requiredCollateral } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "getTotalBufferRequirement",
-    args: [assetValueBigInt, targetYieldBP],
+    args: [assetValueBigInt, targetYieldBP, formData.protectionEnabled],
     watch: true,
     query: { enabled: currentStep >= 1 },
   });
@@ -62,7 +67,8 @@ export const CreateRevenueTokenPoolModal = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const nextValue = e.target instanceof HTMLInputElement && e.target.type === "checkbox" ? e.target.checked : value;
+    setFormData(prev => ({ ...prev, [name]: nextValue }));
   };
 
   const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -82,8 +88,10 @@ export const CreateRevenueTokenPoolModal = ({
     return true;
   })();
 
-  const isMissing = (field: keyof typeof formData) =>
-    (showValidation || touchedFields[field as string]) && !formData[field]?.trim();
+  const isMissing = (field: keyof typeof formData) => {
+    const value = formData[field];
+    return (showValidation || touchedFields[field as string]) && typeof value === "string" && !value.trim();
+  };
   const inputClass = (base: string, field: keyof typeof formData) => `${base} ${isMissing(field) ? "input-error" : ""}`;
   const markRequiredForStep = () => {
     const requiredFields = ["tokenPrice", "revenueShareBP", "targetYieldBP", "maturityMonths"];
@@ -121,7 +129,16 @@ export const CreateRevenueTokenPoolModal = ({
 
       await writeVehicleRegistry({
         functionName: "createRevenueTokenPool",
-        args: [BigInt(vehicleId), tokenPriceBigInt, maturityTimestamp, revenueShareBP, targetYieldBP, 0n, false, false],
+        args: [
+          BigInt(vehicleId),
+          tokenPriceBigInt,
+          maturityTimestamp,
+          revenueShareBP,
+          targetYieldBP,
+          0n,
+          formData.immediateProceeds,
+          formData.protectionEnabled,
+        ],
       });
       onSuccess?.();
       onClose();
@@ -193,6 +210,12 @@ export const CreateRevenueTokenPoolModal = ({
                       <span className="join-item flex items-center px-3 bg-base-300 font-medium">{symbol}</span>
                     </div>
                   </div>
+                  <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full self-end min-h-[88px] flex flex-col items-center justify-center">
+                    <span className="text-[10px] uppercase opacity-60 font-bold block">Projected Supply</span>
+                    <span className="text-md font-bold text-base-content dark:text-white">
+                      {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "0"} Tokens
+                    </span>
+                  </div>
                   <div className="form-control">
                     <label className="label pb-1">
                       <span className="label-text font-medium">Revenue Share Cap (%)</span>
@@ -225,7 +248,7 @@ export const CreateRevenueTokenPoolModal = ({
                       required
                     />
                   </div>
-                  <div className="form-control">
+                  <div className="form-control sm:col-span-2">
                     <label className="label pb-1">
                       <span className="label-text font-medium">Maturity Duration</span>
                       {isMissing("maturityMonths") && <span className="label-text-alt text-error">Required</span>}
@@ -242,17 +265,80 @@ export const CreateRevenueTokenPoolModal = ({
                       <option value="60">60 Months (5 years)</option>
                     </select>
                   </div>
-                  <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full">
-                    <span className="text-[10px] uppercase opacity-60 font-bold block">Projected Supply</span>
-                    <span className="text-md font-bold text-base-content dark:text-white">
-                      {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "0"} Tokens
-                    </span>
+                </div>
+              </div>
+
+              <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
+                <h4 className="font-semibold text-sm uppercase tracking-wide opacity-70">Pool Preferences</h4>
+                <div className="space-y-4">
+                  <div className="form-control gap-2">
+                    <label className="label pb-0">
+                      <span className="label-text font-medium">Partner Proceeds</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className={`rounded-[1.75rem] border px-5 py-4 text-left transition ${
+                          !formData.immediateProceeds
+                            ? "border-primary bg-primary/20 shadow-[inset_0_0_0_2px_rgba(96,165,250,0.45)]"
+                            : "border-base-300 bg-base-100 hover:border-base-content/30"
+                        }`}
+                        onClick={() => setFormData(prev => ({ ...prev, immediateProceeds: false }))}
+                      >
+                        <span className="block text-left">
+                          <span className="block font-semibold">Gradual Release</span>
+                          <span className="mt-1 block text-xs opacity-80">
+                            Your proceeds unlock gradually after the required buffers are funded.
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`rounded-[1.75rem] border px-5 py-4 text-left transition ${
+                          formData.immediateProceeds
+                            ? "border-primary bg-primary/20 shadow-[inset_0_0_0_2px_rgba(96,165,250,0.45)]"
+                            : "border-base-300 bg-base-100 hover:border-base-content/30"
+                        }`}
+                        onClick={() => setFormData(prev => ({ ...prev, immediateProceeds: true }))}
+                      >
+                        <span className="block text-left">
+                          <span className="block font-semibold">Earlier Release</span>
+                          <span className="mt-1 block text-xs opacity-80">
+                            Your proceeds can unlock sooner once the required buffers are funded.
+                          </span>
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full">
-                    <span className="text-[10px] uppercase opacity-60 font-bold block">Estimated Buffer</span>
-                    <span className="text-md font-bold text-base-content dark:text-white">
-                      {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
+
+                  <label className="flex items-start gap-3 rounded-lg border border-base-300 bg-base-100 px-4 py-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="protectionEnabled"
+                      className="checkbox checkbox-sm mt-0.5"
+                      checked={formData.protectionEnabled}
+                      onChange={handleInputChange}
+                    />
+                    <span>
+                      <span className="block font-medium">Enable protection</span>
+                      <span className="block text-xs opacity-70">
+                        Adds optional partner-funded protection on top of the required protocol buffer.
+                      </span>
                     </span>
+                  </label>
+
+                  <div className="rounded-lg border border-base-300 bg-primary/10 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-bold uppercase opacity-60">{bufferRequirementLabel}</span>
+                      <span className="text-sm font-semibold text-base-content dark:text-white">
+                        {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs opacity-75">
+                      {formData.protectionEnabled
+                        ? "Includes the required protocol buffer plus optional protection for this pool."
+                        : "Includes only the required protocol buffer. Protection can be added on top."}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -291,14 +377,15 @@ export const CreateRevenueTokenPoolModal = ({
               {isPrimaryListing && (
                 <div className="bg-primary/10 border border-base-300 rounded-xl p-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase opacity-60 font-bold">Estimated Buffer</span>
+                    <span className="text-xs uppercase opacity-60 font-bold">{bufferRequirementLabel}</span>
                     <span className="font-bold text-base-content dark:text-white">
                       {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
                     </span>
                   </div>
                   <p className="text-xs opacity-80 mt-2">
-                    Estimated partner-funded buffer at full subscription. Investor principal is not used to fund
-                    buffers.
+                    {formData.protectionEnabled
+                      ? "Estimated partner-funded total buffer at full subscription, including optional protection."
+                      : "Required partner-funded protocol buffer at full subscription. Investor principal is not used to fund buffers."}
                   </p>
                 </div>
               )}
@@ -307,18 +394,12 @@ export const CreateRevenueTokenPoolModal = ({
                 <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Primary Pool Defaults</h4>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
-                    <span className="opacity-70">Max Supply</span>
-                    <span className="font-semibold">
-                      {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "—"} Tokens
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="opacity-70">Proceeds Profile</span>
-                    <span className="font-semibold">Early Liquidity</span>
+                    <span className="opacity-70">Partner Proceeds</span>
+                    <span className="font-semibold">{proceedsProfileLabel}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="opacity-70">Protection</span>
-                    <span className="font-semibold">Disabled</span>
+                    <span className="font-semibold">{protectionLabel}</span>
                   </div>
                 </div>
               </div>

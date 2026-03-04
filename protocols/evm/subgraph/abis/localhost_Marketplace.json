@@ -95,7 +95,7 @@
   },
   {
     "type": "function",
-    "name": "calculatePurchaseCost",
+    "name": "buyFromSecondaryListing",
     "inputs": [
       {
         "name": "listingId",
@@ -108,24 +108,8 @@
         "internalType": "uint256"
       }
     ],
-    "outputs": [
-      {
-        "name": "totalCost",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "protocolFee",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "expectedPayment",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -327,7 +311,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct IMarketplace.Listing",
+        "internalType": "struct Marketplace.Listing",
         "components": [
           {
             "name": "listingId",
@@ -408,7 +392,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct IMarketplace.PrimaryPool",
+        "internalType": "struct Marketplace.PrimaryPool",
         "components": [
           {
             "name": "tokenId",
@@ -466,6 +450,25 @@
             "internalType": "uint256"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPrimaryPoolProtectionEnabled",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -787,6 +790,40 @@
   },
   {
     "type": "function",
+    "name": "previewPrimaryPoolBufferRequirements",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "baseAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "protocolBuffer",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "protectionBuffer",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalBuffer",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "previewPrimaryPurchase",
     "inputs": [
       {
@@ -813,11 +850,6 @@
       },
       {
         "name": "partnerProceeds",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "protectionFunding",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -852,6 +884,40 @@
       },
       {
         "name": "circulatingSupply",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewSecondaryPurchase",
+    "inputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "totalCost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "protocolFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expectedPayment",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -958,24 +1024,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "purchaseTokens",
-    "inputs": [
-      {
-        "name": "listingId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1467,12 +1515,6 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "protectionFunding",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1773,7 +1815,7 @@
   },
   {
     "type": "error",
-    "name": "AssetNotEligibleForListing",
+    "name": "AssetNotMarketOperational",
     "inputs": []
   },
   {
@@ -1865,22 +1907,12 @@
   },
   {
     "type": "error",
-    "name": "ListingNotEnded",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "ListingNotFound",
     "inputs": []
   },
   {
     "type": "error",
     "name": "ListingOwnerCannotPurchase",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NoTokensToClaim",
     "inputs": []
   },
   {
@@ -1896,16 +1928,6 @@
   {
     "type": "error",
     "name": "NotPoolPartner",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "PrimaryListingRequiresBuyerPaysFee",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "PrimaryListingsDisabled",
     "inputs": []
   },
   {

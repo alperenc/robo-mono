@@ -63,12 +63,6 @@ export const ListVehicleModal = ({
     functionName: "getTokenPrice",
     args: [revenueTokenId],
   });
-  const { data: targetYieldBP } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "getTargetYieldBP",
-    args: [revenueTokenId],
-  });
-
   const { data: walletBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "balanceOf",
@@ -168,12 +162,16 @@ export const ListVehicleModal = ({
   // Calculate total value
   const totalValue =
     formData.amount && formData.pricePerToken ? parseUnits(formData.pricePerToken, 6) * BigInt(formData.amount) : 0n;
-  const { data: estimatedBuffer } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getTotalBufferRequirement",
-    args: [totalValue, (targetYieldBP as bigint) ?? 0n],
-    query: { enabled: isOpen && isPrimaryFlow && totalValue > 0n && targetYieldBP !== undefined },
+  const { data: estimatedBufferPreview } = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "previewPrimaryPoolBufferRequirements",
+    args: [revenueTokenId, totalValue],
+    query: { enabled: isOpen && isPrimaryFlow && totalValue > 0n },
   });
+  const estimatedBuffer =
+    isPrimaryFlow && Array.isArray(estimatedBufferPreview)
+      ? ((estimatedBufferPreview[2] as bigint | undefined) ?? 0n)
+      : 0n;
 
   // Calculate expiry date
   const expiryDate = new Date(Date.now() + parseInt(formData.durationDays || "0") * 24 * 60 * 60 * 1000);

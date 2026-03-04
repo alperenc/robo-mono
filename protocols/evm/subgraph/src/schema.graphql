@@ -177,7 +177,6 @@ type PrimaryPool @entity(immutable: false) {
   totalPurchased: BigInt!
   totalRedeemed: BigInt!
   totalPartnerProceedsReleased: BigInt!
-  totalProtectionCollateralFunded: BigInt!
 }
 
 type PrimaryPoolPurchase @entity(immutable: true) {
@@ -188,7 +187,6 @@ type PrimaryPoolPurchase @entity(immutable: true) {
   totalCost: BigInt!
   protocolFee: BigInt!
   partnerProceeds: BigInt!
-  protectionFunding: BigInt!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!

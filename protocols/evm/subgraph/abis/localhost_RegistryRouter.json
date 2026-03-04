@@ -108,7 +108,7 @@
   },
   {
     "type": "function",
-    "name": "burnRevenueTokensForPrimaryRedemption",
+    "name": "burnRevenueTokensFromHolderForPrimaryRedemption",
     "inputs": [
       {
         "name": "holder",
@@ -628,7 +628,7 @@
   },
   {
     "type": "function",
-    "name": "mintRevenueTokensForPrimaryPool",
+    "name": "mintRevenueTokensToBuyerFromPrimaryPool",
     "inputs": [
       {
         "name": "buyer",
@@ -722,7 +722,7 @@
   },
   {
     "type": "function",
-    "name": "processSettlementClaim",
+    "name": "processSettlementClaimFor",
     "inputs": [
       {
         "name": "recipient",

@@ -30,7 +30,6 @@ query GetMarketListings {
     totalPurchased
     totalRedeemed
     totalPartnerProceedsReleased
-    totalProtectionCollateralFunded
   }
   vehicles(first: 100) {
     id
