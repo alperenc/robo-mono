@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { AssetLib, CollateralLib } from "../Libraries.sol";
+import { AssetLib } from "../Libraries.sol";
 
 /**
  * @title ITreasury
@@ -21,6 +21,7 @@ interface ITreasury {
     event CollateralBuffersUpdated(
         uint256 indexed assetId, uint256 newEarningsBuffer, uint256 newReservedForLiquidation
     );
+    event ImmediateProceedsReleased(uint256 indexed assetId, address indexed partner, uint256 amount);
     event EarningsDistributed(
         uint256 indexed assetId, address indexed partner, uint256 totalRevenue, uint256 investorEarnings, uint256 period
     );
@@ -61,13 +62,12 @@ interface ITreasury {
     error InsufficientCollateral();
     error NotRouter();
 
-    function fundBuffers(uint256 assetId) external;
+    function enableProceeds(uint256 assetId) external;
     function creditBaseLiquidity(uint256 assetId, uint256 amount) external;
     function releaseCollateral(uint256 assetId) external;
     function releaseCollateralFor(address partner, uint256 assetId) external returns (uint256 releasedCollateral);
     function processWithdrawal() external;
     function recordPendingWithdrawal(address recipient, uint256 amount) external;
-    function processWithdrawalFor(address account) external returns (uint256 amount);
     function processPrimaryPoolPurchaseFor(
         address buyer,
         uint256 tokenId,
@@ -75,9 +75,8 @@ interface ITreasury {
         address partner,
         uint256 grossPrincipal,
         uint256 protocolFee,
-        bool immediateProceeds,
         bool protectionEnabled
-    ) external returns (uint256 partnerProceeds);
+    ) external;
     function getPrimaryInvestorLiquidity(uint256 assetId) external view returns (uint256);
     function previewPrimaryRedemptionPayout(uint256 assetId, uint256 burnAmount, uint256 circulatingSupply)
         external
@@ -90,8 +89,6 @@ interface ITreasury {
         uint256 circulatingSupply,
         uint256 minPayout
     ) external returns (uint256 payout);
-    function releaseAndWithdrawCollateral(uint256 assetId) external returns (uint256 withdrawn);
-    function claimAndWithdrawEarnings(uint256 assetId) external returns (uint256 withdrawn);
     function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
         external
         returns (uint256 collateralReleased);
@@ -117,31 +114,12 @@ interface ITreasury {
         external
         returns (uint256 claimedAmount);
     function treasuryFeeRecipient() external view returns (address);
-    function getTotalBufferRequirement(uint256 baseAmount, uint256 yieldBP, bool protectionEnabled)
-        external
-        pure
-        returns (uint256);
-    function getAssetCollateralInfo(uint256 assetId) external view returns (CollateralLib.CollateralInfo memory);
     function previewCollateralRelease(uint256 assetId, bool assumeNewPeriod)
         external
         view
         returns (uint256 releasedAmount);
-    function getPendingWithdrawal(address account) external view returns (uint256);
     function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256);
     function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256);
-    function getTreasuryStats() external view returns (uint256 totalDeposited, uint256 treasuryBalance);
-    function getProtocolConfig()
-        external
-        pure
-        returns (
-            uint256 bpPrecision,
-            uint256 benchmarkYieldBP,
-            uint256 protocolFeeBP,
-            uint256 earlySalePenaltyBP,
-            uint256 depreciationRateBP,
-            uint256 minProtocolFee,
-            uint256 minEarlySalePenalty
-        );
     function updatePartnerManager(address _partnerManager) external;
     function updateUSDC(address _usdc) external;
     function updateRoboshareTokens(address _roboshareTokens) external;

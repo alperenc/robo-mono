@@ -234,7 +234,13 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert TreasuryNotSet();
         }
 
-        return ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
+        (settlementAmount, settlementPerToken) = ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
+
+        // Best-effort: settlement should close primary pool if it exists.
+        if (marketplace != address(0)) {
+            uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            try IMarketplace(marketplace).closePrimaryPool(tokenId) { } catch { }
+        }
     }
 
     /**
@@ -255,7 +261,13 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert TreasuryNotSet();
         }
 
-        return ITreasury(treasury).executeLiquidation(assetId);
+        (liquidationAmount, settlementPerToken) = ITreasury(treasury).executeLiquidation(assetId);
+
+        // Best-effort: liquidation should close primary pool if it exists.
+        if (marketplace != address(0)) {
+            uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            try IMarketplace(marketplace).closePrimaryPool(tokenId) { } catch { }
+        }
     }
 
     /**
@@ -522,12 +534,21 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         (tokenId, supply) = IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
         uint256 poolMaxSupply = maxSupply == 0 ? supply : maxSupply;
 
-        roboshareTokens.setRevenueTokenInfo(tokenId, tokenPrice, supply, maturityDate, revenueShareBP, targetYieldBP);
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId,
+            tokenPrice,
+            supply,
+            poolMaxSupply,
+            maturityDate,
+            revenueShareBP,
+            targetYieldBP,
+            immediateProceeds,
+            protectionEnabled
+        );
         emit RevenueTokenPoolCreated(assetId, tokenId, partner, supply * tokenPrice, supply);
         IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
-        IMarketplace(marketplace)
-            .createPrimaryPoolFor(partner, tokenId, tokenPrice, poolMaxSupply, immediateProceeds, protectionEnabled);
+        IMarketplace(marketplace).createPrimaryPoolFor(partner, tokenId, tokenPrice);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }

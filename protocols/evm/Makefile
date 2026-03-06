@@ -13,7 +13,7 @@ chain: setup-anvil-wallet
 
 # Start local chain without persistence (fresh state)
 chain-fresh: setup-anvil-wallet
-	anvil
+	anvil --base-fee 1000000000 --gas-limit 30000000
 
 # Start a fork
 fork: setup-anvil-wallet

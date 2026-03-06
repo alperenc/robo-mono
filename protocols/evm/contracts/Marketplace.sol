@@ -32,9 +32,6 @@ contract Marketplace is
         uint256 tokenId;
         address partner;
         uint256 pricePerToken;
-        uint256 maxSupply;
-        bool immediateProceeds;
-        bool protectionEnabled;
         bool isPaused;
         bool isClosed;
         uint256 createdAt;
@@ -54,7 +51,6 @@ contract Marketplace is
         uint256 createdAt;
         bool buyerPaysFee;
         uint256 earlySalePenalty;
-        bool isPrimary;
     }
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -130,8 +126,7 @@ contract Marketplace is
         uint256 amount,
         uint256 pricePerToken,
         uint256 expiresAt,
-        bool buyerPaysFee,
-        bool isPrimary
+        bool buyerPaysFee
     );
     event RevenueTokensTraded(
         uint256 indexed tokenId,
@@ -187,28 +182,19 @@ contract Marketplace is
     /**
      * @dev Creates a primary pool for the caller as partner.
      */
-    function createPrimaryPool(
-        uint256 tokenId,
-        uint256 pricePerToken,
-        uint256 maxSupply,
-        bool immediateProceeds,
-        bool protectionEnabled
-    ) external nonReentrant {
-        _createPrimaryPoolFor(msg.sender, tokenId, pricePerToken, maxSupply, immediateProceeds, protectionEnabled);
+    function createPrimaryPool(uint256 tokenId, uint256 pricePerToken) external nonReentrant {
+        _createPrimaryPoolFor(msg.sender, tokenId, pricePerToken);
     }
 
     /**
      * @dev Creates a primary pool on behalf of a partner.
      */
-    function createPrimaryPoolFor(
-        address partner,
-        uint256 tokenId,
-        uint256 pricePerToken,
-        uint256 maxSupply,
-        bool immediateProceeds,
-        bool protectionEnabled
-    ) external onlyRole(AUTHORIZED_CONTRACT_ROLE) nonReentrant {
-        _createPrimaryPoolFor(partner, tokenId, pricePerToken, maxSupply, immediateProceeds, protectionEnabled);
+    function createPrimaryPoolFor(address partner, uint256 tokenId, uint256 pricePerToken)
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+        nonReentrant
+    {
+        _createPrimaryPoolFor(partner, tokenId, pricePerToken);
     }
 
     /**
@@ -239,7 +225,9 @@ contract Marketplace is
      */
     function closePrimaryPool(uint256 tokenId) external {
         PrimaryPool storage pool = _getPrimaryPool(tokenId);
-        _onlyPoolPartnerOrAdmin(pool.partner);
+        if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender)) {
+            _onlyPoolPartnerOrAdmin(pool.partner);
+        }
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isClosed = true;
         pool.closedAt = block.timestamp;
@@ -261,7 +249,7 @@ contract Marketplace is
         protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
         totalCost = grossPrincipal + protocolFee;
 
-        if (pool.immediateProceeds) {
+        if (roboshareTokens.getRevenueTokenImmediateProceedsEnabled(tokenId)) {
             partnerProceeds = grossPrincipal;
         }
     }
@@ -274,13 +262,14 @@ contract Marketplace is
         view
         returns (uint256 protocolBuffer, uint256 protectionBuffer, uint256 totalBuffer)
     {
-        PrimaryPool storage pool = _getPrimaryPool(tokenId);
+        _getPrimaryPool(tokenId);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(tokenId);
+        bool protectionEnabled = roboshareTokens.getRevenueTokenProtectionEnabled(tokenId);
         (, uint256 requiredEarningsBuffer, uint256 requiredProtocolBuffer,) =
             CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, targetYieldBP);
 
         protocolBuffer = requiredProtocolBuffer;
-        protectionBuffer = pool.protectionEnabled ? requiredEarningsBuffer : 0;
+        protectionBuffer = protectionEnabled ? requiredEarningsBuffer : 0;
         totalBuffer = protocolBuffer + protectionBuffer;
     }
 
@@ -296,7 +285,7 @@ contract Marketplace is
         if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
 
         uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
-        if (currentSupply + amount > pool.maxSupply) revert InvalidAmount();
+        if (currentSupply + amount > roboshareTokens.getRevenueTokenMaxSupply(tokenId)) revert InvalidAmount();
 
         uint256 grossPrincipal = amount * pool.pricePerToken;
         uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
@@ -306,18 +295,17 @@ contract Marketplace is
 
         usdc.safeTransferFrom(msg.sender, address(treasury), totalCost);
 
-        uint256 partnerProceeds = treasury.processPrimaryPoolPurchaseFor(
+        treasury.processPrimaryPoolPurchaseFor(
             msg.sender,
             tokenId,
             amount,
             pool.partner,
             grossPrincipal,
             protocolFee,
-            pool.immediateProceeds,
-            pool.protectionEnabled
+            roboshareTokens.getRevenueTokenProtectionEnabled(tokenId)
         );
 
-        emit PrimaryPoolPurchased(tokenId, msg.sender, amount, totalCost, protocolFee, partnerProceeds);
+        emit PrimaryPoolPurchased(tokenId, msg.sender, amount, totalCost, protocolFee, 0);
     }
 
     /**
@@ -397,14 +385,13 @@ contract Marketplace is
             isActive: true,
             createdAt: block.timestamp,
             buyerPaysFee: buyerPaysFee,
-            earlySalePenalty: earlySalePenalty,
-            isPrimary: false
+            earlySalePenalty: earlySalePenalty
         });
 
         assetListings[assetId].push(listingId);
         roboshareTokens.safeTransferFrom(seller, address(this), tokenId, amount, "");
 
-        emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee, false);
+        emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee);
         return listingId;
     }
 
@@ -518,10 +505,6 @@ contract Marketplace is
      */
     function getPrimaryPool(uint256 tokenId) external view returns (PrimaryPool memory) {
         return _getPrimaryPool(tokenId);
-    }
-
-    function getPrimaryPoolProtectionEnabled(uint256 tokenId) external view returns (bool) {
-        return _getPrimaryPool(tokenId).protectionEnabled;
     }
 
     /**
@@ -670,16 +653,10 @@ contract Marketplace is
     /**
      * @dev Internal primary pool creation path with validations.
      */
-    function _createPrimaryPoolFor(
-        address partner,
-        uint256 tokenId,
-        uint256 pricePerToken,
-        uint256 maxSupply,
-        bool immediateProceeds,
-        bool protectionEnabled
-    ) internal {
+    function _createPrimaryPoolFor(address partner, uint256 tokenId, uint256 pricePerToken) internal {
         if (!TokenLib.isRevenueToken(tokenId)) revert InvalidTokenType();
         if (pricePerToken == 0) revert InvalidPrice();
+        uint256 maxSupply = roboshareTokens.getRevenueTokenMaxSupply(tokenId);
         if (maxSupply == 0) revert InvalidMaxSupply();
         if (primaryPoolCreated[tokenId]) revert PrimaryPoolAlreadyCreated();
 
@@ -691,9 +668,6 @@ contract Marketplace is
             tokenId: tokenId,
             partner: partner,
             pricePerToken: pricePerToken,
-            maxSupply: maxSupply,
-            immediateProceeds: immediateProceeds,
-            protectionEnabled: protectionEnabled,
             isPaused: false,
             isClosed: false,
             createdAt: block.timestamp,
@@ -702,7 +676,14 @@ contract Marketplace is
         });
         primaryPoolCreated[tokenId] = true;
 
-        emit PrimaryPoolCreated(tokenId, partner, pricePerToken, maxSupply, immediateProceeds, protectionEnabled);
+        emit PrimaryPoolCreated(
+            tokenId,
+            partner,
+            pricePerToken,
+            maxSupply,
+            roboshareTokens.getRevenueTokenImmediateProceedsEnabled(tokenId),
+            roboshareTokens.getRevenueTokenProtectionEnabled(tokenId)
+        );
     }
 
     function _getPrimaryPool(uint256 tokenId) internal view returns (PrimaryPool storage pool) {
