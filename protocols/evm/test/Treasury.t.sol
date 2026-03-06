@@ -144,7 +144,7 @@ contract TreasuryTest is BaseTest {
     // Collateral Calculation Tests
 
     function testGetTotalBufferRequirement() public view {
-        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP);
+        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
         (,, uint256 expectedTotal) = _calculateExpectedBuffers(ASSET_VALUE);
         assertEq(requirement, expectedTotal);
     }
@@ -167,15 +167,6 @@ contract TreasuryTest is BaseTest {
         assertEq(depreciationRateBP, ProtocolLib.DEPRECIATION_RATE_BP);
         assertEq(minProtocolFee, ProtocolLib.MIN_PROTOCOL_FEE);
         assertEq(minEarlySalePenalty, ProtocolLib.MIN_EARLY_SALE_PENALTY);
-    }
-
-    function testGetMarketProjectionConstants() public view {
-        (uint256 benchmarkYieldBP, uint256 depreciationRateBP, uint256 bpPrecision) =
-            treasury.getMarketProjectionConstants();
-
-        assertEq(benchmarkYieldBP, ProtocolLib.BENCHMARK_YIELD_BP);
-        assertEq(depreciationRateBP, ProtocolLib.DEPRECIATION_RATE_BP);
-        assertEq(bpPrecision, ProtocolLib.BP_PRECISION);
     }
 
     // Admin Functions Tests
@@ -267,7 +258,7 @@ contract TreasuryTest is BaseTest {
         treasury.updateUSDC(address(newUsdc));
     }
 
-    function testUpdateUSDCInvalidContractTotalSupplyReverts() public {
+    function testUpdateUSDCInvalidUSDCContractTotalSupply() public {
         TreasuryBadTotalSupplyToken bad = new TreasuryBadTotalSupplyToken();
 
         vm.startPrank(admin);
@@ -276,7 +267,7 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateUSDCInvalidContractDecimalsReverts() public {
+    function testUpdateUSDCInvalidUSDCContractDecimals() public {
         TreasuryBadDecimalsToken bad = new TreasuryBadDecimalsToken();
 
         vm.startPrank(admin);
@@ -285,7 +276,7 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateUSDCUnsupportedUSDCDecimalsReverts() public {
+    function testUpdateUSDCUnsupportedUSDCDecimals() public {
         TreasuryWrongDecimalsToken bad = new TreasuryWrongDecimalsToken();
 
         vm.startPrank(admin);
@@ -349,6 +340,23 @@ contract TreasuryTest is BaseTest {
         );
         treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
+    }
+
+    function testProcessWithdrawalFor() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+        uint256 amount = 50e6;
+        deal(address(usdc), address(treasury), amount);
+
+        vm.prank(address(marketplace));
+        treasury.recordPendingWithdrawal(partner1, amount);
+
+        uint256 before = usdc.balanceOf(partner1);
+        vm.prank(address(marketplace));
+        uint256 withdrawn = treasury.processWithdrawalFor(partner1);
+
+        assertEq(withdrawn, amount);
+        assertEq(usdc.balanceOf(partner1), before + amount);
+        assertEq(treasury.getPendingWithdrawal(partner1), 0);
     }
 
     function testUpgradeUnauthorizedCaller() public {

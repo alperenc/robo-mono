@@ -6,6 +6,61 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const lcovPath = path.join(__dirname, "../lcov.info");
+const waiversPath = path.join(__dirname, "./coverage-waivers.json");
+
+function getEvmRoot() {
+  return path.resolve(__dirname, "..");
+}
+
+function getAbsoluteContractPath(relativeContractPath) {
+  return path.join(getEvmRoot(), relativeContractPath);
+}
+
+function findLineBySnippet(relativeContractPath, sourceIncludes) {
+  if (!sourceIncludes) return null;
+
+  const absolutePath = getAbsoluteContractPath(relativeContractPath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+
+  const fileLines = fs.readFileSync(absolutePath, "utf-8").split("\n");
+  const matches = [];
+
+  fileLines.forEach((line, index) => {
+    if (line.includes(sourceIncludes)) {
+      matches.push(index + 1);
+    }
+  });
+
+  if (matches.length === 1) {
+    return matches[0];
+  }
+
+  return null;
+}
+
+function loadWaivers(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return new Map();
+  }
+
+  const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  const map = new Map();
+
+  raw.forEach((waiver) => {
+    const resolvedLine = findLineBySnippet(waiver.file, waiver.sourceIncludes);
+    const line = resolvedLine ?? waiver.line;
+
+    if (line == null) {
+      return;
+    }
+
+    map.set(`${waiver.file}:${line}`, { ...waiver, line });
+  });
+
+  return map;
+}
 
 function parseLcov(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -59,7 +114,9 @@ function analyzeCoverage() {
   console.log("========================\n");
 
   const coverageData = parseLcov(lcovPath);
+  const waivers = loadWaivers(waiversPath);
   let hasIssues = false;
+  let hasWaivedItems = false;
 
   for (const [file, data] of Object.entries(coverageData)) {
     // Filter for contracts only, excluding tests and scripts
@@ -74,9 +131,35 @@ function analyzeCoverage() {
     const relativePath = file.split("protocols/evm/")[1] || file;
     const uncoveredFunctions = data.functions.details.filter((f) => !f.hit);
     const uncoveredBranches = data.branches.details.filter((b) => !b.taken);
+    const actionableBranches = [];
+    const waivedBranchesByLine = {};
 
-    if (uncoveredFunctions.length > 0 || uncoveredBranches.length > 0) {
-      hasIssues = true;
+    uncoveredBranches.forEach((branch) => {
+      const waiver = waivers.get(`${relativePath}:${branch.line}`);
+      if (waiver) {
+        hasWaivedItems = true;
+        const key = `${branch.line}`;
+        if (!waivedBranchesByLine[key]) {
+          waivedBranchesByLine[key] = {
+            count: 0,
+            classification: waiver.classification,
+            reason: waiver.reason,
+          };
+        }
+        waivedBranchesByLine[key].count += 1;
+      } else {
+        actionableBranches.push(branch);
+      }
+    });
+
+    if (
+      uncoveredFunctions.length > 0 ||
+      actionableBranches.length > 0 ||
+      Object.keys(waivedBranchesByLine).length > 0
+    ) {
+      if (uncoveredFunctions.length > 0 || actionableBranches.length > 0) {
+        hasIssues = true;
+      }
       console.log(`File: ${relativePath}`);
 
       if (uncoveredFunctions.length > 0) {
@@ -84,16 +167,25 @@ function analyzeCoverage() {
         uncoveredFunctions.forEach((f) => console.log(`    - ${f.name}`));
       }
 
-      if (uncoveredBranches.length > 0) {
+      if (actionableBranches.length > 0) {
         console.log("  Uncovered Branches:");
         // Group branches by line to avoid spam
         const branchesByLine = {};
-        uncoveredBranches.forEach((b) => {
+        actionableBranches.forEach((b) => {
           branchesByLine[b.line] = (branchesByLine[b.line] || 0) + 1;
         });
 
         for (const [line, count] of Object.entries(branchesByLine)) {
           console.log(`    - Line ${line}: ${count} branch(es) not taken`);
+        }
+      }
+
+      if (Object.keys(waivedBranchesByLine).length > 0) {
+        console.log("  Waived Branches:");
+        for (const [line, details] of Object.entries(waivedBranchesByLine)) {
+          console.log(
+            `    - Line ${line}: ${details.count} branch(es) waived [${details.classification}] - ${details.reason}`
+          );
         }
       }
       console.log("");
@@ -104,6 +196,14 @@ function analyzeCoverage() {
     console.log(
       "All contracts have 100% function and branch coverage (or are filtered out)."
     );
+  } else if (hasWaivedItems) {
+    console.log(
+      "Note: waived branches are excluded from actionable regressions.\n"
+    );
+  }
+
+  if (hasIssues) {
+    process.exitCode = 1;
   }
 }
 

@@ -89,7 +89,8 @@ library AssetLib {
     // Asset status enumeration for lifecycle management
     enum AssetStatus {
         Pending, // Asset exists but not operational
-        Active, // Asset is operational and earning
+        Active, // Asset is operational/tradable but earnings not yet enabled
+        Earning, // Asset is operational and earnings-enabled
         Suspended, // Temporarily halted operations
         Expired, // Reached maturity without owner retirement
         Retired // Retired with settlement (Voluntary or Forced)
@@ -156,11 +157,17 @@ library AssetLib {
         }
 
         if (from == AssetStatus.Active) {
+            return to == AssetStatus.Earning || to == AssetStatus.Suspended || to == AssetStatus.Expired
+                || to == AssetStatus.Retired;
+        }
+
+        if (from == AssetStatus.Earning) {
             return to == AssetStatus.Suspended || to == AssetStatus.Expired || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Suspended) {
-            return to == AssetStatus.Active || to == AssetStatus.Expired || to == AssetStatus.Retired;
+            return to == AssetStatus.Active || to == AssetStatus.Earning || to == AssetStatus.Expired
+                || to == AssetStatus.Retired;
         }
 
         if (from == AssetStatus.Expired) {
@@ -185,7 +192,7 @@ library AssetLib {
      * @return Whether asset can be used for operations
      */
     function isOperational(AssetInfo storage info) internal view returns (bool) {
-        return info.status == AssetStatus.Active;
+        return info.status == AssetStatus.Active || info.status == AssetStatus.Earning;
     }
 
     /**
@@ -382,7 +389,6 @@ library TokenLib {
         uint256 tokenId; // ERC1155 token ID
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
         uint256 tokenSupply; // Total number of tokens issued
-        uint256 soldSupply; // Total sold supply (net of cancelled listings)
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
         uint256 maturityDate; // Date by which the revenue commitment ends
         uint256 revenueShareBP; // Max investor share of reported revenue (basis points)
@@ -394,6 +400,15 @@ library TokenLib {
     error InsufficientTokenBalance();
     error InvalidAssetId();
     error InvalidRevenueTokenId();
+
+    /**
+     * @dev Checks if a token ID corresponds to a revenue share token (even numbers).
+     * @param tokenId The ID of the token to check.
+     * @return True if the token is a revenue share token, false otherwise.
+     */
+    function isRevenueToken(uint256 tokenId) internal pure returns (bool) {
+        return tokenId != 0 && tokenId % 2 == 0;
+    }
 
     /**
      * @dev Get asset ID from token ID
@@ -437,7 +452,6 @@ library TokenLib {
         info.tokenId = tokenId;
         info.tokenPrice = tokenPrice;
         info.tokenSupply = 0; // Initialize to 0, will be updated by minting/burning
-        info.soldSupply = 0;
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
         info.maturityDate = maturityDate;
@@ -532,15 +546,6 @@ library TokenLib {
     }
 
     /**
-     * @dev Checks if a token ID corresponds to a revenue share token (even numbers).
-     * @param tokenId The ID of the token to check.
-     * @return True if the token is a revenue share token, false otherwise.
-     */
-    function isRevenueToken(uint256 tokenId) internal pure returns (bool) {
-        return tokenId != 0 && tokenId % 2 == 0;
-    }
-
-    /**
      * @dev Calculate unclaimed earnings for positions between periods
      * @param info Storage reference to token info
      * @param holder Address of the token holder
@@ -616,6 +621,25 @@ library CollateralLib {
         bool isSettled;
         uint256 settlementPerToken;
         uint256 totalSettlementPool;
+    }
+
+    enum ReleaseEligibility {
+        Eligible,
+        NoCollateralLocked,
+        NoPriorEarnings,
+        NoNewEarningsPeriods
+    }
+
+    struct ReleaseCalculation {
+        ReleaseEligibility status;
+        CollateralInfo collateral;
+        uint256 newLastProcessedPeriod;
+        uint256 shortfallAmount;
+        uint256 replenishmentAmount;
+        uint256 excessEarnings;
+        uint256 grossRelease;
+        uint256 protocolFee;
+        uint256 partnerRelease;
     }
 
     /**
@@ -694,6 +718,28 @@ library CollateralLib {
             return 0;
         }
         return block.timestamp - info.lockedAt;
+    }
+
+    /**
+     * @dev Check if asset collateral is solvent
+     * @param info Storage reference to collateral info
+     * @return True if solvent (has buffer remaining OR no deficit)
+     */
+    function isSolvent(CollateralInfo storage info) internal view returns (bool) {
+        return _isSolvent(info.earningsBuffer, info.reservedForLiquidation);
+    }
+
+    /**
+     * @dev In-memory solvency check for preview/simulation paths.
+     * @param info Memory copy of collateral info
+     * @return True if solvent (has buffer remaining OR no deficit)
+     */
+    function isSolventMemory(CollateralInfo memory info) internal pure returns (bool) {
+        return _isSolvent(info.earningsBuffer, info.reservedForLiquidation);
+    }
+
+    function _isSolvent(uint256 earningsBuffer, uint256 reservedForLiquidation) private pure returns (bool) {
+        return earningsBuffer > 0 || reservedForLiquidation == 0;
     }
 
     /**
@@ -877,27 +923,153 @@ library CollateralLib {
         return (0, 0);
     }
 
-    /**
-     * @dev Get benchmark earnings buffer amount based on current base collateral
-     * @param baseCollateral Current base collateral amount
-     * @return Benchmark earnings buffer amount
-     */
-    /**
-     * @dev Check if asset collateral is solvent
-     * @param info Storage reference to collateral info
-     * @return True if solvent (has buffer remaining OR no deficit)
-     */
-    function isSolvent(CollateralInfo storage info) internal view returns (bool) {
-        return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
+    function calculateReleaseFees(uint256 releaseAmount) internal pure returns (uint256 partnerRelease, uint256 fee) {
+        fee = ProtocolLib.calculateProtocolFee(releaseAmount);
+        if (fee > releaseAmount) {
+            fee = releaseAmount;
+        }
+        partnerRelease = releaseAmount - fee;
     }
 
-    /**
-     * @dev In-memory solvency check for preview/simulation paths.
-     * @param info Memory copy of collateral info
-     * @return True if solvent (has buffer remaining OR no deficit)
-     */
-    function isSolventMemory(CollateralInfo memory info) internal pure returns (bool) {
-        return info.earningsBuffer > 0 || info.reservedForLiquidation == 0;
+    function previewCollateralAfterMissedEarningsShortfall(CollateralInfo memory info, uint256 benchmarkEarnings)
+        internal
+        pure
+        returns (CollateralInfo memory)
+    {
+        processEarningsForBuffersInMemory(info, 0, benchmarkEarnings);
+        return info;
+    }
+
+    function applyRealizedVsBenchmarkToCollateral(
+        CollateralInfo memory info,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    )
+        internal
+        pure
+        returns (
+            CollateralInfo memory updated,
+            uint256 shortfallAmount,
+            uint256 replenishmentAmount,
+            uint256 excessEarnings
+        )
+    {
+        updated = info;
+
+        if (realizedEarnings < benchmarkEarnings) {
+            shortfallAmount = benchmarkEarnings - realizedEarnings;
+
+            if (updated.earningsBuffer >= shortfallAmount) {
+                updated.earningsBuffer -= shortfallAmount;
+                updated.reservedForLiquidation += shortfallAmount;
+            } else {
+                updated.reservedForLiquidation += updated.earningsBuffer;
+                updated.earningsBuffer = 0;
+            }
+
+            updated.totalCollateral = updated.baseCollateral + updated.earningsBuffer + updated.protocolBuffer;
+            return (updated, shortfallAmount, 0, 0);
+        }
+
+        if (realizedEarnings > benchmarkEarnings) {
+            excessEarnings = realizedEarnings - benchmarkEarnings;
+            (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
+                updated.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+            );
+            uint256 bufferDeficit =
+                benchmarkEarningsBuffer > updated.earningsBuffer ? benchmarkEarningsBuffer - updated.earningsBuffer : 0;
+
+            if (updated.reservedForLiquidation > 0) {
+                uint256 toReplenish =
+                    bufferDeficit < updated.reservedForLiquidation ? bufferDeficit : updated.reservedForLiquidation;
+                toReplenish = toReplenish < excessEarnings ? toReplenish : excessEarnings;
+
+                if (toReplenish > 0) {
+                    updated.earningsBuffer += toReplenish;
+                    updated.reservedForLiquidation -= toReplenish;
+                    updated.totalCollateral = updated.baseCollateral + updated.earningsBuffer + updated.protocolBuffer;
+                    replenishmentAmount = toReplenish;
+                    excessEarnings -= toReplenish;
+                }
+            }
+        }
+    }
+
+    function applyRealizedVsBenchmarkToCollateralInStorage(
+        CollateralInfo storage info,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    ) internal returns (uint256 shortfallAmount, uint256 replenishmentAmount, uint256 excessEarnings) {
+        (CollateralInfo memory updated, uint256 shortfall, uint256 replenishment, uint256 excess) =
+            applyRealizedVsBenchmarkToCollateral(info, realizedEarnings, benchmarkEarnings);
+
+        info.earningsBuffer = updated.earningsBuffer;
+        info.protocolBuffer = updated.protocolBuffer;
+        info.reservedForLiquidation = updated.reservedForLiquidation;
+        info.totalCollateral = updated.totalCollateral;
+
+        return (shortfall, replenishment, excess);
+    }
+
+    function calculateReleasePreview(
+        CollateralInfo memory collateralInfo,
+        bool assumeNewPeriod,
+        bool earningsInitialized,
+        uint256 currentPeriod,
+        uint256 lastProcessedPeriod,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    ) internal view returns (ReleaseCalculation memory calc) {
+        if (!collateralInfo.isLocked) {
+            calc.status = ReleaseEligibility.NoCollateralLocked;
+            return calc;
+        }
+
+        calc.collateral = collateralInfo;
+
+        if (!earningsInitialized || currentPeriod == 0) {
+            if (!assumeNewPeriod) {
+                calc.status = ReleaseEligibility.NoPriorEarnings;
+                return calc;
+            }
+
+            calc.status = ReleaseEligibility.Eligible;
+            calc.newLastProcessedPeriod = currentPeriod + 1;
+            calc.grossRelease = calculateCollateralRelease(calc.collateral);
+            if (calc.grossRelease > 0) {
+                (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+            }
+            return calc;
+        }
+
+        if (currentPeriod <= lastProcessedPeriod) {
+            if (!assumeNewPeriod) {
+                calc.status = ReleaseEligibility.NoNewEarningsPeriods;
+                return calc;
+            }
+
+            calc.status = ReleaseEligibility.Eligible;
+            calc.newLastProcessedPeriod = currentPeriod + 1;
+            calc.grossRelease = calculateCollateralRelease(calc.collateral);
+            if (calc.grossRelease > 0) {
+                (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+            }
+            return calc;
+        }
+
+        calc.status = ReleaseEligibility.Eligible;
+        calc.newLastProcessedPeriod = currentPeriod;
+
+        (calc.collateral, calc.shortfallAmount, calc.replenishmentAmount, calc.excessEarnings) =
+            applyRealizedVsBenchmarkToCollateral(calc.collateral, realizedEarnings, benchmarkEarnings);
+
+        calc.grossRelease = calculateCollateralRelease(calc.collateral);
+        if (calc.grossRelease > calc.collateral.totalCollateral) {
+            calc.grossRelease = calc.collateral.totalCollateral;
+        }
+        if (calc.grossRelease > 0) {
+            (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+        }
     }
 }
 
@@ -987,6 +1159,24 @@ library EarningsLib {
     }
 
     /**
+     * @dev Get period number at specific timestamp
+     * @param earningsInfo Storage reference to earnings info
+     * @param timestamp Timestamp to find period for
+     * @return period Period number at timestamp
+     */
+    function getPeriodAtTimestamp(EarningsInfo storage earningsInfo, uint256 timestamp)
+        internal
+        view
+        returns (uint256 period)
+    {
+        period = earningsInfo.currentPeriod;
+        while (period > 0 && earningsInfo.periods[period].timestamp > timestamp) {
+            period--;
+        }
+        return period;
+    }
+
+    /**
      * @dev Calculate unclaimed earnings for a token holder
      * @param earningsInfo Storage reference to earnings info
      * @param tokenBalance Current token balance
@@ -1064,24 +1254,6 @@ library EarningsLib {
     }
 
     /**
-     * @dev Get period number at specific timestamp
-     * @param earningsInfo Storage reference to earnings info
-     * @param timestamp Timestamp to find period for
-     * @return period Period number at timestamp
-     */
-    function getPeriodAtTimestamp(EarningsInfo storage earningsInfo, uint256 timestamp)
-        internal
-        view
-        returns (uint256 period)
-    {
-        period = earningsInfo.currentPeriod;
-        while (period > 0 && earningsInfo.periods[period].timestamp > timestamp) {
-            period--;
-        }
-        return period;
-    }
-
-    /**
      * @dev Snapshot a holder's unclaimed earnings at settlement time.
      * Called before tokens are burned so earnings can be claimed later.
      * @param earningsInfo Storage reference to earnings info
@@ -1104,6 +1276,31 @@ library EarningsLib {
         updateClaimPeriods(earningsInfo, holder, positions);
 
         return snapshotAmount;
+    }
+
+    function sumRealizedEarnings(
+        EarningsInfo storage earningsInfo,
+        uint256 fromPeriodExclusive,
+        uint256 toPeriodInclusive
+    ) internal view returns (uint256 realizedEarnings) {
+        for (uint256 i = fromPeriodExclusive + 1; i <= toPeriodInclusive; i++) {
+            realizedEarnings += earningsInfo.periods[i].totalEarnings;
+        }
+    }
+
+    function previewSettledEarnings(EarningsInfo storage earningsInfo, address holder) internal view returns (uint256) {
+        if (earningsInfo.hasClaimedSettledEarnings[holder]) {
+            return 0;
+        }
+        return earningsInfo.settledEarningsSnapshot[holder];
+    }
+
+    function previewEarningsForHolder(
+        EarningsInfo storage earningsInfo,
+        address holder,
+        TokenLib.TokenPosition[] memory positions
+    ) internal view returns (uint256) {
+        return calculateEarningsForPositions(earningsInfo, holder, positions);
     }
 
     /**

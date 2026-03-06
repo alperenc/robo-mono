@@ -259,7 +259,7 @@ contract MarketplaceTest is BaseTest {
         marketplace.updateUSDC(address(newUsdc));
     }
 
-    function testUpdateUSDCInvalidContractTotalSupplyReverts() public {
+    function testUpdateUSDCInvalidUSDCContractTotalSupply() public {
         MarketplaceBadTotalSupplyToken bad = new MarketplaceBadTotalSupplyToken();
 
         vm.startPrank(admin);
@@ -268,7 +268,7 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateUSDCInvalidContractDecimalsReverts() public {
+    function testUpdateUSDCInvalidUSDCContractDecimals() public {
         MarketplaceBadDecimalsToken bad = new MarketplaceBadDecimalsToken();
 
         vm.startPrank(admin);
@@ -277,7 +277,7 @@ contract MarketplaceTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testUpdateUSDCUnsupportedUSDCDecimalsReverts() public {
+    function testUpdateUSDCUnsupportedUSDCDecimals() public {
         MarketplaceWrongDecimalsToken bad = new MarketplaceWrongDecimalsToken();
 
         vm.startPrank(admin);

@@ -189,10 +189,10 @@ contract RegistryRouterTest is BaseTest {
         router.registerAsset(bytes(""), ASSET_VALUE);
     }
 
-    function testRegisterAssetMintAndListDirectCall() public {
+    function testRegisterAssetAndCreateRevenueTokenPoolDirectCall() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
-        router.registerAssetMintAndList(
-            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 30 days, true
+        router.registerAssetAndCreateRevenueTokenPool(
+            bytes(""), ASSET_VALUE, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 1000, false, false
         );
     }
 
@@ -202,7 +202,7 @@ contract RegistryRouterTest is BaseTest {
     }
 
     function testPreviewLiquidationEligibilityView() public {
-        _ensureState(SetupState.RevenueTokensMinted);
+        _ensureState(SetupState.PrimaryPoolCreated);
         (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);
         assertFalse(eligible);
         assertEq(reason, 3); // NotEligible

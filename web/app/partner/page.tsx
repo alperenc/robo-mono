@@ -6,20 +6,21 @@ import { NextPage } from "next";
 import { formatUnits } from "viem";
 import { useAccount, useBlock, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
-import { CancelListingModal } from "~~/components/partner/CancelListingModal";
+import { CreateRevenueTokenPoolModal } from "~~/components/partner/CreateRevenueTokenPoolModal";
+import { CreateSecondaryListingModal } from "~~/components/partner/CreateSecondaryListingModal";
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
-import { EndListingModal } from "~~/components/partner/EndListingModal";
+import { EnableProceedsModal } from "~~/components/partner/EnableProceedsModal";
+import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
 import { ExtendListingModal } from "~~/components/partner/ExtendListingModal";
-import { ListVehicleModal } from "~~/components/partner/ListVehicleModal";
-import { MintAndListModal } from "~~/components/partner/MintAndListModal";
 import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import deployedContracts from "~~/contracts/deployedContracts";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
-import { getTargetNetworks } from "~~/utils/scaffold-eth";
+import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
 
 // Unified Asset Interface for Dashboard logic
 interface DashboardAsset {
@@ -35,7 +36,7 @@ interface DashboardAsset {
   supply?: bigint;
   metadataURI?: string;
   imageUrl?: string;
-  assetStatus?: number; // 0=Pending, 1=Active, 2=Matured, 3=Retired, 4=Expired
+  assetStatus?: number; // 0=Pending, 1=Active, 2=Earning, 3=Suspended, 4=Expired, 5=Retired
 }
 
 // Listing interface from subgraph
@@ -46,7 +47,6 @@ interface SubgraphListing {
   seller: string;
   amount: string;
   amountSold: string;
-  claimedAmount: string;
   pricePerToken: string;
   expiresAt: string;
   isPrimary: boolean;
@@ -66,7 +66,6 @@ const isSameListings = (a: SubgraphListing[], b: SubgraphListing[]) => {
       left.seller !== right.seller ||
       left.amount !== right.amount ||
       left.amountSold !== right.amountSold ||
-      left.claimedAmount !== right.claimedAmount ||
       left.pricePerToken !== right.pricePerToken ||
       left.expiresAt !== right.expiresAt ||
       left.isPrimary !== right.isPrimary ||
@@ -110,7 +109,22 @@ interface CategorizedAsset extends DashboardAsset {
   listings?: SubgraphListing[];
   totalSold?: bigint;
   totalClaimed?: bigint;
+  partnerTokenBalance?: bigint;
+  hasPrimaryPool?: boolean;
+  immediateProceeds?: boolean;
+  protectionEnabled?: boolean;
+  primaryPoolPaused?: boolean;
+  primaryPoolClosed?: boolean;
+  primaryInvestorLiquidity?: bigint;
+  bufferFundingDue?: bigint;
 }
+
+type AssetAction = {
+  label: string;
+  onClick: () => void;
+  className?: string;
+  tone?: "default" | "danger";
+};
 
 const PartnerDashboard: NextPage = () => {
   const { address: connectedAddress } = useAccount();
@@ -140,18 +154,19 @@ const PartnerDashboard: NextPage = () => {
   const [maxStep, setMaxStep] = useState<1 | 3>(3);
   const [selectedAsset, setSelectedAsset] = useState<DashboardAsset | null>(null);
   const [selectedCategorizedAsset, setSelectedCategorizedAsset] = useState<CategorizedAsset | null>(null);
-  const [listModalOpen, setListModalOpen] = useState(false);
+  const [createSecondaryListingModalOpen, setCreateSecondaryListingModalOpen] = useState(false);
   const [listPrefillAmount, setListPrefillAmount] = useState<string | undefined>(undefined);
-  const [mintAndListModalOpen, setMintAndListModalOpen] = useState(false);
+  const [createRevenueTokenPoolModalOpen, setCreateRevenueTokenPoolModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [distributeEarningsModalOpen, setDistributeEarningsModalOpen] = useState(false);
+  const [enableProceedsModalOpen, setEnableProceedsModalOpen] = useState(false);
   const [settleAssetModalOpen, setSettleAssetModalOpen] = useState(false);
   const [extendListingModalOpen, setExtendListingModalOpen] = useState(false);
-  const [endListingModalOpen, setEndListingModalOpen] = useState(false);
-  const [cancelListingModalOpen, setCancelListingModalOpen] = useState(false);
+  const [endSecondaryListingModalOpen, setEndSecondaryListingModalOpen] = useState(false);
   const [withdrawProceedsModalOpen, setWithdrawProceedsModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const skipNextCloseRefreshRef = useRef(false);
+  const { writeContractAsync: writeMarketplace } = useScaffoldWriteContract({ contractName: "Marketplace" });
 
   // Trigger a data refresh with delay to allow subgraph to index
   const triggerRefresh = (delayMs = 2000) => {
@@ -229,7 +244,6 @@ const PartnerDashboard: NextPage = () => {
                     seller
                     amount
                     amountSold
-                    claimedAmount
                     pricePerToken
                     expiresAt
                     isPrimary
@@ -323,6 +337,18 @@ const PartnerDashboard: NextPage = () => {
   // Cast to break deep type inference
   const supplies = suppliesData as ContractResult<bigint>[] | undefined;
 
+  const { data: partnerTokenBalancesData, refetch: refetchPartnerTokenBalances } = useReadContracts({
+    contracts: connectedAddress
+      ? allAssets.map(asset => ({
+          ...contractConfig,
+          functionName: "balanceOf",
+          args: [connectedAddress, BigInt(asset.id) + 1n],
+        }))
+      : [],
+    query: { enabled: !!connectedAddress && allAssets.length > 0 },
+  });
+  const partnerTokenBalances = partnerTokenBalancesData as ContractResult<bigint>[] | undefined;
+
   const { data: maturityDatesData, refetch: refetchMaturityDates } = useReadContracts({
     contracts: allAssets.map(asset => ({
       address: deployedContracts[31337]?.RoboshareTokens?.address,
@@ -351,13 +377,95 @@ const PartnerDashboard: NextPage = () => {
   // Cast to break deep type inference
   const assetStatuses = statusesData as ContractResult<number>[] | undefined;
 
+  const marketplaceConfig = {
+    address: deployedContracts[31337]?.Marketplace?.address,
+    abi: deployedContracts[31337]?.Marketplace?.abi,
+  } as const;
+
+  const { data: primaryPoolCreatedData, refetch: refetchPrimaryPoolCreated } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      ...marketplaceConfig,
+      functionName: "primaryPoolCreated",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: allAssets.length > 0 },
+  });
+  const primaryPoolCreated = primaryPoolCreatedData as ContractResult<boolean>[] | undefined;
+
+  const { data: primaryPoolDetailsData, refetch: refetchPrimaryPoolDetails } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      ...marketplaceConfig,
+      functionName: "getPrimaryPool",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: allAssets.length > 0 },
+    allowFailure: true,
+  });
+  const primaryPoolDetails = primaryPoolDetailsData as
+    | Array<{ result?: any; status: string; error?: Error }>
+    | undefined;
+
+  const treasuryConfig = {
+    address: deployedContracts[31337]?.Treasury?.address,
+    abi: deployedContracts[31337]?.Treasury?.abi,
+  } as const;
+
+  const { data: primaryInvestorLiquidityData, refetch: refetchPrimaryInvestorLiquidity } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      ...treasuryConfig,
+      functionName: "getPrimaryInvestorLiquidity",
+      args: [BigInt(asset.id)],
+    })),
+    query: { enabled: allAssets.length > 0 },
+  });
+  const primaryInvestorLiquidity = primaryInvestorLiquidityData as ContractResult<bigint>[] | undefined;
+
+  const { data: collateralInfoData, refetch: refetchCollateralInfo } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      ...treasuryConfig,
+      functionName: "getAssetCollateralInfo",
+      args: [BigInt(asset.id)],
+    })),
+    query: { enabled: allAssets.length > 0 },
+    allowFailure: true,
+  });
+  const collateralInfo = collateralInfoData as Array<{ result?: any; status: string; error?: Error }> | undefined;
+
+  const { data: primaryPoolBufferRequirementsData, refetch: refetchPrimaryPoolBufferRequirements } = useReadContracts({
+    contracts: allAssets.map((asset, index) => ({
+      ...marketplaceConfig,
+      functionName: "previewPrimaryPoolBufferRequirements",
+      args: [BigInt(asset.id) + 1n, (primaryInvestorLiquidity?.[index]?.result as bigint | undefined) ?? 0n],
+    })),
+    query: {
+      enabled:
+        allAssets.length > 0 && !!primaryInvestorLiquidity && primaryInvestorLiquidity.length === allAssets.length,
+    },
+    allowFailure: true,
+  });
+  const primaryPoolBufferRequirements = primaryPoolBufferRequirementsData as
+    | Array<{ result?: any; status: string; error?: Error }>
+    | undefined;
+
   // Store refetch functions in refs to avoid deep type instantiation in useCallback deps
   const refetchSuppliesRef = useRef(refetchSupplies);
   const refetchStatusesRef = useRef(refetchStatuses);
   const refetchMaturityDatesRef = useRef(refetchMaturityDates);
+  const refetchPrimaryPoolCreatedRef = useRef(refetchPrimaryPoolCreated);
+  const refetchPrimaryPoolDetailsRef = useRef(refetchPrimaryPoolDetails);
+  const refetchPrimaryInvestorLiquidityRef = useRef(refetchPrimaryInvestorLiquidity);
+  const refetchCollateralInfoRef = useRef(refetchCollateralInfo);
+  const refetchPrimaryPoolBufferRequirementsRef = useRef(refetchPrimaryPoolBufferRequirements);
+  const refetchPartnerTokenBalancesRef = useRef(refetchPartnerTokenBalances);
   refetchSuppliesRef.current = refetchSupplies;
   refetchStatusesRef.current = refetchStatuses;
   refetchMaturityDatesRef.current = refetchMaturityDates;
+  refetchPrimaryPoolCreatedRef.current = refetchPrimaryPoolCreated;
+  refetchPrimaryPoolDetailsRef.current = refetchPrimaryPoolDetails;
+  refetchPrimaryInvestorLiquidityRef.current = refetchPrimaryInvestorLiquidity;
+  refetchCollateralInfoRef.current = refetchCollateralInfo;
+  refetchPrimaryPoolBufferRequirementsRef.current = refetchPrimaryPoolBufferRequirements;
+  refetchPartnerTokenBalancesRef.current = refetchPartnerTokenBalances;
 
   // Refetch supplies and statuses when refreshCounter changes
   useEffect(() => {
@@ -365,6 +473,12 @@ const PartnerDashboard: NextPage = () => {
       void refetchSuppliesRef.current();
       void refetchStatusesRef.current();
       void refetchMaturityDatesRef.current();
+      void refetchPrimaryPoolCreatedRef.current();
+      void refetchPrimaryPoolDetailsRef.current();
+      void refetchPrimaryInvestorLiquidityRef.current();
+      void refetchCollateralInfoRef.current();
+      void refetchPrimaryPoolBufferRequirementsRef.current();
+      void refetchPartnerTokenBalancesRef.current();
     }
   }, [refreshCounter, allAssets.length]);
 
@@ -405,13 +519,65 @@ const PartnerDashboard: NextPage = () => {
       if (filterType !== "ALL" && filterType !== asset.type) return;
 
       const supply = supplies?.[index]?.result as bigint | undefined;
+      const partnerTokenBalance = partnerTokenBalances?.[index]?.result as bigint | undefined;
       const status = assetStatuses?.[index]?.result as number | undefined;
+      const hasPrimaryPool = (primaryPoolCreated?.[index]?.result as boolean | undefined) ?? false;
+      const primaryPoolDetail = primaryPoolDetails?.[index]?.result as
+        | {
+            immediateProceeds?: boolean;
+            protectionEnabled?: boolean;
+            isPaused?: boolean;
+            isClosed?: boolean;
+          }
+        | any[]
+        | undefined;
+      const primaryPoolPaused =
+        (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
+          ? primaryPoolDetail.isPaused
+          : primaryPoolDetail?.[6]) ?? false;
+      const primaryPoolClosed =
+        (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
+          ? primaryPoolDetail.isClosed
+          : primaryPoolDetail?.[7]) ?? false;
+      const immediateProceeds =
+        (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
+          ? primaryPoolDetail.immediateProceeds
+          : primaryPoolDetail?.[4]) ?? false;
+      const protectionEnabled =
+        (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
+          ? primaryPoolDetail.protectionEnabled
+          : primaryPoolDetail?.[5]) ?? false;
+      const investorLiquidity = (primaryInvestorLiquidity?.[index]?.result as bigint | undefined) ?? 0n;
+      const collateral = collateralInfo?.[index]?.result as
+        | {
+            earningsBuffer?: bigint;
+            protocolBuffer?: bigint;
+          }
+        | readonly unknown[]
+        | undefined;
+      const bufferPreview = primaryPoolBufferRequirements?.[index]?.result as readonly unknown[] | undefined;
+      const requiredProtocolBuffer = (bufferPreview?.[0] as bigint | undefined) ?? 0n;
+      const requiredProtectionBuffer = (bufferPreview?.[1] as bigint | undefined) ?? 0n;
+      const collateralObject = !Array.isArray(collateral)
+        ? (collateral as { earningsBuffer?: bigint; protocolBuffer?: bigint } | undefined)
+        : undefined;
+      const currentProtocolBuffer = Array.isArray(collateral)
+        ? ((collateral[3] as bigint | undefined) ?? 0n)
+        : (collateralObject?.protocolBuffer ?? 0n);
+      const currentProtectionBuffer = Array.isArray(collateral)
+        ? ((collateral[2] as bigint | undefined) ?? 0n)
+        : (collateralObject?.earningsBuffer ?? 0n);
+      const protocolBufferDue =
+        requiredProtocolBuffer > currentProtocolBuffer ? requiredProtocolBuffer - currentProtocolBuffer : 0n;
+      const protectionBufferDue =
+        requiredProtectionBuffer > currentProtectionBuffer ? requiredProtectionBuffer - currentProtectionBuffer : 0n;
+      const bufferFundingDue = protocolBufferDue + protectionBufferDue;
       const assetListings = listings.filter(l => l.assetId === asset.id);
       const activeAssetListings = assetListings.filter(l => l.status === "active");
       const totalSold = assetListings
-        .filter(l => l.status !== "cancelled") // Exclude cancelled listings from total sold
+        .filter(l => l.status !== "ended") // Exclude ended listings from total sold
         .reduce((acc, l) => acc + BigInt(l.amountSold || "0"), 0n);
-      const totalClaimed = assetListings.reduce((acc, l) => acc + BigInt(l.claimedAmount || "0"), 0n);
+      const totalClaimed = totalSold;
 
       const categorizedAsset: CategorizedAsset = {
         ...asset,
@@ -420,27 +586,31 @@ const PartnerDashboard: NextPage = () => {
         listings: assetListings,
         totalSold,
         totalClaimed,
+        partnerTokenBalance,
+        hasPrimaryPool,
+        immediateProceeds,
+        protectionEnabled,
+        primaryPoolPaused,
+        primaryPoolClosed,
+        primaryInvestorLiquidity: investorLiquidity,
+        bufferFundingDue,
         state: "PENDING_LISTINGS",
       };
 
       // State determination logic:
-      // 0. Check if asset is settled (status 3=Retired or 4=Expired) - takes priority
-      // 1. No supply = PENDING_LISTINGS (mint & list required)
-      // 2. Has supply, has active listings = ACTIVE_LISTINGS
-      // 3. Has supply, no active listings, and tokens sold = ACTIVE_FLEET
-      // 4. Has supply, no active listings, no tokens sold = PENDING_LISTINGS
+      // 0. Check if asset is settled (status 4=Expired or 5=Retired) - takes priority
+      // 1. Active secondary listing = ACTIVE_LISTINGS
+      // 2. Live primary pool = ACTIVE_FLEET, even before any buys
+      // 3. No live primary pool yet = PENDING_LISTINGS
 
-      if (status === 3 || status === 4) {
-        // Retired (3) or Expired (4) = SETTLED
+      if (status === 4 || status === 5) {
+        // Expired (4) or Retired (5) = SETTLED
         categorizedAsset.state = "SETTLED";
         settledAssets.push(categorizedAsset);
-      } else if (!supply || supply === 0n) {
-        categorizedAsset.state = "PENDING_LISTINGS";
-        pendingListings.push(categorizedAsset);
       } else if (activeAssetListings.length > 0) {
         categorizedAsset.state = "ACTIVE_LISTINGS";
         activeListings.push(categorizedAsset);
-      } else if (totalSold > 0n) {
+      } else if (hasPrimaryPool) {
         categorizedAsset.state = "ACTIVE_FLEET";
         activeFleet.push(categorizedAsset);
       } else {
@@ -465,12 +635,31 @@ const PartnerDashboard: NextPage = () => {
   const openListModal = (asset: DashboardAsset, prefillAmount?: string) => {
     setSelectedAsset(asset);
     setListPrefillAmount(prefillAmount);
-    setListModalOpen(true);
+    setCreateSecondaryListingModalOpen(true);
   };
 
-  const openMintAndListModal = (asset: DashboardAsset) => {
+  const openCreateRevenueTokenPoolModal = (asset: DashboardAsset) => {
     setSelectedAsset(asset);
-    setMintAndListModalOpen(true);
+    setCreateRevenueTokenPoolModalOpen(true);
+  };
+
+  const updatePrimaryPoolState = async (
+    tokenId: bigint,
+    action: "pausePrimaryPool" | "unpausePrimaryPool" | "closePrimaryPool",
+  ) => {
+    try {
+      const txHash = await writeMarketplace({
+        functionName: action,
+        args: [tokenId],
+      });
+      if (!txHash) {
+        notification.error("Transaction was not submitted. Please try again.");
+        return;
+      }
+      refreshPartnerAfterSuccess();
+    } catch (error) {
+      notification.error(error instanceof Error ? error.message : "Pool update failed");
+    }
   };
 
   if (!connectedAddress) {
@@ -513,8 +702,8 @@ const PartnerDashboard: NextPage = () => {
   }: {
     asset: CategorizedAsset;
     borderColor: string;
-    primaryAction?: { label: string; onClick: () => void; className: string };
-    secondaryActions?: Array<{ label: string; onClick: () => void; className?: string }>;
+    primaryAction?: AssetAction;
+    secondaryActions?: AssetAction[];
     isGrid?: boolean;
   }) => {
     const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -522,6 +711,8 @@ const PartnerDashboard: NextPage = () => {
       if (primaryAction && action.label === primaryAction.label) return false;
       return arr.findIndex(candidate => candidate.label === action.label) === idx;
     });
+    const nonDestructiveActions = visibleSecondaryActions.filter(action => action.tone === undefined);
+    const destructiveActions = visibleSecondaryActions.filter(action => action.tone === "danger");
     const hasSupply =
       asset.supply !== undefined &&
       asset.supply !== null &&
@@ -551,8 +742,9 @@ const PartnerDashboard: NextPage = () => {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <div className="text-xs sm:text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
-              {asset.assetStatus === 3 && <span className="badge badge-sm badge-ghost">Retired</span>}
+              {asset.assetStatus === 3 && <span className="badge badge-sm badge-warning">Suspended</span>}
               {asset.assetStatus === 4 && <span className="badge badge-sm badge-warning">Expired</span>}
+              {asset.assetStatus === 5 && <span className="badge badge-sm badge-ghost">Retired</span>}
             </div>
             <div className={`font-bold text-lg sm:text-xl ${isGrid ? "line-clamp-2" : "truncate"}`}>
               {getAssetDisplayName(asset)}
@@ -591,15 +783,39 @@ const PartnerDashboard: NextPage = () => {
                     </div>
                     <ul
                       tabIndex={0}
-                      className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2"
+                      className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-2xl border border-base-300 w-56 mt-2"
                     >
-                      {visibleSecondaryActions.map((action, idx) => (
-                        <li key={idx}>
-                          <a onClick={action.onClick} className={action.className || ""}>
+                      {nonDestructiveActions.map((action, idx) => (
+                        <li key={`normal-${idx}`}>
+                          <a onClick={action.onClick} className="rounded-xl text-sm font-medium">
                             {action.label}
                           </a>
                         </li>
                       ))}
+                      {destructiveActions.length > 0 && (
+                        <>
+                          {nonDestructiveActions.length > 0 && (
+                            <li className="menu-title px-0 py-1">
+                              <span className="divider my-0 opacity-40" />
+                            </li>
+                          )}
+                          <li className="menu-title px-3 pb-1 pt-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-base-content/45">
+                              Destructive
+                            </span>
+                          </li>
+                          {destructiveActions.map((action, idx) => (
+                            <li key={`destructive-${idx}`}>
+                              <a
+                                onClick={action.onClick}
+                                className="rounded-xl text-sm font-medium text-error hover:bg-error/10 focus:bg-error/10"
+                              >
+                                {action.label}
+                              </a>
+                            </li>
+                          ))}
+                        </>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -692,7 +908,7 @@ const PartnerDashboard: NextPage = () => {
                 setMaxStep(3);
               }}
             >
-              List Vehicle
+              Launch Offering
             </button>
             <div className="dropdown sm:dropdown-end">
               <div tabIndex={0} role="button" className="btn btn-primary rounded-l-none px-2 min-h-0 h-full">
@@ -757,22 +973,22 @@ const PartnerDashboard: NextPage = () => {
                   All
                 </button>
                 <button
+                  className={`btn btn-sm join-item ${filterState === "PENDING_LISTINGS" ? "btn-primary" : "btn-ghost"}`}
+                  onClick={() => setFilterState("PENDING_LISTINGS")}
+                >
+                  Needs Setup
+                </button>
+                <button
                   className={`btn btn-sm join-item ${filterState === "ACTIVE_FLEET" ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => setFilterState("ACTIVE_FLEET")}
                 >
-                  Revenue
+                  Offerings
                 </button>
                 <button
                   className={`btn btn-sm join-item ${filterState === "ACTIVE_LISTINGS" ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => setFilterState("ACTIVE_LISTINGS")}
                 >
-                  Listed
-                </button>
-                <button
-                  className={`btn btn-sm join-item ${filterState === "PENDING_LISTINGS" ? "btn-primary" : "btn-ghost"}`}
-                  onClick={() => setFilterState("PENDING_LISTINGS")}
-                >
-                  Ready
+                  Secondary
                 </button>
                 <button
                   className={`btn btn-sm join-item ${filterState === "SETTLED" ? "btn-primary" : "btn-ghost"}`}
@@ -845,7 +1061,7 @@ const PartnerDashboard: NextPage = () => {
               <p className="py-4 sm:py-6 text-base sm:text-lg opacity-80">
                 {isSingleAssetType
                   ? `You haven't registered any ${activeRegistries[0].pluralName.toLowerCase()} yet.`
-                  : "You haven't registered any assets yet. Register an asset to start tokenizing and earning revenue."}
+                  : "You haven't registered any assets yet. Register an asset and create a pool to start issuing revenue tokens."}
               </p>
               <div className="flex justify-center">
                 <button
@@ -855,7 +1071,7 @@ const PartnerDashboard: NextPage = () => {
                     setMaxStep(3);
                   }}
                 >
-                  List Your First Vehicle
+                  Launch Your First Offering
                 </button>
                 <div className="dropdown sm:dropdown-end">
                   <div
@@ -884,10 +1100,10 @@ const PartnerDashboard: NextPage = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-8 sm:gap-12">
-          {/* GENERATING REVENUE - Tokens sold, earning revenue */}
+          {/* LIVE OFFERINGS - Assets with a primary pool */}
           {activeFleet.length > 0 && (filterState === "ALL" || filterState === "ACTIVE_FLEET") && (
             <Section
-              title="Generating Revenue"
+              title="Live Offerings"
               count={activeFleet.length}
               badgeClass="badge-success"
               borderClass="border-success/30"
@@ -897,7 +1113,13 @@ const PartnerDashboard: NextPage = () => {
                 (() => {
                   const maturityDate = assetMaturityDateById.get(asset.id) ?? 0n;
                   const isMaturedByTime = maturityDate > 0n && Number(maturityDate) <= chainNowSec;
-                  const isMatured = asset.assetStatus === 2 || isMaturedByTime;
+                  const isMatured = isMaturedByTime;
+                  const tokenId = BigInt(asset.id) + 1n;
+                  const isPoolPaused = !!asset.primaryPoolPaused;
+                  const isPoolClosed = !!asset.primaryPoolClosed;
+                  const isEarningEnabled = asset.assetStatus === 2;
+                  const bufferFundingDue = asset.bufferFundingDue ?? 0n;
+                  const partnerTokenBalance = asset.partnerTokenBalance ?? 0n;
                   const distributeAction = {
                     label: "Distribute Earnings",
                     onClick: () => {
@@ -905,6 +1127,15 @@ const PartnerDashboard: NextPage = () => {
                       setDistributeEarningsModalOpen(true);
                     },
                     className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
+                  };
+                  const fundBuffersAction = {
+                    label: "Enable Proceeds",
+                    onClick: () => {
+                      setSelectedCategorizedAsset(asset);
+                      setEnableProceedsModalOpen(true);
+                    },
+                    className:
+                      "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                   };
                   const settleAction = {
                     label: "Settle Asset",
@@ -916,6 +1147,49 @@ const PartnerDashboard: NextPage = () => {
                       ? "btn btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25"
                       : "btn btn-error",
                   };
+                  const canEnableProceeds = !isEarningEnabled && bufferFundingDue > 0n;
+                  const pausePoolAction = {
+                    label: "Pause Pool",
+                    onClick: () => void updatePrimaryPoolState(tokenId, "pausePrimaryPool"),
+                    className:
+                      "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
+                  };
+                  const unpausePoolAction = {
+                    label: "Unpause Pool",
+                    onClick: () => void updatePrimaryPoolState(tokenId, "unpausePrimaryPool"),
+                    className:
+                      "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
+                  };
+                  const closePoolAction = {
+                    label: "Close Pool",
+                    onClick: () => void updatePrimaryPoolState(tokenId, "closePrimaryPool"),
+                    tone: "danger" as const,
+                  };
+                  const primaryAction = isMatured
+                    ? settleAction
+                    : isEarningEnabled
+                      ? distributeAction
+                      : canEnableProceeds
+                        ? fundBuffersAction
+                        : isPoolPaused
+                          ? unpausePoolAction
+                          : isPoolClosed
+                            ? undefined
+                            : pausePoolAction;
+                  const secondaryActions = [
+                    ...(partnerTokenBalance > 0n
+                      ? [
+                          {
+                            label: "List Tokens",
+                            onClick: () => openListModal(asset, partnerTokenBalance.toString()),
+                          },
+                        ]
+                      : []),
+                    ...(!isPoolClosed ? [isPoolPaused ? unpausePoolAction : pausePoolAction, closePoolAction] : []),
+                    ...(isEarningEnabled ? [{ ...distributeAction }] : []),
+                    ...(canEnableProceeds ? [{ ...fundBuffersAction }] : []),
+                    ...(!isMatured ? [{ ...settleAction, tone: "danger" as const }] : []),
+                  ];
 
                   return (
                     <AssetCard
@@ -923,18 +1197,8 @@ const PartnerDashboard: NextPage = () => {
                       asset={asset}
                       borderColor="border-success"
                       isGrid={viewMode === "grid"}
-                      primaryAction={isMatured ? settleAction : distributeAction}
-                      secondaryActions={[
-                        ...(asset.supply && asset.totalSold !== undefined && asset.supply > asset.totalSold
-                          ? [
-                              {
-                                label: "List Tokens",
-                                onClick: () => openListModal(asset, (asset.supply! - asset.totalSold!).toString()),
-                              },
-                            ]
-                          : []),
-                        ...(isMatured ? [distributeAction] : [settleAction]),
-                      ]}
+                      primaryAction={primaryAction}
+                      secondaryActions={secondaryActions}
                     />
                   );
                 })(),
@@ -972,12 +1236,7 @@ const PartnerDashboard: NextPage = () => {
                 };
 
                 // Action definitions
-                const actionEnd = { label: "End Listing", onClick: () => openModal(setEndListingModalOpen) };
-                const actionCancel = {
-                  label: "Cancel Listing",
-                  onClick: () => openModal(setCancelListingModalOpen),
-                  className: "text-error",
-                };
+                const actionEnd = { label: "End Listing", onClick: () => openModal(setEndSecondaryListingModalOpen) };
                 const actionExtend = { label: "Extend Listing", onClick: () => openModal(setExtendListingModalOpen) };
                 const actionDistribute = {
                   label: "Distribute Earnings",
@@ -994,7 +1253,6 @@ const PartnerDashboard: NextPage = () => {
                     className: "btn btn-primary",
                   };
                   secondaryActions.push(actionEnd);
-                  secondaryActions.push(actionCancel);
                 } else {
                   // Case 2: Active (regardless of sales) -> Priority is Extend Listing
                   primaryAction = {
@@ -1008,13 +1266,11 @@ const PartnerDashboard: NextPage = () => {
                     secondaryActions.push(actionDistribute);
                   }
                   if (isUnsold) {
-                    // No sales: End, Cancel
+                    // No sales: End
                     secondaryActions.push(actionEnd);
-                    secondaryActions.push(actionCancel);
                   } else {
-                    // Partial sales: End, Cancel
+                    // Partial sales: End
                     secondaryActions.push(actionEnd);
-                    secondaryActions.push(actionCancel);
                   }
                 }
 
@@ -1032,10 +1288,10 @@ const PartnerDashboard: NextPage = () => {
             </Section>
           )}
 
-          {/* PENDING LISTING - Tokenized or registered but not listed */}
+          {/* NEEDS SETUP - Registered assets without a live primary pool */}
           {pendingListings.length > 0 && (filterState === "ALL" || filterState === "PENDING_LISTINGS") && (
             <Section
-              title="Pending Listing"
+              title="Needs Setup"
               count={pendingListings.length}
               badgeClass="badge-warning"
               borderClass="border-warning/30"
@@ -1056,8 +1312,8 @@ const PartnerDashboard: NextPage = () => {
                             "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                         }
                       : {
-                          label: "Mint & List",
-                          onClick: () => openMintAndListModal(asset),
+                          label: "Launch Offering",
+                          onClick: () => openCreateRevenueTokenPoolModal(asset),
                           className:
                             "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                         }
@@ -1096,11 +1352,11 @@ const PartnerDashboard: NextPage = () => {
       />
 
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
-        <MintAndListModal
-          isOpen={mintAndListModalOpen}
+        <CreateRevenueTokenPoolModal
+          isOpen={createRevenueTokenPoolModalOpen}
           onSuccess={handleFlowSuccess}
           onClose={() => {
-            setMintAndListModalOpen(false);
+            setCreateRevenueTokenPoolModalOpen(false);
             refreshOnModalClose();
           }}
           vehicleId={selectedAsset.id}
@@ -1110,11 +1366,11 @@ const PartnerDashboard: NextPage = () => {
       )}
 
       {selectedAsset && selectedAsset.type === AssetType.VEHICLE && (
-        <ListVehicleModal
-          isOpen={listModalOpen}
+        <CreateSecondaryListingModal
+          isOpen={createSecondaryListingModalOpen}
           onSuccess={handleFlowSuccess}
           onClose={() => {
-            setListModalOpen(false);
+            setCreateSecondaryListingModalOpen(false);
             setListPrefillAmount(undefined);
             refreshOnModalClose();
           }}
@@ -1145,6 +1401,18 @@ const PartnerDashboard: NextPage = () => {
             assetId={selectedCategorizedAsset.id}
             assetName={getAssetDisplayName(selectedCategorizedAsset)}
           />
+          <EnableProceedsModal
+            isOpen={enableProceedsModalOpen}
+            onSuccess={handleFlowSuccess}
+            onClose={() => {
+              setEnableProceedsModalOpen(false);
+              refreshOnModalClose();
+            }}
+            assetId={selectedCategorizedAsset.id}
+            assetName={getAssetDisplayName(selectedCategorizedAsset)}
+            immediateProceeds={!!selectedCategorizedAsset.immediateProceeds}
+            protectionEnabled={!!selectedCategorizedAsset.protectionEnabled}
+          />
           <SettleAssetModal
             isOpen={settleAssetModalOpen}
             onClose={() => {
@@ -1174,10 +1442,10 @@ const PartnerDashboard: NextPage = () => {
                   listingId={selectedListing.id}
                   currentExpiresAt={BigInt(selectedListing.expiresAt)}
                 />
-                <EndListingModal
-                  isOpen={endListingModalOpen}
+                <EndSecondaryListingModal
+                  isOpen={endSecondaryListingModalOpen}
                   onClose={() => {
-                    setEndListingModalOpen(false);
+                    setEndSecondaryListingModalOpen(false);
                     refetchPending();
                     triggerRefresh();
                   }}
@@ -1186,16 +1454,6 @@ const PartnerDashboard: NextPage = () => {
                   tokenId={selectedListing.tokenId}
                   amountSold={selectedListing.amountSold}
                   pricePerToken={selectedListing.pricePerToken}
-                  isPrimary={isPrimaryListing}
-                />
-                <CancelListingModal
-                  isOpen={cancelListingModalOpen}
-                  onClose={() => {
-                    setCancelListingModalOpen(false);
-                    refetchPending();
-                    triggerRefresh();
-                  }}
-                  listingId={selectedListing.id}
                   isPrimary={isPrimaryListing}
                 />
               </>

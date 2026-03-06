@@ -159,16 +159,25 @@ dataSources:
         - event: RevenueTokensTraded(indexed uint256,indexed address,indexed
             address,uint256,uint256,uint256)
           handler: handleRevenueTokensTraded
-        - event: ListingCancelled(indexed uint256,indexed address)
-          handler: handleListingCancelled
         - event: ListingEnded(indexed uint256,indexed address)
           handler: handleListingEnded
-        - event: TokensClaimed(indexed uint256,indexed address,uint256)
-          handler: handleTokensClaimed
-        - event: RefundClaimed(indexed uint256,indexed address,uint256)
-          handler: handleRefundClaimed
         - event: ListingExtended(indexed uint256,uint256)
           handler: handleListingExtended
+        - event: PrimaryPoolCreated(indexed uint256,indexed
+            address,uint256,uint256,bool,bool)
+          handler: handlePrimaryPoolCreated
+        - event: PrimaryPoolPaused(indexed uint256)
+          handler: handlePrimaryPoolPaused
+        - event: PrimaryPoolUnpaused(indexed uint256)
+          handler: handlePrimaryPoolUnpaused
+        - event: PrimaryPoolClosed(indexed uint256)
+          handler: handlePrimaryPoolClosed
+        - event: PrimaryPoolPurchased(indexed uint256,indexed
+            address,uint256,uint256,uint256,uint256)
+          handler: handlePrimaryPoolPurchased
+        - event: PrimaryPoolRedeemed(indexed uint256,indexed
+            address,uint256,uint256,uint256)
+          handler: handlePrimaryPoolRedeemed
       file: ./src/mapping.ts
 features:
   - fullTextSearch

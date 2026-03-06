@@ -1,4 +1,4 @@
-query GetMarketListings {
+query GetMarketsPageData {
   listings(first: 100, orderBy: createdAt, orderDirection: desc) {
     id
     tokenId
@@ -9,13 +9,27 @@ query GetMarketListings {
     pricePerToken
     expiresAt
     buyerPaysFee
-    isPrimary
     status
-    isCancelled
     isEnded
-    claimedAmount
-    refundedAmount
     createdAt
+  }
+  primaryPools(first: 100, orderBy: createdAt, orderDirection: desc) {
+    id
+    tokenId
+    assetId
+    partner
+    pricePerToken
+    maxSupply
+    immediateProceeds
+    protectionEnabled
+    isPaused
+    isClosed
+    createdAt
+    pausedAt
+    closedAt
+    totalPurchased
+    totalRedeemed
+    totalPartnerProceedsReleased
   }
   vehicles(first: 100) {
     id

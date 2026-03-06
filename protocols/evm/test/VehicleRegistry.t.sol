@@ -136,7 +136,7 @@ contract VehicleRegistryTest is BaseTest {
         );
     }
 
-    function testRegisterVehicleInvalidYear() public {
+    function testRegisterVehicleInvalidYearTooLow() public {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
@@ -146,7 +146,10 @@ contract VehicleRegistryTest is BaseTest {
             ),
             ASSET_VALUE
         );
+    }
 
+    function testRegisterVehicleInvalidYearTooHigh() public {
+        _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(VehicleLib.InvalidYear.selector);
         vm.prank(partner1);
         assetRegistry.registerAsset(

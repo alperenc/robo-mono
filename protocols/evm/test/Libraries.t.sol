@@ -25,6 +25,10 @@ contract ProtocolEarningsHelper {
     function calcBenchmarkDefault(uint256 principal, uint256 timeElapsed) external pure returns (uint256) {
         return EarningsLib.calculateBenchmarkEarnings(principal, timeElapsed);
     }
+
+    function releaseFees(uint256 amount) external pure returns (uint256 partnerRelease, uint256 fee) {
+        return CollateralLib.calculateReleaseFees(amount);
+    }
 }
 
 // Helper to hold and mutate AssetInfo
@@ -60,6 +64,7 @@ contract AssetHelper {
         return info.getTimeSinceUpdate();
     }
 
+    // Intentional raw-state injection for AssetLib defensive tests only.
     function setStatusRaw(uint8 s) external {
         info.status = AssetLib.AssetStatus(s);
     }
@@ -83,6 +88,7 @@ contract VehicleHelper {
         info.initializeVehicleInfo(vin, make, model, year, manufacturerId, optionCodes, metadataUri);
     }
 
+    // Intentional raw-state injection for VehicleLib malformed-input tests only.
     function setRaw(string memory make, string memory model, uint256 year) external {
         info.make = make;
         info.model = model;
@@ -200,6 +206,7 @@ contract CollateralTokenEarningsHelper {
         EarningsLib.initializeEarningsInfo(e);
     }
 
+    // Intentional direct period injection for isolated library math tests.
     function setPeriod(uint256 p, uint256 ept, uint256 ts, uint256 total) external {
         e.periods[p] = EarningsLib.EarningsPeriod({ earningsPerToken: ept, timestamp: ts, totalEarnings: total });
         if (p > e.currentPeriod) e.currentPeriod = p;
@@ -238,6 +245,8 @@ contract LibrariesTest is Test {
         vh = new VehicleHelper();
     }
 
+    // ===== Normal library behavior =====
+
     // ProtocolLib tests
     function testIPFSValidation() public pure {
         // invalid: empty and just prefix
@@ -269,19 +278,28 @@ contract LibrariesTest is Test {
         ah.update(AssetLib.AssetStatus.Suspended);
         assertFalse(ah.isOperational());
 
-        // Invalid: Suspended -> Pending, assert exact custom error with args
+        // Valid: Suspended -> Active
+        ah.update(AssetLib.AssetStatus.Active);
+    }
+
+    function testAssetsInvalidStatusTransitionSuspendedToPending() public {
+        ah.init(AssetLib.AssetStatus.Pending, 100000e6);
+        ah.update(AssetLib.AssetStatus.Active);
+        ah.update(AssetLib.AssetStatus.Suspended);
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 AssetLib.InvalidStatusTransition.selector, AssetLib.AssetStatus.Suspended, AssetLib.AssetStatus.Pending
             )
         );
         ah.update(AssetLib.AssetStatus.Pending);
+    }
 
-        // Valid: Suspended -> Active
+    function testAssetsInvalidStatusTransitionRetiredToActive() public {
+        ah.init(AssetLib.AssetStatus.Pending, 100000e6);
         ah.update(AssetLib.AssetStatus.Active);
-
-        // Valid: Active -> Retired; further transitions invalid
         ah.update(AssetLib.AssetStatus.Retired);
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 AssetLib.InvalidStatusTransition.selector, AssetLib.AssetStatus.Retired, AssetLib.AssetStatus.Active
@@ -307,6 +325,14 @@ contract LibrariesTest is Test {
         uint256 mid = block.timestamp;
         vm.warp(mid + 3 hours);
         assertApproxEqAbs(ah.sinceUpdate(), 3 hours, 2);
+    }
+
+    // ===== Intentional raw-state validation =====
+
+    function testAssetsTransitionInvalidCurrentStatusPanicsAtEnumCast() public {
+        ah.init(AssetLib.AssetStatus.Pending, 100000e6);
+        vm.expectRevert();
+        ah.setStatusRaw(255);
     }
 
     // CollateralLib tests
@@ -485,6 +511,12 @@ contract LibrariesTest is Test {
         assertGt(eBufAfter, 0);
     }
 
+    function testCalculateReleaseFeesClampsToReleaseAmount() public view {
+        (uint256 partnerRelease, uint256 fee) = peh.releaseFees(1);
+        assertEq(fee, 1);
+        assertEq(partnerRelease, 0);
+    }
+
     function testProcessEarningsForBuffersInMemoryShortfallExceedsBuffer() public {
         cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
         (, uint256 startingBuffer,,) = cteh.collateralView();
@@ -492,6 +524,7 @@ contract LibrariesTest is Test {
 
         (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
             cteh.processInMemory(0, baseEarnings);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(result, -int256(baseEarnings));
         assertEq(replenished, 0);
         assertEq(eBufAfter, 0);
@@ -511,6 +544,7 @@ contract LibrariesTest is Test {
 
         (int256 result, uint256 replenished, uint256 eBufAfter, uint256 reservedAfter,) =
             cteh.processInMemory(200e6, 100e6);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(result, int256(100e6 - replenished));
         assertGt(replenished, 0);
         assertGt(eBufAfter, eBufAfterShortfall);

@@ -153,6 +153,65 @@
   },
   {
     "type": "function",
+    "name": "createRevenueTokenPool",
+    "inputs": [
+      {
+        "name": "assetId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maturityDate",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "revenueShareBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "targetYieldBP",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxSupply",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "immediateProceeds",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "protectionEnabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "revenueTokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "supply",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "getAssetInfo",
     "inputs": [
       {
@@ -428,65 +487,6 @@
   },
   {
     "type": "function",
-    "name": "mintRevenueTokensAndList",
-    "inputs": [
-      {
-        "name": "assetId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "tokenPrice",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "maturityDate",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "revenueShareBP",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "targetYieldBP",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "listingDuration",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "buyerPaysFee",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "revenueTokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "supply",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "listingId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "partnerManager",
     "inputs": [],
     "outputs": [
@@ -500,7 +500,7 @@
   },
   {
     "type": "function",
-    "name": "previewMintRevenueTokens",
+    "name": "previewCreateRevenueTokenPool",
     "inputs": [
       {
         "name": "assetId",
@@ -571,7 +571,7 @@
   },
   {
     "type": "function",
-    "name": "registerAssetMintAndList",
+    "name": "registerAssetAndCreateRevenueTokenPool",
     "inputs": [
       {
         "name": "data",
@@ -604,12 +604,17 @@
         "internalType": "uint256"
       },
       {
-        "name": "listingDuration",
+        "name": "maxSupply",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "buyerPaysFee",
+        "name": "immediateProceeds",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "protectionEnabled",
         "type": "bool",
         "internalType": "bool"
       }
@@ -627,11 +632,6 @@
       },
       {
         "name": "supply",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "listingId",
         "type": "uint256",
         "internalType": "uint256"
       }

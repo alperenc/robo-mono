@@ -20,7 +20,6 @@ interface MarketAssetCardProps {
     seller: string;
     status?: string;
     isPrimary?: boolean;
-    isCancelled?: boolean;
     isEnded?: boolean;
     endedAt?: string | null;
     createdAt?: string;
@@ -39,7 +38,6 @@ interface MarketAssetCardProps {
     supply: string;
     maturityDate: string;
     targetYieldBP?: string;
-    soldSupply?: string;
   };
   earnings?: {
     totalEarnings: string;
@@ -63,14 +61,10 @@ interface MarketAssetCardProps {
   hasUserBoughtListing?: boolean;
   tokenTotalSoldAmount?: string;
   onBuyClick?: () => void;
-  onClaimTokensClick?: () => void;
-  onClaimRefundClick?: () => void;
   onClaimEarningsClick?: () => void;
   onClaimSettlementClick?: () => void;
   onListTokensClick?: (amount: string) => void;
-  onFinalizeListingClick?: () => void;
   onEndListingClick?: () => void;
-  onCancelListingClick?: () => void;
   onDistributeEarningsClick?: () => void;
   onSettleAssetClick?: () => void;
 }
@@ -91,14 +85,10 @@ export function MarketAssetCard({
   hasUserBoughtListing = false,
   tokenTotalSoldAmount,
   onBuyClick,
-  onClaimTokensClick,
-  onClaimRefundClick,
   onClaimEarningsClick,
   onClaimSettlementClick,
   onListTokensClick,
-  onFinalizeListingClick,
   onEndListingClick,
-  onCancelListingClick,
   onDistributeEarningsClick,
   onSettleAssetClick,
 }: MarketAssetCardProps) {
@@ -109,19 +99,6 @@ export function MarketAssetCard({
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const chainNowSec = latestBlock?.timestamp ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
 
-  // Read user's escrowed token balance (marketplace)
-  const { data: escrowedTokens } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "buyerTokens",
-    args: [BigInt(listing.id), address],
-  });
-
-  // Read user's pending refund (marketplace)
-  const { data: pendingRefund } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "buyerPayments",
-    args: [BigInt(listing.id), address],
-  });
   const { data: primaryTokenEscrow } = useScaffoldReadContract({
     contractName: "Marketplace",
     functionName: "tokenEscrow",
@@ -152,13 +129,11 @@ export function MarketAssetCard({
   const benchmarkYieldBP = protocolConfig?.[1];
   const depreciationRateBP = protocolConfig?.[4];
 
-  const canClaimTokens = (escrowedTokens || 0n) > 0n && listing.isEnded && !listing.isCancelled;
-  const canClaimRefund = (pendingRefund || 0n) > 0n && listing.isCancelled;
   const hasAvailableTokens = BigInt(listing.amount) > 0n;
   const hasEarnings = Boolean(earnings && (earnings.distributionCount !== "0" || earnings.totalEarnings !== "0"));
   const canClaimEarnings = (previewClaimAmount || 0n) > 0n;
-  const canClaimEarningsOnThisListing = canClaimEarnings && hasUserBoughtListing && !listing.isCancelled;
-  const hasHoldings = (walletTokenBalance || 0n) > 0n || (escrowedTokens || 0n) > 0n;
+  const canClaimEarningsOnThisListing = canClaimEarnings && hasUserBoughtListing;
+  const hasHoldings = (walletTokenBalance || 0n) > 0n;
   const isAssetSettled = Number(assetStatus ?? -1) === 3 || Number(assetStatus ?? -1) === 4;
   const canClaimSettlement = hasHoldings && isAssetSettled;
   const listingSoldAmount = useMemo(() => {
@@ -172,16 +147,14 @@ export function MarketAssetCard({
 
   const soldSupplyForAllocation = useMemo(() => {
     if (tokenTotalSoldAmount && tokenTotalSoldAmount !== "0") return BigInt(tokenTotalSoldAmount);
-    if (token?.soldSupply && token.soldSupply !== "0") return BigInt(token.soldSupply);
     return listingSoldAmount;
-  }, [tokenTotalSoldAmount, token?.soldSupply, listingSoldAmount]);
+  }, [tokenTotalSoldAmount, listingSoldAmount]);
 
   const listingActualEarnings = useMemo(() => {
-    if (listing.isCancelled) return 0n;
     if (!earnings || earnings.totalEarnings === "0") return 0n;
     if (listingSoldAmount <= 0n || soldSupplyForAllocation <= 0n) return 0n;
     return (BigInt(earnings.totalEarnings) * listingSoldAmount) / soldSupplyForAllocation;
-  }, [earnings, listing.isCancelled, listingSoldAmount, soldSupplyForAllocation]);
+  }, [earnings, listingSoldAmount, soldSupplyForAllocation]);
 
   // Calculate display values
   const displayName = useMemo(() => {
@@ -253,16 +226,9 @@ export function MarketAssetCard({
     if (bpPrecision === undefined || benchmarkYieldBP === undefined || depreciationRateBP === undefined) {
       return { perYear: "—", atMaturity: "—" };
     }
-    if (listing.isCancelled) {
-      return { perYear: "0.00", atMaturity: "0.00" };
-    }
-
     const tokenPrice = BigInt(token.price);
-    const listingAmountForProjection = listing.isCancelled
-      ? 0n
-      : listing.isEnded || !hasAvailableTokens
-        ? listingSoldAmount
-        : BigInt(listing.amount);
+    const listingAmountForProjection =
+      listing.isEnded || !hasAvailableTokens ? listingSoldAmount : BigInt(listing.amount);
     const totalValue = tokenPrice * listingAmountForProjection; // listing-specific value basis for projections
     if (totalValue === 0n) {
       return { perYear: "0.00", atMaturity: "0.00" };
@@ -316,7 +282,6 @@ export function MarketAssetCard({
     benchmarkYieldBP,
     depreciationRateBP,
     listing.amount,
-    listing.isCancelled,
     listing.isEnded,
     hasAvailableTokens,
     listingSoldAmount,
@@ -362,25 +327,24 @@ export function MarketAssetCard({
         ? Number(token.supply) - availableNum
         : 0;
 
-    const displayAvailableNum = listing.isCancelled || listing.isEnded ? 0 : availableNum;
-    const soldNum = listing.isCancelled ? 0 : historicalSoldNum;
-    const totalNum = listing.isCancelled || listing.isEnded ? availableNum + historicalSoldNum : availableNum + soldNum;
-    const soldPercentage = listing.isCancelled ? 0 : totalNum > 0 ? Math.round((soldNum / totalNum) * 100) : 0;
+    const displayAvailableNum = listing.isEnded ? 0 : availableNum;
+    const soldNum = historicalSoldNum;
+    const totalNum = listing.isEnded ? availableNum + historicalSoldNum : availableNum + soldNum;
+    const soldPercentage = totalNum > 0 ? Math.round((soldNum / totalNum) * 100) : 0;
     return {
       available: formatCompact(displayAvailableNum),
       total: formatCompact(totalNum),
       soldPercentage,
     };
-  }, [listing.amount, listing.amountSold, listing.isCancelled, listing.isEnded, token]);
+  }, [listing.amount, listing.amountSold, listing.isEnded, token]);
 
   // Check statuses
   const isExpired = useMemo(() => {
     return Number(listing.expiresAt) * 1000 < Date.now();
   }, [listing.expiresAt]);
 
-  const isCancelled = listing.isCancelled;
   const isEnded = listing.isEnded;
-  const isInactive = isCancelled || isEnded || isExpired;
+  const isInactive = isEnded || isExpired;
   const isTokenMatured = token ? Number(token.maturityDate) <= chainNowSec : false;
   const soldOutDurationLabel = useMemo(() => {
     if (hasAvailableTokens) return null;
@@ -393,15 +357,14 @@ export function MarketAssetCard({
     const durationSec = Math.max(0, Math.floor(soldOutAt - createdAt));
     return `Sold Out In ${formatDuration(durationSec)}`;
   }, [hasAvailableTokens, listing.createdAt, listing.soldOutAt]);
-  const isNewlyListed =
-    hasAvailableTokens && !isCancelled && !isEnded && (!earnings || earnings.distributionCount === "0");
+  const isNewlyListed = hasAvailableTokens && !isEnded && (!earnings || earnings.distributionCount === "0");
   const isSellerOfListing = Boolean(address && listing.seller.toLowerCase() === address.toLowerCase());
   const isSecondaryListing = listing.isPrimary === false;
   const showSecondaryListingBadge = isSecondaryListing && !isInactive;
   // Primary sellers should not list wallet tokens; only secondary sellers can.
   const canListWalletTokens = !hasUserPrimaryListingForTokenId;
   // For primary sellers, relistable inventory is pooled in Marketplace tokenEscrow(tokenId),
-  // not per-listing amount (ended/cancelled listings can both return supply into the same pool).
+  // not per-listing amount.
   const primarySellerInactiveEscrowAmount =
     isSellerOfListing && !isSecondaryListing && isInactive ? primaryTokenEscrow || 0n : 0n;
   const walletListableAmount = canListWalletTokens ? walletTokenBalance || 0n : 0n;
@@ -410,7 +373,7 @@ export function MarketAssetCard({
   const canListTokens = listableTokensAmount > 0n;
 
   const registry = ASSET_REGISTRIES[assetType];
-  const showInvestedBadge = !isCancelled && !isSellerOfListing && ((escrowedTokens || 0n) > 0n || hasUserBoughtListing);
+  const showInvestedBadge = !isSellerOfListing && ((walletTokenBalance || 0n) > 0n || hasUserBoughtListing);
   const actionState = useMemo(() => {
     type CandidateAction = { label: string; onClick?: () => void; className?: string };
 
@@ -434,7 +397,6 @@ export function MarketAssetCard({
 
     const resolvePrimaryClass = (action: CandidateAction): string => {
       if (action.label === "Settle Asset") return isTokenMatured ? primaryGhostClass : "btn-error";
-      if (action.label === "Cancel Listing" || action.label === "Claim Refund") return "btn-error";
       if (action.label === "Claim Settlement") return successGhostClass;
       if (
         action.label === "Distribute Earnings" ||
@@ -454,7 +416,7 @@ export function MarketAssetCard({
       return action.className || "btn-primary";
     };
 
-    if (isSellerOfListing && !isSecondaryListing && !isCancelled && !isAssetSettled) {
+    if (isSellerOfListing && !isSecondaryListing && !isAssetSettled) {
       if (isTokenMatured && onSettleAssetClick) {
         primarySellerLifecycleActions.push({
           label: "Settle Asset",
@@ -478,17 +440,7 @@ export function MarketAssetCard({
 
     if (canManageOwnListing) {
       if (isSecondaryListing) {
-        if (onFinalizeListingClick) {
-          sellerManagementActions.push({ label: "Finalize Listing", onClick: onFinalizeListingClick });
-        }
         if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
-        if (onCancelListingClick) {
-          sellerManagementActions.push({
-            label: "Cancel Listing",
-            onClick: onCancelListingClick,
-            className: "text-error",
-          });
-        }
         if (canListTokens) {
           sellerManagementActions.push({
             label: listTokensLabel,
@@ -497,19 +449,10 @@ export function MarketAssetCard({
         }
       } else {
         if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
-        if (onCancelListingClick) {
-          sellerManagementActions.push({
-            label: "Cancel Listing",
-            onClick: onCancelListingClick,
-            className: "text-error",
-          });
-        }
       }
     }
 
-    if (canClaimRefund) {
-      pushAction({ label: "Claim Refund", onClick: onClaimRefundClick });
-    } else if (canRelistInactiveOwnPrimaryListing) {
+    if (canRelistInactiveOwnPrimaryListing) {
       pushAction({
         label: listTokensLabel,
         onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
@@ -519,14 +462,6 @@ export function MarketAssetCard({
       primarySellerLifecycleActions.forEach(pushAction);
     } else if (sellerManagementActions.length > 0) {
       sellerManagementActions.forEach(pushAction);
-    } else if (canClaimTokens) {
-      pushAction({ label: "Claim Tokens", onClick: onClaimTokensClick });
-      if (hasClaimedTokens) {
-        pushAction({
-          label: listTokensLabel,
-          onClick: () => onListTokensClick?.((walletTokenBalance || 0n).toString()),
-        });
-      }
     } else if (canClaimEarningsOnThisListing) {
       pushAction({ label: "Claim Earnings", onClick: onClaimEarningsClick });
       if (canClaimSettlement) {
@@ -572,13 +507,11 @@ export function MarketAssetCard({
     const defaultLabel =
       !isSellerOfListing && !isInactive && !hasAvailableTokens
         ? soldOutDurationLabel || "Sold Out"
-        : isCancelled
-          ? "Cancelled"
-          : isEnded
-            ? "Ended"
-            : isExpired
-              ? "Expired"
-              : "Buy Tokens";
+        : isEnded
+          ? "Ended"
+          : isExpired
+            ? "Expired"
+            : "Buy Tokens";
     return {
       primaryLabel: defaultLabel,
       primaryClass: defaultLabel === "Buy Tokens" ? primaryGhostClass : "btn-primary",
@@ -587,8 +520,6 @@ export function MarketAssetCard({
       secondaryActions: [],
     };
   }, [
-    canClaimRefund,
-    canClaimTokens,
     canClaimSettlement,
     canClaimEarningsOnThisListing,
     hasAvailableTokens,
@@ -596,7 +527,6 @@ export function MarketAssetCard({
     hasUserActiveListingForTokenId,
     listingSoldAmount,
     isTokenMatured,
-    isCancelled,
     isEnded,
     isExpired,
     isInactive,
@@ -606,14 +536,10 @@ export function MarketAssetCard({
     listableTokensAmount,
     canListTokens,
     onBuyClick,
-    onCancelListingClick,
     onDistributeEarningsClick,
     onClaimEarningsClick,
-    onClaimRefundClick,
     onClaimSettlementClick,
-    onClaimTokensClick,
     onEndListingClick,
-    onFinalizeListingClick,
     onListTokensClick,
     onSettleAssetClick,
     walletTokenBalance,
@@ -700,11 +626,9 @@ export function MarketAssetCard({
                   {showInvestedBadge && <span className="badge badge-xs badge-primary">💼 Invested</span>}
                   {isNewlyListed && <span className="badge badge-xs badge-success">✨ New</span>}
                   {showSecondaryListingBadge && <span className="badge badge-xs">🔁 Secondary</span>}
-                  {(isCancelled || isEnded || isExpired) && (
-                    <span
-                      className={`badge badge-xs ${isCancelled ? "badge-error" : isExpired ? "badge-warning" : "badge-neutral"}`}
-                    >
-                      {isCancelled ? "Cancelled" : isExpired ? "Expired" : "Ended"}
+                  {(isEnded || isExpired) && (
+                    <span className={`badge badge-xs ${isExpired ? "badge-warning" : "badge-neutral"}`}>
+                      {isExpired ? "Expired" : "Ended"}
                     </span>
                   )}
                 </div>
@@ -738,7 +662,7 @@ export function MarketAssetCard({
               </div>
               <div className="col-span-2 sm:col-span-4">
                 <progress
-                  className={`progress h-1.5 w-full ${isCancelled ? "progress-error" : "progress-primary"}`}
+                  className="progress h-1.5 w-full progress-primary"
                   value={availableTokensDisplay.soldPercentage}
                   max="100"
                 ></progress>
@@ -820,7 +744,7 @@ export function MarketAssetCard({
     <div
       className={`card h-full bg-base-100 shadow-lg transition-all duration-300 overflow-hidden group ${
         hasAvailableActions ? "hover:shadow-xl" : "opacity-70 saturate-50"
-      } ${isCancelled ? "border border-error/30" : ""} ${
+      } ${
         isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""
       } ${isListMode ? "sm:flex sm:flex-row sm:min-h-[18rem]" : ""}`}
       onClick={handleCardClick}
@@ -873,21 +797,12 @@ export function MarketAssetCard({
         </div>
 
         {/* Status Overlays */}
-        {isCancelled && (
-          <div
-            className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none ${
-              hasAvailableActions ? "bg-error/50" : "bg-error/80"
-            }`}
-          >
-            <span className="badge badge-error badge-lg font-bold shadow-lg">CANCELLED</span>
-          </div>
-        )}
-        {isEnded && !isCancelled && !hasAvailableActions && (
+        {isEnded && !hasAvailableActions && (
           <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center z-10">
             <span className="badge badge-neutral badge-lg font-bold shadow-lg">SALE ENDED</span>
           </div>
         )}
-        {isExpired && !isEnded && !isCancelled && !hasAvailableActions && (
+        {isExpired && !isEnded && !hasAvailableActions && (
           <div className="absolute inset-0 bg-warning/80 flex items-center justify-center z-10">
             <span className="badge badge-warning badge-lg font-bold shadow-lg">EXPIRED</span>
           </div>
@@ -933,7 +848,7 @@ export function MarketAssetCard({
             <span className="font-semibold">{availableTokensDisplay.soldPercentage}%</span>
           </div>
           <progress
-            className={`progress w-full h-2 ${isCancelled ? "progress-error" : "progress-primary"}`}
+            className="progress w-full h-2 progress-primary"
             value={availableTokensDisplay.soldPercentage}
             max="100"
           ></progress>

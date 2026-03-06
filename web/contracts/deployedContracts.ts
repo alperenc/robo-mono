@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -676,25 +676,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getSoldSupply",
-          inputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "getTargetYieldBP",
           inputs: [
             {
@@ -861,24 +842,6 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "increaseSoldSupply",
-          inputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -1486,31 +1449,6 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "SoldSupplyUpdated",
-          inputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "oldSupply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "newSupply",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
           name: "TransferBatch",
           inputs: [
             {
@@ -1828,7 +1766,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1901,7 +1839,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2551,7 +2489,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -2666,21 +2604,25 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "burnRevenueTokensFromEscrow",
+          name: "burnRevenueTokensFromHolderForPrimaryRedemption",
           inputs: [
             {
-              name: "revenueTokenId",
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
-          ],
-          outputs: [
             {
               name: "amount",
               type: "uint256",
               internalType: "uint256",
             },
           ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -2748,61 +2690,57 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "clearTokenEscrow",
+          name: "createRevenueTokenPool",
           inputs: [
             {
               name: "assetId",
               type: "uint256",
               internalType: "uint256",
             },
-          ],
-          outputs: [
             {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "createListingFor",
-          inputs: [
-            {
-              name: "seller",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "tokenId",
+              name: "tokenPrice",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "amount",
+              name: "maturityDate",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "pricePerToken",
+              name: "revenueShareBP",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "duration",
+              name: "targetYieldBP",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "buyerPaysFee",
+              name: "maxSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
               type: "bool",
               internalType: "bool",
             },
           ],
           outputs: [
             {
-              name: "listingId",
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
@@ -2811,20 +2749,66 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "creditTokenEscrow",
+          name: "createRevenueTokenPoolFor",
           inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
             {
               name: "assetId",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "amount",
+              name: "tokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maturityDate",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueShareBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "targetYieldBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maxSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
           ],
-          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -3140,125 +3124,25 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "mintRevenueTokensAndList",
+          name: "mintRevenueTokensToBuyerFromPrimaryPool",
           inputs: [
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "mintRevenueTokensAndListFor",
-          inputs: [
-            {
-              name: "partner",
+              name: "buyer",
               type: "address",
               internalType: "address",
             },
             {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
               name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
+              name: "amount",
               type: "uint256",
               internalType: "uint256",
             },
           ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -3270,6 +3154,40 @@ const deployedContracts = {
               name: "",
               type: "address",
               internalType: "contract PartnerManager",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewCreateRevenueTokenPool",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "tokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           stateMutability: "view",
@@ -3300,41 +3218,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "previewMintRevenueTokens",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "processSettlementClaim",
+          name: "processSettlementClaimFor",
           inputs: [
             {
               name: "recipient",
@@ -3376,24 +3260,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "recordSoldSupply",
-          inputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "soldAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
           name: "registerAsset",
           inputs: [
             {
@@ -3418,7 +3284,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "registerAssetMintAndList",
+          name: "registerAssetAndCreateRevenueTokenPool",
           inputs: [
             {
               name: "",
@@ -3460,13 +3326,13 @@ const deployedContracts = {
               type: "bool",
               internalType: "bool",
             },
-          ],
-          outputs: [
             {
               name: "",
-              type: "uint256",
-              internalType: "uint256",
+              type: "bool",
+              internalType: "bool",
             },
+          ],
+          outputs: [
             {
               name: "",
               type: "uint256",
@@ -3965,7 +3831,7 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "RevenueTokensMinted",
+          name: "RevenueTokenPoolCreated",
           inputs: [
             {
               name: "assetId",
@@ -4289,11 +4155,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "InvalidAssetId",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InvalidInitialization",
           inputs: [],
         },
@@ -4387,7 +4248,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -4539,6 +4400,65 @@ const deployedContracts = {
             },
             {
               name: "earningsClaimed",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "createRevenueTokenPool",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "tokenPrice",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maturityDate",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "revenueShareBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "targetYieldBP",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maxSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "supply",
               type: "uint256",
               internalType: "uint256",
             },
@@ -4822,65 +4742,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "mintRevenueTokensAndList",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "tokenPrice",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "maturityDate",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "revenueShareBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "targetYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingDuration",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "buyerPaysFee",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "revenueTokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
           name: "partnerManager",
           inputs: [],
           outputs: [
@@ -4894,7 +4755,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "previewMintRevenueTokens",
+          name: "previewCreateRevenueTokenPool",
           inputs: [
             {
               name: "assetId",
@@ -4965,7 +4826,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "registerAssetMintAndList",
+          name: "registerAssetAndCreateRevenueTokenPool",
           inputs: [
             {
               name: "data",
@@ -4998,12 +4859,17 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "listingDuration",
+              name: "maxSupply",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "buyerPaysFee",
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
               type: "bool",
               internalType: "bool",
             },
@@ -5021,11 +4887,6 @@ const deployedContracts = {
             },
             {
               name: "supply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "listingId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6008,7 +5869,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6283,7 +6144,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "creditBaseEscrow",
+          name: "creditBaseLiquidity",
           inputs: [
             {
               name: "assetId",
@@ -6354,20 +6215,10 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "fundBuffersFor",
+          name: "fundBuffers",
           inputs: [
             {
-              name: "partner",
-              type: "address",
-              internalType: "address",
-            },
-            {
               name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "baseAmount",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6453,35 +6304,31 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getMarketProjectionConstants",
-          inputs: [],
-          outputs: [
-            {
-              name: "benchmarkYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "depreciationRateBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "bpPrecision",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
           name: "getPendingWithdrawal",
           inputs: [
             {
               name: "account",
               type: "address",
               internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPrimaryInvestorLiquidity",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           outputs: [
@@ -6568,6 +6415,11 @@ const deployedContracts = {
               name: "yieldBP",
               type: "uint256",
               internalType: "uint256",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           outputs: [
@@ -6836,6 +6688,35 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "previewPrimaryRedemptionPayout",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "burnAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "circulatingSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "payout",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "previewSettlementClaim",
           inputs: [
             {
@@ -6860,7 +6741,100 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "processSettlementClaim",
+          name: "processPrimaryPoolPurchaseFor",
+          inputs: [
+            {
+              name: "buyer",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "grossPrincipal",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "partnerProceeds",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "processPrimaryRedemptionFor",
+          inputs: [
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "burnAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "circulatingSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "minPayout",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "payout",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "processSettlementClaimFor",
           inputs: [
             {
               name: "recipient",
@@ -7260,7 +7234,7 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "BaseEscrowCredited",
+          name: "BaseLiquidityCredited",
           inputs: [
             {
               name: "assetId",
@@ -7906,6 +7880,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InsufficientPrimaryLiquidity",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InsufficientTokenBalance",
           inputs: [],
         },
@@ -7927,6 +7906,11 @@ const deployedContracts = {
         {
           type: "error",
           name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidRevenueTokenId",
           inputs: [],
         },
         {
@@ -8007,17 +7991,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "SafeCastOverflowedIntToUint",
-          inputs: [
-            {
-              name: "value",
-              type: "int256",
-              internalType: "int256",
-            },
-          ],
-        },
-        {
-          type: "error",
           name: "SafeCastOverflowedUintToInt",
           inputs: [
             {
@@ -8037,6 +8010,11 @@ const deployedContracts = {
               internalType: "address",
             },
           ],
+        },
+        {
+          type: "error",
+          name: "SlippageExceeded",
+          inputs: [],
         },
         {
           type: "error",
@@ -8077,7 +8055,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -8161,55 +8139,25 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "buyerPayments",
+          name: "buyFromPrimaryPool",
           inputs: [
             {
-              name: "",
+              name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
+              name: "amount",
               type: "uint256",
               internalType: "uint256",
             },
           ],
-          stateMutability: "view",
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
-          name: "buyerTokens",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "calculatePurchaseCost",
+          name: "buyFromSecondaryListing",
           inputs: [
             {
               name: "listingId",
@@ -8222,67 +8170,12 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          outputs: [
-            {
-              name: "totalCost",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "protocolFee",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "expectedPayment",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "cancelListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
           outputs: [],
           stateMutability: "nonpayable",
         },
         {
           type: "function",
-          name: "claimRefund",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "claimTokens",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "clearTokenEscrow",
+          name: "closePrimaryPool",
           inputs: [
             {
               name: "tokenId",
@@ -8290,13 +8183,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          outputs: [
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -8340,20 +8227,10 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "createListingFor",
+          name: "createPrimaryPool",
           inputs: [
             {
-              name: "seller",
-              type: "address",
-              internalType: "address",
-            },
-            {
               name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
               type: "uint256",
               internalType: "uint256",
             },
@@ -8363,38 +8240,57 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "duration",
+              name: "maxSupply",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "buyerPaysFee",
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
               type: "bool",
               internalType: "bool",
             },
           ],
-          outputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
           type: "function",
-          name: "creditTokenEscrow",
+          name: "createPrimaryPoolFor",
           inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
             {
               name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "amount",
+              name: "pricePerToken",
               type: "uint256",
               internalType: "uint256",
+            },
+            {
+              name: "maxSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           outputs: [],
@@ -8429,25 +8325,6 @@ const deployedContracts = {
             },
           ],
           outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "finalizeListing",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "withdrawn",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
           stateMutability: "nonpayable",
         },
         {
@@ -8496,7 +8373,7 @@ const deployedContracts = {
             {
               name: "",
               type: "tuple",
-              internalType: "struct IMarketplace.Listing",
+              internalType: "struct Marketplace.Listing",
               components: [
                 {
                   name: "listingId",
@@ -8539,11 +8416,6 @@ const deployedContracts = {
                   internalType: "bool",
                 },
                 {
-                  name: "isCancelled",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
                   name: "createdAt",
                   type: "uint256",
                   internalType: "uint256",
@@ -8564,6 +8436,101 @@ const deployedContracts = {
                   internalType: "bool",
                 },
               ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPrimaryPool",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              internalType: "struct Marketplace.PrimaryPool",
+              components: [
+                {
+                  name: "tokenId",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "partner",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "pricePerToken",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "maxSupply",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "immediateProceeds",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "protectionEnabled",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "isPaused",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "isClosed",
+                  type: "bool",
+                  internalType: "bool",
+                },
+                {
+                  name: "createdAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "pausedAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+                {
+                  name: "closedAt",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPrimaryPoolProtectionEnabled",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           stateMutability: "view",
@@ -8669,7 +8636,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "isAssetEligibleForListing",
+          name: "isAssetMarketOperational",
           inputs: [
             {
               name: "assetId",
@@ -8688,10 +8655,10 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "listingProceeds",
+          name: "isPrimaryPoolActive",
           inputs: [
             {
-              name: "",
+              name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -8699,27 +8666,8 @@ const deployedContracts = {
           outputs: [
             {
               name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "listingProtocolFees",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           stateMutability: "view",
@@ -8772,11 +8720,6 @@ const deployedContracts = {
             },
             {
               name: "isActive",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "isCancelled",
               type: "bool",
               internalType: "bool",
             },
@@ -8896,6 +8839,243 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "pausePrimaryPool",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "previewPrimaryPoolBufferRequirements",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "baseAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "protocolBuffer",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protectionBuffer",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalBuffer",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewPrimaryPurchase",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "totalCost",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "partnerProceeds",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewPrimaryRedemption",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "payout",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "investorLiquidity",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "circulatingSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewSecondaryPurchase",
+          inputs: [
+            {
+              name: "listingId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "totalCost",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "expectedPayment",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "primaryPoolCreated",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "primaryPools",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "maxSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "isPaused",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "isClosed",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "createdAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "pausedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "closedAt",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "proxiableUUID",
           inputs: [],
           outputs: [
@@ -8909,10 +9089,10 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "purchaseTokens",
+          name: "redeemPrimaryPool",
           inputs: [
             {
-              name: "listingId",
+              name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -8921,8 +9101,19 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "minPayout",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
-          outputs: [],
+          outputs: [
+            {
+              name: "payout",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           stateMutability: "nonpayable",
         },
         {
@@ -9040,6 +9231,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "unpausePrimaryPool",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "updatePartnerManager",
           inputs: [
             {
@@ -9149,25 +9353,6 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "ListingCancelled",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
           name: "ListingCreated",
           inputs: [
             {
@@ -9267,37 +9452,6 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "ListingSettled",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "sellerProceeds",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-            {
-              name: "protocolFees",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
           name: "PartnerManagerUpdated",
           inputs: [
             {
@@ -9317,18 +9471,12 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "ProtocolFeeRecorded",
+          name: "PrimaryPoolClosed",
           inputs: [
             {
-              name: "listingId",
+              name: "tokenId",
               type: "uint256",
               indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
               internalType: "uint256",
             },
           ],
@@ -9336,10 +9484,66 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "RefundClaimed",
+          name: "PrimaryPoolCreated",
           inputs: [
             {
-              name: "listingId",
+              name: "tokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "pricePerToken",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "maxSupply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PrimaryPoolPaused",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PrimaryPoolPurchased",
+          inputs: [
+            {
+              name: "tokenId",
               type: "uint256",
               indexed: true,
               internalType: "uint256",
@@ -9354,6 +9558,74 @@ const deployedContracts = {
               name: "amount",
               type: "uint256",
               indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "totalCost",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFee",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "partnerProceeds",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PrimaryPoolRedeemed",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amountBurned",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "payout",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "investorLiquidityAfter",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "PrimaryPoolUnpaused",
+          inputs: [
+            {
+              name: "tokenId",
+              type: "uint256",
+              indexed: true,
               internalType: "uint256",
             },
           ],
@@ -9517,56 +9789,6 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "SalesProceedsRecorded",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "seller",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "TokensClaimed",
-          inputs: [
-            {
-              name: "listingId",
-              type: "uint256",
-              indexed: true,
-              internalType: "uint256",
-            },
-            {
-              name: "buyer",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
           name: "TreasuryUpdated",
           inputs: [
             {
@@ -9655,7 +9877,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "AssetNotEligibleForListing",
+          name: "AssetNotMarketOperational",
           inputs: [],
         },
         {
@@ -9711,6 +9933,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidMaxSupply",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidPrice",
           inputs: [],
         },
@@ -9737,22 +9964,7 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "ListingIsCancelled",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "ListingNotActive",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingNotCancelled",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "ListingNotEnded",
           inputs: [],
         },
         {
@@ -9767,21 +9979,6 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "NoCollateralLocked",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NoRefundToClaim",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "NoTokensToClaim",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "NotInitializing",
           inputs: [],
         },
@@ -9792,7 +9989,32 @@ const deployedContracts = {
         },
         {
           type: "error",
-          name: "PrimaryListingRequiresBuyerPaysFee",
+          name: "NotPoolPartner",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PrimaryPoolAlreadyClosed",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PrimaryPoolAlreadyCreated",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PrimaryPoolNotActive",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PrimaryPoolNotFound",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "PrimaryRedemptionNotAllowed",
           inputs: [],
         },
         {
@@ -9845,7 +10067,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1771794605679.json",
+      deploymentFile: "run-1772548964502.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

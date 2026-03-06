@@ -50,13 +50,6 @@ export const DistributeEarningsModal = ({
     watch: true,
   });
 
-  const { data: soldSupply } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "getSoldSupply",
-    args: [revenueTokenId],
-    watch: true,
-  });
-
   // Get partner's balance of revenue tokens
   const { data: partnerBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
@@ -112,8 +105,7 @@ export const DistributeEarningsModal = ({
 
     const partnerTokens = partnerBalance || 0n;
     const escrowTokens = escrowedTokens || 0n;
-    const soldTokens = soldSupply || 0n;
-    const externalTokens = soldTokens > partnerTokens ? soldTokens - partnerTokens : 0n;
+    const externalTokens = totalSupply > partnerTokens ? totalSupply - partnerTokens : 0n;
     const externalPercentage = Number((externalTokens * 10000n) / totalSupply) / 100;
     const partnerPercentage = Number((partnerTokens * 10000n) / totalSupply) / 100;
     const escrowPercentage = Number((escrowTokens * 10000n) / totalSupply) / 100;
@@ -123,12 +115,11 @@ export const DistributeEarningsModal = ({
       partnerTokens,
       externalTokens,
       escrowTokens,
-      soldTokens,
       partnerPercentage,
       externalPercentage,
       escrowPercentage,
     };
-  }, [totalSupply, partnerBalance, escrowedTokens, soldSupply]);
+  }, [totalSupply, partnerBalance, escrowedTokens]);
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {

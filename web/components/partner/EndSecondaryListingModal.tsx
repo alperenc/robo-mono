@@ -10,7 +10,7 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { getParsedError } from "~~/utils/scaffold-eth";
 
-interface EndListingModalProps {
+interface EndSecondaryListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -22,7 +22,7 @@ interface EndListingModalProps {
   isPrimary?: boolean;
 }
 
-export const EndListingModal = ({
+export const EndSecondaryListingModal = ({
   isOpen,
   onClose,
   onSuccess,
@@ -32,7 +32,7 @@ export const EndListingModal = ({
   amountSold,
   pricePerToken,
   isPrimary,
-}: EndListingModalProps) => {
+}: EndSecondaryListingModalProps) => {
   const { address } = useAccount();
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const {
@@ -77,13 +77,6 @@ export const EndListingModal = ({
     query: { enabled: isOpen && resolvedTokenId > 0n },
   });
 
-  const { data: targetYieldBP } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "getTargetYieldBP",
-    args: [resolvedTokenId],
-    query: { enabled: isOpen && resolvedTokenId > 0n },
-  });
-
   const { data: assetId } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "getAssetIdFromTokenId",
@@ -119,14 +112,15 @@ export const EndListingModal = ({
   const effectivePrice = listingPricePerToken > 0n ? listingPricePerToken : (tokenPrice as bigint) || 0n;
   const baseAmount = derivedSoldAmount * effectivePrice;
 
-  const { data: totalBufferRequirement } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getTotalBufferRequirement",
-    args: [baseAmount, (targetYieldBP as bigint) ?? 0n],
-    query: { enabled: isOpen && isPrimaryListing && baseAmount > 0n && targetYieldBP !== undefined },
+  const { data: bufferPreview } = useScaffoldReadContract({
+    contractName: "Marketplace",
+    functionName: "previewPrimaryPoolBufferRequirements",
+    args: [resolvedTokenId, baseAmount],
+    query: { enabled: isOpen && isPrimaryListing && resolvedTokenId > 0n && baseAmount > 0n },
   });
 
-  const bufferRequirement = isPrimaryListing ? ((totalBufferRequirement as bigint | undefined) ?? 0n) : 0n;
+  const bufferRequirement =
+    isPrimaryListing && Array.isArray(bufferPreview) ? ((bufferPreview[2] as bigint | undefined) ?? 0n) : 0n;
   const formattedBufferRequirement = formatTokenAmount(bufferRequirement, paymentTokenDecimals);
   const formattedBaseAmount = formatTokenAmount(baseAmount, paymentTokenDecimals);
 
@@ -205,9 +199,8 @@ export const EndListingModal = ({
             )}
             {/* Confirmation Text */}
             <p className="text-sm opacity-70">
-              {isPrimaryListing === false
-                ? "Are you sure you want to end this listing? Proceeds will be settled to the Treasury for withdrawal. Use \u201cFinalize Listing\u201d to withdraw immediately."
-                : "Are you sure you want to end this listing? Proceeds will be held in escrow and released over time with earnings distributions."}
+              Are you sure you want to end this listing? Existing purchases stay settled and any unsold tokens will be
+              returned based on the listing state below.
             </p>
 
             {/* Unsold tokens note */}
@@ -222,8 +215,8 @@ export const EndListingModal = ({
                     </>
                   ) : (
                     <>
-                      <span className="font-bold">{formattedTokenAmount}</span> unsold tokens will remain in marketplace
-                      escrow.
+                      <span className="font-bold">{formattedTokenAmount}</span> unsold tokens will be returned according
+                      to the listing flow.
                     </>
                   )}
                 </div>
