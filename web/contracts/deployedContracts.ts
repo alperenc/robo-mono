@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -603,6 +603,63 @@ const deployedContracts = {
               name: "",
               type: "uint256",
               internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRevenueTokenImmediateProceedsEnabled",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRevenueTokenMaxSupply",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getRevenueTokenProtectionEnabled",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           stateMutability: "view",
@@ -1185,6 +1242,11 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
+              name: "maxSupply",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
               name: "maturityDate",
               type: "uint256",
               internalType: "uint256",
@@ -1198,6 +1260,16 @@ const deployedContracts = {
               name: "targetYieldBP",
               type: "uint256",
               internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              internalType: "bool",
             },
           ],
           outputs: [],
@@ -1333,10 +1405,28 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
+              name: "maxSupply",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
               name: "maturityDate",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
+            },
+            {
+              name: "immediateProceeds",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+            {
+              name: "protectionEnabled",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
             },
           ],
           anonymous: false,
@@ -1766,7 +1856,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1839,7 +1929,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2489,7 +2579,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -4155,6 +4245,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InvalidAssetId",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InvalidInitialization",
           inputs: [],
         },
@@ -4248,7 +4343,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5869,7 +5964,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -6019,6 +6114,11 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "coveredBaseCollateral",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           stateMutability: "view",
         },
@@ -6112,25 +6212,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "claimAndWithdrawEarnings",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "withdrawn",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
           name: "claimEarnings",
           inputs: [
             {
@@ -6182,11 +6263,24 @@ const deployedContracts = {
           ],
           outputs: [
             {
-              name: "collateralReleased",
+              name: "",
               type: "uint256",
               internalType: "uint256",
             },
           ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "enableProceeds",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -6215,114 +6309,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "fundBuffers",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "getAssetCollateralInfo",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "tuple",
-              internalType: "struct CollateralLib.CollateralInfo",
-              components: [
-                {
-                  name: "initialBaseCollateral",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "baseCollateral",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "earningsBuffer",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "protocolBuffer",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "totalCollateral",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "isLocked",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
-                  name: "lockedAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "lastEventTimestamp",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "reservedForLiquidation",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "liquidationThreshold",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "createdAt",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-              ],
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getPendingWithdrawal",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "getPrimaryInvestorLiquidity",
           inputs: [
             {
@@ -6342,49 +6328,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getProtocolConfig",
-          inputs: [],
-          outputs: [
-            {
-              name: "bpPrecision",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "benchmarkYieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "protocolFeeBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "earlySalePenaltyBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "depreciationRateBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "minProtocolFee",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "minEarlySalePenalty",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
           name: "getRoleAdmin",
           inputs: [
             {
@@ -6398,53 +6341,6 @@ const deployedContracts = {
               name: "",
               type: "bytes32",
               internalType: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getTotalBufferRequirement",
-          inputs: [
-            {
-              name: "baseAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "yieldBP",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "protectionEnabled",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-        },
-        {
-          type: "function",
-          name: "getTreasuryStats",
-          inputs: [],
-          outputs: [
-            {
-              name: "totalDeposited",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "treasuryBalance",
-              type: "uint256",
-              internalType: "uint256",
             },
           ],
           stateMutability: "view",
@@ -6774,23 +6670,12 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "immediateProceeds",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
               name: "protectionEnabled",
               type: "bool",
               internalType: "bool",
             },
           ],
-          outputs: [
-            {
-              name: "partnerProceeds",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
+          outputs: [],
           stateMutability: "nonpayable",
         },
         {
@@ -6870,25 +6755,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "processWithdrawalFor",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
           name: "proxiableUUID",
           inputs: [],
           outputs: [
@@ -6916,25 +6782,6 @@ const deployedContracts = {
             },
           ],
           outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "releaseAndWithdrawCollateral",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "withdrawn",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
           stateMutability: "nonpayable",
         },
         {
@@ -7406,6 +7253,31 @@ const deployedContracts = {
             },
             {
               name: "period",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "ImmediateProceedsReleased",
+          inputs: [
+            {
+              name: "assetId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "partner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -8055,7 +7927,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -8239,21 +8111,6 @@ const deployedContracts = {
               type: "uint256",
               internalType: "uint256",
             },
-            {
-              name: "maxSupply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "immediateProceeds",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "protectionEnabled",
-              type: "bool",
-              internalType: "bool",
-            },
           ],
           outputs: [],
           stateMutability: "nonpayable",
@@ -8276,21 +8133,6 @@ const deployedContracts = {
               name: "pricePerToken",
               type: "uint256",
               internalType: "uint256",
-            },
-            {
-              name: "maxSupply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "immediateProceeds",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "protectionEnabled",
-              type: "bool",
-              internalType: "bool",
             },
           ],
           outputs: [],
@@ -8430,11 +8272,6 @@ const deployedContracts = {
                   type: "uint256",
                   internalType: "uint256",
                 },
-                {
-                  name: "isPrimary",
-                  type: "bool",
-                  internalType: "bool",
-                },
               ],
             },
           ],
@@ -8472,21 +8309,6 @@ const deployedContracts = {
                   internalType: "uint256",
                 },
                 {
-                  name: "maxSupply",
-                  type: "uint256",
-                  internalType: "uint256",
-                },
-                {
-                  name: "immediateProceeds",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
-                  name: "protectionEnabled",
-                  type: "bool",
-                  internalType: "bool",
-                },
-                {
                   name: "isPaused",
                   type: "bool",
                   internalType: "bool",
@@ -8512,25 +8334,6 @@ const deployedContracts = {
                   internalType: "uint256",
                 },
               ],
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getPrimaryPoolProtectionEnabled",
-          inputs: [
-            {
-              name: "tokenId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
             },
           ],
           stateMutability: "view",
@@ -8737,11 +8540,6 @@ const deployedContracts = {
               name: "earlySalePenalty",
               type: "uint256",
               internalType: "uint256",
-            },
-            {
-              name: "isPrimary",
-              type: "bool",
-              internalType: "bool",
             },
           ],
           stateMutability: "view",
@@ -9030,21 +8828,6 @@ const deployedContracts = {
               name: "pricePerToken",
               type: "uint256",
               internalType: "uint256",
-            },
-            {
-              name: "maxSupply",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "immediateProceeds",
-              type: "bool",
-              internalType: "bool",
-            },
-            {
-              name: "protectionEnabled",
-              type: "bool",
-              internalType: "bool",
             },
             {
               name: "isPaused",
@@ -9399,12 +9182,6 @@ const deployedContracts = {
             },
             {
               name: "buyerPaysFee",
-              type: "bool",
-              indexed: false,
-              internalType: "bool",
-            },
-            {
-              name: "isPrimary",
               type: "bool",
               indexed: false,
               internalType: "bool",
@@ -10067,7 +9844,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772548964502.json",
+      deploymentFile: "run-1772793565233.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

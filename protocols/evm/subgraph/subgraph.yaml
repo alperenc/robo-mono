@@ -45,7 +45,8 @@ dataSources:
         - event: TransferSingle(indexed address,indexed address,indexed
             address,uint256,uint256)
           handler: handleRoboshareTokensTransferSingle
-        - event: RevenueTokenInfoSet(indexed uint256,uint256,uint256,uint256)
+        - event: RevenueTokenInfoSet(indexed
+            uint256,uint256,uint256,uint256,uint256,bool,bool)
           handler: handleRevenueTokenInfoSet
       file: ./src/mapping.ts
   - kind: ethereum/contract
@@ -154,7 +155,7 @@ dataSources:
           file: ./abis/localhost_Marketplace.json
       eventHandlers:
         - event: ListingCreated(indexed uint256,indexed uint256,indexed
-            uint256,address,uint256,uint256,uint256,bool,bool)
+            uint256,address,uint256,uint256,uint256,bool)
           handler: handleListingCreated
         - event: RevenueTokensTraded(indexed uint256,indexed address,indexed
             address,uint256,uint256,uint256)

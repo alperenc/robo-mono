@@ -300,7 +300,6 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
   listing.pricePerToken = event.params.pricePerToken
   listing.expiresAt = event.params.expiresAt
   listing.buyerPaysFee = event.params.buyerPaysFee
-  listing.isPrimary = event.params.isPrimary
   listing.status = "active"
   listing.isEnded = false
   listing.endedAt = null
