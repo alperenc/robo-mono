@@ -237,7 +237,7 @@ contract PartnerManagerTest is BaseTest {
 
     function testFuzzAuthorizePartner(address partner, string calldata name) public {
         vm.assume(partner != address(0));
-        vm.assume(partner != partner1 && partner != partner2); // Avoid collision with existing partners
+        vm.assume(!partnerManager.isAuthorizedPartner(partner));
         vm.assume(bytes(name).length > 0 && bytes(name).length < 100);
 
         vm.prank(partnerAdmin);

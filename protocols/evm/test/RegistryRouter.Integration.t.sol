@@ -267,7 +267,7 @@ contract RegistryRouterIntegrationTest is BaseTest {
         assertEq(pool.tokenId, revenueTokenId);
         assertEq(pool.partner, partner1);
         assertEq(pool.pricePerToken, REVENUE_TOKEN_PRICE);
-        assertEq(pool.maxSupply, tokenSupply);
+        assertEq(roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId), tokenSupply);
     }
 
     function testBurnRevenueTokensFromHolderForPrimaryRedemptionUnauthorizedCaller() public {

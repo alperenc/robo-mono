@@ -15,7 +15,7 @@
   },
   {
     "file": "contracts/Libraries.sol",
-    "line": 816,
+    "line": 827,
     "sourceIncludes": "if (info.earningsBuffer >= shortfallAmount) {",
     "classification": "helper_only",
     "reason": "Direct library branch on injected collateral math state; not a protocol-flow target."
@@ -29,7 +29,7 @@
   },
   {
     "file": "contracts/Marketplace.sol",
-    "line": 463,
+    "line": 487,
     "sourceIncludes": "if (!listing.isActive && !isSoldOut) revert ListingNotActive();",
     "classification": "unreachable_valid_flow",
     "reason": "endListing zeroes remaining amount when deactivating a non-sold-out listing, so inactive non-sold-out state cannot persist under valid flows."
@@ -53,14 +53,14 @@
     "line": 163,
     "sourceIncludes": "if (baseAmount == 0) {",
     "classification": "via_ir_artifact",
-    "reason": "Invalid collateral amount via fundBuffers(assetId) is exercised in tests but not mapped reliably under --ir-minimum."
+    "reason": "Invalid collateral amount via enableProceeds(assetId) is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 213,
+    "line": 194,
     "sourceIncludes": "if (!CollateralLib.isInitialized(collateralInfo)) {",
     "classification": "via_ir_artifact",
-    "reason": "First-time fundBuffersFor initialization path is exercised in tests but not mapped reliably under --ir-minimum."
+    "reason": "First-time enableProceeds initialization path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
@@ -71,24 +71,31 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 272,
+    "line": 296,
     "sourceIncludes": "if (totalCollateralDeposited >= totalReleased) {",
     "classification": "unreachable_valid_flow",
     "reason": "Collateral deposit clamp requires inconsistent accounting state and is not reachable via valid flows."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 358,
-    "sourceIncludes": "if (immediateProceeds && canRelease) {",
+    "line": 368,
+    "sourceIncludes": "if (immediateProceeds) {",
     "classification": "unreachable_valid_flow",
-    "reason": "fundBuffers(assetId) only sizes buffers against current base liquidity, so the post-purchase sufficiency check cannot be satisfied through a valid external flow before this branch executes."
+    "reason": "enableProceeds(assetId) only sizes buffers against current base liquidity, so the post-purchase sufficiency check cannot be satisfied through a valid external flow before this branch executes."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 514,
+    "line": 458,
     "sourceIncludes": "if (isSettled) {",
     "classification": "via_ir_artifact",
     "reason": "Settled snapshot-earnings claim path is exercised in tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 772,
+    "sourceIncludes": "if (releasedAmount == 0) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Immediate-proceeds release only runs after coverage is established or on malformed state; valid external flows do not reach a zero-release call site."
   },
   {
     "file": "contracts/Treasury.sol",
@@ -99,16 +106,30 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 941,
+    "line": 969,
     "sourceIncludes": "if (earningsInfo.lastEventTimestamp == 0) {",
     "classification": "via_ir_artifact",
     "reason": "No-prior-earnings liquidation helper path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 929,
+    "line": 973,
     "sourceIncludes": "if (elapsed == 0) {",
     "classification": "via_ir_artifact",
     "reason": "Zero-elapsed helper branch is not reported reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 1138,
+    "sourceIncludes": "if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {",
+    "classification": "via_ir_artifact",
+    "reason": "Recomputed covered-base clamp is exercised by replenishment preview tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 1141,
+    "sourceIncludes": "if (calc.grossRelease > calc.collateral.totalCollateral) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Release recomputation is bounded by base collateral, so exceeding total collateral requires malformed state."
   }
 ]

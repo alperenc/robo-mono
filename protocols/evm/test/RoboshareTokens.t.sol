@@ -202,7 +202,9 @@ contract RoboshareTokensTest is BaseTest {
         uint256 maturityDate = block.timestamp + 365 days;
 
         vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(tokenId, 100 * 1e6, amount, maturityDate, 10_000, 1_000);
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false
+        );
 
         vm.prank(minter);
         roboshareTokens.mint(user1, tokenId, amount, "");
@@ -241,6 +243,27 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getTargetYieldBP(assetId);
+    }
+
+    function testGetRevenueTokenMaxSupplyNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getRevenueTokenMaxSupply(assetId);
+    }
+
+    function testGetRevenueTokenImmediateProceedsEnabledNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getRevenueTokenImmediateProceedsEnabled(assetId);
+    }
+
+    function testGetRevenueTokenProtectionEnabledNotRevenueToken() public {
+        uint256 assetId = 101; // An odd number, not a revenue token
+
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getRevenueTokenProtectionEnabled(assetId);
     }
 
     function testGetSalesPenaltyAssetOwner() public {
@@ -350,7 +373,9 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.prank(minter);
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.setRevenueTokenInfo(assetId, price, supply, block.timestamp + 365 days, 10_000, 1_000);
+        roboshareTokens.setRevenueTokenInfo(
+            assetId, price, supply, supply, block.timestamp + 365 days, 10_000, 1_000, false, false
+        );
     }
 
     function testSetRevenueTokenInfoAlreadySet() public {
@@ -359,11 +384,15 @@ contract RoboshareTokensTest is BaseTest {
         uint256 supply = 1000;
 
         vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days, 10_000, 1_000);
+        roboshareTokens.setRevenueTokenInfo(
+            revenueTokenId, price, supply, supply, block.timestamp + 365 days, 10_000, 1_000, false, false
+        );
 
         vm.startPrank(minter);
         vm.expectRevert(RoboshareTokens.RevenueTokenInfoAlreadySet.selector);
-        roboshareTokens.setRevenueTokenInfo(revenueTokenId, price, supply, block.timestamp + 365 days, 10_000, 1_000);
+        roboshareTokens.setRevenueTokenInfo(
+            revenueTokenId, price, supply, supply, block.timestamp + 365 days, 10_000, 1_000, false, false
+        );
         vm.stopPrank();
     }
 
@@ -386,7 +415,9 @@ contract RoboshareTokensTest is BaseTest {
         uint256 maturityDate = block.timestamp + 365 days;
 
         vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(tokenId, 100 * 1e6, amount, maturityDate, 10_000, 1_000);
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false
+        );
 
         // Mint tokens to user1 (who does not own the asset)
         vm.prank(minter);

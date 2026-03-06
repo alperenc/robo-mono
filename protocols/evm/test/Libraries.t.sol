@@ -127,6 +127,68 @@ contract CollateralTokenEarningsHelper {
         return (c.baseCollateral, c.earningsBuffer, c.protocolBuffer, c.totalCollateral);
     }
 
+    function collateralDebugView()
+        external
+        view
+        returns (
+            uint256 initialBaseCollateral,
+            uint256 baseCollateral,
+            uint256 earningsBuffer,
+            uint256 protocolBuffer,
+            uint256 totalCollateral,
+            bool isLocked,
+            uint256 lockedAt,
+            uint256 lastEventTimestamp,
+            uint256 reservedForLiquidation,
+            uint256 liquidationThreshold,
+            uint256 createdAt,
+            uint256 coveredBaseCollateral
+        )
+    {
+        return (
+            c.initialBaseCollateral,
+            c.baseCollateral,
+            c.earningsBuffer,
+            c.protocolBuffer,
+            c.totalCollateral,
+            c.isLocked,
+            c.lockedAt,
+            c.lastEventTimestamp,
+            c.reservedForLiquidation,
+            c.liquidationThreshold,
+            c.createdAt,
+            c.coveredBaseCollateral
+        );
+    }
+
+    function setCollateralRaw(
+        uint256 initialBaseCollateral,
+        uint256 baseCollateral,
+        uint256 earningsBuffer,
+        uint256 protocolBuffer,
+        uint256 totalCollateral,
+        bool isLocked,
+        uint256 lockedAt,
+        uint256 lastEventTimestamp,
+        uint256 reservedForLiquidation,
+        uint256 liquidationThreshold,
+        uint256 createdAt,
+        uint256 coveredBaseCollateral
+    ) external {
+        c.initialBaseCollateral = initialBaseCollateral;
+        c.baseCollateral = baseCollateral;
+        c.earningsBuffer = earningsBuffer;
+        c.protocolBuffer = protocolBuffer;
+        c.totalCollateral = totalCollateral;
+        c.isLocked = isLocked;
+        c.lockedAt = lockedAt;
+        c.lastEventTimestamp = lastEventTimestamp;
+        c.reservedForLiquidation = reservedForLiquidation;
+        c.liquidationThreshold = liquidationThreshold;
+        c.createdAt = createdAt;
+        c.coveredBaseCollateral = coveredBaseCollateral;
+    }
+
     function isCollateralInitialized() external view returns (bool) {
         return c.isInitialized();
     }
@@ -179,7 +241,7 @@ contract CollateralTokenEarningsHelper {
     }
 
     function initToken(uint256 tokenId, uint256 price, uint256 minHold, uint256 maturityDate) external {
-        t.initializeTokenInfo(tokenId, price, minHold, maturityDate, 10_000, 1_000);
+        t.initializeTokenInfo(tokenId, price, 1_000_000, minHold, maturityDate, 10_000, 1_000, false, false);
     }
 
     function tokenInfo() external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256) {
@@ -227,6 +289,37 @@ contract CollateralTokenEarningsHelper {
     function calcRelease() external view returns (uint256) {
         CollateralLib.CollateralInfo memory info = c;
         return CollateralLib.calculateCollateralRelease(info);
+    }
+
+    function previewRelease(
+        bool assumeNewPeriod,
+        bool earningsInitialized,
+        uint256 currentPeriod,
+        uint256 lastProcessedPeriod,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings
+    )
+        external
+        view
+        returns (
+            uint8 status,
+            uint256 newLastProcessedPeriod,
+            uint256 grossRelease,
+            uint256 protocolFee,
+            uint256 partnerRelease
+        )
+    {
+        CollateralLib.ReleaseCalculation memory calc = CollateralLib.calculateReleasePreview(
+            c,
+            assumeNewPeriod,
+            earningsInitialized,
+            currentPeriod,
+            lastProcessedPeriod,
+            realizedEarnings,
+            benchmarkEarnings
+        );
+        return
+            (uint8(calc.status), calc.newLastProcessedPeriod, calc.grossRelease, calc.protocolFee, calc.partnerRelease);
     }
 }
 
@@ -405,6 +498,80 @@ contract LibrariesTest is Test {
         (int256 result, uint256 replenished) = cteh.process(baseEarnings, baseEarnings);
         assertEq(result, 0);
         assertEq(replenished, 0);
+    }
+
+    function testCollateralShortfallCoveredByExistingBuffer() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+
+        (,, uint256 startingBuffer,,,,,, uint256 startingReserved,,,) = cteh.collateralDebugView();
+        uint256 shortfallAmount = startingBuffer / 2;
+
+        (int256 result, uint256 replenished) = cteh.process(0, shortfallAmount);
+        (,, uint256 endingBuffer,,,,,, uint256 endingReserved,,,) = cteh.collateralDebugView();
+
+        // Casting to int256 is safe because shortfallAmount is derived from the current uint256 buffer.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(result, -int256(shortfallAmount));
+        assertEq(replenished, 0);
+        assertEq(endingBuffer, startingBuffer - shortfallAmount);
+        assertEq(endingReserved, startingReserved + shortfallAmount);
+    }
+
+    function testCalculateReleasePreviewReturnsNoCollateralLocked() public {
+        cteh.setCollateralRaw(
+            100e6, 100e6, 10e6, 5e6, 115e6, false, block.timestamp, block.timestamp, 0, 0, block.timestamp, 0
+        );
+
+        (uint8 status, uint256 newLastProcessedPeriod, uint256 grossRelease,,) =
+            cteh.previewRelease(false, false, 0, 0, 0, 0);
+
+        assertEq(status, uint8(CollateralLib.ReleaseEligibility.NoCollateralLocked));
+        assertEq(newLastProcessedPeriod, 0);
+        assertEq(grossRelease, 0);
+    }
+
+    function testCalculateReleasePreviewAssumeNewPeriodCapsToCoveredBaseWithoutEarnings() public {
+        vm.warp(ProtocolLib.YEARLY_INTERVAL + 1 days);
+        uint256 lockedAt = block.timestamp - ProtocolLib.YEARLY_INTERVAL;
+        cteh.setCollateralRaw(
+            100e6, 100e6, 10e6, 5e6, 115e6, true, lockedAt, block.timestamp, 0, 0, block.timestamp, 1e6
+        );
+
+        (
+            uint8 status,
+            uint256 newLastProcessedPeriod,
+            uint256 grossRelease,
+            uint256 protocolFee,
+            uint256 partnerRelease
+        ) = cteh.previewRelease(true, false, 0, 0, 0, 0);
+
+        assertEq(status, uint8(CollateralLib.ReleaseEligibility.Eligible));
+        assertEq(newLastProcessedPeriod, 1);
+        assertEq(grossRelease, 1e6);
+        assertEq(protocolFee, ProtocolLib.MIN_PROTOCOL_FEE);
+        assertEq(partnerRelease, 0);
+    }
+
+    function testCalculateReleasePreviewAssumeNewPeriodCapsToCoveredBaseWithoutNewPeriods() public {
+        vm.warp(ProtocolLib.YEARLY_INTERVAL + 1 days);
+        uint256 lockedAt = block.timestamp - ProtocolLib.YEARLY_INTERVAL;
+        cteh.setCollateralRaw(
+            100e6, 100e6, 10e6, 5e6, 115e6, true, lockedAt, block.timestamp, 0, 0, block.timestamp, 1e6
+        );
+
+        (
+            uint8 status,
+            uint256 newLastProcessedPeriod,
+            uint256 grossRelease,
+            uint256 protocolFee,
+            uint256 partnerRelease
+        ) = cteh.previewRelease(true, true, 1, 1, 0, 0);
+
+        assertEq(status, uint8(CollateralLib.ReleaseEligibility.Eligible));
+        assertEq(newLastProcessedPeriod, 2);
+        assertEq(grossRelease, 1e6);
+        assertEq(protocolFee, ProtocolLib.MIN_PROTOCOL_FEE);
+        assertEq(partnerRelease, 0);
     }
 
     function testBenchmarkHigherBP() public pure {
