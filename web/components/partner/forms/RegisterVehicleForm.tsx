@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { encodeAbiParameters, parseAbiParameters, parseUnits } from "viem";
 import { useAccount } from "wagmi";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { uploadToIpfs } from "~~/utils/ipfs";
+import { calculatePrimaryPoolBuffers } from "~~/utils/primaryPoolBuffers";
 import { notification } from "~~/utils/scaffold-eth";
 
 interface RegisterVehicleFormProps {
@@ -15,7 +16,6 @@ interface RegisterVehicleFormProps {
   onSuccess?: () => void;
   maxStep: 1 | 3;
   onBack: () => void;
-  isPrimaryListing?: boolean;
 }
 
 const STEP_TITLES = {
@@ -24,15 +24,10 @@ const STEP_TITLES = {
   3: "Primary Pool Review",
 };
 
-export const RegisterVehicleForm = ({
-  onClose,
-  onSuccess,
-  maxStep,
-  onBack,
-  isPrimaryListing = true,
-}: RegisterVehicleFormProps) => {
+export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: RegisterVehicleFormProps) => {
   const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAwaitingSignature, setIsAwaitingSignature] = useState(false);
@@ -88,14 +83,9 @@ export const RegisterVehicleForm = ({
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
   const proceedsProfileLabel = formData.immediateProceeds ? "Earlier Proceeds Release" : "Gradual Proceeds Release";
   const protectionLabel = formData.protectionEnabled ? "Enabled" : "Disabled";
-  const bufferRequirementLabel = formData.protectionEnabled ? "Estimated Total Buffer" : "Required Protocol Buffer";
-  const { data: requiredCollateral } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getTotalBufferRequirement",
-    args: [assetValueBigInt, targetYieldBP, formData.protectionEnabled],
-    watch: true,
-    query: { enabled: currentStep >= 2 },
-  });
+  const bufferQuote = calculatePrimaryPoolBuffers(assetValueBigInt, targetYieldBP, formData.protectionEnabled);
+  const displayedBufferLabel = formData.protectionEnabled ? "Required Total Buffer" : "Required Protocol Buffer";
+  const displayedBufferAmount = formData.protectionEnabled ? bufferQuote.totalBuffer : bufferQuote.protocolBuffer;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -485,6 +475,22 @@ export const RegisterVehicleForm = ({
     return true;
   })();
 
+  useLayoutEffect(() => {
+    const modalEl = contentRef.current?.closest(".modal-box") as HTMLDivElement | null;
+    if (modalEl) {
+      modalEl.scrollTop = 0;
+    }
+    const contentEl = contentRef.current;
+    if (!contentEl) return;
+    contentEl.scrollTop = 0;
+    requestAnimationFrame(() => {
+      if (modalEl) {
+        modalEl.scrollTop = 0;
+      }
+      contentEl.scrollTop = 0;
+    });
+  }, [currentStep]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -514,7 +520,7 @@ export const RegisterVehicleForm = ({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-5">
+      <div key={currentStep} ref={contentRef} className="flex-1 overflow-y-auto p-5">
         {showDraftPrompt && (
           <div className="mb-4 rounded-xl border border-base-300 bg-base-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-sm">
@@ -875,14 +881,14 @@ export const RegisterVehicleForm = ({
 
                 <div className="rounded-lg border border-base-300 bg-primary/10 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold uppercase opacity-60">{bufferRequirementLabel}</span>
+                    <span className="text-xs font-bold uppercase opacity-60">{displayedBufferLabel}</span>
                     <span className="text-sm font-semibold text-base-content dark:text-white">
-                      {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
+                      {formatTokenAmount(displayedBufferAmount, decimals)} {symbol}
                     </span>
                   </div>
                   <p className="mt-2 text-xs opacity-75">
                     {formData.protectionEnabled
-                      ? "Includes the required protocol buffer plus optional protection for this pool."
+                      ? "Total buffer includes the required protocol buffer plus the optional protection buffer."
                       : "Includes only the required protocol buffer. Protection can be added on top."}
                   </p>
                 </div>
@@ -922,21 +928,19 @@ export const RegisterVehicleForm = ({
               </div>
             </div>
 
-            {isPrimaryListing && (
-              <div className="bg-primary/10 border border-base-300 rounded-xl p-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs uppercase opacity-60 font-bold">{bufferRequirementLabel}</span>
-                  <span className="font-bold text-base-content dark:text-white">
-                    {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
-                  </span>
-                </div>
-                <p className="text-xs opacity-80 mt-2">
-                  {formData.protectionEnabled
-                    ? "Estimated partner-funded total buffer at full subscription, including optional protection."
-                    : "Required partner-funded protocol buffer at full subscription. Investor principal is not used to fund buffers."}
-                </p>
+            <div className="bg-primary/10 border border-base-300 rounded-xl p-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs uppercase opacity-60 font-bold">{displayedBufferLabel}</span>
+                <span className="font-bold text-base-content dark:text-white">
+                  {formatTokenAmount(displayedBufferAmount, decimals)} {symbol}
+                </span>
               </div>
-            )}
+              <p className="text-xs opacity-80 mt-2">
+                {formData.protectionEnabled
+                  ? "Total buffer includes the protocol buffer plus the optional protection buffer at full subscription."
+                  : "Required partner-funded protocol buffer at full subscription. Investor principal is not used to fund buffers."}
+              </p>
+            </div>
 
             <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
               <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Primary Pool Defaults</h4>
@@ -954,9 +958,7 @@ export const RegisterVehicleForm = ({
 
             <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
               <p className="opacity-80 mt-1 mb-1">
-                {isPrimaryListing
-                  ? "This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen."
-                  : "Secondary listings still require seller-owned tokens and settle immediately on purchase."}
+                This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen.
               </p>
             </div>
           </div>

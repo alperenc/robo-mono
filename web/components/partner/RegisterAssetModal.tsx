@@ -38,7 +38,7 @@ export const RegisterAssetModal = ({ isOpen, onClose, onSuccess, maxStep }: Regi
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
       {/* Mobile: fullscreen | Desktop: constrained centered modal */}
-      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0 overflow-hidden">
         {/* Close Button */}
         <button className="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" onClick={onClose}>
           <XMarkIcon className="h-5 w-5" />
@@ -75,13 +75,7 @@ export const RegisterAssetModal = ({ isOpen, onClose, onSuccess, maxStep }: Regi
           /* Polymorphic Form Rendering - flex-1 to fill modal */
           <div className="flex-1 flex flex-col overflow-hidden">
             {selectedType === AssetType.VEHICLE && (
-              <RegisterVehicleForm
-                onClose={onClose}
-                onSuccess={onSuccess}
-                maxStep={maxStep}
-                onBack={handleBack}
-                isPrimaryListing
-              />
+              <RegisterVehicleForm onClose={onClose} onSuccess={onSuccess} maxStep={maxStep} onBack={handleBack} />
             )}
             {selectedType === AssetType.REAL_ESTATE && (
               <div className="text-center py-10 p-6">

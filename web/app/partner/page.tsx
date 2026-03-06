@@ -49,7 +49,6 @@ interface SubgraphListing {
   amountSold: string;
   pricePerToken: string;
   expiresAt: string;
-  isPrimary: boolean;
   status: string;
   createdAt: string;
 }
@@ -68,7 +67,6 @@ const isSameListings = (a: SubgraphListing[], b: SubgraphListing[]) => {
       left.amountSold !== right.amountSold ||
       left.pricePerToken !== right.pricePerToken ||
       left.expiresAt !== right.expiresAt ||
-      left.isPrimary !== right.isPrimary ||
       left.status !== right.status ||
       left.createdAt !== right.createdAt
     ) {
@@ -110,6 +108,8 @@ interface CategorizedAsset extends DashboardAsset {
   totalSold?: bigint;
   totalClaimed?: bigint;
   partnerTokenBalance?: bigint;
+  pricePerToken?: bigint;
+  maxSupply?: bigint;
   hasPrimaryPool?: boolean;
   immediateProceeds?: boolean;
   protectionEnabled?: boolean;
@@ -246,7 +246,6 @@ const PartnerDashboard: NextPage = () => {
                     amountSold
                     pricePerToken
                     expiresAt
-                    isPrimary
                     status
                     createdAt
                   }
@@ -337,6 +336,26 @@ const PartnerDashboard: NextPage = () => {
   // Cast to break deep type inference
   const supplies = suppliesData as ContractResult<bigint>[] | undefined;
 
+  const { data: tokenPricesData, refetch: refetchTokenPrices } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      ...contractConfig,
+      functionName: "getTokenPrice",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: allAssets.length > 0 },
+  });
+  const tokenPrices = tokenPricesData as ContractResult<bigint>[] | undefined;
+
+  const { data: maxSuppliesData, refetch: refetchMaxSupplies } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      ...contractConfig,
+      functionName: "getRevenueTokenMaxSupply",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: allAssets.length > 0 },
+  });
+  const maxSupplies = maxSuppliesData as ContractResult<bigint>[] | undefined;
+
   const { data: partnerTokenBalancesData, refetch: refetchPartnerTokenBalances } = useReadContracts({
     contracts: connectedAddress
       ? allAssets.map(asset => ({
@@ -423,7 +442,7 @@ const PartnerDashboard: NextPage = () => {
   const { data: collateralInfoData, refetch: refetchCollateralInfo } = useReadContracts({
     contracts: allAssets.map(asset => ({
       ...treasuryConfig,
-      functionName: "getAssetCollateralInfo",
+      functionName: "assetCollateral",
       args: [BigInt(asset.id)],
     })),
     query: { enabled: allAssets.length > 0 },
@@ -449,6 +468,8 @@ const PartnerDashboard: NextPage = () => {
 
   // Store refetch functions in refs to avoid deep type instantiation in useCallback deps
   const refetchSuppliesRef = useRef(refetchSupplies);
+  const refetchTokenPricesRef = useRef(refetchTokenPrices);
+  const refetchMaxSuppliesRef = useRef(refetchMaxSupplies);
   const refetchStatusesRef = useRef(refetchStatuses);
   const refetchMaturityDatesRef = useRef(refetchMaturityDates);
   const refetchPrimaryPoolCreatedRef = useRef(refetchPrimaryPoolCreated);
@@ -458,6 +479,8 @@ const PartnerDashboard: NextPage = () => {
   const refetchPrimaryPoolBufferRequirementsRef = useRef(refetchPrimaryPoolBufferRequirements);
   const refetchPartnerTokenBalancesRef = useRef(refetchPartnerTokenBalances);
   refetchSuppliesRef.current = refetchSupplies;
+  refetchTokenPricesRef.current = refetchTokenPrices;
+  refetchMaxSuppliesRef.current = refetchMaxSupplies;
   refetchStatusesRef.current = refetchStatuses;
   refetchMaturityDatesRef.current = refetchMaturityDates;
   refetchPrimaryPoolCreatedRef.current = refetchPrimaryPoolCreated;
@@ -471,6 +494,8 @@ const PartnerDashboard: NextPage = () => {
   useEffect(() => {
     if (refreshCounter > 0 && allAssets.length > 0) {
       void refetchSuppliesRef.current();
+      void refetchTokenPricesRef.current();
+      void refetchMaxSuppliesRef.current();
       void refetchStatusesRef.current();
       void refetchMaturityDatesRef.current();
       void refetchPrimaryPoolCreatedRef.current();
@@ -494,7 +519,7 @@ const PartnerDashboard: NextPage = () => {
   const { data: pendingWithdrawal, refetch: refetchPending } = useReadContract({
     address: deployedContracts[31337]?.Treasury?.address,
     abi: deployedContracts[31337]?.Treasury?.abi,
-    functionName: "getPendingWithdrawal",
+    functionName: "pendingWithdrawals",
     args: connectedAddress ? [connectedAddress] : undefined,
     query: { enabled: !!connectedAddress },
   });
@@ -519,11 +544,15 @@ const PartnerDashboard: NextPage = () => {
       if (filterType !== "ALL" && filterType !== asset.type) return;
 
       const supply = supplies?.[index]?.result as bigint | undefined;
+      const tokenPrice = tokenPrices?.[index]?.result as bigint | undefined;
+      const revenueTokenMaxSupply = maxSupplies?.[index]?.result as bigint | undefined;
       const partnerTokenBalance = partnerTokenBalances?.[index]?.result as bigint | undefined;
       const status = assetStatuses?.[index]?.result as number | undefined;
       const hasPrimaryPool = (primaryPoolCreated?.[index]?.result as boolean | undefined) ?? false;
       const primaryPoolDetail = primaryPoolDetails?.[index]?.result as
         | {
+            pricePerToken?: bigint;
+            maxSupply?: bigint;
             immediateProceeds?: boolean;
             protectionEnabled?: boolean;
             isPaused?: boolean;
@@ -543,6 +572,8 @@ const PartnerDashboard: NextPage = () => {
         (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
           ? primaryPoolDetail.immediateProceeds
           : primaryPoolDetail?.[4]) ?? false;
+      const maxSupply = revenueTokenMaxSupply ?? 0n;
+      const poolPricePerToken = tokenPrice ?? 0n;
       const protectionEnabled =
         (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
           ? primaryPoolDetail.protectionEnabled
@@ -587,6 +618,8 @@ const PartnerDashboard: NextPage = () => {
         totalSold,
         totalClaimed,
         partnerTokenBalance,
+        pricePerToken: poolPricePerToken,
+        maxSupply,
         hasPrimaryPool,
         immediateProceeds,
         protectionEnabled,
@@ -713,21 +746,32 @@ const PartnerDashboard: NextPage = () => {
     });
     const nonDestructiveActions = visibleSecondaryActions.filter(action => action.tone === undefined);
     const destructiveActions = visibleSecondaryActions.filter(action => action.tone === "danger");
-    const hasSupply =
-      asset.supply !== undefined &&
-      asset.supply !== null &&
-      (typeof asset.supply === "bigint" ? asset.supply > 0n : asset.supply > 0);
+    const circulatingSupply = asset.supply ?? 0n;
+    const hasMaxSupply = (asset.maxSupply ?? 0n) > 0n;
+    const availableSupply =
+      hasMaxSupply && asset.maxSupply! > circulatingSupply ? asset.maxSupply! - circulatingSupply : 0n;
+    const formattedPricePerToken =
+      asset.pricePerToken && asset.pricePerToken > 0n
+        ? `${Number(formatUnits(asset.pricePerToken, decimals)).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })} ${symbol}`
+        : "—";
 
     return (
       <div
-        className={`card bg-base-100 shadow-sm border-l-4 ${borderColor} p-4 sm:p-6 hover:shadow-md transition-shadow h-full`}
+        className={`card bg-base-100 shadow-sm border-l-4 ${borderColor} ${
+          isGrid ? "p-4 sm:p-6" : "p-0"
+        } hover:shadow-md transition-shadow h-full overflow-visible`}
       >
-        <div className={`flex flex-col ${isGrid ? "gap-4" : "sm:flex-row sm:items-center gap-4"}`}>
+        <div className={`flex flex-col ${isGrid ? "gap-4 h-full" : "sm:flex-row sm:items-stretch gap-0"}`}>
           {/* Asset Image */}
           <div
             className={`relative w-full aspect-video ${
-              isGrid ? "sm:aspect-video sm:w-full sm:h-auto" : "sm:w-20 sm:h-20 sm:aspect-auto"
-            } flex-shrink-0 rounded-lg bg-base-200 overflow-hidden`}
+              isGrid
+                ? "sm:aspect-video sm:w-full sm:h-auto rounded-lg"
+                : "sm:basis-56 sm:w-56 sm:min-w-56 sm:max-w-56 sm:self-stretch sm:aspect-auto rounded-none sm:rounded-l-2xl sm:rounded-r-none"
+            } flex-shrink-0 bg-base-200 overflow-hidden`}
           >
             {asset.imageUrl ? (
               <Image src={asset.imageUrl} alt={getAssetDisplayName(asset)} fill className="object-cover" unoptimized />
@@ -739,36 +783,96 @@ const PartnerDashboard: NextPage = () => {
           </div>
 
           {/* Asset Info */}
-          <div className="flex-1 min-w-0">
+          <div className={`flex-1 min-w-0 ${isGrid ? "" : "p-4 sm:py-6 sm:pl-6 sm:pr-2"}`}>
             <div className="flex items-center gap-2">
               <div className="text-xs sm:text-sm opacity-50 uppercase tracking-widest font-semibold">{asset.type}</div>
               {asset.assetStatus === 3 && <span className="badge badge-sm badge-warning">Suspended</span>}
               {asset.assetStatus === 4 && <span className="badge badge-sm badge-warning">Expired</span>}
               {asset.assetStatus === 5 && <span className="badge badge-sm badge-ghost">Retired</span>}
             </div>
-            <div className={`font-bold text-lg sm:text-xl ${isGrid ? "line-clamp-2" : "truncate"}`}>
+            <div
+              className={`font-bold text-lg sm:text-xl ${
+                isGrid ? "line-clamp-2 min-h-[3.75rem] leading-tight" : "truncate"
+              }`}
+            >
               {getAssetDisplayName(asset)}
             </div>
             {isGrid ? (
-              <div className="text-xs opacity-60 space-y-1">
-                {asset.vin && <div className="truncate">{`VIN: ${asset.vin}`}</div>}
-                {hasSupply && <div className="truncate">{`Supply: ${asset.supply!.toLocaleString()} tokens`}</div>}
+              <div className="space-y-3">
+                <div className="text-xs opacity-60 space-y-1">
+                  {asset.vin && <div className="truncate">{`VIN: ${asset.vin}`}</div>}
+                  {!asset.hasPrimaryPool && <div className="truncate">Setup pending</div>}
+                </div>
+                {asset.hasPrimaryPool && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-base-200 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Circulating</div>
+                      <div className="text-sm font-semibold">{circulatingSupply.toLocaleString()}</div>
+                    </div>
+                    <div className="rounded-lg bg-base-200 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Max Supply</div>
+                      <div className="text-sm font-semibold">
+                        {hasMaxSupply ? asset.maxSupply!.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-base-200 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Available</div>
+                      <div className="text-sm font-semibold">
+                        {hasMaxSupply ? availableSupply.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-base-200 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Price</div>
+                      <div className="text-sm font-semibold">{formattedPricePerToken}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="text-xs opacity-60 truncate">
-                {asset.vin ? `VIN: ${asset.vin}` : ""}
-                {hasSupply ? `${asset.vin ? " • " : ""}Supply: ${asset.supply!.toLocaleString()} tokens` : ""}
+              <div className="space-y-2">
+                <div className="text-xs opacity-60 truncate">
+                  {asset.vin ? `VIN: ${asset.vin}` : ""}
+                  {!asset.hasPrimaryPool ? `${asset.vin ? " • " : ""}Setup pending` : ""}
+                </div>
+                {asset.hasPrimaryPool && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="rounded-lg bg-base-200 px-2.5 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Circulating</div>
+                      <div className="text-xs font-semibold">{circulatingSupply.toLocaleString()}</div>
+                    </div>
+                    <div className="rounded-lg bg-base-200 px-2.5 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Max Supply</div>
+                      <div className="text-xs font-semibold">
+                        {hasMaxSupply ? asset.maxSupply!.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-base-200 px-2.5 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Available</div>
+                      <div className="text-xs font-semibold">
+                        {hasMaxSupply ? availableSupply.toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-base-200 px-2.5 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide opacity-60">Price</div>
+                      <div className="text-xs font-semibold">{formattedPricePerToken}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Actions - only render if primaryAction is provided */}
           {primaryAction && (
-            <div className="flex-shrink-0 flex gap-2 mt-2 sm:mt-0">
+            <div
+              className={`flex-shrink-0 flex gap-2 ${
+                isGrid ? "mt-auto w-full" : "px-4 pb-4 sm:px-0 sm:pb-0 sm:pr-6 sm:pl-2 mt-2 sm:mt-0 sm:self-center"
+              }`}
+            >
               {visibleSecondaryActions.length > 0 ? (
-                <div className="flex items-stretch w-full sm:w-auto">
+                <div className={`flex items-stretch ${isGrid ? "w-full" : "w-full sm:w-auto"}`}>
                   <button
-                    className={`${primaryAction.className} rounded-r-none border-r-base-100 flex-1 sm:flex-none`}
+                    className={`${primaryAction.className} rounded-r-none border-r-base-100 ${isGrid ? "flex-1" : "flex-1 sm:flex-none"}`}
                     onClick={primaryAction.onClick}
                   >
                     {primaryAction.label}
@@ -1128,7 +1232,7 @@ const PartnerDashboard: NextPage = () => {
                     },
                     className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
                   };
-                  const fundBuffersAction = {
+                  const enableProceedsAction = {
                     label: "Enable Proceeds",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
@@ -1147,7 +1251,8 @@ const PartnerDashboard: NextPage = () => {
                       ? "btn btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25"
                       : "btn btn-error",
                   };
-                  const canEnableProceeds = !isEarningEnabled && bufferFundingDue > 0n;
+                  const canEnableProceeds =
+                    bufferFundingDue > 0n || (!!asset.immediateProceeds && (asset.primaryInvestorLiquidity ?? 0n) > 0n);
                   const pausePoolAction = {
                     label: "Pause Pool",
                     onClick: () => void updatePrimaryPoolState(tokenId, "pausePrimaryPool"),
@@ -1167,10 +1272,10 @@ const PartnerDashboard: NextPage = () => {
                   };
                   const primaryAction = isMatured
                     ? settleAction
-                    : isEarningEnabled
-                      ? distributeAction
-                      : canEnableProceeds
-                        ? fundBuffersAction
+                    : canEnableProceeds
+                      ? enableProceedsAction
+                      : isEarningEnabled
+                        ? distributeAction
                         : isPoolPaused
                           ? unpausePoolAction
                           : isPoolClosed
@@ -1185,9 +1290,9 @@ const PartnerDashboard: NextPage = () => {
                           },
                         ]
                       : []),
-                    ...(!isPoolClosed ? [isPoolPaused ? unpausePoolAction : pausePoolAction, closePoolAction] : []),
                     ...(isEarningEnabled ? [{ ...distributeAction }] : []),
-                    ...(canEnableProceeds ? [{ ...fundBuffersAction }] : []),
+                    ...(canEnableProceeds ? [{ ...enableProceedsAction }] : []),
+                    ...(!isPoolClosed ? [isPoolPaused ? unpausePoolAction : pausePoolAction, closePoolAction] : []),
                     ...(!isMatured ? [{ ...settleAction, tone: "danger" as const }] : []),
                   ];
 
@@ -1361,7 +1466,6 @@ const PartnerDashboard: NextPage = () => {
           }}
           vehicleId={selectedAsset.id}
           assetValue={selectedAsset.assetValue || "0"}
-          isPrimaryListing
         />
       )}
 
@@ -1378,7 +1482,6 @@ const PartnerDashboard: NextPage = () => {
           vin={selectedAsset.vin || ""}
           assetName={getAssetDisplayName(selectedAsset)}
           prefillAmount={listPrefillAmount}
-          isPrimaryListing
         />
       )}
 
@@ -1400,6 +1503,8 @@ const PartnerDashboard: NextPage = () => {
             }}
             assetId={selectedCategorizedAsset.id}
             assetName={getAssetDisplayName(selectedCategorizedAsset)}
+            maxSupply={selectedCategorizedAsset.maxSupply ?? 0n}
+            immediateProceeds={!!selectedCategorizedAsset.immediateProceeds}
           />
           <EnableProceedsModal
             isOpen={enableProceedsModalOpen}
@@ -1427,38 +1532,25 @@ const PartnerDashboard: NextPage = () => {
 
       {selectedListing && (
         <>
-          {(() => {
-            const listingAsset = allAssets.find(a => a.id === selectedListing.assetId);
-            const derivedPrimary = listingAsset?.partner?.toLowerCase() === selectedListing.seller.toLowerCase();
-            const isPrimaryListing = selectedListing.isPrimary ?? derivedPrimary;
-            return (
-              <>
-                <ExtendListingModal
-                  isOpen={extendListingModalOpen}
-                  onClose={() => {
-                    setExtendListingModalOpen(false);
-                    triggerRefresh();
-                  }}
-                  listingId={selectedListing.id}
-                  currentExpiresAt={BigInt(selectedListing.expiresAt)}
-                />
-                <EndSecondaryListingModal
-                  isOpen={endSecondaryListingModalOpen}
-                  onClose={() => {
-                    setEndSecondaryListingModalOpen(false);
-                    refetchPending();
-                    triggerRefresh();
-                  }}
-                  listingId={selectedListing.id}
-                  tokenAmount={selectedListing.amount}
-                  tokenId={selectedListing.tokenId}
-                  amountSold={selectedListing.amountSold}
-                  pricePerToken={selectedListing.pricePerToken}
-                  isPrimary={isPrimaryListing}
-                />
-              </>
-            );
-          })()}
+          <ExtendListingModal
+            isOpen={extendListingModalOpen}
+            onClose={() => {
+              setExtendListingModalOpen(false);
+              triggerRefresh();
+            }}
+            listingId={selectedListing.id}
+            currentExpiresAt={BigInt(selectedListing.expiresAt)}
+          />
+          <EndSecondaryListingModal
+            isOpen={endSecondaryListingModalOpen}
+            onClose={() => {
+              setEndSecondaryListingModalOpen(false);
+              refetchPending();
+              triggerRefresh();
+            }}
+            listingId={selectedListing.id}
+            tokenAmount={selectedListing.amount}
+          />
         </>
       )}
 

@@ -34,8 +34,11 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
     if (claimableAmount === 0n) return;
     try {
       await writeTreasury({
-        functionName: "claimAndWithdrawEarnings",
+        functionName: "claimEarnings",
         args: [BigInt(assetId)],
+      });
+      await writeTreasury({
+        functionName: "processWithdrawal",
       });
       onClose();
     } catch (e) {
@@ -69,7 +72,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
               {claimableDisplay} <span className="text-base font-semibold opacity-80">{paymentSymbol}</span>
             </p>
             <p className="text-sm text-base-content/70 mt-3">
-              Any unclaimed earnings for your holdings will be transferred to your wallet.
+              Claiming now submits the earnings claim and then processes the withdrawal to your wallet.
             </p>
           </div>
         </div>

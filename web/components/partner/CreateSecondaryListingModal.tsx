@@ -19,7 +19,6 @@ interface CreateSecondaryListingModalProps {
   vin: string;
   assetName?: string;
   prefillAmount?: string;
-  isPrimaryListing?: boolean;
 }
 
 export const CreateSecondaryListingModal = ({
@@ -30,7 +29,6 @@ export const CreateSecondaryListingModal = ({
   vin,
   assetName,
   prefillAmount,
-  isPrimaryListing = false,
 }: CreateSecondaryListingModalProps) => {
   const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
@@ -73,7 +71,7 @@ export const CreateSecondaryListingModal = ({
     functionName: "balanceOf",
     args: [connectedAddress, BigInt(vehicleId)],
   });
-  const isPrimaryFlow = isPrimaryListing || ((assetNftBalance as bigint | undefined) ?? 0n) > 0n;
+  const isPrimaryFlow = ((assetNftBalance as bigint | undefined) ?? 0n) > 0n;
 
   useEffect(() => {
     if (!prefillAmount) return;

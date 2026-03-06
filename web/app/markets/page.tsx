@@ -13,7 +13,7 @@ import {
 import { AcquirePositionModal } from "~~/components/markets/AcquirePositionModal";
 import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
-import { MarketAssetCard } from "~~/components/markets/MarketAssetCard";
+import { ListingCard } from "~~/components/markets/ListingCard";
 import { PrimaryPoolCard } from "~~/components/markets/PrimaryPoolCard";
 import { RedeemLiquidityModal } from "~~/components/markets/RedeemLiquidityModal";
 import { CreateSecondaryListingModal } from "~~/components/partner/CreateSecondaryListingModal";
@@ -36,7 +36,6 @@ interface SubgraphListing {
   pricePerToken: string;
   expiresAt: string;
   buyerPaysFee: boolean;
-  isPrimary: boolean;
   status: string;
   isEnded: boolean;
   endedAt?: string | null;
@@ -100,6 +99,9 @@ type MarketTab = "pools" | "secondary";
 // Protocol constants for APY calculation/sorting
 const BENCHMARK_EARNINGS_BP = 1000n;
 const BP_PRECISION = 10000n;
+const NEW_POOL_BADGE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const getSeenPrimaryPoolsStorageKey = (account?: string) =>
+  `roboshare:seen-primary-pools:${account?.toLowerCase() || "guest"}`;
 
 const MarketsPage: NextPage = () => {
   const { address } = useAccount();
@@ -114,6 +116,7 @@ const MarketsPage: NextPage = () => {
   const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
   const [soldOutAtByListing, setSoldOutAtByListing] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [seenPrimaryPoolsById, setSeenPrimaryPoolsById] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,7 +187,6 @@ const MarketsPage: NextPage = () => {
                 tokenId
                 assetId
                 seller
-                isPrimary
                 amount
                 amountSold
                 pricePerToken
@@ -363,10 +365,10 @@ const MarketsPage: NextPage = () => {
 
   // Fetch actionability previews (claimable earnings/settlement) for sorting heuristics.
   const uniqueAssetIds = useMemo(() => {
-    return Array.from(new Set(listings.map(l => l.assetId)));
-  }, [listings]);
+    return Array.from(new Set([...listings.map(l => l.assetId), ...primaryPools.map(p => p.assetId)]));
+  }, [listings, primaryPools]);
 
-  const { data: actionPreviewData } = useReadContracts({
+  const { data: actionPreviewData, refetch: refetchActionPreviewData } = useReadContracts({
     allowFailure: true,
     contracts: uniqueAssetIds.flatMap(assetId => [
       {
@@ -775,6 +777,56 @@ const MarketsPage: NextPage = () => {
     return filtered;
   }, [primaryPools, filterType, showOnlyHoldings, address, tokens, sortBy, assetEarnings, userPrimaryPoolTokenIds]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storageKey = getSeenPrimaryPoolsStorageKey(address);
+    let stored: Record<string, number> = {};
+
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        stored = JSON.parse(raw) as Record<string, number>;
+      }
+    } catch (error) {
+      console.error("Error reading seen primary pools:", error);
+    }
+
+    const now = Date.now();
+    let changed = false;
+    const nextSeen = { ...stored };
+
+    for (const pool of primaryPools) {
+      if (nextSeen[pool.id] === undefined) {
+        nextSeen[pool.id] = now;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(nextSeen));
+      } catch (error) {
+        console.error("Error writing seen primary pools:", error);
+      }
+    }
+
+    setSeenPrimaryPoolsById(nextSeen);
+  }, [address, primaryPools]);
+
+  const shouldShowNewPoolBadge = useCallback(
+    (pool: SubgraphPrimaryPool) => {
+      if (pool.isPaused || pool.isClosed) return false;
+      if ((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n) > 0n) return false;
+
+      const firstSeenAt = seenPrimaryPoolsById[pool.id];
+      if (firstSeenAt === undefined) return true;
+
+      return Date.now() - firstSeenAt < NEW_POOL_BADGE_TTL_MS;
+    },
+    [primaryPoolHoldingsByTokenId, seenPrimaryPoolsById],
+  );
+
   const sellerTokenIdCounts = useMemo(() => {
     const counts = new Map<string, number>();
     if (!address) return counts;
@@ -805,8 +857,11 @@ const MarketsPage: NextPage = () => {
       {
         primaryLabel: string;
         primaryDisabled: boolean;
-        primaryAction: "buy" | "redeem" | "list" | null;
-        secondaryActions: Array<{ label: string; action: "buy" | "redeem" | "list" }>;
+        primaryAction: "buy" | "redeem" | "list" | "claim_earnings" | "claim_settlement" | null;
+        secondaryActions: Array<{
+          label: string;
+          action: "buy" | "redeem" | "list" | "claim_earnings" | "claim_settlement";
+        }>;
       }
     >();
 
@@ -825,6 +880,42 @@ const MarketsPage: NextPage = () => {
       const canRedeem = hasHolding && redemption.payout > 0n;
       const canAddMore = !pool.isClosed && !pool.isPaused && remainingSupply > 0n;
       const canList = hasHolding;
+      const claimableEarnings = assetActionPreview.get(pool.assetId)?.claimableEarnings ?? 0n;
+      const claimableSettlement = assetActionPreview.get(pool.assetId)?.claimableSettlement ?? 0n;
+      const canClaimEarnings = hasHolding && claimableEarnings > 0n;
+      const canClaimSettlement = hasHolding && claimableSettlement > 0n;
+
+      if (canClaimSettlement) {
+        byTokenId.set(pool.tokenId, {
+          primaryLabel: "Claim Settlement",
+          primaryDisabled: false,
+          primaryAction: "claim_settlement",
+          secondaryActions: [
+            ...(canClaimEarnings ? [{ label: "Claim Earnings", action: "claim_earnings" as const }] : []),
+            ...(canRedeem ? [{ label: "Redeem Liquidity", action: "redeem" as const }] : []),
+            ...(canList
+              ? [{ label: hasActiveListing ? "List More Tokens" : "List Tokens", action: "list" as const }]
+              : []),
+          ],
+        });
+        continue;
+      }
+
+      if (canClaimEarnings) {
+        byTokenId.set(pool.tokenId, {
+          primaryLabel: "Claim Earnings",
+          primaryDisabled: false,
+          primaryAction: "claim_earnings",
+          secondaryActions: [
+            ...(canRedeem ? [{ label: "Redeem Liquidity", action: "redeem" as const }] : []),
+            ...(canList
+              ? [{ label: hasActiveListing ? "List More Tokens" : "List Tokens", action: "list" as const }]
+              : []),
+            ...(canAddMore ? [{ label: "Add More Liquidity", action: "buy" as const }] : []),
+          ],
+        });
+        continue;
+      }
 
       if (canRedeem) {
         byTokenId.set(pool.tokenId, {
@@ -862,23 +953,14 @@ const MarketsPage: NextPage = () => {
     return byTokenId;
   }, [
     activeSellerTokenIdCounts,
+    assetActionPreview,
     primaryPoolHoldingsByTokenId,
     primaryPoolRedemptionByTokenId,
     primaryPoolSupplyByTokenId,
     primaryPools,
   ]);
 
-  const primarySellerTokenIdCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    if (!address) return counts;
-    const lower = address.toLowerCase();
-    for (const listing of listings) {
-      if (!listing.isPrimary) continue;
-      if (listing.seller.toLowerCase() !== lower) continue;
-      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
-    }
-    return counts;
-  }, [address, listings]);
+  const primarySellerTokenIdCounts = useMemo(() => new Map<string, number>(), []);
 
   const refreshMarketsAfterSuccess = useCallback(
     (opts?: { skipImmediateFetch?: boolean }) => {
@@ -1095,10 +1177,23 @@ const MarketsPage: NextPage = () => {
                   partner={partner}
                   imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
                   viewMode={viewMode}
+                  showNewPoolBadge={shouldShowNewPoolBadge(pool)}
                   primaryActionLabel={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryLabel || "Add Liquidity"}
                   primaryActionDisabled={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryDisabled ?? true}
                   primaryActionOnClick={() => {
                     const action = poolUserActionStateByTokenId.get(pool.tokenId)?.primaryAction;
+                    if (action === "claim_earnings") {
+                      setSelectedPool(pool);
+                      setSelectedListing(null);
+                      setIsClaimEarningsOpen(true);
+                      return;
+                    }
+                    if (action === "claim_settlement") {
+                      setSelectedPool(pool);
+                      setSelectedListing(null);
+                      setIsClaimSettlementOpen(true);
+                      return;
+                    }
                     if (action === "redeem") {
                       setSelectedRedeemPool(pool);
                       setSelectedListing(null);
@@ -1122,6 +1217,18 @@ const MarketsPage: NextPage = () => {
                     action => ({
                       label: action.label,
                       onClick: () => {
+                        if (action.action === "claim_earnings") {
+                          setSelectedPool(pool);
+                          setSelectedListing(null);
+                          setIsClaimEarningsOpen(true);
+                          return;
+                        }
+                        if (action.action === "claim_settlement") {
+                          setSelectedPool(pool);
+                          setSelectedListing(null);
+                          setIsClaimSettlementOpen(true);
+                          return;
+                        }
                         if (action.action === "redeem") {
                           setSelectedRedeemPool(pool);
                           setSelectedListing(null);
@@ -1171,7 +1278,7 @@ const MarketsPage: NextPage = () => {
               : undefined;
 
             return (
-              <MarketAssetCard
+              <ListingCard
                 key={listing.id}
                 listing={{ ...listing, soldOutAt: soldOutAtByListing[listing.id] }}
                 vehicle={vehicle}
@@ -1339,36 +1446,47 @@ const MarketsPage: NextPage = () => {
       )}
 
       {/* Claim Modals */}
-      {selectedListing && (
+      {(selectedListing || selectedPool) && (
         <>
           <ClaimEarningsModal
             isOpen={isClaimEarningsOpen}
             onClose={() => {
               setIsClaimEarningsOpen(false);
               setSelectedListing(null);
+              setSelectedPool(null);
               fetchData(false);
               refetchHoldings();
+              refetchActionPreviewData();
             }}
-            assetId={selectedListing.assetId}
+            assetId={selectedListing?.assetId || selectedPool!.assetId}
             vehicleName={(() => {
-              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
-              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+              const assetId = selectedListing?.assetId || selectedPool?.assetId;
+              const vehicle = assetId ? vehicles.find(v => v.id === assetId) : undefined;
+              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
             })()}
           />
-          <ClaimSettlementModal
-            isOpen={isClaimSettlementOpen}
-            onClose={() => {
-              setIsClaimSettlementOpen(false);
-              setSelectedListing(null);
-              fetchData(false);
-              refetchHoldings();
-            }}
-            assetId={selectedListing.assetId}
-            vehicleName={(() => {
-              const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
-              return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
-            })()}
-          />
+          {(selectedListing || selectedPool) && (
+            <ClaimSettlementModal
+              isOpen={isClaimSettlementOpen}
+              onClose={() => {
+                setIsClaimSettlementOpen(false);
+                setSelectedListing(null);
+                setSelectedPool(null);
+                fetchData(false);
+                refetchHoldings();
+                refetchPrimaryPoolHoldings?.();
+                refetchPrimaryPoolSupply?.();
+                refetchPrimaryPoolRedemptionPreviews?.();
+                refetchActionPreviewData();
+              }}
+              assetId={selectedListing?.assetId || selectedPool!.assetId}
+              vehicleName={(() => {
+                const assetId = selectedListing?.assetId || selectedPool?.assetId;
+                const vehicle = assetId ? vehicles.find(v => v.id === assetId) : undefined;
+                return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
+              })()}
+            />
+          )}
         </>
       )}
 
@@ -1411,10 +1529,6 @@ const MarketsPage: NextPage = () => {
           }}
           listingId={selectedListing.id}
           tokenAmount={selectedListing.amount}
-          tokenId={selectedListing.tokenId}
-          amountSold={selectedListing.amountSold}
-          pricePerToken={selectedListing.pricePerToken}
-          isPrimary={selectedListing.isPrimary}
         />
       )}
 
@@ -1433,6 +1547,14 @@ const MarketsPage: NextPage = () => {
           assetName={(() => {
             const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
             return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
+          })()}
+          maxSupply={(() => {
+            const pool = primaryPools.find(p => p.assetId === selectedListing.assetId);
+            return pool ? BigInt(pool.maxSupply) : 0n;
+          })()}
+          immediateProceeds={(() => {
+            const pool = primaryPools.find(p => p.assetId === selectedListing.assetId);
+            return pool?.immediateProceeds ?? false;
           })()}
         />
       )}

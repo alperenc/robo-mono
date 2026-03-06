@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
+import { calculatePrimaryPoolBuffers } from "~~/utils/primaryPoolBuffers";
 import { notification } from "~~/utils/scaffold-eth";
 
 interface CreateRevenueTokenPoolModalProps {
@@ -15,7 +16,6 @@ interface CreateRevenueTokenPoolModalProps {
   onSuccess?: () => void;
   vehicleId: string;
   assetValue: string;
-  isPrimaryListing?: boolean;
 }
 
 export const CreateRevenueTokenPoolModal = ({
@@ -24,9 +24,10 @@ export const CreateRevenueTokenPoolModal = ({
   onSuccess,
   vehicleId,
   assetValue,
-  isPrimaryListing = true,
 }: CreateRevenueTokenPoolModalProps) => {
   const { symbol, decimals } = usePaymentToken();
+  const modalBoxRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
@@ -51,19 +52,30 @@ export const CreateRevenueTokenPoolModal = ({
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
   const proceedsProfileLabel = formData.immediateProceeds ? "Earlier Proceeds Release" : "Gradual Proceeds Release";
   const protectionLabel = formData.protectionEnabled ? "Enabled" : "Disabled";
-  const bufferRequirementLabel = formData.protectionEnabled ? "Estimated Total Buffer" : "Required Protocol Buffer";
+  const bufferQuote = calculatePrimaryPoolBuffers(assetValueBigInt, targetYieldBP, formData.protectionEnabled);
+  const displayedBufferLabel = formData.protectionEnabled ? "Required Total Buffer" : "Required Protocol Buffer";
+  const displayedBufferAmount = formData.protectionEnabled ? bufferQuote.totalBuffer : bufferQuote.protocolBuffer;
 
   const { writeContractAsync: writeVehicleRegistry } = useScaffoldWriteContract({ contractName: "VehicleRegistry" });
 
-  const { data: requiredCollateral } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getTotalBufferRequirement",
-    args: [assetValueBigInt, targetYieldBP, formData.protectionEnabled],
-    watch: true,
-    query: { enabled: currentStep >= 1 },
-  });
-
   useEscClose(isOpen, onClose);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const modalEl = modalBoxRef.current;
+    if (modalEl) {
+      modalEl.scrollTop = 0;
+    }
+    const contentEl = contentRef.current;
+    if (!contentEl) return;
+    contentEl.scrollTop = 0;
+    requestAnimationFrame(() => {
+      if (modalEl) {
+        modalEl.scrollTop = 0;
+      }
+      contentEl.scrollTop = 0;
+    });
+  }, [currentStep, isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -155,7 +167,10 @@ export const CreateRevenueTokenPoolModal = ({
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
-      <div className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
+      <div
+        ref={modalBoxRef}
+        className="modal-box relative w-full h-full max-h-full sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0 overflow-hidden"
+      >
         <button className="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" onClick={onClose}>
           <XMarkIcon className="h-5 w-5" />
         </button>
@@ -184,7 +199,7 @@ export const CreateRevenueTokenPoolModal = ({
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div key={currentStep} ref={contentRef} className="flex-1 overflow-y-auto p-5">
           {currentStep === 1 && (
             <div className="flex flex-col justify-between h-full gap-3">
               <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
@@ -329,14 +344,14 @@ export const CreateRevenueTokenPoolModal = ({
 
                   <div className="rounded-lg border border-base-300 bg-primary/10 px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-bold uppercase opacity-60">{bufferRequirementLabel}</span>
+                      <span className="text-xs font-bold uppercase opacity-60">{displayedBufferLabel}</span>
                       <span className="text-sm font-semibold text-base-content dark:text-white">
-                        {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
+                        {formatTokenAmount(displayedBufferAmount, decimals)} {symbol}
                       </span>
                     </div>
                     <p className="mt-2 text-xs opacity-75">
                       {formData.protectionEnabled
-                        ? "Includes the required protocol buffer plus optional protection for this pool."
+                        ? "Total buffer includes the required protocol buffer plus the optional protection buffer."
                         : "Includes only the required protocol buffer. Protection can be added on top."}
                     </p>
                   </div>
@@ -374,21 +389,19 @@ export const CreateRevenueTokenPoolModal = ({
                 </div>
               </div>
 
-              {isPrimaryListing && (
-                <div className="bg-primary/10 border border-base-300 rounded-xl p-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase opacity-60 font-bold">{bufferRequirementLabel}</span>
-                    <span className="font-bold text-base-content dark:text-white">
-                      {formatTokenAmount(requiredCollateral ?? 0n, decimals)} {symbol}
-                    </span>
-                  </div>
-                  <p className="text-xs opacity-80 mt-2">
-                    {formData.protectionEnabled
-                      ? "Estimated partner-funded total buffer at full subscription, including optional protection."
-                      : "Required partner-funded protocol buffer at full subscription. Investor principal is not used to fund buffers."}
-                  </p>
+              <div className="bg-primary/10 border border-base-300 rounded-xl p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs uppercase opacity-60 font-bold">{displayedBufferLabel}</span>
+                  <span className="font-bold text-base-content dark:text-white">
+                    {formatTokenAmount(displayedBufferAmount, decimals)} {symbol}
+                  </span>
                 </div>
-              )}
+                <p className="text-xs opacity-80 mt-2">
+                  {formData.protectionEnabled
+                    ? "Total buffer includes the protocol buffer plus the optional protection buffer at full subscription."
+                    : "Required partner-funded protocol buffer at full subscription. Investor principal is not used to fund buffers."}
+                </p>
+              </div>
 
               <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
                 <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Primary Pool Defaults</h4>
@@ -406,9 +419,7 @@ export const CreateRevenueTokenPoolModal = ({
 
               <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
                 <p className="opacity-80 mt-1 mb-1">
-                  {isPrimaryListing
-                    ? "This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen."
-                    : "Secondary listings still require seller-owned tokens and settle immediately on purchase."}
+                  This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen.
                 </p>
               </div>
             </div>
@@ -435,7 +446,11 @@ export const CreateRevenueTokenPoolModal = ({
             </button>
           </div>
           {!isStepValid && (
-            <button type="button" className="btn btn-link btn-xs w-full" onClick={markRequiredForStep}>
+            <button
+              type="button"
+              className="btn btn-link btn-xs w-full shadow-none !shadow-none bg-transparent border-0 hover:bg-transparent"
+              onClick={markRequiredForStep}
+            >
               Review required fields
             </button>
           )}

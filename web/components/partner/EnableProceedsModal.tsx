@@ -50,7 +50,7 @@ export const EnableProceedsModal = ({
 
   const { data: collateralInfo } = useScaffoldReadContract({
     contractName: "Treasury",
-    functionName: "getAssetCollateralInfo",
+    functionName: "assetCollateral",
     args: [assetIdBigInt],
     query: { enabled: isOpen },
   });
@@ -76,6 +76,7 @@ export const EnableProceedsModal = ({
       | {
           earningsBuffer?: bigint;
           protocolBuffer?: bigint;
+          coveredBaseCollateral?: bigint;
         }
       | readonly unknown[]
       | undefined;
@@ -125,14 +126,18 @@ export const EnableProceedsModal = ({
     !!treasuryAddress &&
     fundingBreakdown.totalDue > 0n &&
     ((allowance as bigint | undefined) ?? 0n) < fundingBreakdown.totalDue;
+  const canSubmit =
+    !!treasuryAddress && (fundingBreakdown.totalDue > 0n || (immediateProceeds && fundingBreakdown.baseLiquidity > 0n));
 
-  const proceedsProfileLabel = immediateProceeds ? "Earlier Release" : "Gradual Release";
+  const proceedsProfileLabel = immediateProceeds ? "Higher Upside" : "Earlier Liquidity";
+  const proceedsAmountLabel = immediateProceeds ? "Proceeds Eligible Once Enabled" : "Proceeds Eligible Over Time";
+  const proceedsAmount = fundingBreakdown.baseLiquidity;
   const proceedsOutcomeCopy = immediateProceeds
-    ? `Funding these buffers makes up to ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} eligible for earlier partner release, as long as the required buffers stay funded.`
-    : `Funding these buffers makes ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} eligible for gradual partner release over time, as long as the required buffers stay funded.`;
+    ? `Paying this amount enables release against up to ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} of proceeds on the current pool balance.`
+    : `Paying this amount enables proceeds against up to ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} of current pool balance as earnings are distributed.`;
 
   const handleSubmit = async () => {
-    if (!treasuryAddress || fundingBreakdown.totalDue === 0n) return;
+    if (!canSubmit) return;
 
     setIsSubmitting(true);
     try {
@@ -144,14 +149,14 @@ export const EnableProceedsModal = ({
       }
 
       await writeTreasury({
-        functionName: "fundBuffers",
+        functionName: "enableProceeds",
         args: [assetIdBigInt],
       });
 
       onSuccess?.();
       onClose();
     } catch (error) {
-      console.error("Error funding buffers:", error);
+      console.error("Error enabling proceeds:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -175,53 +180,57 @@ export const EnableProceedsModal = ({
         <div className="p-4 border-b border-base-200 shrink-0">
           <h3 className="font-bold text-xl">Enable Proceeds</h3>
           <p className="text-sm opacity-60 mt-1">
-            Fund the required partner-backed buffers for <span className="font-semibold">{assetName}</span> to unlock
-            partner proceeds and move the offering toward earnings-enabled state.
+            Pay the required amount for <span className="font-semibold">{assetName}</span> to enable partner proceeds.
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-3">
             <div className="bg-base-200 p-4 rounded-lg border border-base-300">
-              <div className="text-xs uppercase opacity-50 font-bold mb-3">What You’re Enabling</div>
+              <div className="text-xs uppercase opacity-50 font-bold mb-3">What You Pay</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div className="opacity-60">Partner Proceeds To Enable</div>
+                  <div className="opacity-60">Required Payment</div>
                   <div className="font-semibold">
-                    {formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} {symbol}
+                    {formatTokenAmount(fundingBreakdown.totalDue, decimals)} {symbol}
                   </div>
                 </div>
                 <div>
-                  <div className="opacity-60">Partner Proceeds Profile</div>
+                  <div className="opacity-60">Release Timing</div>
                   <div className="font-semibold">{proceedsProfileLabel}</div>
                 </div>
                 <div>
-                  <div className="opacity-60">Protocol Buffer Due</div>
+                  <div className="opacity-60">Protocol Contribution</div>
                   <div className="font-semibold">
                     {formatTokenAmount(fundingBreakdown.protocolDue, decimals)} {symbol}
                   </div>
                 </div>
                 <div>
-                  <div className="opacity-60">{protectionEnabled ? "Protection Buffer Due" : "Protection Buffer"}</div>
+                  <div className="opacity-60">{protectionEnabled ? "Protection Contribution" : "Protection"}</div>
                   <div className="font-semibold">
-                    {formatTokenAmount(fundingBreakdown.protectionDue, decimals)} {symbol}
+                    {protectionEnabled
+                      ? `${formatTokenAmount(fundingBreakdown.protectionDue, decimals)} ${symbol}`
+                      : "Not enabled"}
                   </div>
                 </div>
                 <div>
-                  <div className="opacity-60">Total Buffer Due</div>
+                  <div className="opacity-60">{proceedsAmountLabel}</div>
                   <div className="font-semibold">
-                    {formatTokenAmount(fundingBreakdown.totalDue, decimals)} {symbol}
+                    {formatTokenAmount(proceedsAmount, decimals)} {symbol}
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-4 text-sm text-base-content">
-              <div className="font-semibold">What Happens Once These Buffers Are Funded</div>
+              <div className="font-semibold">What This Does</div>
               <div className="mt-2 space-y-1 opacity-80">
                 <p>{proceedsOutcomeCopy}</p>
-                <p>The offering becomes eligible to move into earnings-enabled state.</p>
-                <p>`Distribute Earnings` becomes available once earnings are ready to be paid out.</p>
+                <p>
+                  {immediateProceeds
+                    ? "Once enabled, eligible proceeds can be released right away."
+                    : "Once enabled, proceeds can be released through earnings distributions."}
+                </p>
               </div>
             </div>
           </div>
@@ -236,7 +245,7 @@ export const EnableProceedsModal = ({
               type="button"
               className="btn btn-primary flex-1"
               onClick={handleSubmit}
-              disabled={isSubmitting || fundingBreakdown.totalDue === 0n}
+              disabled={isSubmitting || !canSubmit}
             >
               {requiresApproval ? "Approve & Enable" : "Enable Proceeds"}
             </button>

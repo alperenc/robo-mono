@@ -400,26 +400,43 @@ export function AcquirePositionModal({
               <div className="form-control">
                 <label className="label py-1">
                   <span className="label-text text-xs font-bold uppercase opacity-60">
-                    {isPrimaryPurchase ? `Contribution (${symbol})` : "Amount to Buy"}
+                    {isPrimaryPurchase ? "Contribution" : "Amount to Buy"}
                   </span>
                   <span className="label-text-alt">
-                    {isPrimaryPurchase ? "Max contribution: " : "Max: "}
+                    Max:{" "}
                     {isPrimaryPurchase
-                      ? `${Number(maxContributionDisplay).toLocaleString(undefined, { minimumFractionDigits: 2 })} ${symbol}`
+                      ? Number(maxContributionDisplay).toLocaleString(undefined, { minimumFractionDigits: 2 })
                       : maxTokens.toString()}
                   </span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered w-full"
-                  placeholder={isPrimaryPurchase ? "0.00" : "0"}
-                  value={inputAmount}
-                  onChange={e => setInputAmount(e.target.value)}
-                  max={isPrimaryPurchase ? maxContributionDisplay : maxTokens.toString()}
-                  min="0"
-                  step={isPrimaryPurchase ? "0.01" : "1"}
-                  disabled={isApproving || isPurchasing}
-                />
+                {isPrimaryPurchase ? (
+                  <div className="join w-full">
+                    <input
+                      type="number"
+                      className="input input-bordered join-item w-full"
+                      placeholder="0.00"
+                      value={inputAmount}
+                      onChange={e => setInputAmount(e.target.value)}
+                      max={maxContributionDisplay}
+                      min="0"
+                      step="0.01"
+                      disabled={isApproving || isPurchasing}
+                    />
+                    <span className="join-item flex items-center px-3 bg-base-300 font-medium">{symbol}</span>
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    className="input input-bordered w-full"
+                    placeholder="0"
+                    value={inputAmount}
+                    onChange={e => setInputAmount(e.target.value)}
+                    max={maxTokens.toString()}
+                    min="0"
+                    step="1"
+                    disabled={isApproving || isPurchasing}
+                  />
+                )}
               </div>
 
               {isPrimaryPurchase && (

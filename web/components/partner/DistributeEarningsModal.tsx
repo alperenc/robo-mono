@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
@@ -10,12 +10,18 @@ import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaf
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { formatTokenAmount } from "~~/utils/formatters";
 
+const BP_PRECISION = 10000n;
+const PROTOCOL_FEE_BP = 250n;
+const MIN_PROTOCOL_FEE = 1_000_000n;
+
 interface DistributeEarningsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
   assetId: string;
   assetName: string;
+  maxSupply: bigint;
+  immediateProceeds: boolean;
 }
 
 export const DistributeEarningsModal = ({
@@ -24,12 +30,19 @@ export const DistributeEarningsModal = ({
   onSuccess,
   assetId,
   assetName,
+  maxSupply,
+  immediateProceeds,
 }: DistributeEarningsModalProps) => {
   const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
   const [totalRevenue, setTotalRevenue] = useState(""); // Total revenue earned
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [autoRelease, setAutoRelease] = useState(true); // Auto-release collateral when distributing
+  const supportsAutoRelease = !immediateProceeds;
+  const [autoRelease, setAutoRelease] = useState(supportsAutoRelease);
+
+  useEffect(() => {
+    setAutoRelease(supportsAutoRelease);
+  }, [supportsAutoRelease]);
 
   useEscClose(isOpen, onClose);
 
@@ -42,8 +55,8 @@ export const DistributeEarningsModal = ({
   // Get revenue token ID (assetId + 1)
   const revenueTokenId = BigInt(assetId) + 1n;
 
-  // Get total supply of revenue tokens
-  const { data: totalSupply } = useScaffoldReadContract({
+  // Get circulating supply of revenue tokens
+  const { data: circulatingSupply } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "getRevenueTokenSupply",
     args: [revenueTokenId],
@@ -67,21 +80,12 @@ export const DistributeEarningsModal = ({
   });
 
   // Check payment token allowance
-  const { data: paymentTokenAllowance } = useScaffoldReadContract({
+  const { data: paymentTokenAllowance, refetch: refetchPaymentTokenAllowance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "allowance",
     args: [connectedAddress, treasuryAddress],
     watch: true,
   });
-
-  // Get protocol config from contract
-  const { data: protocolConfig } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getProtocolConfig",
-  });
-  const bpPrecision = protocolConfig?.[0];
-  const protocolFeeBP = protocolConfig?.[2];
-  const minProtocolFee = protocolConfig?.[5];
 
   const { data: revenueShareBP } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
@@ -94,42 +98,39 @@ export const DistributeEarningsModal = ({
     contractName: "Treasury",
     functionName: "previewCollateralRelease",
     args: [BigInt(assetId), true],
-    query: { enabled: autoRelease },
+    query: { enabled: supportsAutoRelease && autoRelease },
   });
 
   // Calculate token ownership breakdown (independent of revenue)
   const tokenOwnership = useMemo(() => {
-    if (!totalSupply || totalSupply === 0n) {
+    if (!circulatingSupply || circulatingSupply === 0n || maxSupply === 0n) {
       return null;
     }
 
     const partnerTokens = partnerBalance || 0n;
     const escrowTokens = escrowedTokens || 0n;
-    const externalTokens = totalSupply > partnerTokens ? totalSupply - partnerTokens : 0n;
-    const externalPercentage = Number((externalTokens * 10000n) / totalSupply) / 100;
-    const partnerPercentage = Number((partnerTokens * 10000n) / totalSupply) / 100;
-    const escrowPercentage = Number((escrowTokens * 10000n) / totalSupply) / 100;
+    const investorTokens = circulatingSupply > partnerTokens ? circulatingSupply - partnerTokens : 0n;
+    const investorPercentage = Number((investorTokens * 10000n) / maxSupply) / 100;
+    const partnerPercentage = Number((partnerTokens * 10000n) / maxSupply) / 100;
+    const escrowPercentage = Number((escrowTokens * 10000n) / maxSupply) / 100;
+    const circulatingPercentage = Number((circulatingSupply * 10000n) / maxSupply) / 100;
 
     return {
-      totalSupply,
+      maxSupply,
+      circulatingSupply,
       partnerTokens,
-      externalTokens,
+      investorTokens,
       escrowTokens,
       partnerPercentage,
-      externalPercentage,
+      investorPercentage,
       escrowPercentage,
+      circulatingPercentage,
     };
-  }, [totalSupply, partnerBalance, escrowedTokens]);
+  }, [circulatingSupply, maxSupply, partnerBalance, escrowedTokens]);
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {
-    if (
-      !tokenOwnership ||
-      !totalRevenue ||
-      bpPrecision === undefined ||
-      protocolFeeBP === undefined ||
-      minProtocolFee === undefined
-    ) {
+    if (!tokenOwnership || !totalRevenue) {
       return null;
     }
 
@@ -137,14 +138,14 @@ export const DistributeEarningsModal = ({
     const totalRevenueWei = parseUnits(totalRevenue || "0", decimals);
 
     // Calculate investor portion (what partner should distribute)
-    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? bpPrecision)) / bpPrecision;
-    const soldShare = (totalRevenueWei * tokenOwnership.externalTokens) / tokenOwnership.totalSupply;
+    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? BP_PRECISION)) / BP_PRECISION;
+    const soldShare = (totalRevenueWei * tokenOwnership.investorTokens) / tokenOwnership.maxSupply;
     const investorPortion = revenueShareCap < soldShare ? revenueShareCap : soldShare;
     const partnerPortion = totalRevenueWei - investorPortion;
 
     // Calculate protocol fee with minimum enforcement
-    const calculatedFee = (investorPortion * protocolFeeBP) / bpPrecision;
-    const protocolFee = calculatedFee > minProtocolFee ? calculatedFee : minProtocolFee;
+    const calculatedFee = (investorPortion * PROTOCOL_FEE_BP) / BP_PRECISION;
+    const protocolFee = calculatedFee > MIN_PROTOCOL_FEE ? calculatedFee : MIN_PROTOCOL_FEE;
     const netToInvestors = investorPortion - protocolFee;
 
     return {
@@ -154,7 +155,7 @@ export const DistributeEarningsModal = ({
       protocolFee,
       netToInvestors,
     };
-  }, [tokenOwnership, totalRevenue, bpPrecision, protocolFeeBP, minProtocolFee, revenueShareBP, decimals]);
+  }, [tokenOwnership, totalRevenue, revenueShareBP, decimals]);
 
   const estimatedRelease = useMemo(() => {
     if (!autoRelease) return 0n;
@@ -167,21 +168,22 @@ export const DistributeEarningsModal = ({
 
     setIsSubmitting(true);
     try {
-      // Partner deposits only the investor portion - contract tracks total revenue for metrics
-      const amountToDistribute = revenueBreakdown.investorPortion;
+      // Approval safety: approve up to total revenue so tx won't fail if on-chain rounding/denominator differs.
+      const amountToApprove = revenueBreakdown.totalRevenue;
 
       // Approve if needed
-      if (!paymentTokenAllowance || paymentTokenAllowance < amountToDistribute) {
+      if (!paymentTokenAllowance || paymentTokenAllowance < amountToApprove) {
         await writePaymentToken({
           functionName: "approve",
-          args: [treasuryAddress, amountToDistribute],
+          args: [treasuryAddress, amountToApprove],
         });
+        await refetchPaymentTokenAllowance();
       }
 
       // Distribute earnings (totalRevenue only; investor amount is computed on-chain)
       await writeTreasury({
         functionName: "distributeEarnings",
-        args: [BigInt(assetId), revenueBreakdown.totalRevenue, autoRelease],
+        args: [BigInt(assetId), revenueBreakdown.totalRevenue, supportsAutoRelease && autoRelease],
       });
 
       setTotalRevenue("");
@@ -196,7 +198,7 @@ export const DistributeEarningsModal = ({
 
   if (!isOpen) return null;
 
-  const hasExternalHolders = tokenOwnership && tokenOwnership.externalTokens > 0n;
+  const hasExternalHolders = tokenOwnership && tokenOwnership.investorTokens > 0n;
   const hasEscrowedInvestorTokens = tokenOwnership && tokenOwnership.escrowTokens > 0n;
 
   return (
@@ -250,20 +252,24 @@ export const DistributeEarningsModal = ({
                   <div>
                     <div className="text-xs opacity-50">Investor Tokens</div>
                     <div className="font-bold">
-                      {tokenOwnership?.externalTokens.toLocaleString() || "0"}
+                      {tokenOwnership?.investorTokens.toLocaleString() || "0"}
                       <span className="text-xs opacity-50 ml-1">
-                        ({tokenOwnership?.externalPercentage.toFixed(1) || 0}%)
+                        ({tokenOwnership?.investorPercentage.toFixed(1) || 0}%)
                       </span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs opacity-50">Total Supply</div>
-                    <div className="font-bold">{tokenOwnership?.totalSupply.toLocaleString() || "0"}</div>
+                    <div className="text-xs opacity-50">Max Supply</div>
+                    <div className="font-bold">{tokenOwnership?.maxSupply.toLocaleString() || "0"}</div>
+                    <div className="text-[11px] opacity-50 mt-0.5">
+                      Circulating: {tokenOwnership?.circulatingSupply.toLocaleString() || "0"} (
+                      {tokenOwnership?.circulatingPercentage.toFixed(1) || 0}%)
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {!hasExternalHolders && totalSupply && totalSupply > 0n && (
+              {!hasExternalHolders && circulatingSupply && circulatingSupply > 0n && (
                 <div className="bg-warning/10 p-3 rounded-lg text-xs">
                   <p className="text-warning font-bold">No external token holders</p>
                   <p className="opacity-80 mt-1">
@@ -306,7 +312,7 @@ export const DistributeEarningsModal = ({
                   <span className="join-item flex items-center px-3 bg-base-300 text-xs font-medium">{symbol}</span>
                 </div>
                 <p className="text-xs opacity-50 mt-1">
-                  Enter the total revenue generated. We&apos;ll calculate the investor portion automatically.
+                  Enter total revenue generated. Investor distribution is calculated against max supply.
                 </p>
               </div>
 
@@ -346,14 +352,14 @@ export const DistributeEarningsModal = ({
                 </div>
               )}
 
-              {/* Auto-release Collateral Toggle */}
-              {revenueBreakdown && hasExternalHolders && totalRevenue && (
+              {/* Auto-release Proceeds Toggle (gradual release only) */}
+              {supportsAutoRelease && revenueBreakdown && hasExternalHolders && totalRevenue && (
                 <div className="form-control w-full">
                   <label className="label cursor-pointer flex justify-between w-full py-2">
                     <div>
-                      <span className="label-text font-medium">Auto-release collateral</span>
+                      <span className="label-text font-medium">Auto-release proceeds</span>
                       <p className="text-xs opacity-50 mt-0.5">
-                        Release locked collateral proportionally as you distribute
+                        Release eligible proceeds proportionally as you distribute earnings
                       </p>
                       {autoRelease && (
                         <p className="text-xs mt-1 font-medium text-success">
