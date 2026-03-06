@@ -179,11 +179,11 @@ contract BaseTest is Test {
     function _setupBuffersFunded() internal {
         uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(scenario.assetId);
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
-        uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP, false);
+        uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, false);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
         vm.prank(partner1);
-        treasury.fundBuffers(scenario.assetId);
+        treasury.enableProceeds(scenario.assetId);
     }
 
     function _creditBaseLiquidity(uint256 amount) internal {
@@ -235,19 +235,8 @@ contract BaseTest is Test {
      * Note: Requires investor tokens to exist (buyer must have purchased tokens first)
      */
     function _setupEarningsDistributed(uint256 totalEarningsAmount) internal {
-        // Get revenue token ID
-        uint256 revenueTokenId = scenario.revenueTokenId;
-
-        // Calculate investor portion based on token ownership
-        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 investorTokens = _getInvestorSupply(revenueTokenId, partner1);
-        uint256 revenueShareBP = roboshareTokens.getRevenueShareBP(revenueTokenId);
-        uint256 cap = (totalEarningsAmount * revenueShareBP) / ProtocolLib.BP_PRECISION;
-        uint256 soldShare = (totalEarningsAmount * investorTokens) / totalSupply;
-        uint256 investorAmount = soldShare < cap ? soldShare : cap;
-
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), investorAmount);
+        usdc.approve(address(treasury), totalEarningsAmount);
         treasury.distributeEarnings(scenario.assetId, totalEarningsAmount, false);
         vm.stopPrank();
     }
@@ -256,6 +245,19 @@ contract BaseTest is Test {
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         uint256 partnerBalance = roboshareTokens.balanceOf(partner, revenueTokenId);
         return totalSupply > partnerBalance ? totalSupply - partnerBalance : 0;
+    }
+
+    function _calculateInvestorAmountFromRevenue(uint256 revenueTokenId, address partner, uint256 totalRevenue)
+        internal
+        view
+        returns (uint256 investorAmount)
+    {
+        uint256 investorTokens = _getInvestorSupply(revenueTokenId, partner);
+        uint256 maxSupply = roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId);
+        uint256 revenueShareBP = roboshareTokens.getRevenueShareBP(revenueTokenId);
+        uint256 cap = (totalRevenue * revenueShareBP) / ProtocolLib.BP_PRECISION;
+        uint256 soldShare = (totalRevenue * investorTokens) / maxSupply;
+        return soldShare < cap ? soldShare : cap;
     }
 
     // ========================================
@@ -290,10 +292,37 @@ contract BaseTest is Test {
         internal
         view
     {
-        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(_assetId);
+        CollateralLib.CollateralInfo memory info = _getCollateralInfo(_assetId);
         assertEq(info.baseCollateral, expectedBase, "Base collateral mismatch");
         assertEq(info.totalCollateral, expectedTotal, "Total collateral mismatch");
         assertEq(info.isLocked, expectedLocked, "Collateral locked state mismatch");
+    }
+
+    function _getCollateralInfo(uint256 assetId) internal view returns (CollateralLib.CollateralInfo memory info) {
+        (
+            info.initialBaseCollateral,
+            info.baseCollateral,
+            info.earningsBuffer,
+            info.protocolBuffer,
+            info.totalCollateral,
+            info.isLocked,
+            info.lockedAt,
+            info.lastEventTimestamp,
+            info.reservedForLiquidation,
+            info.liquidationThreshold,
+            info.createdAt,
+            info.coveredBaseCollateral
+        ) = treasury.assetCollateral(assetId);
+    }
+
+    function _getTotalBufferRequirement(uint256 baseAmount, uint256 yieldBP, bool protectionEnabled)
+        internal
+        pure
+        returns (uint256)
+    {
+        (, uint256 earningsBuffer, uint256 protocolBuffer,) =
+            CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, yieldBP);
+        return protocolBuffer + (protectionEnabled ? earningsBuffer : 0);
     }
 
     /**

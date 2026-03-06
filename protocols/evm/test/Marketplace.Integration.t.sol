@@ -14,8 +14,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 amount,
         uint256 pricePerToken,
         uint256 expiresAt,
-        bool buyerPaysFee,
-        bool isPrimary
+        bool buyerPaysFee
     );
 
     event RevenueTokensTraded(
@@ -35,6 +34,14 @@ contract MarketplaceIntegrationTest is BaseTest {
         internal
         returns (uint256 assetId, uint256 tokenId, uint256 supply)
     {
+        return _registerAssetAndPrepareRevenueToken(false, false, 0);
+    }
+
+    function _registerAssetAndPrepareRevenueToken(
+        bool immediateProceeds,
+        bool protectionEnabled,
+        uint256 maxSupplyOverride
+    ) internal returns (uint256 assetId, uint256 tokenId, uint256 supply) {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.prank(partner1);
         assetId = assetRegistry.registerAsset(
@@ -45,9 +52,18 @@ contract MarketplaceIntegrationTest is BaseTest {
         );
         tokenId = assetId + 1;
         supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        uint256 maxSupply = maxSupplyOverride == 0 ? supply : maxSupplyOverride;
         vm.prank(address(router));
         roboshareTokens.setRevenueTokenInfo(
-            tokenId, REVENUE_TOKEN_PRICE, supply, block.timestamp + 365 days, 10_000, 1_000
+            tokenId,
+            REVENUE_TOKEN_PRICE,
+            supply,
+            maxSupply,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            immediateProceeds,
+            protectionEnabled
         );
     }
 
@@ -65,8 +81,6 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
 
         _assertListingState(newListingId, scenario.revenueTokenId, buyerBalance, REVENUE_TOKEN_PRICE, buyer, true, true);
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
-        assertFalse(listing.isPrimary);
     }
 
     function testCreateListingInvalidTokenType() public {
@@ -149,7 +163,6 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(marketplaceBalanceAfter, marketplaceBalanceBefore + buyerBalance);
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertEq(listing.amount, buyerBalance);
-        assertFalse(listing.isPrimary);
     }
 
     function testCreateListingDoesNotChangeTokenEscrow() public {
@@ -159,70 +172,65 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         vm.startPrank(buyer);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
-        uint256 listingId = marketplace.createListing(
-            scenario.revenueTokenId, buyerBalance, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
-        );
+        marketplace.createListing(scenario.revenueTokenId, buyerBalance, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
         vm.stopPrank();
 
         uint256 afterEscrow = marketplace.tokenEscrow(scenario.revenueTokenId);
         assertEq(afterEscrow, beforeEscrow);
-
-        Marketplace.Listing memory listing = marketplace.getListing(listingId);
-        assertFalse(listing.isPrimary);
     }
 
     function testCreatePrimaryPoolAssetNotMarketOperational() public {
-        (, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(partner1);
         vm.expectRevert(Marketplace.AssetNotMarketOperational.selector);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
     }
 
     function testCreatePrimaryPoolNotPoolPartner() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner2);
         vm.expectRevert(Marketplace.NotPoolPartner.selector);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
     }
 
     function testCreatePrimaryPool() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
         assertFalse(marketplace.isPrimaryPoolActive(tokenId));
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
         assertTrue(marketplace.isPrimaryPoolActive(tokenId));
     }
 
     function testCreatePrimaryPoolAlreadyCreated() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.startPrank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
         vm.expectRevert(Marketplace.PrimaryPoolAlreadyCreated.selector);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
         vm.stopPrank();
     }
 
     function testPausePrimaryPool() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner1);
         marketplace.pausePrimaryPool(tokenId);
@@ -230,13 +238,13 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPausePrimaryPoolNotPoolPartner() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner2);
         vm.expectRevert(Marketplace.NotPoolPartner.selector);
@@ -244,13 +252,13 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testUnpausePrimaryPoolNotPoolPartner() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner1);
         marketplace.pausePrimaryPool(tokenId);
@@ -261,13 +269,13 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testUnpausePrimaryPool() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner1);
         marketplace.pausePrimaryPool(tokenId);
@@ -278,13 +286,13 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testClosePrimaryPool() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner1);
         marketplace.closePrimaryPool(tokenId);
@@ -292,13 +300,13 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testClosePrimaryPoolNotPoolPartner() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner2);
         vm.expectRevert(Marketplace.NotPoolPartner.selector);
@@ -306,13 +314,13 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testClosePrimaryPoolAlreadyClosed() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.startPrank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
         marketplace.closePrimaryPool(tokenId);
         vm.expectRevert(Marketplace.PrimaryPoolAlreadyClosed.selector);
         marketplace.closePrimaryPool(tokenId);
@@ -323,7 +331,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         _ensureState(SetupState.AssetRegistered);
         vm.prank(partner1);
         vm.expectRevert(Marketplace.InvalidTokenType.selector);
-        marketplace.createPrimaryPool(scenario.assetId, REVENUE_TOKEN_PRICE, 100, false, false);
+        marketplace.createPrimaryPool(scenario.assetId, REVENUE_TOKEN_PRICE);
     }
 
     function testCreatePrimaryPoolInvalidPrice() public {
@@ -334,18 +342,31 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         vm.prank(partner1);
         vm.expectRevert(Marketplace.InvalidPrice.selector);
-        marketplace.createPrimaryPool(tokenId, 0, 100, false, false);
+        marketplace.createPrimaryPool(tokenId, 0);
     }
 
     function testCreatePrimaryPoolInvalidMaxSupply() public {
-        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+        _ensureState(SetupState.InitialAccountsSetup);
+        vm.prank(partner1);
+        uint256 assetId = assetRegistry.registerAsset(
+            abi.encode(
+                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            ASSET_VALUE
+        );
+        uint256 tokenId = assetId + 1;
+        uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
+        vm.prank(address(router));
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId, REVENUE_TOKEN_PRICE, supply, 0, block.timestamp + 365 days, 10_000, 1_000, false, false
+        );
 
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
         vm.expectRevert(Marketplace.InvalidMaxSupply.selector);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 0, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
     }
 
     function testPausePrimaryPoolAlreadyClosed() public {
@@ -355,7 +376,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 100, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner1);
         marketplace.closePrimaryPool(tokenId);
@@ -372,7 +393,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 100, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         vm.prank(partner1);
         marketplace.closePrimaryPool(tokenId);
@@ -389,7 +410,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 100, false, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds) =
             marketplace.previewPrimaryPurchase(tokenId, 0);
@@ -404,11 +425,11 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPreviewPrimaryPurchaseImmediateProceedsBranch() public {
-        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken(true, false, 0);
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, 100, true, false);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         (uint256 totalCost, uint256 protocolFee, uint256 partnerProceeds) =
             marketplace.previewPrimaryPurchase(tokenId, 1);
@@ -418,32 +439,32 @@ contract MarketplaceIntegrationTest is BaseTest {
     }
 
     function testPreviewPrimaryPoolBufferRequirements() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken(false, true, 0);
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, true);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
         (uint256 protocolBuffer, uint256 protectionBuffer, uint256 totalBuffer) =
             marketplace.previewPrimaryPoolBufferRequirements(tokenId, ASSET_VALUE);
-        uint256 protocolOnly = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, false);
-        uint256 withProtection = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
+        uint256 protocolOnly = _getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, false);
+        uint256 withProtection = _getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
 
         assertEq(protocolBuffer, protocolOnly);
         assertEq(totalBuffer, withProtection);
         assertEq(protectionBuffer, withProtection - protocolOnly);
     }
 
-    function testGetPrimaryPoolProtectionEnabled() public {
-        (uint256 assetId, uint256 tokenId, uint256 supply) = _registerAssetAndPrepareRevenueToken();
+    function testRevenueTokenProtectionEnabled() public {
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken(false, true, 0);
         vm.prank(address(router));
         assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
         vm.prank(partner1);
-        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE, supply, false, true);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
 
-        assertTrue(marketplace.getPrimaryPoolProtectionEnabled(tokenId));
+        assertTrue(roboshareTokens.getRevenueTokenProtectionEnabled(tokenId));
     }
 
     function testRedeemPrimaryPoolInvalidAmount() public {
@@ -569,8 +590,6 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         assertEq(escrowAfter, escrowBefore);
         assertEq(buyerAfter, buyerBefore + buyerBalance);
-        Marketplace.Listing memory listing = marketplace.getListing(listingId);
-        assertFalse(listing.isPrimary);
     }
 
     function testCreateListingSetsEarlySalePenalty() public {
@@ -584,7 +603,6 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         Marketplace.Listing memory listing = marketplace.getListing(secondaryListingId);
         assertGt(listing.earlySalePenalty, 0, "Early sale penalty should be set");
-        assertFalse(listing.isPrimary);
     }
 
     // Purchase Listing Tests

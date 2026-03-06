@@ -41,6 +41,7 @@ interface PrimaryPoolCardProps {
   primaryActionDisabled?: boolean;
   primaryActionOnClick?: () => void;
   secondaryActions?: { label: string; onClick?: () => void }[];
+  showNewPoolBadge?: boolean;
 }
 
 export function PrimaryPoolCard({
@@ -54,6 +55,7 @@ export function PrimaryPoolCard({
   primaryActionDisabled = false,
   primaryActionOnClick,
   secondaryActions = [],
+  showNewPoolBadge = false,
 }: PrimaryPoolCardProps) {
   const { symbol, decimals } = usePaymentToken();
   const actionDropdownRef = useRef<HTMLDivElement>(null);
@@ -86,9 +88,14 @@ export function PrimaryPoolCard({
     : "rounded-full bg-base-200 px-3 py-1 text-xs font-semibold text-base-content/70";
   const circulatingDisplay = currentSupply === 0n ? "--" : `${currentSupply.toLocaleString()} tokens`;
   const allocatedPercentage = maxSupply > 0n ? Number((currentSupply * 100n) / maxSupply) : 0;
-  const isNewPool = currentSupply === 0n && !pool.isPaused && !pool.isClosed;
   const isListMode = viewMode === "list";
   const hasSecondaryActions = secondaryActions.some(action => Boolean(action.onClick));
+  const enabledPrimaryButtonClass = "btn btn-primary bg-primary/15 border-0 text-primary hover:bg-primary/25";
+  const enabledSuccessButtonClass = "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25";
+  const disabledPrimaryButtonClass =
+    "btn btn-ghost border border-base-300 bg-base-200 text-base-content/45 hover:border-base-300 hover:bg-base-200 dark:border-base-300 dark:bg-base-200 dark:text-base-content/45";
+  const isSuccessPrimary = primaryActionLabel === "Claim Earnings" || primaryActionLabel === "Claim Settlement";
+  const activePrimaryButtonClass = isSuccessPrimary ? enabledSuccessButtonClass : enabledPrimaryButtonClass;
 
   useEffect(() => {
     if (!isActionMenuOpen) return;
@@ -118,7 +125,7 @@ export function PrimaryPoolCard({
     if (!hasSecondaryActions) {
       return (
         <button
-          className="btn btn-ghost w-full border border-primary/20 bg-primary/10 text-primary hover:border-primary/30 hover:bg-primary/15 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:border-white/25 dark:hover:bg-white/15"
+          className={`${primaryActionDisabled ? disabledPrimaryButtonClass : activePrimaryButtonClass} w-full shadow-none`}
           onClick={primaryActionOnClick}
           disabled={primaryActionDisabled}
         >
@@ -132,7 +139,9 @@ export function PrimaryPoolCard({
         <div className="flex w-full">
           <button
             type="button"
-            className="btn btn-ghost rounded-r-none flex-1 border border-primary/20 bg-primary/10 text-primary hover:border-primary/30 hover:bg-primary/15 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:border-white/25 dark:hover:bg-white/15"
+            className={`${
+              primaryActionDisabled ? disabledPrimaryButtonClass : activePrimaryButtonClass
+            } rounded-r-none flex-1 shadow-none`}
             onClick={() => {
               setIsActionMenuOpen(false);
               primaryActionOnClick?.();
@@ -143,7 +152,7 @@ export function PrimaryPoolCard({
           </button>
           <button
             type="button"
-            className="btn btn-ghost rounded-l-none px-2 border border-l-0 border-primary/20 bg-primary/10 text-primary hover:border-primary/30 hover:bg-primary/15 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:border-white/25 dark:hover:bg-white/15"
+            className={`${activePrimaryButtonClass} rounded-l-none px-2 border-l border-current/15 shadow-none`}
             aria-expanded={isActionMenuOpen}
             aria-haspopup="menu"
             onClick={() => setIsActionMenuOpen(prev => !prev)}
@@ -200,7 +209,7 @@ export function PrimaryPoolCard({
                 No Image
               </div>
             )}
-            {isNewPool && (
+            {showNewPoolBadge && (
               <div className="absolute left-[-3.5rem] top-4 rotate-[-35deg] bg-success px-16 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-success-content shadow-md">
                 New Pool
               </div>
@@ -215,18 +224,20 @@ export function PrimaryPoolCard({
           <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
             <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
               <div className="min-w-0 lg:w-[32%]">
-                <div className="line-clamp-2 break-words text-lg font-bold leading-tight" title={displayName}>
-                  {displayName}
+                <div className="min-h-[4rem]">
+                  <div className="line-clamp-2 break-words text-lg font-bold leading-tight" title={displayName}>
+                    {displayName}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm text-base-content/60">
+                      {partner?.name || partner?.address || pool.partner}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="truncate text-sm text-base-content/60">
-                    {partner?.name || partner?.address || pool.partner}
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>
-                    {statusLabel}
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="mt-2 flex min-h-[4.5rem] flex-wrap content-start items-start gap-2">
                   <span className={benefitClass}>{benefitLabel}</span>
                   <span className={protectionClass}>
                     {pool.protectionEnabled ? "Protection Enabled" : "No Protection"}
@@ -236,9 +247,11 @@ export function PrimaryPoolCard({
 
               <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:w-[42%]">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide opacity-50">Price</div>
-                  <div className="font-semibold leading-tight">{priceDisplay}</div>
-                  <div className="text-[11px] opacity-60">{symbol}</div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-50">Circulating</div>
+                  <div className="font-semibold leading-tight">
+                    {currentSupply === 0n ? "--" : currentSupply.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] opacity-60">tokens</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide opacity-50">Available</div>
@@ -246,11 +259,9 @@ export function PrimaryPoolCard({
                   <div className="text-[11px] opacity-60">tokens</div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide opacity-50">Circulating</div>
-                  <div className="font-semibold leading-tight">
-                    {currentSupply === 0n ? "--" : currentSupply.toLocaleString()}
-                  </div>
-                  <div className="text-[11px] opacity-60">tokens</div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-50">Price</div>
+                  <div className="font-semibold leading-tight">{priceDisplay}</div>
+                  <div className="text-[11px] opacity-60">{symbol}</div>
                 </div>
                 <div className="col-span-2 sm:col-span-3">
                   <div className="mb-1 flex justify-between text-[10px] uppercase tracking-wide opacity-50">
@@ -287,7 +298,7 @@ export function PrimaryPoolCard({
         ) : (
           <div className="w-full h-full flex items-center justify-center text-base-content/40 text-sm">No Image</div>
         )}
-        {isNewPool && (
+        {showNewPoolBadge && (
           <div className="absolute inset-x-0 top-0 flex items-center justify-center bg-success text-success-content px-4 py-2 text-xs font-bold tracking-wide shadow-md">
             ✨ New Pool
           </div>
@@ -299,31 +310,27 @@ export function PrimaryPoolCard({
         </div>
       </div>
 
-      <div className="p-5 flex flex-col gap-4 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-bold leading-tight">{displayName}</h3>
-            <p className="text-sm text-base-content/60 mt-1">{partner?.name || partner?.address || pool.partner}</p>
-          </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold shrink-0 ${statusClass}`}>{statusLabel}</span>
+      <div className="grid flex-1 grid-rows-[5.5rem_2rem_auto_auto_auto] gap-4 p-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] items-start gap-x-3 gap-y-1">
+          <h3 className="line-clamp-2 text-xl font-bold leading-tight" title={displayName}>
+            {displayName}
+          </h3>
+          <span
+            className={`row-span-2 rounded-full px-3 py-1 text-xs font-semibold shrink-0 self-start ${statusClass}`}
+          >
+            {statusLabel}
+          </span>
+          <p
+            className="truncate text-sm text-base-content/60"
+            title={partner?.name || partner?.address || pool.partner}
+          >
+            {partner?.name || partner?.address || pool.partner}
+          </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap content-start gap-2">
           <span className={benefitClass}>{benefitLabel}</span>
           <span className={protectionClass}>{pool.protectionEnabled ? "Protection Enabled" : "No Protection"}</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-xl bg-base-200 p-3">
-            <div className="text-base-content/60">Price</div>
-            <div className="mt-1 text-2xl font-bold leading-none">{priceDisplay}</div>
-            <div className="mt-1 text-base-content/70 font-semibold">{symbol}</div>
-          </div>
-          <div className="rounded-xl bg-base-200 p-3">
-            <div className="text-base-content/60">Available</div>
-            <div className="mt-1 text-2xl font-bold leading-none">{remainingSupply.toLocaleString()}</div>
-            <div className="mt-1 text-base-content/70 font-semibold">tokens</div>
-          </div>
         </div>
 
         <div className="rounded-xl bg-base-200 p-4">
@@ -344,7 +351,20 @@ export function PrimaryPoolCard({
           ></progress>
         </div>
 
-        <div className="mt-auto flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-xl bg-base-200 p-3">
+            <div className="text-base-content/60">Available</div>
+            <div className="mt-1 text-2xl font-bold leading-none">{remainingSupply.toLocaleString()}</div>
+            <div className="mt-1 text-base-content/70 font-semibold">tokens</div>
+          </div>
+          <div className="rounded-xl bg-base-200 p-3">
+            <div className="text-base-content/60">Price</div>
+            <div className="mt-1 text-2xl font-bold leading-none">{priceDisplay}</div>
+            <div className="mt-1 text-base-content/70 font-semibold">{symbol}</div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 self-end">
           <div className="w-full">{renderActionButton("top")}</div>
           <div className="text-center text-xs text-base-content/60">Max supply {maxSupply.toLocaleString()} tokens</div>
         </div>

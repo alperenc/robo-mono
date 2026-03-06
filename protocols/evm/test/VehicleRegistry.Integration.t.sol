@@ -40,11 +40,11 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(assetId);
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 requiredCollateral = treasury.getTotalBufferRequirement(baseAmount, yieldBP, true);
+        uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, true);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
         vm.prank(partner1);
-        treasury.fundBuffers(assetId);
+        treasury.enableProceeds(assetId);
     }
 
     function testRetireAssetOutstandingTokens() public {
@@ -355,7 +355,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(actualSupply, assetValue / tokenPrice, "Supply should be derived from asset value and price");
 
         // Buffers are not funded by pool creation alone.
-        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(assetId);
+        CollateralLib.CollateralInfo memory info = _getCollateralInfo(assetId);
         assertEq(info.baseCollateral, 0);
         assertEq(info.isLocked, false);
     }
@@ -453,7 +453,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         _ensureSecondaryListingScenario();
         // Verify initial state (buyer holds purchased tokens; escrow may still hold remainder)
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
-        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         uint256 expectedCollateral = info.totalCollateral;
         _assertCollateralState(scenario.assetId, info.baseCollateral, expectedCollateral, true);
 
@@ -478,7 +478,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         // Verify collateral released
         // Collateral should be unlocked (locked = false)
-        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
+        assertFalse(_getCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testRetireAssetAndBurnTokensNoPurchase() public {
@@ -489,7 +489,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
         assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), totalSupply);
 
-        CollateralLib.CollateralInfo memory info = treasury.getAssetCollateralInfo(scenario.assetId);
+        CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         uint256 expectedCollateral = info.totalCollateral;
         _assertCollateralState(scenario.assetId, info.baseCollateral, expectedCollateral, false);
 
@@ -511,7 +511,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
         assertEq(roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId), 0);
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
-        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
+        assertFalse(_getCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testRetireAssetAndBurnTokensOutstandingTokensListedSellerEscrow() public {
@@ -645,7 +645,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.retireAsset(scenario.assetId);
 
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
-        assertFalse(treasury.getAssetCollateralInfo(scenario.assetId).isLocked);
+        assertFalse(_getCollateralInfo(scenario.assetId).isLocked);
     }
 
     function testRetireAssetAssetNotActive() public {
@@ -696,6 +696,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.settleAsset(scenario.assetId, topUpAmount);
 
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
+        assertFalse(marketplace.isPrimaryPoolActive(scenario.revenueTokenId));
     }
 
     function testLiquidateAssetMaturity() public {
@@ -719,6 +720,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(totalSettlementPool, expectedLiquidationAmount);
         assertEq(settlementPerToken, expectedPerToken);
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Expired));
+        assertFalse(marketplace.isPrimaryPoolActive(scenario.revenueTokenId));
     }
 
     function testLiquidateAssetNotEligible() public {
@@ -736,7 +738,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
 
         (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(assetId);
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
-        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(assetId);
+        CollateralLib.CollateralInfo memory infoBefore = _getCollateralInfo(assetId);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
         uint256 elapsedToDeplete = (infoBefore.earningsBuffer * ProtocolLib.YEARLY_INTERVAL * ProtocolLib.BP_PRECISION)
             / (infoBefore.initialBaseCollateral * targetYieldBP);
@@ -763,7 +765,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         view
         returns (uint256)
     {
-        CollateralLib.CollateralInfo memory infoBefore = treasury.getAssetCollateralInfo(assetId);
+        CollateralLib.CollateralInfo memory infoBefore = _getCollateralInfo(assetId);
         (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(assetId);
         uint256 elapsed = block.timestamp - lastEventTimestamp;
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);

@@ -8,7 +8,11 @@ import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
-interface MarketAssetCardProps {
+const BP_PRECISION = 10000n;
+const BENCHMARK_YIELD_BP = 1000n;
+const DEPRECIATION_RATE_BP = 1200n;
+
+interface ListingCardProps {
   listing: {
     id: string;
     tokenId: string;
@@ -19,7 +23,6 @@ interface MarketAssetCardProps {
     expiresAt: string;
     seller: string;
     status?: string;
-    isPrimary?: boolean;
     isEnded?: boolean;
     endedAt?: string | null;
     createdAt?: string;
@@ -69,7 +72,7 @@ interface MarketAssetCardProps {
   onSettleAssetClick?: () => void;
 }
 
-export function MarketAssetCard({
+export function ListingCard({
   listing,
   vehicle,
   token,
@@ -91,7 +94,7 @@ export function MarketAssetCard({
   onEndListingClick,
   onDistributeEarningsClick,
   onSettleAssetClick,
-}: MarketAssetCardProps) {
+}: ListingCardProps) {
   const { address } = useAccount();
   const { data: latestBlock } = useBlock({ watch: true });
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
@@ -110,10 +113,6 @@ export function MarketAssetCard({
     functionName: "balanceOf",
     args: [address, BigInt(listing.tokenId)],
   });
-  const { data: protocolConfig } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getProtocolConfig",
-  });
   const { data: previewClaimAmount } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "previewClaimEarnings",
@@ -125,10 +124,6 @@ export function MarketAssetCard({
     functionName: "getAssetStatus",
     args: [BigInt(listing.assetId)],
   });
-  const bpPrecision = protocolConfig?.[0];
-  const benchmarkYieldBP = protocolConfig?.[1];
-  const depreciationRateBP = protocolConfig?.[4];
-
   const hasAvailableTokens = BigInt(listing.amount) > 0n;
   const hasEarnings = Boolean(earnings && (earnings.distributionCount !== "0" || earnings.totalEarnings !== "0"));
   const canClaimEarnings = (previewClaimAmount || 0n) > 0n;
@@ -168,10 +163,8 @@ export function MarketAssetCard({
   // Calculate APY - use realized if available, otherwise target yield
   const apyDisplay = useMemo(() => {
     if (!token) {
-      if (benchmarkYieldBP === undefined) return "—";
-      return `${(Number(benchmarkYieldBP) / 100).toFixed(2)}%`;
+      return `${(Number(BENCHMARK_YIELD_BP) / 100).toFixed(2)}%`;
     }
-    if (bpPrecision === undefined) return "—";
 
     const tokenPrice = BigInt(token.price);
     const principalAmount = listingSoldAmount > 0n ? listingSoldAmount : BigInt(listing.amount);
@@ -188,30 +181,17 @@ export function MarketAssetCard({
       if (duration > 0n) {
         const secondsPerYear = 365n * 24n * 60n * 60n;
         const annualizedEarnings = (listingActualEarnings * secondsPerYear) / duration;
-        const aprBps = (annualizedEarnings * bpPrecision) / totalValue;
+        const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
         const aprPercent = Number(aprBps) / 100;
         return `${aprPercent.toFixed(2)}%`;
       }
     }
 
     // Fallback to target yield APY (or benchmark if unavailable)
-    const targetYieldBps = token.targetYieldBP
-      ? Number(token.targetYieldBP)
-      : benchmarkYieldBP !== undefined
-        ? Number(benchmarkYieldBP)
-        : 0;
+    const targetYieldBps = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_YIELD_BP);
     const targetYieldPercent = targetYieldBps / 100;
     return `${targetYieldPercent.toFixed(2)}%`;
-  }, [
-    token,
-    benchmarkYieldBP,
-    bpPrecision,
-    earnings,
-    listing.amount,
-    listing.endedAt,
-    listingActualEarnings,
-    listingSoldAmount,
-  ]);
+  }, [token, earnings, listing.amount, listing.endedAt, listingActualEarnings, listingSoldAmount]);
 
   // Format listing-scoped actual earnings (numeric value only — symbol rendered separately)
   const actualEarningsDisplay = useMemo(() => {
@@ -223,9 +203,6 @@ export function MarketAssetCard({
   // Calculate projected earnings (per year and at maturity)
   const projectedEarnings = useMemo(() => {
     if (!token) return { perYear: "—", atMaturity: "—" };
-    if (bpPrecision === undefined || benchmarkYieldBP === undefined || depreciationRateBP === undefined) {
-      return { perYear: "—", atMaturity: "—" };
-    }
     const tokenPrice = BigInt(token.price);
     const listingAmountForProjection =
       listing.isEnded || !hasAvailableTokens ? listingSoldAmount : BigInt(listing.amount);
@@ -233,10 +210,10 @@ export function MarketAssetCard({
     if (totalValue === 0n) {
       return { perYear: "0.00", atMaturity: "0.00" };
     }
-    const targetYieldBps = token.targetYieldBP ? BigInt(token.targetYieldBP) : benchmarkYieldBP;
+    const targetYieldBps = token.targetYieldBP ? BigInt(token.targetYieldBP) : BENCHMARK_YIELD_BP;
 
     // earnings per year = totalValue * targetYieldBP / 10000
-    const earningsPerYear = (totalValue * targetYieldBps) / bpPrecision;
+    const earningsPerYear = (totalValue * targetYieldBps) / BP_PRECISION;
     const perYearFormatted = Number(formatUnits(earningsPerYear, paymentDecimals)).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -266,7 +243,7 @@ export function MarketAssetCard({
     // Principal depreciates by 12% per year (released to partner)
     // recoverableBase = totalValue - (totalValue * 12% * yearsRemaining)
     const depreciationAmount =
-      (totalValue * depreciationRateBP * BigInt(Math.round(yearsRemaining * 1000))) / (bpPrecision * 1000n);
+      (totalValue * DEPRECIATION_RATE_BP * BigInt(Math.round(yearsRemaining * 1000))) / (BP_PRECISION * 1000n);
     const recoverableBase = totalValue > depreciationAmount ? totalValue - depreciationAmount : 0n;
 
     const atMaturityTotal = recoverableBase + projectedTotalEarnings;
@@ -276,18 +253,7 @@ export function MarketAssetCard({
     });
 
     return { perYear: perYearFormatted, atMaturity: atMaturityFormatted };
-  }, [
-    token,
-    bpPrecision,
-    benchmarkYieldBP,
-    depreciationRateBP,
-    listing.amount,
-    listing.isEnded,
-    hasAvailableTokens,
-    listingSoldAmount,
-    paymentDecimals,
-    chainNowSec,
-  ]);
+  }, [token, listing.amount, listing.isEnded, hasAvailableTokens, listingSoldAmount, paymentDecimals, chainNowSec]);
 
   // Format price per token (numeric value only — symbol rendered separately)
   const priceDisplay = useMemo(() => {
@@ -359,8 +325,8 @@ export function MarketAssetCard({
   }, [hasAvailableTokens, listing.createdAt, listing.soldOutAt]);
   const isNewlyListed = hasAvailableTokens && !isEnded && (!earnings || earnings.distributionCount === "0");
   const isSellerOfListing = Boolean(address && listing.seller.toLowerCase() === address.toLowerCase());
-  const isSecondaryListing = listing.isPrimary === false;
-  const showSecondaryListingBadge = isSecondaryListing && !isInactive;
+  const isSecondaryListing = true;
+  const showSecondaryListingBadge = !isInactive;
   // Primary sellers should not list wallet tokens; only secondary sellers can.
   const canListWalletTokens = !hasUserPrimaryListingForTokenId;
   // For primary sellers, relistable inventory is pooled in Marketplace tokenEscrow(tokenId),
@@ -547,6 +513,9 @@ export function MarketAssetCard({
 
   const isCardPressable = Boolean(actionState.primaryOnClick) && !actionState.primaryDisabled;
   const hasAvailableActions = isCardPressable || actionState.secondaryActions.some(action => Boolean(action.onClick));
+  const primaryButtonClass = actionState.primaryDisabled
+    ? `${actionState.primaryClass} !bg-base-200 !text-base-content/45 !border-base-300 !shadow-none opacity-100`
+    : actionState.primaryClass;
   const isListMode = viewMode === "list";
   const triggerPrimaryAction = () => {
     if (!isCardPressable) return;
@@ -675,7 +644,7 @@ export function MarketAssetCard({
                   <div className="flex w-full">
                     <button
                       type="button"
-                      className={`btn ${actionState.primaryClass} rounded-r-none flex-1`}
+                      className={`btn ${primaryButtonClass} rounded-r-none flex-1`}
                       onClick={() => {
                         setIsActionMenuOpen(false);
                         actionState.primaryOnClick?.();
@@ -686,7 +655,7 @@ export function MarketAssetCard({
                     </button>
                     <button
                       type="button"
-                      className={`btn ${actionState.primaryClass} rounded-l-none px-2 border-l border-current/15`}
+                      className={`btn ${primaryButtonClass} rounded-l-none px-2 border-l border-current/15`}
                       aria-expanded={isActionMenuOpen}
                       aria-haspopup="menu"
                       onClick={() => setIsActionMenuOpen(prev => !prev)}
@@ -726,7 +695,7 @@ export function MarketAssetCard({
                 </div>
               ) : (
                 <button
-                  className={`btn ${actionState.primaryClass} w-full`}
+                  className={`btn ${primaryButtonClass} w-full`}
                   onClick={actionState.primaryOnClick}
                   disabled={actionState.primaryDisabled}
                 >
@@ -892,7 +861,7 @@ export function MarketAssetCard({
               <div className="flex w-full">
                 <button
                   type="button"
-                  className={`btn ${actionState.primaryClass} rounded-r-none flex-1`}
+                  className={`btn ${primaryButtonClass} rounded-r-none flex-1`}
                   onClick={() => {
                     setIsActionMenuOpen(false);
                     actionState.primaryOnClick?.();
@@ -903,7 +872,7 @@ export function MarketAssetCard({
                 </button>
                 <button
                   type="button"
-                  className={`btn ${actionState.primaryClass} rounded-l-none px-3 border-l border-current/15`}
+                  className={`btn ${primaryButtonClass} rounded-l-none px-3 border-l border-current/15`}
                   aria-expanded={isActionMenuOpen}
                   aria-haspopup="menu"
                   onClick={() => setIsActionMenuOpen(prev => !prev)}
@@ -943,7 +912,7 @@ export function MarketAssetCard({
             </div>
           ) : (
             <button
-              className={`btn ${actionState.primaryClass} btn-block`}
+              className={`btn ${primaryButtonClass} btn-block`}
               onClick={actionState.primaryOnClick}
               disabled={actionState.primaryDisabled}
             >

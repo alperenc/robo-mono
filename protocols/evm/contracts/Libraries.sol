@@ -388,11 +388,14 @@ library TokenLib {
     struct TokenInfo {
         uint256 tokenId; // ERC1155 token ID
         uint256 tokenPrice; // Price per token in USDC (6 decimals)
+        uint256 maxSupply; // Max primary-pool supply used for revenue split bounds
         uint256 tokenSupply; // Total number of tokens issued
         uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
         uint256 maturityDate; // Date by which the revenue commitment ends
         uint256 revenueShareBP; // Max investor share of reported revenue (basis points)
         uint256 targetYieldBP; // Target yield for buffer benchmarks (basis points)
+        bool immediateProceeds; // True: higher-upside profile, False: earlier-liquidity profile
+        bool protectionEnabled; // True when protection buffer policy is enabled
         // Track positions per user using Queue
         mapping(address => PositionQueue) positions;
     }
@@ -444,13 +447,17 @@ library TokenLib {
         TokenInfo storage info,
         uint256 tokenId,
         uint256 tokenPrice,
+        uint256 maxSupply,
         uint256 minHoldingPeriod,
         uint256 maturityDate,
         uint256 revenueShareBP,
-        uint256 targetYieldBP
+        uint256 targetYieldBP,
+        bool immediateProceeds,
+        bool protectionEnabled
     ) internal {
         info.tokenId = tokenId;
         info.tokenPrice = tokenPrice;
+        info.maxSupply = maxSupply;
         info.tokenSupply = 0; // Initialize to 0, will be updated by minting/burning
         info.minHoldingPeriod =
             minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
@@ -458,6 +465,8 @@ library TokenLib {
         info.revenueShareBP = revenueShareBP;
         info.targetYieldBP =
             targetYieldBP < ProtocolLib.BENCHMARK_YIELD_BP ? ProtocolLib.BENCHMARK_YIELD_BP : targetYieldBP;
+        info.immediateProceeds = immediateProceeds;
+        info.protectionEnabled = protectionEnabled;
         // mappings are automatically initialized
     }
 
@@ -612,6 +621,7 @@ library CollateralLib {
         uint256 reservedForLiquidation; // Tracks shortfalls reserved for liquidation
         uint256 liquidationThreshold; // Threshold for liquidation
         uint256 createdAt; // When collateral info was initialized
+        uint256 coveredBaseCollateral; // Portion of base currently backed by funded buffers
     }
 
     /**
@@ -673,6 +683,7 @@ library CollateralLib {
         info.reservedForLiquidation = 0;
         info.liquidationThreshold = earningsBuffer; // Set initial liquidation threshold to earnings buffer
         info.createdAt = block.timestamp;
+        info.coveredBaseCollateral = 0;
     }
 
     /**
@@ -1036,6 +1047,9 @@ library CollateralLib {
             calc.status = ReleaseEligibility.Eligible;
             calc.newLastProcessedPeriod = currentPeriod + 1;
             calc.grossRelease = calculateCollateralRelease(calc.collateral);
+            if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
+                calc.grossRelease = calc.collateral.coveredBaseCollateral;
+            }
             if (calc.grossRelease > 0) {
                 (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
             }
@@ -1051,6 +1065,9 @@ library CollateralLib {
             calc.status = ReleaseEligibility.Eligible;
             calc.newLastProcessedPeriod = currentPeriod + 1;
             calc.grossRelease = calculateCollateralRelease(calc.collateral);
+            if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
+                calc.grossRelease = calc.collateral.coveredBaseCollateral;
+            }
             if (calc.grossRelease > 0) {
                 (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
             }
@@ -1064,6 +1081,9 @@ library CollateralLib {
             applyRealizedVsBenchmarkToCollateral(calc.collateral, realizedEarnings, benchmarkEarnings);
 
         calc.grossRelease = calculateCollateralRelease(calc.collateral);
+        if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
+            calc.grossRelease = calc.collateral.coveredBaseCollateral;
+        }
         if (calc.grossRelease > calc.collateral.totalCollateral) {
             calc.grossRelease = calc.collateral.totalCollateral;
         }

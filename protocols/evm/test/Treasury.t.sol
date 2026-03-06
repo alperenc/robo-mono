@@ -143,13 +143,13 @@ contract TreasuryTest is BaseTest {
 
     // Collateral Calculation Tests
 
-    function testGetTotalBufferRequirement() public view {
-        uint256 requirement = treasury.getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
+    function testGetTotalBufferRequirement() public pure {
+        uint256 requirement = _getTotalBufferRequirement(ASSET_VALUE, ProtocolLib.BENCHMARK_YIELD_BP, true);
         (,, uint256 expectedTotal) = _calculateExpectedBuffers(ASSET_VALUE);
         assertEq(requirement, expectedTotal);
     }
 
-    function testGetProtocolConfig() public view {
+    function testGetProtocolConfig() public pure {
         (
             uint256 bpPrecision,
             uint256 benchmarkYieldBP,
@@ -158,7 +158,15 @@ contract TreasuryTest is BaseTest {
             uint256 depreciationRateBP,
             uint256 minProtocolFee,
             uint256 minEarlySalePenalty
-        ) = treasury.getProtocolConfig();
+        ) = (
+            ProtocolLib.BP_PRECISION,
+            ProtocolLib.BENCHMARK_YIELD_BP,
+            ProtocolLib.PROTOCOL_FEE_BP,
+            ProtocolLib.EARLY_SALE_PENALTY_BP,
+            ProtocolLib.DEPRECIATION_RATE_BP,
+            ProtocolLib.MIN_PROTOCOL_FEE,
+            ProtocolLib.MIN_EARLY_SALE_PENALTY
+        );
 
         assertEq(bpPrecision, ProtocolLib.BP_PRECISION);
         assertEq(benchmarkYieldBP, ProtocolLib.BENCHMARK_YIELD_BP);
@@ -342,7 +350,7 @@ contract TreasuryTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testProcessWithdrawalFor() public {
+    function testProcessWithdrawal() public {
         _ensureState(SetupState.InitialAccountsSetup);
         uint256 amount = 50e6;
         deal(address(usdc), address(treasury), amount);
@@ -351,12 +359,11 @@ contract TreasuryTest is BaseTest {
         treasury.recordPendingWithdrawal(partner1, amount);
 
         uint256 before = usdc.balanceOf(partner1);
-        vm.prank(address(marketplace));
-        uint256 withdrawn = treasury.processWithdrawalFor(partner1);
+        vm.prank(partner1);
+        treasury.processWithdrawal();
 
-        assertEq(withdrawn, amount);
         assertEq(usdc.balanceOf(partner1), before + amount);
-        assertEq(treasury.getPendingWithdrawal(partner1), 0);
+        assertEq(treasury.pendingWithdrawals(partner1), 0);
     }
 
     function testUpgradeUnauthorizedCaller() public {

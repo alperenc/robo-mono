@@ -37,7 +37,15 @@ contract RoboshareTokens is
     event RevenueTokenPositionsUpdated(
         uint256 indexed revenueTokenId, address indexed from, address indexed to, uint256 amount
     );
-    event RevenueTokenInfoSet(uint256 indexed revenueTokenId, uint256 price, uint256 supply, uint256 maturityDate);
+    event RevenueTokenInfoSet(
+        uint256 indexed revenueTokenId,
+        uint256 price,
+        uint256 supply,
+        uint256 maxSupply,
+        uint256 maturityDate,
+        bool immediateProceeds,
+        bool protectionEnabled
+    );
 
     // Token state
     uint256 private _tokenIdCounter;
@@ -90,9 +98,12 @@ contract RoboshareTokens is
         uint256 revenueTokenId,
         uint256 price,
         uint256 supply,
+        uint256 maxSupply,
         uint256 maturityDate,
         uint256 revenueShareBP,
-        uint256 targetYieldBP
+        uint256 targetYieldBP,
+        bool immediateProceeds,
+        bool protectionEnabled
     ) external onlyRole(MINTER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
@@ -106,12 +117,17 @@ contract RoboshareTokens is
             tokenInfo,
             revenueTokenId,
             price,
+            maxSupply,
             ProtocolLib.MONTHLY_INTERVAL, // Default holding period
             maturityDate,
             revenueShareBP,
-            targetYieldBP
+            targetYieldBP,
+            immediateProceeds,
+            protectionEnabled
         );
-        emit RevenueTokenInfoSet(revenueTokenId, price, supply, maturityDate);
+        emit RevenueTokenInfoSet(
+            revenueTokenId, price, supply, maxSupply, maturityDate, immediateProceeds, protectionEnabled
+        );
     }
 
     /**
@@ -243,6 +259,27 @@ contract RoboshareTokens is
             revert NotRevenueToken();
         }
         return _revenueTokenInfos[revenueTokenId].targetYieldBP;
+    }
+
+    function getRevenueTokenMaxSupply(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].maxSupply;
+    }
+
+    function getRevenueTokenImmediateProceedsEnabled(uint256 revenueTokenId) external view returns (bool) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].immediateProceeds;
+    }
+
+    function getRevenueTokenProtectionEnabled(uint256 revenueTokenId) external view returns (bool) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].protectionEnabled;
     }
 
     /**

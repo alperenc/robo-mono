@@ -24,7 +24,7 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
   const { data: pendingAmount, isLoading: isLoadingPending } = useReadContract({
     address: deployedContracts[31337]?.Treasury?.address,
     abi: deployedContracts[31337]?.Treasury?.abi,
-    functionName: "getPendingWithdrawal",
+    functionName: "pendingWithdrawals",
     args: address ? [address] : undefined,
     query: { enabled: !!address && isOpen },
   });
