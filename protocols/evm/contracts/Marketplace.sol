@@ -391,7 +391,10 @@ contract Marketplace is
     function buyFromSecondaryListing(uint256 listingId, uint256 amount) external nonReentrant {
         Listing storage listingForExpiry = listings[listingId];
         if (listingForExpiry.listingId == 0) revert ListingNotFound();
-        _expireListingIfNeeded(listingForExpiry);
+        if (block.timestamp > listingForExpiry.expiresAt) {
+            _expireListingIfNeeded(listingForExpiry);
+            return;
+        }
 
         Listing storage listing = _getValidatedSecondaryListing(listingId, amount);
         SecondaryPurchaseQuote memory quote = _buildSecondaryPurchaseQuote(listing, amount);

@@ -816,11 +816,22 @@ contract MarketplaceIntegrationTest is BaseTest {
         _setupExpiredListing(secondaryListingId);
 
         (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(secondaryListingId, 100);
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+        uint256 buyerTokenBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        uint256 sellerLockedBefore = roboshareTokens.getLockedAmount(partner2, scenario.revenueTokenId);
+        assertEq(sellerLockedBefore, transferAmount);
+
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
-        vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.buyFromSecondaryListing(secondaryListingId, 100);
         vm.stopPrank();
+
+        Marketplace.Listing memory listing = marketplace.getListing(secondaryListingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(roboshareTokens.getLockedAmount(partner2, scenario.revenueTokenId), 0);
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokenBefore);
     }
 
     function testBuyFromSecondaryListingInvalidAmount() public {
