@@ -1289,8 +1289,8 @@ library EarningsLib {
         // Calculate unclaimed earnings for all positions
         snapshotAmount = calculateEarningsForPositions(earningsInfo, holder, positions);
 
-        // Store snapshot for later claim
-        earningsInfo.settledEarningsSnapshot[holder] = snapshotAmount;
+        // Accumulate snapshots so repeated pre-settlement burns cannot overwrite prior preserved earnings.
+        earningsInfo.settledEarningsSnapshot[holder] += snapshotAmount;
 
         // Mark claim periods as updated (to prevent double claiming via positions)
         updateClaimPeriods(earningsInfo, holder, positions);
