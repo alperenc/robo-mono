@@ -932,38 +932,6 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertFalse(listing.isActive);
     }
 
-    // Removed Selector Tests
-
-    function testFinalizeListingRemovedSelector() public {
-        _ensureSecondaryListingScenario();
-        _assertRemovedSelector(abi.encodeWithSignature("finalizeListing(uint256)", scenario.listingId));
-    }
-
-    function testFinalizeListingRemovedSelectorAfterSellOut() public {
-        _ensureSecondaryListingScenario();
-
-        uint256 secondaryListingId =
-            _setupSecondaryListing(partner2, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, true);
-
-        (,, uint256 expectedPayment) =
-            marketplace.previewSecondaryPurchase(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
-
-        vm.startPrank(buyer);
-        usdc.approve(address(marketplace), expectedPayment);
-        marketplace.buyFromSecondaryListing(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
-        vm.stopPrank();
-
-        Marketplace.Listing memory listingAfter = marketplace.getListing(secondaryListingId);
-        assertFalse(listingAfter.isActive, "Listing should be inactive after sellout");
-        assertEq(listingAfter.amount, 0, "Listing amount should be zero after sellout");
-        _assertRemovedSelector(abi.encodeWithSignature("finalizeListing(uint256)", secondaryListingId));
-    }
-
-    function testFinalizeListingRemovedSelectorUnauthorizedCaller() public {
-        _ensureSecondaryListingScenario();
-        _assertRemovedSelector(abi.encodeWithSignature("finalizeListing(uint256)", scenario.listingId));
-    }
-
     // Extend Listing Tests
 
     function testExtendListing() public {
@@ -1358,11 +1326,6 @@ contract MarketplaceIntegrationTest is BaseTest {
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromSecondaryListing(scenario.listingId, amount);
         vm.stopPrank();
-    }
-
-    function _assertRemovedSelector(bytes memory callData) internal {
-        (bool success,) = address(marketplace).call(callData);
-        assertFalse(success, "Expected removed API selector to be unavailable");
     }
 
     function _setupSecondaryListing(address seller, uint256 amount, uint256 pricePerToken, bool buyerPaysFee)

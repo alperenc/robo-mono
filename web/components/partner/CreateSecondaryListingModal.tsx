@@ -203,7 +203,8 @@ export const CreateSecondaryListingModal = ({
             <h3 className="font-bold text-xl">List Tokens for Sale</h3>
             <p className="text-sm opacity-60 mt-1 mb-1">
               List revenue tokens for <span className="font-semibold">{assetName || "this asset"}</span> (VIN{" "}
-              <span className="font-mono font-bold">{vin}</span>) on the marketplace.
+              <span className="font-mono font-bold">{vin}</span>) on the marketplace. Listed tokens stay in your wallet
+              and are locked until sold, expired, or ended.
             </p>
           </div>
 
@@ -320,7 +321,7 @@ export const CreateSecondaryListingModal = ({
                           <span className="label-text text-xs font-bold uppercase opacity-60">Fees</span>
                         </label>
                         <select className="select select-bordered select-sm w-full" disabled>
-                          <option>Buyers pay fees</option>
+                          <option>Buyer pays protocol fee</option>
                         </select>
                       </div>
                     </>
@@ -372,7 +373,7 @@ export const CreateSecondaryListingModal = ({
                   Listing Summary
                 </h4>
                 <div className="flex justify-between items-center">
-                  <span className="font-normal dark:text-white/80">Total Listing Value</span>
+                  <span className="font-normal dark:text-white/80">Gross Listing Value</span>
                   <span className="font-bold text-success text-xl">
                     {formatTokenAmount(totalValue, decimals)} {symbol}
                   </span>
@@ -389,8 +390,8 @@ export const CreateSecondaryListingModal = ({
                     </span>
                   </div>
                   <p className="opacity-80 mt-2">
-                    💰 Estimated buffer if this listing fully sells. Actual funding is finalized when the listing ends
-                    based on tokens sold.
+                    💰 Estimated buffer if this listing fully sells. Actual funding is finalized at settlement based on
+                    executed sales.
                   </p>
                 </div>
               )}
@@ -399,8 +400,8 @@ export const CreateSecondaryListingModal = ({
               <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
                 <p className="opacity-80 mt-1 mb-1">
                   {isPrimaryFlow
-                    ? "Your tokens are already held in marketplace escrow. This listing will make them available for buyers to purchase in partial amounts. Unsold tokens remain in escrow after the listing ends."
-                    : "Your tokens will be transferred to marketplace escrow for sale. Buyers can purchase partial amounts. Unsold tokens will be returned to you when the listing ends."}
+                    ? "This listing locks your tokens while active. Buyers can purchase partial amounts, and sold tokens transfer immediately to the buyer."
+                    : "Creating a listing locks the selected tokens in your wallet. Buyers can purchase partial amounts, and any unsold balance unlocks when the listing ends or expires."}
                 </p>
               </div>
             </div>
