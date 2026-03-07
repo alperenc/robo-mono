@@ -681,8 +681,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
 
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
-        assertEq(listing.earlySalePenalty, earlySalePenalty, "Listing early sale penalty mismatch");
+        uint256 fillPenalty = roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        assertEq(fillPenalty, earlySalePenalty, "Fill penalty mismatch");
 
         // 4. Partner purchases the tokens
         vm.startPrank(partner1);
@@ -702,10 +702,10 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Partner USDC change (partner1 is buyer)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(totalPrice - protocolFee - listing.earlySalePenalty), // Seller proceeds net penalty and fee
+            int256(totalPrice - protocolFee - fillPenalty), // Seller proceeds net penalty and fee
             0, // Treasury Fee Recipient USDC (pending withdrawal only)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee + listing.earlySalePenalty),
+            int256(protocolFee + fillPenalty),
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT),
@@ -723,7 +723,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
         uint256 sellerReceives = totalPrice - protocolFee;
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
+        uint256 fillPenalty =
+            roboshareTokens.getSalesPenalty(partner2, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -744,16 +745,60 @@ contract MarketplaceIntegrationTest is BaseTest {
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC (pending withdrawal only)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee + listing.earlySalePenalty),
+            int256(protocolFee + fillPenalty),
             0,
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT)
         );
         assertEq(
-            usdc.balanceOf(partner2),
-            1_000_000 * 10 ** 6 + (sellerReceives - listing.earlySalePenalty),
-            "Seller proceeds mismatch"
+            usdc.balanceOf(partner2), 1_000_000 * 10 ** 6 + (sellerReceives - fillPenalty), "Seller proceeds mismatch"
+        );
+    }
+
+    function testBuyFromSecondaryListingUsesFillTimePenaltyAfterHoldingPeriod() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+
+        vm.startPrank(buyer);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        uint256 listingId = marketplace.createListing(
+            scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, 90 days, false
+        );
+        vm.stopPrank();
+
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertGt(listing.earlySalePenalty, 0, "Snapshot penalty should be positive at listing time");
+
+        _warpPastHoldingPeriod();
+
+        uint256 fillPenalty = roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        assertEq(fillPenalty, 0, "Fill-time penalty should decay to zero after holding period");
+
+        (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
+            marketplace.previewSecondaryPurchase(listingId, SECONDARY_PURCHASE_AMOUNT);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(marketplace), expectedPayment);
+        BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
+        marketplace.buyFromSecondaryListing(listingId, SECONDARY_PURCHASE_AMOUNT);
+        BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
+        vm.stopPrank();
+
+        _assertBalanceChanges(
+            beforeBalance,
+            afterBalance,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(expectedPayment), // Partner USDC change (partner1 is buyer)
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(totalPrice - protocolFee), // Seller receives only price minus protocol fee
+            0,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(protocolFee),
+            0,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(SECONDARY_PURCHASE_AMOUNT),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(SECONDARY_PURCHASE_AMOUNT)
         );
     }
 

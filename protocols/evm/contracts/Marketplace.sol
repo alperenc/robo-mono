@@ -649,11 +649,7 @@ contract Marketplace is
     {
         quote.grossProceeds = amount * listing.pricePerToken;
         quote.protocolFee = ProtocolLib.calculateProtocolFee(quote.grossProceeds);
-
-        uint256 totalListed = listing.amount + listing.soldAmount;
-        if (listing.earlySalePenalty > 0) {
-            quote.earlySalePenalty = (listing.earlySalePenalty * amount) / totalListed;
-        }
+        quote.earlySalePenalty = roboshareTokens.getSalesPenalty(listing.seller, listing.tokenId, amount);
 
         if (listing.buyerPaysFee) {
             if (quote.earlySalePenalty > quote.grossProceeds) revert FeesExceedPrice();
