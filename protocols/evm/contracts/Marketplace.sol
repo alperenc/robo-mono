@@ -392,7 +392,9 @@ contract Marketplace is
         Listing storage listingForExpiry = listings[listingId];
         if (listingForExpiry.listingId == 0) revert ListingNotFound();
         if (block.timestamp > listingForExpiry.expiresAt) {
-            _expireListingIfNeeded(listingForExpiry);
+            if (_expireListingIfNeeded(listingForExpiry)) {
+                emit ListingEnded(listingId, listingForExpiry.seller);
+            }
             return;
         }
 
@@ -706,14 +708,15 @@ contract Marketplace is
         emit RevenueTokensTraded(listing.tokenId, listing.seller, buyer, amount, listingId, quote.grossProceeds);
     }
 
-    function _expireListingIfNeeded(Listing storage listing) internal {
-        if (!listing.isActive || block.timestamp <= listing.expiresAt) return;
+    function _expireListingIfNeeded(Listing storage listing) internal returns (bool didExpire) {
+        if (!listing.isActive || block.timestamp <= listing.expiresAt) return false;
 
         listing.isActive = false;
         if (listing.amount > 0) {
             roboshareTokens.unlockForListing(listing.seller, listing.tokenId, listing.amount);
             listing.amount = 0;
         }
+        return true;
     }
 
     function _collectBuyerPayment(address buyer, uint256 amount, address recipient) internal {

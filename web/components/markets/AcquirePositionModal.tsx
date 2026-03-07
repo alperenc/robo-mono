@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits, parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { formatUnits, parseEventLogs, parseUnits } from "viem";
+import { useAccount, usePublicClient } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -60,11 +60,13 @@ export function AcquirePositionModal({
   const { address } = useAccount();
   const { symbol, decimals } = usePaymentToken();
   const [inputAmount, setInputAmount] = useState("");
-  const [step, setStep] = useState<"input" | "approving" | "purchasing" | "success" | "error">("input");
+  const [step, setStep] = useState<"input" | "approving" | "purchasing" | "success" | "expired" | "error">("input");
   const [error, setError] = useState<string | null>(null);
 
   const chainId = 31337;
   const marketplaceAddress = deployedContracts[chainId]?.Marketplace?.address;
+  const marketplaceAbi = deployedContracts[chainId]?.Marketplace?.abi;
+  const publicClient = usePublicClient({ chainId });
 
   const tokenId = purchaseTarget.kind === "secondary" ? purchaseTarget.listing.tokenId : purchaseTarget.pool.tokenId;
   const unitPrice =
@@ -248,10 +250,37 @@ export function AcquirePositionModal({
 
       setStep("purchasing");
       if (purchaseTarget.kind === "secondary") {
-        await submitPurchase({
+        const txHash = await submitPurchase({
           functionName: "buyFromSecondaryListing",
           args: [BigInt(purchaseTarget.listing.id), purchaseAmount],
         });
+        if (!txHash || !publicClient || !marketplaceAbi) {
+          throw new Error("Could not verify purchase result");
+        }
+
+        const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+        const tradeLogs = parseEventLogs({
+          abi: marketplaceAbi,
+          logs: receipt.logs,
+          eventName: "RevenueTokensTraded",
+          strict: false,
+        });
+
+        if (tradeLogs.length === 0) {
+          const endedLogs = parseEventLogs({
+            abi: marketplaceAbi,
+            logs: receipt.logs,
+            eventName: "ListingEnded",
+            strict: false,
+          });
+
+          if (endedLogs.length > 0) {
+            setStep("expired");
+            await refetchTokenBalance();
+            onPurchaseComplete?.("");
+            return;
+          }
+        }
       } else {
         await submitPurchase({
           functionName: "buyFromPrimaryPool",
@@ -368,6 +397,17 @@ export function AcquirePositionModal({
                   )}
                 </div>
               )}
+            </div>
+          ) : step === "expired" ? (
+            <div className="text-center text-base-content">
+              <div className="text-6xl mb-4">⌛</div>
+              <h4 className="text-xl font-bold text-warning mb-2">Listing Expired</h4>
+              <div className="alert text-sm mb-4 text-left bg-base-200/70 text-base-content border border-base-300">
+                <span>
+                  The listing expired before your buy could execute. This transaction only cleaned up the listing.
+                </span>
+              </div>
+              <p className="text-base-content/80 mb-4">No tokens were purchased and no buyer payment was collected.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -517,7 +557,7 @@ export function AcquirePositionModal({
 
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
           <div className="flex gap-3">
-            {step === "success" ? (
+            {step === "success" || step === "expired" ? (
               <button className="btn btn-primary flex-1" onClick={onClose}>
                 Done
               </button>

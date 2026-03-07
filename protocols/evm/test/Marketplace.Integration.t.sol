@@ -26,6 +26,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 totalPrice
     );
 
+    event ListingEnded(uint256 indexed listingId, address indexed seller);
+
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
     }
@@ -1148,6 +1150,25 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(buyer);
         vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.buyFromSecondaryListing(scenario.listingId, 1);
+    }
+
+    function testBuyFromSecondaryListingExpiredListingEmitsListingEnded() public {
+        _ensureSecondaryListingScenario();
+        _setupExpiredListing(scenario.listingId);
+
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+
+        vm.expectEmit(true, true, false, true, address(marketplace));
+        emit ListingEnded(scenario.listingId, partner1);
+
+        vm.prank(buyer);
+        marketplace.buyFromSecondaryListing(scenario.listingId, 1);
+
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore);
     }
 
     function testFuzzCreateListing(uint256 amount, uint256 price, uint256 duration) public {
