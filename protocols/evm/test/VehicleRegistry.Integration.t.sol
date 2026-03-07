@@ -451,8 +451,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     function testRetireAssetAndBurnTokens() public {
         _ensureState(SetupState.BuffersFunded);
         _ensureSecondaryListingScenario();
-        // Verify initial state (buyer holds purchased tokens; escrow may still hold remainder)
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
+        // Verify initial state (seller still holds listed tokens under lock-based listings)
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), SECONDARY_LISTING_AMOUNT);
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         uint256 expectedCollateral = info.totalCollateral;
         _assertCollateralState(scenario.assetId, info.baseCollateral, expectedCollateral, true);

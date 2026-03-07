@@ -32,6 +32,9 @@ contract RoboshareTokens is
     error ZeroAddress();
     error NotRevenueToken();
     error RevenueTokenInfoAlreadySet();
+    error InvalidLockAmount();
+    error InsufficientUnlockedBalance();
+    error InsufficientLockedBalance();
 
     // Events
     event RevenueTokenPositionsUpdated(
@@ -46,10 +49,13 @@ contract RoboshareTokens is
         bool immediateProceeds,
         bool protectionEnabled
     );
+    event RevenueTokenLocked(uint256 indexed revenueTokenId, address indexed holder, uint256 amount);
+    event RevenueTokenUnlocked(uint256 indexed revenueTokenId, address indexed holder, uint256 amount);
 
     // Token state
     uint256 private _tokenIdCounter;
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
+    mapping(address => mapping(uint256 => uint256)) private _lockedRevenueTokenAmounts;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -282,6 +288,66 @@ contract RoboshareTokens is
         return _revenueTokenInfos[revenueTokenId].protectionEnabled;
     }
 
+    function getLockedAmount(address holder, uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _lockedRevenueTokenAmounts[holder][revenueTokenId];
+    }
+
+    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount)
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        if (amount == 0) revert InvalidLockAmount();
+
+        uint256 balance = balanceOf(holder, revenueTokenId);
+        uint256 lockedAmount = _lockedRevenueTokenAmounts[holder][revenueTokenId];
+        if (balance < lockedAmount + amount) revert InsufficientUnlockedBalance();
+
+        _lockedRevenueTokenAmounts[holder][revenueTokenId] = lockedAmount + amount;
+        emit RevenueTokenLocked(revenueTokenId, holder, amount);
+    }
+
+    function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount)
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        if (amount == 0) revert InvalidLockAmount();
+
+        uint256 lockedAmount = _lockedRevenueTokenAmounts[holder][revenueTokenId];
+        if (lockedAmount < amount) revert InsufficientLockedBalance();
+
+        _lockedRevenueTokenAmounts[holder][revenueTokenId] = lockedAmount - amount;
+        emit RevenueTokenUnlocked(revenueTokenId, holder, amount);
+    }
+
+    function transferLockedForListing(
+        address from,
+        address to,
+        uint256 revenueTokenId,
+        uint256 amount,
+        bytes memory data
+    ) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        if (amount == 0) revert InvalidLockAmount();
+
+        uint256 lockedAmount = _lockedRevenueTokenAmounts[from][revenueTokenId];
+        if (lockedAmount < amount) revert InsufficientLockedBalance();
+        _lockedRevenueTokenAmounts[from][revenueTokenId] = lockedAmount - amount;
+
+        _safeTransferFrom(from, to, revenueTokenId, amount, data);
+        emit RevenueTokenUnlocked(revenueTokenId, from, amount);
+    }
+
     /**
      * @dev Gets a user's token positions for earnings calculations.
      * @param revenueTokenId The revenue token ID.
@@ -341,6 +407,27 @@ contract RoboshareTokens is
      * Called on all mints, burns, and transfers.
      */
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
+        // Disallow transferring/burning listed (locked) revenue tokens through normal token paths.
+        // Marketplace listing fills unlock before transfer via transferLockedForListing().
+        if (from != address(0)) {
+            for (uint256 i = 0; i < ids.length; i++) {
+                uint256 tokenId = ids[i];
+                uint256 amount = values[i];
+                if (!TokenLib.isRevenueToken(tokenId)) continue;
+
+                uint256 cumulative = amount;
+                for (uint256 j = 0; j < i; j++) {
+                    if (ids[j] == tokenId) {
+                        cumulative += values[j];
+                    }
+                }
+
+                uint256 lockedAmount = _lockedRevenueTokenAmounts[from][tokenId];
+                uint256 available = balanceOf(from, tokenId) - lockedAmount;
+                if (cumulative > available) revert InsufficientUnlockedBalance();
+            }
+        }
+
         // Call parent implementation first
         super._update(from, to, ids, values);
 

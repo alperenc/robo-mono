@@ -133,10 +133,10 @@ abstract contract DeployCore is ScaffoldETHDeploy {
 
         // Grant BURNER_ROLE to VehicleRegistry (for burning revenue tokens on retirement)
         contracts.roboshareTokens.grantRole(contracts.roboshareTokens.BURNER_ROLE(), address(contracts.vehicleRegistry));
-        // Grant BURNER_ROLE to Router (for burning escrowed tokens)
+        // Grant BURNER_ROLE to Router (for primary-redemption burns routed via RegistryRouter)
         contracts.roboshareTokens.grantRole(contracts.roboshareTokens.BURNER_ROLE(), address(contracts.router));
         contracts.roboshareTokens
-            .grantRole(contracts.roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(contracts.router));
+            .grantRole(contracts.roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));
 
         // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace on Treasury (for recording pending withdrawals on purchases)
         contracts.treasury.grantRole(contracts.treasury.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));

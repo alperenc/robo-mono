@@ -126,7 +126,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.createListing(scenario.revenueTokenId, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
     }
 
-    function testCreateListingTransfersTokensFromSeller() public {
+    function testCreateListingLocksTokensWithoutTransferToMarketplace() public {
         _ensureSecondaryListingScenario();
 
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
@@ -151,16 +151,16 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(buyer);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
         uint256 beforeEscrow = marketplace.tokenEscrow(scenario.revenueTokenId);
-        uint256 marketplaceBalanceBefore = roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId);
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         vm.prank(buyer);
         uint256 listingId = marketplace.createListing(
             scenario.revenueTokenId, buyerBalance, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
         uint256 afterEscrow = marketplace.tokenEscrow(scenario.revenueTokenId);
-        uint256 marketplaceBalanceAfter = roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId);
+        uint256 buyerBalanceAfter = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
         assertEq(afterEscrow, beforeEscrow);
-        assertEq(marketplaceBalanceAfter, marketplaceBalanceBefore + buyerBalance);
+        assertEq(buyerBalanceAfter, buyerBalanceBefore);
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertEq(listing.amount, buyerBalance);
     }
@@ -589,7 +589,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 buyerAfter = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
         assertEq(escrowAfter, escrowBefore);
-        assertEq(buyerAfter, buyerBefore + buyerBalance);
+        assertEq(buyerAfter, buyerBefore);
     }
 
     function testCreateListingSetsEarlySalePenalty() public {
@@ -639,7 +639,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(protocolFee),
             0,
-            0,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(SECONDARY_PURCHASE_AMOUNT),
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT)
         );
@@ -708,7 +709,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT),
-            0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(SECONDARY_PURCHASE_AMOUNT)
         );
     }
 
@@ -772,12 +774,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.soldAmount, SECONDARY_LISTING_AMOUNT);
 
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-        uint256 remaining = totalSupply - SECONDARY_LISTING_AMOUNT;
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), SECONDARY_LISTING_AMOUNT);
-        _assertTokenBalance(
-            address(marketplace), scenario.revenueTokenId, remaining, "Marketplace token balance mismatch"
-        );
-        assertEq(marketplace.tokenEscrow(scenario.revenueTokenId), remaining);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), totalSupply - SECONDARY_LISTING_AMOUNT);
+        _assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
+        assertEq(marketplace.tokenEscrow(scenario.revenueTokenId), 0);
     }
 
     function testBuyFromSecondaryListingInsufficientPayment() public {
@@ -818,9 +818,9 @@ contract MarketplaceIntegrationTest is BaseTest {
         (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(secondaryListingId, 100);
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
         marketplace.buyFromSecondaryListing(secondaryListingId, 100);
         vm.stopPrank();
-        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), transferAmount - 100);
     }
 
     function testBuyFromSecondaryListingInvalidAmount() public {
@@ -855,10 +855,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // 3. Verify unsold inventory returned to seller
         _assertTokenBalance(
-            partner1,
-            scenario.revenueTokenId,
-            partnerBalanceBefore + (SECONDARY_LISTING_AMOUNT - SECONDARY_PURCHASE_AMOUNT),
-            "Partner token balance mismatch after ending"
+            partner1, scenario.revenueTokenId, partnerBalanceBefore, "Partner token balance mismatch after ending"
         );
         _assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after ending"
@@ -1194,7 +1191,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(purchaseAmount),
-            0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(purchaseAmount)
         );
     }
 
@@ -1295,7 +1293,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
 
         // Tokens transfer immediately
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), SECONDARY_PURCHASE_AMOUNT);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), SECONDARY_LISTING_AMOUNT);
     }
 
     function _purchaseListingTokens(uint256 amount) internal {
