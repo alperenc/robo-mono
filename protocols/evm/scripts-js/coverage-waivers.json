@@ -29,10 +29,51 @@
   },
   {
     "file": "contracts/Marketplace.sol",
-    "line": 487,
+    "line": 419,
     "sourceIncludes": "if (!listing.isActive && !isSoldOut) revert ListingNotActive();",
     "classification": "unreachable_valid_flow",
     "reason": "endListing zeroes remaining amount when deactivating a non-sold-out listing, so inactive non-sold-out state cannot persist under valid flows."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 630,
+    "sourceIncludes": "if (listing.listingId == 0) revert ListingNotFound();",
+    "classification": "via_ir_artifact",
+    "reason": "Secondary listing-not-found revert is exercised by integration tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 632,
+    "classification": "via_ir_artifact",
+    "reason": "Secondary asset-operational guard path is exercised by integration tests but not mapped reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 635,
+    "sourceIncludes": "if (block.timestamp > listing.expiresAt) revert ListingNotActive();",
+    "classification": "unreachable_valid_flow",
+    "reason": "buyFromSecondaryListing handles expired listings via early cleanup/return before secondary validation, so this guard is not reached in valid flow."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 731,
+    "sourceIncludes": "if (amount == 0) return;",
+    "classification": "unreachable_valid_flow",
+    "reason": "All external purchase paths validate non-zero amounts before payment collection, so zero-amount transfer-from is unreachable."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 736,
+    "sourceIncludes": "if (amount == 0) return;",
+    "classification": "unreachable_valid_flow",
+    "reason": "Callers gate transfer amounts with positive seller net/fees, so direct zero-amount safeTransfer is unreachable in valid flow."
+  },
+  {
+    "file": "contracts/Marketplace.sol",
+    "line": 741,
+    "sourceIncludes": "if (amount == 0) return;",
+    "classification": "unreachable_valid_flow",
+    "reason": "Protocol fee routing only runs with positive protocol fee or penalty totals; zero-amount route is not reachable from valid external inputs."
   },
   {
     "file": "contracts/Treasury.sol",

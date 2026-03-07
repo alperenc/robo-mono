@@ -453,6 +453,46 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokensBefore - burnAmount);
     }
 
+    function testProcessPrimaryRedemptionForMultipleBurnsPreservesSnapshottedEarnings() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        uint256 initialEarningsPreview = treasury.previewClaimEarnings(scenario.assetId, buyer);
+        assertGt(initialEarningsPreview, 0);
+
+        uint256 firstBurnAmount = PRIMARY_PURCHASE_AMOUNT / 3;
+        uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 firstPayoutPreview =
+            treasury.previewPrimaryRedemptionPayout(scenario.assetId, firstBurnAmount, circulatingSupply);
+        vm.prank(address(marketplace));
+        treasury.processPrimaryRedemptionFor(
+            buyer, scenario.assetId, firstBurnAmount, circulatingSupply, firstPayoutPreview
+        );
+
+        uint256 secondBurnAmount = PRIMARY_PURCHASE_AMOUNT / 3;
+        circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        uint256 secondPayoutPreview =
+            treasury.previewPrimaryRedemptionPayout(scenario.assetId, secondBurnAmount, circulatingSupply);
+        vm.prank(address(marketplace));
+        treasury.processPrimaryRedemptionFor(
+            buyer, scenario.assetId, secondBurnAmount, circulatingSupply, secondPayoutPreview
+        );
+
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        vm.prank(buyer);
+        assetRegistry.claimSettlement(scenario.assetId, false);
+
+        uint256 settledEarningsPreview = treasury.previewClaimEarnings(scenario.assetId, buyer);
+        assertEq(settledEarningsPreview, initialEarningsPreview);
+
+        uint256 pendingBefore = treasury.pendingWithdrawals(buyer);
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+        uint256 pendingAfter = treasury.pendingWithdrawals(buyer);
+        assertEq(pendingAfter - pendingBefore, initialEarningsPreview);
+    }
+
     function testPreviewPrimaryRedemptionPayout() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
         uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);

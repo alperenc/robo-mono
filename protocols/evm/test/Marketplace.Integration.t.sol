@@ -26,6 +26,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 totalPrice
     );
 
+    event ListingEnded(uint256 indexed listingId, address indexed seller);
+
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
     }
@@ -126,7 +128,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.createListing(scenario.revenueTokenId, 1, REVENUE_TOKEN_PRICE, LISTING_DURATION, true);
     }
 
-    function testCreateListingTransfersTokensFromSeller() public {
+    function testCreateListingLocksTokensWithoutTransferToMarketplace() public {
         _ensureSecondaryListingScenario();
 
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
@@ -151,16 +153,16 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(buyer);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
         uint256 beforeEscrow = marketplace.tokenEscrow(scenario.revenueTokenId);
-        uint256 marketplaceBalanceBefore = roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId);
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         vm.prank(buyer);
         uint256 listingId = marketplace.createListing(
             scenario.revenueTokenId, buyerBalance, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
         );
         uint256 afterEscrow = marketplace.tokenEscrow(scenario.revenueTokenId);
-        uint256 marketplaceBalanceAfter = roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId);
+        uint256 buyerBalanceAfter = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
         assertEq(afterEscrow, beforeEscrow);
-        assertEq(marketplaceBalanceAfter, marketplaceBalanceBefore + buyerBalance);
+        assertEq(buyerBalanceAfter, buyerBalanceBefore);
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertEq(listing.amount, buyerBalance);
     }
@@ -589,7 +591,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         uint256 buyerAfter = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
         assertEq(escrowAfter, escrowBefore);
-        assertEq(buyerAfter, buyerBefore + buyerBalance);
+        assertEq(buyerAfter, buyerBefore);
     }
 
     function testCreateListingSetsEarlySalePenalty() public {
@@ -639,7 +641,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(protocolFee),
             0,
-            0,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(SECONDARY_PURCHASE_AMOUNT),
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT)
         );
@@ -680,8 +683,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
 
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
-        assertEq(listing.earlySalePenalty, earlySalePenalty, "Listing early sale penalty mismatch");
+        uint256 fillPenalty = roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        assertEq(fillPenalty, earlySalePenalty, "Fill penalty mismatch");
 
         // 4. Partner purchases the tokens
         vm.startPrank(partner1);
@@ -701,14 +704,15 @@ contract MarketplaceIntegrationTest is BaseTest {
             // forge-lint: disable-next-line(unsafe-typecast)
             -int256(expectedPayment), // Partner USDC change (partner1 is buyer)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(totalPrice - protocolFee - listing.earlySalePenalty), // Seller proceeds net penalty and fee
+            int256(totalPrice - protocolFee - fillPenalty), // Seller proceeds net penalty and fee
             0, // Treasury Fee Recipient USDC (pending withdrawal only)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee + listing.earlySalePenalty),
+            int256(protocolFee + fillPenalty),
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT),
-            0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(SECONDARY_PURCHASE_AMOUNT)
         );
     }
 
@@ -721,7 +725,8 @@ contract MarketplaceIntegrationTest is BaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
         uint256 sellerReceives = totalPrice - protocolFee;
-        Marketplace.Listing memory listing = marketplace.getListing(newListingId);
+        uint256 fillPenalty =
+            roboshareTokens.getSalesPenalty(partner2, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -742,16 +747,60 @@ contract MarketplaceIntegrationTest is BaseTest {
             -int256(expectedPayment), // Buyer USDC change
             0, // Treasury Fee Recipient USDC (pending withdrawal only)
             // forge-lint: disable-next-line(unsafe-typecast)
-            int256(protocolFee + listing.earlySalePenalty),
+            int256(protocolFee + fillPenalty),
             0,
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(SECONDARY_PURCHASE_AMOUNT)
         );
         assertEq(
-            usdc.balanceOf(partner2),
-            1_000_000 * 10 ** 6 + (sellerReceives - listing.earlySalePenalty),
-            "Seller proceeds mismatch"
+            usdc.balanceOf(partner2), 1_000_000 * 10 ** 6 + (sellerReceives - fillPenalty), "Seller proceeds mismatch"
+        );
+    }
+
+    function testBuyFromSecondaryListingUsesFillTimePenaltyAfterHoldingPeriod() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+
+        vm.startPrank(buyer);
+        roboshareTokens.setApprovalForAll(address(marketplace), true);
+        uint256 listingId = marketplace.createListing(
+            scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, 90 days, false
+        );
+        vm.stopPrank();
+
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertGt(listing.earlySalePenalty, 0, "Snapshot penalty should be positive at listing time");
+
+        _warpPastHoldingPeriod();
+
+        uint256 fillPenalty = roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        assertEq(fillPenalty, 0, "Fill-time penalty should decay to zero after holding period");
+
+        (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
+            marketplace.previewSecondaryPurchase(listingId, SECONDARY_PURCHASE_AMOUNT);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(marketplace), expectedPayment);
+        BalanceSnapshot memory beforeBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
+        marketplace.buyFromSecondaryListing(listingId, SECONDARY_PURCHASE_AMOUNT);
+        BalanceSnapshot memory afterBalance = _takeBalanceSnapshot(scenario.revenueTokenId);
+        vm.stopPrank();
+
+        _assertBalanceChanges(
+            beforeBalance,
+            afterBalance,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(expectedPayment), // Partner USDC change (partner1 is buyer)
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(totalPrice - protocolFee), // Seller receives only price minus protocol fee
+            0,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(protocolFee),
+            0,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            int256(SECONDARY_PURCHASE_AMOUNT),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(SECONDARY_PURCHASE_AMOUNT)
         );
     }
 
@@ -772,12 +821,10 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.soldAmount, SECONDARY_LISTING_AMOUNT);
 
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
-        uint256 remaining = totalSupply - SECONDARY_LISTING_AMOUNT;
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), SECONDARY_LISTING_AMOUNT);
-        _assertTokenBalance(
-            address(marketplace), scenario.revenueTokenId, remaining, "Marketplace token balance mismatch"
-        );
-        assertEq(marketplace.tokenEscrow(scenario.revenueTokenId), remaining);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), totalSupply - SECONDARY_LISTING_AMOUNT);
+        _assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
+        assertEq(marketplace.tokenEscrow(scenario.revenueTokenId), 0);
     }
 
     function testBuyFromSecondaryListingInsufficientPayment() public {
@@ -816,11 +863,22 @@ contract MarketplaceIntegrationTest is BaseTest {
         _setupExpiredListing(secondaryListingId);
 
         (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(secondaryListingId, 100);
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+        uint256 buyerTokenBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        uint256 sellerLockedBefore = roboshareTokens.getLockedAmount(partner2, scenario.revenueTokenId);
+        assertEq(sellerLockedBefore, transferAmount);
+
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromSecondaryListing(secondaryListingId, 100);
         vm.stopPrank();
-        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), transferAmount - 100);
+
+        Marketplace.Listing memory listing = marketplace.getListing(secondaryListingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(roboshareTokens.getLockedAmount(partner2, scenario.revenueTokenId), 0);
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokenBefore);
     }
 
     function testBuyFromSecondaryListingInvalidAmount() public {
@@ -855,10 +913,7 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         // 3. Verify unsold inventory returned to seller
         _assertTokenBalance(
-            partner1,
-            scenario.revenueTokenId,
-            partnerBalanceBefore + (SECONDARY_LISTING_AMOUNT - SECONDARY_PURCHASE_AMOUNT),
-            "Partner token balance mismatch after ending"
+            partner1, scenario.revenueTokenId, partnerBalanceBefore, "Partner token balance mismatch after ending"
         );
         _assertTokenBalance(
             address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch after ending"
@@ -877,38 +932,6 @@ contract MarketplaceIntegrationTest is BaseTest {
 
         Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
         assertFalse(listing.isActive);
-    }
-
-    // Removed Selector Tests
-
-    function testFinalizeListingRemovedSelector() public {
-        _ensureSecondaryListingScenario();
-        _assertRemovedSelector(abi.encodeWithSignature("finalizeListing(uint256)", scenario.listingId));
-    }
-
-    function testFinalizeListingRemovedSelectorAfterSellOut() public {
-        _ensureSecondaryListingScenario();
-
-        uint256 secondaryListingId =
-            _setupSecondaryListing(partner2, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, true);
-
-        (,, uint256 expectedPayment) =
-            marketplace.previewSecondaryPurchase(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
-
-        vm.startPrank(buyer);
-        usdc.approve(address(marketplace), expectedPayment);
-        marketplace.buyFromSecondaryListing(secondaryListingId, SECONDARY_PURCHASE_AMOUNT);
-        vm.stopPrank();
-
-        Marketplace.Listing memory listingAfter = marketplace.getListing(secondaryListingId);
-        assertFalse(listingAfter.isActive, "Listing should be inactive after sellout");
-        assertEq(listingAfter.amount, 0, "Listing amount should be zero after sellout");
-        _assertRemovedSelector(abi.encodeWithSignature("finalizeListing(uint256)", secondaryListingId));
-    }
-
-    function testFinalizeListingRemovedSelectorUnauthorizedCaller() public {
-        _ensureSecondaryListingScenario();
-        _assertRemovedSelector(abi.encodeWithSignature("finalizeListing(uint256)", scenario.listingId));
     }
 
     // Extend Listing Tests
@@ -962,6 +985,22 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.expectRevert(Marketplace.InvalidDuration.selector);
         vm.prank(partner1);
         marketplace.extendListing(scenario.listingId, 0);
+    }
+
+    function testExtendListingExpiredListingEmitsListingEndedAndCleansUp() public {
+        _ensureSecondaryListingScenario();
+        _setupExpiredListing(scenario.listingId);
+
+        vm.expectEmit(true, true, false, true, address(marketplace));
+        emit ListingEnded(scenario.listingId, partner1);
+
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, 7 days);
+
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
     }
 
     function testEndListingSoldOut() public {
@@ -1129,6 +1168,25 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.buyFromSecondaryListing(scenario.listingId, 1);
     }
 
+    function testBuyFromSecondaryListingExpiredListingEmitsListingEnded() public {
+        _ensureSecondaryListingScenario();
+        _setupExpiredListing(scenario.listingId);
+
+        uint256 buyerBalanceBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+
+        vm.expectEmit(true, true, false, true, address(marketplace));
+        emit ListingEnded(scenario.listingId, partner1);
+
+        vm.prank(buyer);
+        marketplace.buyFromSecondaryListing(scenario.listingId, 1);
+
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerBalanceBefore);
+    }
+
     function testFuzzCreateListing(uint256 amount, uint256 price, uint256 duration) public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
@@ -1194,7 +1252,8 @@ contract MarketplaceIntegrationTest is BaseTest {
             0,
             // forge-lint: disable-next-line(unsafe-typecast)
             int256(purchaseAmount),
-            0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            -int256(purchaseAmount)
         );
     }
 
@@ -1295,7 +1354,7 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.stopPrank();
 
         // Tokens transfer immediately
-        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), SECONDARY_PURCHASE_AMOUNT);
+        assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), SECONDARY_LISTING_AMOUNT);
     }
 
     function _purchaseListingTokens(uint256 amount) internal {
@@ -1304,11 +1363,6 @@ contract MarketplaceIntegrationTest is BaseTest {
         usdc.approve(address(marketplace), expectedPayment);
         marketplace.buyFromSecondaryListing(scenario.listingId, amount);
         vm.stopPrank();
-    }
-
-    function _assertRemovedSelector(bytes memory callData) internal {
-        (bool success,) = address(marketplace).call(callData);
-        assertFalse(success, "Expected removed API selector to be unavailable");
     }
 
     function _setupSecondaryListing(address seller, uint256 amount, uint256 pricePerToken, bool buyerPaysFee)

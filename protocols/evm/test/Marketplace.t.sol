@@ -351,6 +351,11 @@ contract MarketplaceTest is BaseTest {
         assertEq(selector, marketplace.onERC1155BatchReceived.selector);
     }
 
+    function testOnERC1155ReceivedSelector() public {
+        bytes4 selector = marketplace.onERC1155Received(address(this), address(0xBEEF), 1, 1, "");
+        assertEq(selector, marketplace.onERC1155Received.selector);
+    }
+
     function testUpgradeUnauthorizedCaller() public {
         Marketplace newImpl = new Marketplace();
         vm.expectRevert(

@@ -360,7 +360,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
@@ -574,6 +574,30 @@ const deployedContracts = {
             },
           ],
           stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getLockedAmount",
+          inputs: [
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
         },
         {
           type: "function",
@@ -936,6 +960,29 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "lockForListing",
+          inputs: [
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -1309,6 +1356,62 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "transferLockedForListing",
+          inputs: [
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "unlockForListing",
+          inputs: [
+            {
+              name: "holder",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "upgradeToAndCall",
           inputs: [
             {
@@ -1433,6 +1536,31 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "RevenueTokenLocked",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "RevenueTokenPositionsUpdated",
           inputs: [
             {
@@ -1449,6 +1577,31 @@ const deployedContracts = {
             },
             {
               name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "RevenueTokenUnlocked",
+          inputs: [
+            {
+              name: "revenueTokenId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "holder",
               type: "address",
               indexed: true,
               internalType: "address",
@@ -1800,7 +1953,17 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "InsufficientLockedBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "InsufficientTokenBalance",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InsufficientUnlockedBalance",
           inputs: [],
         },
         {
@@ -1811,6 +1974,11 @@ const deployedContracts = {
         {
           type: "error",
           name: "InvalidInitialization",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidLockAmount",
           inputs: [],
         },
         {
@@ -1856,7 +2024,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     ERC1967Proxy: {
@@ -1929,7 +2097,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
@@ -2579,7 +2747,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
@@ -4343,7 +4511,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
@@ -5964,7 +6132,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
@@ -7927,7 +8095,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
@@ -9844,7 +10012,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1772793565233.json",
+      deploymentFile: "run-1772904581919.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

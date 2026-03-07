@@ -19,6 +19,19 @@ contract RoboshareTokensTest is BaseTest {
         burner = admin; // Admin has burner role by default
     }
 
+    function _setupRevenueTokenForLocks(address holder, uint256 amount) internal returns (uint256 tokenId) {
+        tokenId = 102;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(minter);
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false
+        );
+
+        vm.prank(minter);
+        roboshareTokens.mint(holder, tokenId, amount, "");
+    }
+
     function testInitialization() public view {
         assertTrue(roboshareTokens.hasRole(roboshareTokens.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
@@ -264,6 +277,129 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getRevenueTokenProtectionEnabled(assetId);
+    }
+
+    function testGetLockedAmountNotRevenueToken() public {
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getLockedAmount(user1, 101);
+    }
+
+    function testLockForListingNotRevenueToken() public {
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.lockForListing(user1, 101, 1);
+    }
+
+    function testLockForListingZeroAmount() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.InvalidLockAmount.selector);
+        roboshareTokens.lockForListing(user1, tokenId, 0);
+    }
+
+    function testLockForListingInsufficientUnlockedBalance() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, 80);
+
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.InsufficientUnlockedBalance.selector);
+        roboshareTokens.lockForListing(user1, tokenId, 30);
+    }
+
+    function testLockForListingAndGetLockedAmount() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, 25);
+
+        assertEq(roboshareTokens.getLockedAmount(user1, tokenId), 25);
+    }
+
+    function testUnlockForListingNotRevenueToken() public {
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.unlockForListing(user1, 101, 1);
+    }
+
+    function testUnlockForListingZeroAmount() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, 10);
+
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.InvalidLockAmount.selector);
+        roboshareTokens.unlockForListing(user1, tokenId, 0);
+    }
+
+    function testUnlockForListingInsufficientLockedBalance() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.InsufficientLockedBalance.selector);
+        roboshareTokens.unlockForListing(user1, tokenId, 1);
+    }
+
+    function testTransferLockedForListingNotRevenueToken() public {
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.transferLockedForListing(user1, user2, 101, 1, "");
+    }
+
+    function testTransferLockedForListingZeroAmount() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.InvalidLockAmount.selector);
+        roboshareTokens.transferLockedForListing(user1, user2, tokenId, 0, "");
+    }
+
+    function testTransferLockedForListingInsufficientLockedBalance() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        vm.expectRevert(RoboshareTokens.InsufficientLockedBalance.selector);
+        roboshareTokens.transferLockedForListing(user1, user2, tokenId, 1, "");
+    }
+
+    function testTransferLockedForListingMovesTokensAndUnlocks() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, 40);
+        assertEq(roboshareTokens.getLockedAmount(user1, tokenId), 40);
+
+        vm.prank(admin);
+        roboshareTokens.transferLockedForListing(user1, user2, tokenId, 15, "");
+
+        assertEq(roboshareTokens.getLockedAmount(user1, tokenId), 25);
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), 85);
+        assertEq(roboshareTokens.balanceOf(user2, tokenId), 15);
+    }
+
+    function testTransferBlockedWhenLockedAmountExceedsUnlockedBalance() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, 80);
+
+        vm.expectRevert(RoboshareTokens.InsufficientUnlockedBalance.selector);
+        vm.prank(user1);
+        roboshareTokens.safeTransferFrom(user1, user2, tokenId, 30, "");
+    }
+
+    function testBatchTransferDuplicateRevenueTokenIdsRespectsCumulativeLockedCheck() public {
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, 10); // Available = 90
+
+        uint256[] memory ids = new uint256[](2);
+        uint256[] memory amounts = new uint256[](2);
+        ids[0] = tokenId;
+        ids[1] = tokenId;
+        amounts[0] = 60;
+        amounts[1] = 40;
+
+        vm.expectRevert(RoboshareTokens.InsufficientUnlockedBalance.selector);
+        vm.prank(user1);
+        roboshareTokens.safeBatchTransferFrom(user1, user2, ids, amounts, "");
     }
 
     function testGetSalesPenaltyAssetOwner() public {

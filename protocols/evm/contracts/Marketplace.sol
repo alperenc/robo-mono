@@ -53,6 +53,20 @@ contract Marketplace is
         uint256 earlySalePenalty;
     }
 
+    struct PrimaryPurchaseQuote {
+        uint256 grossPrincipal;
+        uint256 protocolFee;
+        uint256 totalCost;
+    }
+
+    struct SecondaryPurchaseQuote {
+        uint256 grossProceeds;
+        uint256 protocolFee;
+        uint256 earlySalePenalty;
+        uint256 sellerNet;
+        uint256 totalCost;
+    }
+
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
@@ -277,35 +291,11 @@ contract Marketplace is
      * @dev Buys tokens from a primary pool and settles immediately.
      */
     function buyFromPrimaryPool(uint256 tokenId, uint256 amount) external nonReentrant {
-        PrimaryPool storage pool = _getPrimaryPool(tokenId);
-        if (pool.isPaused || pool.isClosed) revert PrimaryPoolNotActive();
-        if (amount == 0) revert InvalidAmount();
+        PrimaryPool storage pool = _getValidatedPrimaryPool(tokenId, amount);
+        PrimaryPurchaseQuote memory quote = _buildPrimaryPurchaseQuote(pool.pricePerToken, amount);
 
-        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
-
-        uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
-        if (currentSupply + amount > roboshareTokens.getRevenueTokenMaxSupply(tokenId)) revert InvalidAmount();
-
-        uint256 grossPrincipal = amount * pool.pricePerToken;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
-        uint256 totalCost = grossPrincipal + protocolFee;
-
-        if (usdc.balanceOf(msg.sender) < totalCost) revert InsufficientPayment();
-
-        usdc.safeTransferFrom(msg.sender, address(treasury), totalCost);
-
-        treasury.processPrimaryPoolPurchaseFor(
-            msg.sender,
-            tokenId,
-            amount,
-            pool.partner,
-            grossPrincipal,
-            protocolFee,
-            roboshareTokens.getRevenueTokenProtectionEnabled(tokenId)
-        );
-
-        emit PrimaryPoolPurchased(tokenId, msg.sender, amount, totalCost, protocolFee, 0);
+        _collectBuyerPayment(msg.sender, quote.totalCost, address(treasury));
+        _executePrimaryPurchase(msg.sender, tokenId, amount, pool, quote);
     }
 
     /**
@@ -389,7 +379,7 @@ contract Marketplace is
         });
 
         assetListings[assetId].push(listingId);
-        roboshareTokens.safeTransferFrom(seller, address(this), tokenId, amount, "");
+        roboshareTokens.lockForListing(seller, tokenId, amount);
 
         emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee);
         return listingId;
@@ -399,60 +389,20 @@ contract Marketplace is
      * @dev Purchases tokens from a secondary listing with immediate settlement.
      */
     function buyFromSecondaryListing(uint256 listingId, uint256 amount) external nonReentrant {
-        Listing storage listing = listings[listingId];
-        if (listing.listingId == 0) revert ListingNotFound();
-
-        uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
-        if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
-        if (msg.sender == listing.seller) revert ListingOwnerCannotPurchase();
-        if (!listing.isActive) revert ListingNotActive();
-        if (amount == 0 || amount > listing.amount) revert InvalidAmount();
-
-        uint256 totalPrice = amount * listing.pricePerToken;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
-
-        uint256 totalListed = listing.amount + listing.soldAmount;
-        uint256 penaltyShare = 0;
-        if (listing.earlySalePenalty > 0) {
-            penaltyShare = (listing.earlySalePenalty * amount) / totalListed;
+        Listing storage listingForExpiry = listings[listingId];
+        if (listingForExpiry.listingId == 0) revert ListingNotFound();
+        if (block.timestamp > listingForExpiry.expiresAt) {
+            if (_expireListingIfNeeded(listingForExpiry)) {
+                emit ListingEnded(listingId, listingForExpiry.seller);
+            }
+            return;
         }
 
-        uint256 expectedPayment;
-        uint256 sellerReceives;
-        uint256 totalFeesToTreasury = protocolFee;
+        Listing storage listing = _getValidatedSecondaryListing(listingId, amount);
+        SecondaryPurchaseQuote memory quote = _buildSecondaryPurchaseQuote(listing, amount);
 
-        if (listing.buyerPaysFee) {
-            if (penaltyShare > totalPrice) revert FeesExceedPrice();
-            expectedPayment = totalPrice + protocolFee;
-            sellerReceives = totalPrice - penaltyShare;
-            totalFeesToTreasury += penaltyShare;
-        } else {
-            if (totalFeesToTreasury + penaltyShare > totalPrice) revert FeesExceedPrice();
-            expectedPayment = totalPrice;
-            sellerReceives = totalPrice - totalFeesToTreasury - penaltyShare;
-            totalFeesToTreasury += penaltyShare;
-        }
-
-        if (usdc.balanceOf(msg.sender) < expectedPayment) revert InsufficientPayment();
-
-        listing.amount -= amount;
-        listing.soldAmount += amount;
-        if (listing.amount == 0) {
-            listing.isActive = false;
-        }
-
-        usdc.safeTransferFrom(msg.sender, address(this), expectedPayment);
-        if (sellerReceives > 0) {
-            usdc.safeTransfer(listing.seller, sellerReceives);
-        }
-        if (totalFeesToTreasury > 0) {
-            usdc.safeTransfer(address(treasury), totalFeesToTreasury);
-            treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), totalFeesToTreasury);
-        }
-
-        roboshareTokens.safeTransferFrom(address(this), msg.sender, listing.tokenId, amount, "");
-
-        emit RevenueTokensTraded(listing.tokenId, listing.seller, msg.sender, amount, listingId, totalPrice);
+        _collectBuyerPayment(msg.sender, quote.totalCost, address(this));
+        _executeSecondaryPurchase(msg.sender, listingId, amount, listing, quote);
     }
 
     /**
@@ -463,6 +413,7 @@ contract Marketplace is
 
         if (listing.listingId == 0) revert ListingNotFound();
         if (listing.seller != msg.sender && block.timestamp <= listing.expiresAt) revert NotListingOwner();
+        _expireListingIfNeeded(listing);
 
         bool isSoldOut = (!listing.isActive && listing.amount == 0);
         if (!listing.isActive && !isSoldOut) revert ListingNotActive();
@@ -470,7 +421,7 @@ contract Marketplace is
         listing.isActive = false;
 
         if (listing.amount > 0) {
-            roboshareTokens.safeTransferFrom(address(this), listing.seller, listing.tokenId, listing.amount, "");
+            roboshareTokens.unlockForListing(listing.seller, listing.tokenId, listing.amount);
             listing.amount = 0;
         }
 
@@ -484,6 +435,10 @@ contract Marketplace is
         Listing storage listing = listings[listingId];
 
         if (listing.listingId == 0) revert ListingNotFound();
+        if (_expireListingIfNeeded(listing)) {
+            emit ListingEnded(listingId, listing.seller);
+            return;
+        }
         if (listing.seller != msg.sender) revert NotListingOwner();
         if (!listing.isActive) revert ListingNotActive();
         if (additionalDuration == 0) revert InvalidDuration();
@@ -525,7 +480,7 @@ contract Marketplace is
 
         for (uint256 i = 0; i < allListings.length; i++) {
             Listing storage listing = listings[allListings[i]];
-            if (listing.isActive) {
+            if (listing.isActive && block.timestamp <= listing.expiresAt) {
                 activeCount++;
             }
         }
@@ -534,7 +489,7 @@ contract Marketplace is
         uint256 index = 0;
         for (uint256 i = 0; i < allListings.length; i++) {
             Listing storage listing = listings[allListings[i]];
-            if (listing.isActive) {
+            if (listing.isActive && block.timestamp <= listing.expiresAt) {
                 activeListings[index] = allListings[i];
                 index++;
             }
@@ -648,6 +603,148 @@ contract Marketplace is
         returns (bytes4)
     {
         return this.onERC1155BatchReceived.selector;
+    }
+
+    function _getValidatedPrimaryPool(uint256 tokenId, uint256 amount)
+        internal
+        view
+        returns (PrimaryPool storage pool)
+    {
+        pool = _getPrimaryPool(tokenId);
+        if (pool.isPaused || pool.isClosed) revert PrimaryPoolNotActive();
+        if (amount == 0) revert InvalidAmount();
+
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
+        if (!_isAssetMarketOperational(assetId)) revert AssetNotActive();
+
+        uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
+        if (currentSupply + amount > roboshareTokens.getRevenueTokenMaxSupply(tokenId)) revert InvalidAmount();
+    }
+
+    function _getValidatedSecondaryListing(uint256 listingId, uint256 amount)
+        internal
+        view
+        returns (Listing storage listing)
+    {
+        listing = listings[listingId];
+        if (listing.listingId == 0) revert ListingNotFound();
+
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(listing.tokenId);
+        if (!_isAssetMarketOperational(assetId)) revert AssetNotActive();
+        if (msg.sender == listing.seller) revert ListingOwnerCannotPurchase();
+        if (block.timestamp > listing.expiresAt) revert ListingNotActive();
+        if (!listing.isActive) revert ListingNotActive();
+        if (amount == 0 || amount > listing.amount) revert InvalidAmount();
+    }
+
+    function _buildPrimaryPurchaseQuote(uint256 pricePerToken, uint256 amount)
+        internal
+        pure
+        returns (PrimaryPurchaseQuote memory quote)
+    {
+        quote.grossPrincipal = amount * pricePerToken;
+        quote.protocolFee = ProtocolLib.calculateProtocolFee(quote.grossPrincipal);
+        quote.totalCost = quote.grossPrincipal + quote.protocolFee;
+    }
+
+    function _buildSecondaryPurchaseQuote(Listing storage listing, uint256 amount)
+        internal
+        view
+        returns (SecondaryPurchaseQuote memory quote)
+    {
+        quote.grossProceeds = amount * listing.pricePerToken;
+        quote.protocolFee = ProtocolLib.calculateProtocolFee(quote.grossProceeds);
+        quote.earlySalePenalty = roboshareTokens.getSalesPenalty(listing.seller, listing.tokenId, amount);
+
+        if (listing.buyerPaysFee) {
+            if (quote.earlySalePenalty > quote.grossProceeds) revert FeesExceedPrice();
+            quote.totalCost = quote.grossProceeds + quote.protocolFee;
+            quote.sellerNet = quote.grossProceeds - quote.earlySalePenalty;
+        } else {
+            uint256 totalFees = quote.protocolFee + quote.earlySalePenalty;
+            if (totalFees > quote.grossProceeds) revert FeesExceedPrice();
+            quote.totalCost = quote.grossProceeds;
+            quote.sellerNet = quote.grossProceeds - totalFees;
+        }
+    }
+
+    function _executePrimaryPurchase(
+        address buyer,
+        uint256 tokenId,
+        uint256 amount,
+        PrimaryPool storage pool,
+        PrimaryPurchaseQuote memory quote
+    ) internal {
+        treasury.processPrimaryPoolPurchaseFor(
+            buyer,
+            tokenId,
+            amount,
+            pool.partner,
+            quote.grossPrincipal,
+            quote.protocolFee,
+            roboshareTokens.getRevenueTokenProtectionEnabled(tokenId)
+        );
+
+        emit PrimaryPoolPurchased(tokenId, buyer, amount, quote.totalCost, quote.protocolFee, 0);
+    }
+
+    function _executeSecondaryPurchase(
+        address buyer,
+        uint256 listingId,
+        uint256 amount,
+        Listing storage listing,
+        SecondaryPurchaseQuote memory quote
+    ) internal {
+        listing.amount -= amount;
+        listing.soldAmount += amount;
+        if (listing.amount == 0) {
+            listing.isActive = false;
+        }
+
+        if (quote.sellerNet > 0) {
+            _transferUSDC(listing.seller, quote.sellerNet);
+        }
+
+        _routeProtocolFee(quote.protocolFee + quote.earlySalePenalty);
+        roboshareTokens.transferLockedForListing(listing.seller, buyer, listing.tokenId, amount, "");
+
+        emit RevenueTokensTraded(listing.tokenId, listing.seller, buyer, amount, listingId, quote.grossProceeds);
+    }
+
+    function _expireListingIfNeeded(Listing storage listing) internal returns (bool didExpire) {
+        if (!listing.isActive || block.timestamp <= listing.expiresAt) return false;
+
+        listing.isActive = false;
+        if (listing.amount > 0) {
+            roboshareTokens.unlockForListing(listing.seller, listing.tokenId, listing.amount);
+            listing.amount = 0;
+        }
+        return true;
+    }
+
+    function _collectBuyerPayment(address buyer, uint256 amount, address recipient) internal {
+        if (usdc.balanceOf(buyer) < amount) revert InsufficientPayment();
+        _transferUSDCFromBuyer(buyer, recipient, amount);
+    }
+
+    function _transferUSDCFromBuyer(address buyer, address recipient, uint256 amount) internal {
+        if (amount == 0) return;
+        usdc.safeTransferFrom(buyer, recipient, amount);
+    }
+
+    function _transferUSDC(address to, uint256 amount) internal {
+        if (amount == 0) return;
+        usdc.safeTransfer(to, amount);
+    }
+
+    function _routeProtocolFee(uint256 amount) internal {
+        if (amount == 0) return;
+        _transferUSDC(address(treasury), amount);
+        treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), amount);
+    }
+
+    function _isAssetMarketOperational(uint256 assetId) internal view returns (bool) {
+        return isAssetMarketOperational(assetId);
     }
 
     /**
