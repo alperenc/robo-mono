@@ -435,7 +435,10 @@ contract Marketplace is
         Listing storage listing = listings[listingId];
 
         if (listing.listingId == 0) revert ListingNotFound();
-        _expireListingIfNeeded(listing);
+        if (_expireListingIfNeeded(listing)) {
+            emit ListingEnded(listingId, listing.seller);
+            return;
+        }
         if (listing.seller != msg.sender) revert NotListingOwner();
         if (!listing.isActive) revert ListingNotActive();
         if (additionalDuration == 0) revert InvalidDuration();

@@ -987,6 +987,22 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.extendListing(scenario.listingId, 0);
     }
 
+    function testExtendListingExpiredListingEmitsListingEndedAndCleansUp() public {
+        _ensureSecondaryListingScenario();
+        _setupExpiredListing(scenario.listingId);
+
+        vm.expectEmit(true, true, false, true, address(marketplace));
+        emit ListingEnded(scenario.listingId, partner1);
+
+        vm.prank(partner1);
+        marketplace.extendListing(scenario.listingId, 7 days);
+
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
+    }
+
     function testEndListingSoldOut() public {
         _ensureSecondaryListingScenario();
 
