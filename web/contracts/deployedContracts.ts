@@ -9996,6 +9996,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "UnauthorizedPartner",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "UnsupportedUSDCDecimals",
           inputs: [
             {
