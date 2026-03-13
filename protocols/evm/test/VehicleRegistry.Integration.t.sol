@@ -10,6 +10,12 @@ import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 
 contract VehicleRegistryIntegrationTest is BaseTest {
+    enum OwnerAction {
+        Retire,
+        RetireAndBurn,
+        Settle
+    }
+
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
     }
@@ -45,6 +51,23 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         usdc.approve(address(treasury), requiredCollateral);
         vm.prank(partner1);
         treasury.enableProceeds(assetId);
+    }
+
+    function _performOwnerAction(OwnerAction action) internal {
+        if (action == OwnerAction.Retire) {
+            assetRegistry.retireAsset(scenario.assetId);
+        } else if (action == OwnerAction.RetireAndBurn) {
+            assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+        } else {
+            assetRegistry.settleAsset(scenario.assetId, 0);
+        }
+    }
+
+    function _expectOwnerActionRevert(address caller, bytes4 selector, OwnerAction action) internal {
+        _ensureState(SetupState.PrimaryPoolCreated);
+        vm.prank(caller);
+        vm.expectRevert(selector);
+        _performOwnerAction(action);
     }
 
     function testRetireAssetOutstandingTokens() public {
@@ -662,10 +685,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testRetireAssetNotAssetOwner() public {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        vm.prank(partner2);
-        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.retireAsset(scenario.assetId);
+        _expectOwnerActionRevert(partner2, IAssetRegistry.NotAssetOwner.selector, OwnerAction.Retire);
     }
 
     function testRetireAssetAndBurnTokensAssetNotFound() public {
@@ -676,10 +696,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     }
 
     function testRetireAssetAndBurnTokensNotAssetOwner() public {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        vm.prank(partner2);
-        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+        _expectOwnerActionRevert(partner2, IAssetRegistry.NotAssetOwner.selector, OwnerAction.RetireAndBurn);
     }
 
     // Settlement Tests
@@ -776,10 +793,7 @@ contract VehicleRegistryIntegrationTest is BaseTest {
     // New Tests for Settlement and Liquidation Branches
 
     function testSettleAssetNotAssetOwner() public {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        vm.prank(partner2); // partner2 is authorized but not owner
-        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.settleAsset(scenario.assetId, 0);
+        _expectOwnerActionRevert(partner2, IAssetRegistry.NotAssetOwner.selector, OwnerAction.Settle);
     }
 
     function testSettleAssetNotActive() public {
@@ -861,5 +875,46 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         );
         assetRegistry.claimSettlementFor(partner1, scenario.assetId, false);
         vm.stopPrank();
+    }
+}
+
+contract VehicleRegistryAuthorizationIntegrationTest is BaseTest {
+    enum OwnerAction {
+        Retire,
+        RetireAndBurn,
+        Settle
+    }
+
+    function setUp() public {
+        _ensureState(SetupState.InitialAccountsSetup);
+    }
+
+    function _performOwnerAction(OwnerAction action) internal {
+        if (action == OwnerAction.Retire) {
+            assetRegistry.retireAsset(scenario.assetId);
+        } else if (action == OwnerAction.RetireAndBurn) {
+            assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
+        } else {
+            assetRegistry.settleAsset(scenario.assetId, 0);
+        }
+    }
+
+    function _expectUnauthorizedOwnerAction(OwnerAction action) internal {
+        _ensureState(SetupState.PrimaryPoolCreated);
+        vm.prank(unauthorized);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        _performOwnerAction(action);
+    }
+
+    function testRetireAssetUnauthorizedPartner() public {
+        _expectUnauthorizedOwnerAction(OwnerAction.Retire);
+    }
+
+    function testRetireAssetAndBurnTokensUnauthorizedPartner() public {
+        _expectUnauthorizedOwnerAction(OwnerAction.RetireAndBurn);
+    }
+
+    function testSettleAssetUnauthorizedPartner() public {
+        _expectUnauthorizedOwnerAction(OwnerAction.Settle);
     }
 }

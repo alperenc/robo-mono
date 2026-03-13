@@ -51,17 +51,21 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     error InvalidUSDCContract(address token);
     error UnsupportedUSDCDecimals(uint8 decimals);
 
-    /**
-     * @dev Modifier to restrict access to authorized partners
-     */
-    modifier onlyAuthorizedPartner() {
-        _onlyAuthorizedPartner();
+    modifier onlyAuthorizedAssetOwner(uint256 assetId) {
+        _onlyAuthorizedAssetOwner(assetId);
         _;
     }
 
-    function _onlyAuthorizedPartner() internal view {
-        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
+    function _onlyAuthorizedAssetOwner(uint256 assetId) internal view {
+        _requireAuthorizedAssetOwner(msg.sender, assetId);
+    }
+
+    function _requireAuthorizedAssetOwner(address partner, uint256 assetId) internal view {
+        if (!partnerManager.isAuthorizedPartner(partner)) {
             revert PartnerManager.UnauthorizedPartner();
+        }
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert NotAssetOwner();
         }
     }
 
@@ -106,13 +110,11 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Fund the currently required partner buffers for an asset using live pool liquidity.
      * @param assetId The ID of the asset to fund buffers for
      */
-    function enableProceeds(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
+    function enableProceeds(uint256 assetId) external nonReentrant {
         if (!router.assetExists(assetId)) {
             revert AssetNotFound();
         }
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
+        _onlyAuthorizedAssetOwner(assetId);
 
         uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
         bool protectionEnabled = roboshareTokens.getRevenueTokenProtectionEnabled(tokenId);
@@ -216,12 +218,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * @dev Release full collateral for asset (when partner owns all tokens)
      * @param assetId The ID of the asset to release collateral for
      */
-    function releaseCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
-        // The balanceOf check is sufficient proof of existence, as NFTs are only minted upon registration.
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
-
+    function releaseCollateral(uint256 assetId) external onlyAuthorizedAssetOwner(assetId) nonReentrant {
         CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         if (!collateralInfo.isLocked) {
             revert NoCollateralLocked();
@@ -428,11 +425,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * Reverts if not eligible
      */
     function _releasePartialCollateralFor(uint256 assetId, address partner) internal {
-        // Verify partner owns the asset
-        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
-            revert NotAssetOwner();
-        }
-
+        _requireAuthorizedAssetOwner(partner, assetId);
         _tryReleaseCollateral(assetId, partner, false);
     }
 
@@ -511,16 +504,11 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      */
     function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
         external
-        onlyAuthorizedPartner
+        onlyAuthorizedAssetOwner(assetId)
         nonReentrant
         returns (uint256)
     {
         if (totalRevenue == 0) revert InvalidEarningsAmount();
-
-        // Verify partner owns the asset
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
 
         // Verify asset is still active (not settled/retired)
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
@@ -832,7 +820,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
      * Use this for manual release when not using distributeEarnings with tryAutoRelease=true.
      * @param assetId The ID of the asset
      */
-    function releasePartialCollateral(uint256 assetId) external onlyAuthorizedPartner nonReentrant {
+    function releasePartialCollateral(uint256 assetId) external onlyAuthorizedAssetOwner(assetId) nonReentrant {
         _releasePartialCollateralFor(assetId, msg.sender);
     }
 
