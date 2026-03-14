@@ -144,6 +144,9 @@ export function PrimaryPoolCard({
   const handleCardKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!isCardPressable) return;
     if (event.key !== "Enter" && event.key !== " ") return;
+    const target = event.target as HTMLElement;
+    const interactiveAncestor = target.closest("button, a, input, select, textarea, [role='button']");
+    if (interactiveAncestor && interactiveAncestor !== event.currentTarget) return;
     event.preventDefault();
     triggerPrimaryAction();
   };
