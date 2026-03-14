@@ -87,7 +87,7 @@ export function PrimaryPoolCard({
     }
 
     const currentIssuedSupply = token.supply ? BigInt(token.supply) : 0n;
-    const totalValue = BigInt(token.price) * currentIssuedSupply;
+    const totalValue = BigInt(pool.pricePerToken) * currentIssuedSupply;
     const poolCreatedAt = BigInt(pool.createdAt || "0");
     const lastDistributionAt = BigInt(earnings?.lastDistributionAt || "0");
     const totalEarnings = BigInt(earnings?.totalEarnings || "0");
@@ -101,7 +101,7 @@ export function PrimaryPoolCard({
 
     const targetYieldBps = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_YIELD_BP);
     return `${(targetYieldBps / 100).toFixed(2)}%`;
-  }, [earnings?.lastDistributionAt, earnings?.totalEarnings, pool.createdAt, token]);
+  }, [earnings?.lastDistributionAt, earnings?.totalEarnings, pool.createdAt, pool.pricePerToken, token]);
   const statusLabel = pool.isClosed ? "Closed" : pool.isPaused ? "Paused" : "Open";
   const statusClass = pool.isClosed
     ? "bg-base-300 text-base-content/70"

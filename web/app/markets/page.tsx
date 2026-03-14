@@ -617,7 +617,7 @@ const MarketsPage: NextPage = () => {
       if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
 
       const issuedSupply = BigInt(primaryPoolSupplyByTokenId.get(pool.tokenId) || token.supply);
-      const totalValue = BigInt(token.price) * issuedSupply;
+      const totalValue = BigInt(pool.pricePerToken) * issuedSupply;
       const poolCreatedAt = BigInt(pool.createdAt || "0");
       const lastDistAt = BigInt(earning?.lastDistributionAt || "0");
       const totalEarnings = BigInt(earning?.totalEarnings || "0");
