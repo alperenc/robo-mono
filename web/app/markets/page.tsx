@@ -100,8 +100,6 @@ type MarketTab = "pools" | "secondary";
 const BENCHMARK_EARNINGS_BP = 1000n;
 const BP_PRECISION = 10000n;
 const NEW_POOL_BADGE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const getSeenPrimaryPoolsStorageKey = (account?: string) =>
-  `roboshare:seen-primary-pools:${account?.toLowerCase() || "guest"}`;
 
 const MarketsPage: NextPage = () => {
   const { address } = useAccount();
@@ -114,9 +112,9 @@ const MarketsPage: NextPage = () => {
   const [partners, setPartners] = useState<SubgraphPartner[]>([]);
   const [userListingIds, setUserListingIds] = useState<Set<string>>(new Set());
   const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
+  const [recentPrimaryPoolPurchases, setRecentPrimaryPoolPurchases] = useState<Set<string>>(new Set());
   const [soldOutAtByListing, setSoldOutAtByListing] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
-  const [seenPrimaryPoolsById, setSeenPrimaryPoolsById] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -803,54 +801,17 @@ const MarketsPage: NextPage = () => {
     calculatePrimaryPoolApy,
   ]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const storageKey = getSeenPrimaryPoolsStorageKey(address);
-    let stored: Record<string, number> = {};
-
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        stored = JSON.parse(raw) as Record<string, number>;
-      }
-    } catch (error) {
-      console.error("Error reading seen primary pools:", error);
-    }
-
-    const now = Date.now();
-    let changed = false;
-    const nextSeen = { ...stored };
-
-    for (const pool of primaryPools) {
-      if (nextSeen[pool.id] === undefined) {
-        nextSeen[pool.id] = now;
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(nextSeen));
-      } catch (error) {
-        console.error("Error writing seen primary pools:", error);
-      }
-    }
-
-    setSeenPrimaryPoolsById(nextSeen);
-  }, [address, primaryPools]);
-
   const shouldShowNewPoolBadge = useCallback(
     (pool: SubgraphPrimaryPool) => {
       if (pool.isPaused || pool.isClosed) return false;
+      if (recentPrimaryPoolPurchases.has(pool.id)) return false;
       if ((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n) > 0n) return false;
 
-      const firstSeenAt = seenPrimaryPoolsById[pool.id];
-      if (firstSeenAt === undefined) return true;
-
-      return Date.now() - firstSeenAt < NEW_POOL_BADGE_TTL_MS;
+      const poolCreatedAtMs = Number(pool.createdAt) * 1000;
+      if (!Number.isFinite(poolCreatedAtMs) || poolCreatedAtMs <= 0) return false;
+      return Date.now() - poolCreatedAtMs < NEW_POOL_BADGE_TTL_MS;
     },
-    [primaryPoolHoldingsByTokenId, seenPrimaryPoolsById],
+    [primaryPoolHoldingsByTokenId, recentPrimaryPoolPurchases],
   );
 
   const sellerTokenIdCounts = useMemo(() => {
@@ -1434,6 +1395,9 @@ const MarketsPage: NextPage = () => {
           onPurchaseComplete={id => {
             if (selectedListing && id) {
               setRecentPurchases(prev => new Set(prev).add(id));
+            }
+            if (selectedPool && id) {
+              setRecentPrimaryPoolPurchases(prev => new Set(prev).add(id));
             }
             // Refetch data after purchase (without showing loading spinner)
             fetchData(false);
