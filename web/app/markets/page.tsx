@@ -609,6 +609,33 @@ const MarketsPage: NextPage = () => {
     [tokens, assetEarnings, tokenSoldTotals],
   );
 
+  const calculatePrimaryPoolApy = useCallback(
+    (pool: SubgraphPrimaryPool): number => {
+      const token = tokens.find(t => t.revenueTokenId === pool.tokenId);
+      const earning = assetEarnings.find(e => e.assetId === pool.assetId);
+
+      if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
+
+      const issuedSupply = BigInt(primaryPoolSupplyByTokenId.get(pool.tokenId) || token.supply);
+      const totalValue = BigInt(token.price) * issuedSupply;
+      const poolCreatedAt = BigInt(pool.createdAt || "0");
+      const lastDistAt = BigInt(earning?.lastDistributionAt || "0");
+      const totalEarnings = BigInt(earning?.totalEarnings || "0");
+
+      if (totalEarnings > 0n && totalValue > 0n && poolCreatedAt > 0n && lastDistAt > poolCreatedAt) {
+        const duration = lastDistAt - poolCreatedAt;
+        const secondsPerYear = 365n * 24n * 60n * 60n;
+        const annualizedEarnings = (totalEarnings * secondsPerYear) / duration;
+        const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
+        return Number(aprBps) / 100;
+      }
+
+      const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
+      return targetYieldBp / 100;
+    },
+    [assetEarnings, primaryPoolSupplyByTokenId, tokens],
+  );
+
   const hasLikelyAction = useCallback(
     (listing: SubgraphListing): boolean => {
       // Generic actionable state for any user (e.g. buyable active listings).
@@ -747,20 +774,10 @@ const MarketsPage: NextPage = () => {
         case "newest":
           return Number(b.createdAt) - Number(a.createdAt);
         case "apr_desc": {
-          const aToken = tokens.find(t => t.revenueTokenId === a.tokenId);
-          const bToken = tokens.find(t => t.revenueTokenId === b.tokenId);
-          return (
-            Number(bToken?.targetYieldBP || BENCHMARK_EARNINGS_BP) -
-            Number(aToken?.targetYieldBP || BENCHMARK_EARNINGS_BP)
-          );
+          return calculatePrimaryPoolApy(b) - calculatePrimaryPoolApy(a);
         }
         case "apr_asc": {
-          const aToken = tokens.find(t => t.revenueTokenId === a.tokenId);
-          const bToken = tokens.find(t => t.revenueTokenId === b.tokenId);
-          return (
-            Number(aToken?.targetYieldBP || BENCHMARK_EARNINGS_BP) -
-            Number(bToken?.targetYieldBP || BENCHMARK_EARNINGS_BP)
-          );
+          return calculatePrimaryPoolApy(a) - calculatePrimaryPoolApy(b);
         }
         case "earnings_desc":
         case "earnings_asc": {
@@ -775,7 +792,16 @@ const MarketsPage: NextPage = () => {
     });
 
     return filtered;
-  }, [primaryPools, filterType, showOnlyHoldings, address, tokens, sortBy, assetEarnings, userPrimaryPoolTokenIds]);
+  }, [
+    primaryPools,
+    filterType,
+    showOnlyHoldings,
+    address,
+    sortBy,
+    assetEarnings,
+    userPrimaryPoolTokenIds,
+    calculatePrimaryPoolApy,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -887,14 +913,14 @@ const MarketsPage: NextPage = () => {
 
       if (canClaimSettlement) {
         byTokenId.set(pool.tokenId, {
-          primaryLabel: "Claim Settlement",
+          primaryLabel: "Claim Final Payout",
           primaryDisabled: false,
           primaryAction: "claim_settlement",
           secondaryActions: [
-            ...(canClaimEarnings ? [{ label: "Claim Earnings", action: "claim_earnings" as const }] : []),
-            ...(canRedeem ? [{ label: "Redeem Liquidity", action: "redeem" as const }] : []),
+            ...(canClaimEarnings ? [{ label: "Claim Payout", action: "claim_earnings" as const }] : []),
+            ...(canRedeem ? [{ label: "Withdraw", action: "redeem" as const }] : []),
             ...(canList
-              ? [{ label: hasActiveListing ? "List More Tokens" : "List Tokens", action: "list" as const }]
+              ? [{ label: hasActiveListing ? "List More for Sale" : "List for Sale", action: "list" as const }]
               : []),
           ],
         });
@@ -903,15 +929,15 @@ const MarketsPage: NextPage = () => {
 
       if (canClaimEarnings) {
         byTokenId.set(pool.tokenId, {
-          primaryLabel: "Claim Earnings",
+          primaryLabel: "Claim Payout",
           primaryDisabled: false,
           primaryAction: "claim_earnings",
           secondaryActions: [
-            ...(canRedeem ? [{ label: "Redeem Liquidity", action: "redeem" as const }] : []),
+            ...(canRedeem ? [{ label: "Withdraw", action: "redeem" as const }] : []),
             ...(canList
-              ? [{ label: hasActiveListing ? "List More Tokens" : "List Tokens", action: "list" as const }]
+              ? [{ label: hasActiveListing ? "List More for Sale" : "List for Sale", action: "list" as const }]
               : []),
-            ...(canAddMore ? [{ label: "Add More Liquidity", action: "buy" as const }] : []),
+            ...(canAddMore ? [{ label: "Deposit More", action: "buy" as const }] : []),
           ],
         });
         continue;
@@ -919,14 +945,14 @@ const MarketsPage: NextPage = () => {
 
       if (canRedeem) {
         byTokenId.set(pool.tokenId, {
-          primaryLabel: "Redeem Liquidity",
+          primaryLabel: "Withdraw",
           primaryDisabled: false,
           primaryAction: "redeem",
           secondaryActions: [
             ...(canList
-              ? [{ label: hasActiveListing ? "List More Tokens" : "List Tokens", action: "list" as const }]
+              ? [{ label: hasActiveListing ? "List More for Sale" : "List for Sale", action: "list" as const }]
               : []),
-            ...(canAddMore ? [{ label: "Add More Liquidity", action: "buy" as const }] : []),
+            ...(canAddMore ? [{ label: "Deposit More", action: "buy" as const }] : []),
           ],
         });
         continue;
@@ -934,16 +960,16 @@ const MarketsPage: NextPage = () => {
 
       if (canList) {
         byTokenId.set(pool.tokenId, {
-          primaryLabel: hasActiveListing ? "List More Tokens" : "List Tokens",
+          primaryLabel: hasActiveListing ? "List More for Sale" : "List for Sale",
           primaryDisabled: false,
           primaryAction: "list",
-          secondaryActions: [...(canAddMore ? [{ label: "Add More Liquidity", action: "buy" as const }] : [])],
+          secondaryActions: [...(canAddMore ? [{ label: "Deposit More", action: "buy" as const }] : [])],
         });
         continue;
       }
 
       byTokenId.set(pool.tokenId, {
-        primaryLabel: "Add Liquidity",
+        primaryLabel: "Deposit",
         primaryDisabled: !canAddMore,
         primaryAction: canAddMore ? "buy" : null,
         secondaryActions: [],
@@ -961,6 +987,28 @@ const MarketsPage: NextPage = () => {
   ]);
 
   const primarySellerTokenIdCounts = useMemo(() => new Map<string, number>(), []);
+
+  const openBuyModalForPool = useCallback((pool: SubgraphPrimaryPool) => {
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    window.requestAnimationFrame(() => {
+      setSelectedPool(pool);
+      setSelectedListing(null);
+      setIsBuyModalOpen(true);
+    });
+  }, []);
+
+  const openBuyModalForListing = useCallback((listing: SubgraphListing) => {
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    window.requestAnimationFrame(() => {
+      setSelectedListing(listing);
+      setSelectedPool(null);
+      setIsBuyModalOpen(true);
+    });
+  }, []);
 
   const refreshMarketsAfterSuccess = useCallback(
     (opts?: { skipImmediateFetch?: boolean }) => {
@@ -1041,13 +1089,13 @@ const MarketsPage: NextPage = () => {
                 className={`btn btn-sm shrink-0 ${marketTab === "pools" ? "btn-primary" : "btn-ghost"}`}
                 onClick={() => setMarketTab("pools")}
               >
-                Pools
+                Offerings
               </button>
               <button
                 className={`btn btn-sm shrink-0 ${marketTab === "secondary" ? "btn-primary" : "btn-ghost"}`}
                 onClick={() => setMarketTab("secondary")}
               >
-                Secondary
+                Secondary Listings
               </button>
             </div>
           </div>
@@ -1148,8 +1196,8 @@ const MarketsPage: NextPage = () => {
           <div className="hero bg-base-200 rounded-2xl py-16">
             <div className="hero-content text-center">
               <div className="max-w-md">
-                <h2 className="text-2xl font-bold">No Pools Found</h2>
-                <p className="py-4 opacity-70">There are currently no primary pools matching your filters.</p>
+                <h2 className="text-2xl font-bold">No Offerings Found</h2>
+                <p className="py-4 opacity-70">There are currently no offerings matching your filters.</p>
               </div>
             </div>
           </div>
@@ -1174,11 +1222,12 @@ const MarketsPage: NextPage = () => {
                       ? { ...token, supply: primaryPoolSupplyByTokenId.get(pool.tokenId) || token.supply }
                       : undefined
                   }
+                  earnings={assetEarnings.find(e => e.assetId === pool.assetId)}
                   partner={partner}
                   imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
                   viewMode={viewMode}
                   showNewPoolBadge={shouldShowNewPoolBadge(pool)}
-                  primaryActionLabel={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryLabel || "Add Liquidity"}
+                  primaryActionLabel={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryLabel || "Deposit"}
                   primaryActionDisabled={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryDisabled ?? true}
                   primaryActionOnClick={() => {
                     const action = poolUserActionStateByTokenId.get(pool.tokenId)?.primaryAction;
@@ -1208,9 +1257,7 @@ const MarketsPage: NextPage = () => {
                       return;
                     }
                     if (action === "buy") {
-                      setSelectedPool(pool);
-                      setSelectedListing(null);
-                      setIsBuyModalOpen(true);
+                      openBuyModalForPool(pool);
                     }
                   }}
                   secondaryActions={(poolUserActionStateByTokenId.get(pool.tokenId)?.secondaryActions || []).map(
@@ -1242,9 +1289,7 @@ const MarketsPage: NextPage = () => {
                           setIsListTokensOpen(true);
                           return;
                         }
-                        setSelectedPool(pool);
-                        setSelectedListing(null);
-                        setIsBuyModalOpen(true);
+                        openBuyModalForPool(pool);
                       },
                     }),
                   )}
@@ -1296,8 +1341,7 @@ const MarketsPage: NextPage = () => {
                 hasUserBoughtListing={userListingIds.has(listing.id) || recentPurchases.has(listing.id)}
                 tokenTotalSoldAmount={(tokenSoldTotals.get(listing.tokenId) ?? 0n).toString()}
                 onBuyClick={() => {
-                  setSelectedListing(listing);
-                  setIsBuyModalOpen(true);
+                  openBuyModalForListing(listing);
                 }}
                 onClaimEarningsClick={() => {
                   setSelectedListing(listing);
@@ -1356,7 +1400,7 @@ const MarketsPage: NextPage = () => {
         <div className="stats shadow bg-base-200 w-full">
           <div className="stat">
             <div className="stat-title">
-              {showOnlyHoldings ? "Your Holdings" : marketTab === "pools" ? "Primary Pools" : "Secondary Listings"}
+              {showOnlyHoldings ? "Your Holdings" : marketTab === "pools" ? "Offerings" : "Secondary Listings"}
             </div>
             <div className="stat-value text-success">
               {marketTab === "pools" ? displayPrimaryPools.length : displayListings.length}

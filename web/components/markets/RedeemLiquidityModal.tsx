@@ -112,7 +112,7 @@ export function RedeemLiquidityModal({
         </button>
 
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl">Redeem Liquidity</h3>
+          <h3 className="font-bold text-xl">Withdraw</h3>
           <p className="text-sm opacity-60 mt-1">{vehicleName}</p>
         </div>
 
@@ -120,16 +120,16 @@ export function RedeemLiquidityModal({
           {step === "success" ? (
             <div className="text-center text-base-content">
               <div className="text-6xl mb-4">💸</div>
-              <h4 className="text-xl font-bold text-success mb-2">Liquidity Redeemed</h4>
+              <h4 className="text-xl font-bold text-success mb-2">Withdrawal Complete</h4>
               <div className="alert text-sm mb-4 text-left bg-base-200/70 text-base-content border border-base-300">
-                <span>Your position was redeemed immediately and the liquidity was returned to your wallet.</span>
+                <span>Your position was withdrawn immediately and the payout was returned to your wallet.</span>
               </div>
               <p className="text-base-content/80 mb-4">
-                You&apos;ve redeemed <span className="font-bold">{redeemAmount.toLocaleString()}</span> units of this
-                asset&apos;s revenue-rights position.
+                You&apos;ve withdrawn <span className="font-bold">{redeemAmount.toLocaleString()}</span> claim units
+                from this offering.
               </p>
               <div className="bg-success/20 dark:bg-success/15 border border-success/30 rounded-lg p-4 text-base-content">
-                <div className="text-sm text-base-content/70 mb-1">Liquidity Returned</div>
+                <div className="text-sm text-base-content/70 mb-1">Payout Returned</div>
                 <div className="text-2xl font-bold text-success">
                   {Number(formattedPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
                 </div>
@@ -143,20 +143,20 @@ export function RedeemLiquidityModal({
                   <span>{maxAmount.toLocaleString()} units</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="opacity-70">Redeemable Liquidity</span>
+                  <span className="opacity-70">Available to Withdraw</span>
                   <span>
                     {Number(formattedLiquidity).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="opacity-70">Circulating Position</span>
+                  <span className="opacity-70">Issued Position</span>
                   <span>{circulatingSupply.toLocaleString()} units</span>
                 </div>
               </div>
 
               <div className="form-control">
                 <label className="label py-1">
-                  <span className="label-text text-xs font-bold uppercase opacity-60">Position to Redeem</span>
+                  <span className="label-text text-xs font-bold uppercase opacity-60">Position to Withdraw</span>
                   <span className="label-text-alt">Max: {maxAmount.toLocaleString()} units</span>
                 </label>
                 <input
@@ -174,7 +174,7 @@ export function RedeemLiquidityModal({
 
               {hasValidAmount && (
                 <div className="flex justify-between items-center text-sm">
-                  <span className="opacity-70">Liquidity Returned</span>
+                  <span className="opacity-70">Payout Returned</span>
                   <span className="font-mono">
                     {Number(formattedPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
                   </span>
@@ -238,10 +238,10 @@ export function RedeemLiquidityModal({
                 >
                   {isPending ? (
                     <>
-                      <span className="loading loading-spinner loading-sm"></span>Redeeming...
+                      <span className="loading loading-spinner loading-sm"></span>Withdrawing...
                     </>
                   ) : (
-                    "Redeem Liquidity"
+                    "Withdraw"
                   )}
                 </button>
               </>
