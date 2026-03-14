@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import { AssetLib, ProtocolLib } from "../contracts/Libraries.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
+import { PartnerManager } from "../contracts/PartnerManager.sol";
 
 contract MarketplaceIntegrationTest is BaseTest {
     event ListingCreated(
@@ -253,6 +254,35 @@ contract MarketplaceIntegrationTest is BaseTest {
         marketplace.pausePrimaryPool(tokenId);
     }
 
+    function testPausePrimaryPoolUnauthorizedPartner() public {
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
+
+        vm.prank(unauthorized);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        marketplace.pausePrimaryPool(tokenId);
+    }
+
+    function testPausePrimaryPoolAdmin() public {
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
+
+        vm.prank(admin);
+        marketplace.pausePrimaryPool(tokenId);
+
+        assertFalse(marketplace.isPrimaryPoolActive(tokenId));
+    }
+
     function testUnpausePrimaryPoolNotPoolPartner() public {
         (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
 
@@ -265,8 +295,25 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner1);
         marketplace.pausePrimaryPool(tokenId);
 
-        vm.prank(unauthorized);
+        vm.prank(partner2);
         vm.expectRevert(Marketplace.NotPoolPartner.selector);
+        marketplace.unpausePrimaryPool(tokenId);
+    }
+
+    function testUnpausePrimaryPoolUnauthorizedPartner() public {
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
+
+        vm.prank(partner1);
+        marketplace.pausePrimaryPool(tokenId);
+
+        vm.prank(unauthorized);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         marketplace.unpausePrimaryPool(tokenId);
     }
 
@@ -313,6 +360,35 @@ contract MarketplaceIntegrationTest is BaseTest {
         vm.prank(partner2);
         vm.expectRevert(Marketplace.NotPoolPartner.selector);
         marketplace.closePrimaryPool(tokenId);
+    }
+
+    function testClosePrimaryPoolUnauthorizedPartner() public {
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
+
+        vm.prank(unauthorized);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        marketplace.closePrimaryPool(tokenId);
+    }
+
+    function testClosePrimaryPoolAuthorizedContract() public {
+        (uint256 assetId, uint256 tokenId,) = _registerAssetAndPrepareRevenueToken();
+
+        vm.prank(address(router));
+        assetRegistry.setAssetStatus(assetId, AssetLib.AssetStatus.Active);
+
+        vm.prank(partner1);
+        marketplace.createPrimaryPool(tokenId, REVENUE_TOKEN_PRICE);
+
+        vm.prank(address(router));
+        marketplace.closePrimaryPool(tokenId);
+
+        assertFalse(marketplace.isPrimaryPoolActive(tokenId));
     }
 
     function testClosePrimaryPoolAlreadyClosed() public {

@@ -108,29 +108,29 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
         </button>
 
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl text-primary">Claim Settlement</h3>
+          <h3 className="font-bold text-xl text-primary">Claim Final Payout</h3>
           <p className="text-sm opacity-60 mt-1">{vehicleName}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="bg-base-200 rounded-xl p-4">
-            <p className="text-sm opacity-70 mb-2">Claimable Settlement</p>
+            <p className="text-sm opacity-70 mb-2">Available Final Payout</p>
             <p className="text-2xl font-bold text-primary">
               {claimableDisplay} <span className="text-base font-semibold opacity-80">{paymentSymbol}</span>
             </p>
             <p className="text-sm opacity-70 mt-3">
-              Claim your settlement payout. This will burn your revenue tokens for this asset.
+              Claim your final payout. This will close your position in this offering.
             </p>
             <div className="mt-4 space-y-1 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="opacity-70">Settlement</span>
+                <span className="opacity-70">Final payout</span>
                 <span className="font-medium">
                   {claimableDisplay} {paymentSymbol}
                 </span>
               </div>
               {autoClaimEarnings && (
                 <div className="flex justify-between gap-3">
-                  <span className="opacity-70">Claimable earnings</span>
+                  <span className="opacity-70">Available unpaid payouts</span>
                   <span className="font-medium">
                     {claimableEarningsDisplay} {paymentSymbol}
                   </span>
@@ -150,13 +150,13 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
           <div className="form-control w-full mt-2">
             <label className="label cursor-pointer flex justify-between w-full py-2">
               <div>
-                <span className="label-text font-medium">Auto-claim earnings</span>
+                <span className="label-text font-medium">Also claim unpaid payouts</span>
                 <p className="text-xs opacity-50 mt-0.5">
-                  Include any unclaimed earnings in the same settlement transaction.
+                  Include any unpaid payouts in the same final payout transaction.
                 </p>
                 {autoClaimEarnings && (
                   <p className="text-xs mt-1 font-medium text-success">
-                    Estimated earnings claim: {claimableEarningsDisplay} {paymentSymbol}
+                    Estimated additional payout: {claimableEarningsDisplay} {paymentSymbol}
                   </p>
                 )}
               </div>
@@ -177,7 +177,7 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
             onClick={handleClaim}
             disabled={isPending || claimableAmount === 0n}
           >
-            {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Settlement"}
+            {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Final Payout"}
           </button>
         </div>
       </div>

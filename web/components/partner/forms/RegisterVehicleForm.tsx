@@ -21,7 +21,7 @@ interface RegisterVehicleFormProps {
 const STEP_TITLES = {
   1: "Vehicle Details",
   2: "Financial Terms",
-  3: "Primary Pool Review",
+  3: "Offering Review",
 };
 
 export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: RegisterVehicleFormProps) => {
@@ -81,7 +81,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
   };
   const revenueShareBP = toBasisPoints(formData.revenueShareBP);
   const targetYieldBP = toBasisPoints(formData.targetYieldBP);
-  const proceedsProfileLabel = formData.immediateProceeds ? "Earlier Proceeds Release" : "Gradual Proceeds Release";
+  const proceedsProfileLabel = formData.immediateProceeds ? "Earlier Proceeds Access" : "Gradual Proceeds Access";
   const protectionLabel = formData.protectionEnabled ? "Enabled" : "Disabled";
   const bufferQuote = calculatePrimaryPoolBuffers(assetValueBigInt, targetYieldBP, formData.protectionEnabled);
   const displayedBufferLabel = formData.protectionEnabled ? "Required Total Buffer" : "Required Protocol Buffer";
@@ -426,7 +426,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
   const isTxPending = isWritingVehicleRegistry || isVehicleWritePending;
   const isBusy = isProcessing || isTxPending || isAwaitingSignature;
   const isLastStep = currentStep === 3;
-  const primaryLabel = isRegisterOnly ? "Register" : isLastStep ? "Create Primary Pool" : "Continue →";
+  const primaryLabel = isRegisterOnly ? "Register" : isLastStep ? "Create Offering" : "Continue →";
   const primaryAction = isRegisterOnly
     ? handleRegisterOnly
     : isLastStep
@@ -825,7 +825,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
               <div className="space-y-4">
                 <div className="form-control gap-2">
                   <label className="label pb-0">
-                    <span className="label-text font-medium">Partner Proceeds</span>
+                    <span className="label-text font-medium">Proceeds Access</span>
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
@@ -838,9 +838,9 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                       onClick={() => setFormData(prev => ({ ...prev, immediateProceeds: false }))}
                     >
                       <span className="block text-left">
-                        <span className="block font-semibold">Gradual Release</span>
+                        <span className="block font-semibold">Gradual Proceeds Access</span>
                         <span className="mt-1 block text-xs opacity-80">
-                          Your proceeds unlock gradually after the required buffers are funded.
+                          Your proceeds become available over time after the required reserves are funded.
                         </span>
                       </span>
                     </button>
@@ -854,9 +854,9 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                       onClick={() => setFormData(prev => ({ ...prev, immediateProceeds: true }))}
                     >
                       <span className="block text-left">
-                        <span className="block font-semibold">Earlier Release</span>
+                        <span className="block font-semibold">Earlier Proceeds Access</span>
                         <span className="mt-1 block text-xs opacity-80">
-                          Your proceeds can unlock sooner once the required buffers are funded.
+                          Your proceeds become available sooner once the required reserves are funded.
                         </span>
                       </span>
                     </button>
@@ -872,9 +872,9 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                     onChange={handleInputChange}
                   />
                   <span>
-                    <span className="block font-medium">Enable protection</span>
+                    <span className="block font-medium">Add Protection</span>
                     <span className="block text-xs opacity-70">
-                      Adds optional partner-funded protection on top of the required protocol buffer.
+                      Adds optional partner-funded protection on top of the required reserve.
                     </span>
                   </span>
                 </label>
@@ -888,8 +888,8 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   </div>
                   <p className="mt-2 text-xs opacity-75">
                     {formData.protectionEnabled
-                      ? "Total buffer includes the required protocol buffer plus the optional protection buffer."
-                      : "Includes only the required protocol buffer. Protection can be added on top."}
+                      ? "Total reserve includes the required reserve plus the optional protection reserve."
+                      : "Includes only the required reserve. Protection can be added on top."}
                   </p>
                 </div>
               </div>
@@ -903,24 +903,24 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
             {/* Primary Pool Summary */}
             <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-white/10 dark:to-white/5 rounded-xl p-4 border border-base-300">
               <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70 dark:text-white/70 mb-4">
-                Pool Summary
+                Offering Summary
               </h4>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="opacity-70 dark:text-white/70">Total Supply</span>
+                  <span className="opacity-70 dark:text-white/70">Total Claim Units</span>
                   <span className="font-bold text-lg text-base-content dark:text-white">
-                    {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "—"} Tokens
+                    {tokenPriceBigInt > 0n ? (assetValueBigInt / tokenPriceBigInt).toLocaleString() : "—"} Claim Units
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="opacity-70 dark:text-white/70">Price per Token</span>
+                  <span className="opacity-70 dark:text-white/70">Price per Claim Unit</span>
                   <span className="font-bold text-lg text-base-content dark:text-white">
                     {formData.tokenPrice ? `${Number(formData.tokenPrice).toLocaleString()} ${symbol}` : "—"}
                   </span>
                 </div>
                 <div className="divider my-1 opacity-20"></div>
                 <div className="flex justify-between items-center">
-                  <span className="font-normal dark:text-white/80">Total Pool Value</span>
+                  <span className="font-normal dark:text-white/80">Offering Size</span>
                   <span className="font-bold text-success text-xl">
                     {formData.assetValue ? `${Number(formData.assetValue).toLocaleString()} ${symbol}` : "—"}
                   </span>
@@ -937,16 +937,16 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
               </div>
               <p className="text-xs opacity-80 mt-2">
                 {formData.protectionEnabled
-                  ? "Total buffer includes the protocol buffer plus the optional protection buffer at full subscription."
-                  : "Required partner-funded protocol buffer at full subscription. Investor principal is not used to fund buffers."}
+                  ? "Total reserve includes the required reserve plus the optional protection reserve at full subscription."
+                  : "Required partner-funded reserve at full subscription. Buyer funds are not used to fund reserves."}
               </p>
             </div>
 
             <div className="bg-base-200 border border-base-300 rounded-xl p-4 space-y-4">
-              <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Primary Pool Defaults</h4>
+              <h4 className="font-semibold text-xs uppercase tracking-wide opacity-70">Offering Settings</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="opacity-70">Partner Proceeds</span>
+                  <span className="opacity-70">Proceeds Access</span>
                   <span className="font-semibold">{proceedsProfileLabel}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -958,7 +958,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
 
             <div className="bg-info/10 border border-base-300 rounded-xl p-4 text-xs">
               <p className="opacity-80 mt-1 mb-1">
-                This creates a continuous primary pool. Tokens are minted lazily to buyers as purchases happen.
+                This creates a continuous offering. Claim units are issued to buyers as purchases happen.
               </p>
             </div>
           </div>

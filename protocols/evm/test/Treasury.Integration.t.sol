@@ -1250,6 +1250,13 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         treasury.releasePartialCollateral(scenario.assetId);
     }
 
+    function testReleasePartialCollateralUnauthorizedPartner() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+        vm.prank(unauthorized);
+        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
+        treasury.releasePartialCollateral(scenario.assetId);
+    }
+
     function testCompleteEarningsLifecycle() public {
         _ensureState(SetupState.EarningsDistributed);
 

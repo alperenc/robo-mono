@@ -218,9 +218,9 @@ export const DistributeEarningsModal = ({
 
           {/* Header */}
           <div className="p-4 border-b border-base-200 shrink-0">
-            <h3 className="font-bold text-xl">Distribute Earnings</h3>
+            <h3 className="font-bold text-xl">Send Payout</h3>
             <p className="text-sm opacity-60 mt-1">
-              Distribute earnings from <span className="font-bold">{assetName}</span> to revenue token holders.
+              Send payouts from <span className="font-bold">{assetName}</span> to current holders.
             </p>
           </div>
 
@@ -229,10 +229,10 @@ export const DistributeEarningsModal = ({
             <div className="flex flex-col gap-3">
               {/* Token Ownership Breakdown */}
               <div className="bg-base-200 p-4 rounded-lg">
-                <div className="text-xs uppercase opacity-50 font-bold mb-3">Token Ownership</div>
+                <div className="text-xs uppercase opacity-50 font-bold mb-3">Holder Breakdown</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs opacity-50">Your Tokens</div>
+                    <div className="text-xs opacity-50">Your Claim Units</div>
                     <div className="font-bold">
                       {partnerBalance?.toLocaleString() || "0"}
                       <span className="text-xs opacity-50 ml-1">
@@ -241,7 +241,7 @@ export const DistributeEarningsModal = ({
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs opacity-50">Escrowed Tokens</div>
+                    <div className="text-xs opacity-50">Unclaimed Claim Units</div>
                     <div className="font-bold">
                       {tokenOwnership?.escrowTokens.toLocaleString() || "0"}
                       <span className="text-xs opacity-50 ml-1">
@@ -250,7 +250,7 @@ export const DistributeEarningsModal = ({
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs opacity-50">Investor Tokens</div>
+                    <div className="text-xs opacity-50">Holder Claim Units</div>
                     <div className="font-bold">
                       {tokenOwnership?.investorTokens.toLocaleString() || "0"}
                       <span className="text-xs opacity-50 ml-1">
@@ -259,10 +259,10 @@ export const DistributeEarningsModal = ({
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs opacity-50">Max Supply</div>
+                    <div className="text-xs opacity-50">Total Claim Units</div>
                     <div className="font-bold">{tokenOwnership?.maxSupply.toLocaleString() || "0"}</div>
                     <div className="text-[11px] opacity-50 mt-0.5">
-                      Circulating: {tokenOwnership?.circulatingSupply.toLocaleString() || "0"} (
+                      Issued: {tokenOwnership?.circulatingSupply.toLocaleString() || "0"} (
                       {tokenOwnership?.circulatingPercentage.toFixed(1) || 0}%)
                     </div>
                   </div>
@@ -273,28 +273,28 @@ export const DistributeEarningsModal = ({
                 <div className="bg-warning/10 p-3 rounded-lg text-xs">
                   <p className="text-warning font-bold">No external token holders</p>
                   <p className="opacity-80 mt-1">
-                    You currently hold all revenue tokens. There are no investors to distribute earnings to.
+                    You currently hold all claim units. There are no outside holders to send payouts to.
                   </p>
                 </div>
               )}
 
               {hasEscrowedInvestorTokens && (
                 <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg text-xs">
-                  <p className="text-warning font-bold">Warning: Escrowed Investor Tokens Detected</p>
+                  <p className="text-warning font-bold">Warning: Unclaimed Holder Units Detected</p>
                   <p className="opacity-80 mt-1">
-                    Some investor tokens are still in marketplace escrow. Distributing earnings now may lead to
-                    confusing claim behavior until those tokens are claimed.
+                    Some claim units are still unclaimed in marketplace escrow. Sending payouts now may lead to
+                    confusing claim behavior until those units are claimed.
                   </p>
                 </div>
               )}
 
               {/* Revenue Input */}
-              <div className="divider text-xs opacity-50 my-0">Revenue Details</div>
+              <div className="divider text-xs opacity-50 my-0">Payout Details</div>
 
               <div className="form-control">
                 <label className="label py-0">
                   <span className="label-text text-xs font-bold uppercase opacity-60">
-                    Total Revenue Earned ({symbol})
+                    Total Amount to Distribute ({symbol})
                   </span>
                 </label>
                 <div className="join w-full">
@@ -312,7 +312,7 @@ export const DistributeEarningsModal = ({
                   <span className="join-item flex items-center px-3 bg-base-300 text-xs font-medium">{symbol}</span>
                 </div>
                 <p className="text-xs opacity-50 mt-1">
-                  Enter total revenue generated. Investor distribution is calculated against max supply.
+                  Enter the total amount to distribute. Payouts are split based on current holdings.
                 </p>
               </div>
 
@@ -357,9 +357,9 @@ export const DistributeEarningsModal = ({
                 <div className="form-control w-full">
                   <label className="label cursor-pointer flex justify-between w-full py-2">
                     <div>
-                      <span className="label-text font-medium">Auto-release proceeds</span>
+                      <span className="label-text font-medium">Automatically unlock proceeds</span>
                       <p className="text-xs opacity-50 mt-0.5">
-                        Release eligible proceeds proportionally as you distribute earnings
+                        Unlock available proceeds proportionally as you send payouts
                       </p>
                       {autoRelease && (
                         <p className="text-xs mt-1 font-medium text-success">

@@ -78,9 +78,27 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         _;
     }
 
+    modifier onlyAuthorizedAssetOwner(uint256 assetId) {
+        _onlyAuthorizedAssetOwner(assetId);
+        _;
+    }
+
     function _onlyAuthorizedPartner() internal view {
         if (!partnerManager.isAuthorizedPartner(msg.sender)) {
             revert PartnerManager.UnauthorizedPartner();
+        }
+    }
+
+    function _onlyAuthorizedAssetOwner(uint256 assetId) internal view {
+        _requireAuthorizedAssetOwner(msg.sender, assetId);
+    }
+
+    function _requireAuthorizedAssetOwner(address partner, uint256 assetId) internal view {
+        if (!partnerManager.isAuthorizedPartner(partner)) {
+            revert PartnerManager.UnauthorizedPartner();
+        }
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert NotAssetOwner();
         }
     }
 
@@ -246,11 +264,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Partner can optionally top up the settlement pool to offer a higher payout.
      * Updates status to Retired and triggers settlement via Router.
      */
-    function settleAsset(uint256 assetId, uint256 topUpAmount) external override onlyAuthorizedPartner {
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
-
+    function settleAsset(uint256 assetId, uint256 topUpAmount) external override onlyAuthorizedAssetOwner(assetId) {
         // Verify asset is active
         if (!AssetLib.isOperational(vehicles[assetId].assetInfo)) {
             revert AssetNotActive(assetId, vehicles[assetId].assetInfo.status);
@@ -325,10 +339,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Requires 0 revenue token supply.
      * Updates status and triggers settlement via Router.
      */
-    function retireAsset(uint256 assetId) external override onlyAuthorizedPartner {
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
+    function retireAsset(uint256 assetId) external override onlyAuthorizedAssetOwner(assetId) {
         _retireAsset(assetId, msg.sender, 0);
     }
 
@@ -337,15 +348,11 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
      * Convenience function for the full retirement flow when the partner already holds all outstanding tokens.
      * Burns the partner-held outstanding supply first, then retires the asset. Treasury will verify 0 supply.
      */
-    function retireAssetAndBurnTokens(uint256 assetId) external override onlyAuthorizedPartner {
+    function retireAssetAndBurnTokens(uint256 assetId) external override {
         if (!assetExists(assetId)) {
             revert AssetNotFound(assetId);
         }
-
-        // Verify ownership
-        if (roboshareTokens.balanceOf(msg.sender, assetId) == 0) {
-            revert NotAssetOwner();
-        }
+        _onlyAuthorizedAssetOwner(assetId);
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);

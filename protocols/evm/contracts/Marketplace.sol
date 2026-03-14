@@ -216,7 +216,7 @@ contract Marketplace is
      */
     function pausePrimaryPool(uint256 tokenId) external {
         PrimaryPool storage pool = _getPrimaryPool(tokenId);
-        _onlyPoolPartnerOrAdmin(pool.partner);
+        _onlyAuthorizedPoolPartnerOrAdmin(pool.partner);
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isPaused = true;
         pool.pausedAt = block.timestamp;
@@ -228,7 +228,7 @@ contract Marketplace is
      */
     function unpausePrimaryPool(uint256 tokenId) external {
         PrimaryPool storage pool = _getPrimaryPool(tokenId);
-        _onlyPoolPartnerOrAdmin(pool.partner);
+        _onlyAuthorizedPoolPartnerOrAdmin(pool.partner);
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isPaused = false;
         emit PrimaryPoolUnpaused(tokenId);
@@ -240,7 +240,7 @@ contract Marketplace is
     function closePrimaryPool(uint256 tokenId) external {
         PrimaryPool storage pool = _getPrimaryPool(tokenId);
         if (!hasRole(AUTHORIZED_CONTRACT_ROLE, msg.sender)) {
-            _onlyPoolPartnerOrAdmin(pool.partner);
+            _onlyAuthorizedPoolPartnerOrAdmin(pool.partner);
         }
         if (pool.isClosed) revert PrimaryPoolAlreadyClosed();
         pool.isClosed = true;
@@ -788,10 +788,12 @@ contract Marketplace is
         pool = primaryPools[tokenId];
     }
 
-    function _onlyPoolPartnerOrAdmin(address partner) internal view {
-        if (msg.sender != partner && !hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
-            revert NotPoolPartner();
+    function _onlyAuthorizedPoolPartnerOrAdmin(address partner) internal view {
+        if (hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) return;
+        if (!partnerManager.isAuthorizedPartner(msg.sender)) {
+            revert PartnerManager.UnauthorizedPartner();
         }
+        if (msg.sender != partner) revert NotPoolPartner();
     }
 
     /**

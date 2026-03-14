@@ -190,6 +190,8 @@ export function AcquirePositionModal({
   const formattedContribution = formatUnits(primaryContributionRaw, decimals);
   const maxContributionRaw = maxTokens * unitPriceRaw;
   const maxContributionDisplay = formatUnits(maxContributionRaw, decimals);
+  const paymentTokenPillClass =
+    "inline-flex items-center rounded-full border border-base-300 bg-base-100 px-2 py-0.5 text-[11px] font-semibold text-base-content/75";
 
   const handlePercentageSelect = useCallback(
     (percentage: number) => {
@@ -314,7 +316,7 @@ export function AcquirePositionModal({
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div className="modal-backdrop bg-black/50 hidden sm:block" onClick={onClose} />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
@@ -325,9 +327,7 @@ export function AcquirePositionModal({
         </button>
 
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl">
-            {purchaseTarget.kind === "primary" ? "Add Liquidity" : "Buy Revenue Tokens"}
-          </h3>
+          <h3 className="font-bold text-xl">{purchaseTarget.kind === "primary" ? "Deposit" : "Buy Claim Units"}</h3>
           <p className="text-sm opacity-60 mt-1">{vehicleName}</p>
           {partnerName && <p className="text-xs opacity-50">by {partnerName}</p>}
         </div>
@@ -337,13 +337,13 @@ export function AcquirePositionModal({
             <div className="text-center text-base-content">
               <div className="text-6xl mb-4">🎉</div>
               <h4 className="text-xl font-bold text-success mb-2">
-                {isPrimaryPurchase ? "Liquidity Added!" : "Purchase Complete!"}
+                {isPrimaryPurchase ? "Deposit Complete" : "Purchase Complete!"}
               </h4>
               <div className="alert text-sm mb-4 text-left bg-base-200/70 text-base-content border border-base-300">
                 <span>
                   {isPrimaryPurchase
-                    ? "Your contribution settled immediately. Your revenue-rights position for this asset is now active."
-                    : "Tokens settle immediately. They are now in your wallet and available for use or relisting."}
+                    ? "Your deposit settled immediately. Your position in this offering is now active."
+                    : "Your claim units settled immediately. They are now in your wallet and available for use or resale."}
                 </span>
               </div>
               <p className="text-base-content/80 mb-4">
@@ -353,12 +353,12 @@ export function AcquirePositionModal({
                     <span className="font-bold">
                       {Number(formattedContribution).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>{" "}
-                    {symbol} to the {vehicleName} offering.
+                    <span className={paymentTokenPillClass}>{symbol}</span> to the {vehicleName} offering.
                   </>
                 ) : (
                   <>
-                    You&apos;ve acquired <span className="font-bold">{purchaseAmount.toLocaleString()}</span> revenue
-                    rights tokens for {vehicleName}.
+                    You&apos;ve acquired <span className="font-bold">{purchaseAmount.toLocaleString()}</span> claim
+                    units for {vehicleName}.
                   </>
                 )}
               </p>
@@ -371,7 +371,7 @@ export function AcquirePositionModal({
                     {((Number(purchaseAmount) / Number(successOwnershipBase)) * 100).toFixed(2)}%
                   </div>
                   <div className="text-xs text-base-content/60">
-                    of {purchaseTarget.kind === "primary" ? "the asset's revenue rights" : "total revenue rights"}
+                    of {purchaseTarget.kind === "primary" ? "this offering" : "total claim units"}
                   </div>
                 </div>
               )}
@@ -384,15 +384,15 @@ export function AcquirePositionModal({
                     {((Number(totalUserTokens + listedTokensCount) / Number(successOwnershipBase)) * 100).toFixed(2)}%
                   </div>
                   {isPrimaryPurchase ? (
-                    <div className="text-xs text-base-content/60">of the asset&apos;s total revenue rights</div>
+                    <div className="text-xs text-base-content/60">of this offering&apos;s total claim units</div>
                   ) : (
                     <div className="text-xs text-base-content/60">
-                      {Number(totalUserTokens + listedTokensCount).toLocaleString()} tokens
+                      {Number(totalUserTokens + listedTokensCount).toLocaleString()} claim units
                     </div>
                   )}
                   {!isPrimaryPurchase && listedTokensCount > 0n && (
                     <div className="text-xs text-base-content/50">
-                      {Number(listedTokensCount).toLocaleString()} listed tokens
+                      {Number(listedTokensCount).toLocaleString()} listed claim units
                     </div>
                   )}
                 </div>
@@ -407,33 +407,37 @@ export function AcquirePositionModal({
                   The listing expired before your buy could execute. This transaction only cleaned up the listing.
                 </span>
               </div>
-              <p className="text-base-content/80 mb-4">No tokens were purchased and no buyer payment was collected.</p>
+              <p className="text-base-content/80 mb-4">
+                No claim units were purchased and no buyer payment was collected.
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <div className="bg-base-200 rounded-lg p-3">
+              <div className="rounded-xl border border-base-300 bg-base-200 p-4">
                 <div className="flex justify-between text-sm">
-                  <span className="opacity-70">Price per Token:</span>
-                  <span className="font-bold">
-                    {Number(pricePerTokenDisplay).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                  <span className="opacity-70">Price per Claim Unit:</span>
+                  <span className="flex items-center gap-2 font-bold">
+                    {Number(pricePerTokenDisplay).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <span className={paymentTokenPillClass}>{symbol}</span>
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Available:</span>
-                  <span>{availableAmount.toLocaleString()} tokens</span>
+                  <span>{availableAmount.toLocaleString()} claim units</span>
                 </div>
                 {purchaseTarget.kind === "primary" && (
                   <div className="flex justify-between text-sm">
-                    <span className="opacity-70">Current Supply:</span>
-                    <span>{BigInt(purchaseTarget.currentSupply || "0").toLocaleString()} tokens</span>
+                    <span className="opacity-70">Issued Claim Units:</span>
+                    <span>{BigInt(purchaseTarget.currentSupply || "0").toLocaleString()} claim units</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-sm opacity-70">Your {symbol} Balance</span>
-                <span className="font-mono">
-                  {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+              <div className="flex items-center justify-between rounded-xl border border-base-300 bg-base-100 px-4 py-3">
+                <span className="text-sm opacity-70">Your Available Balance</span>
+                <span className="flex items-center gap-2 font-mono">
+                  {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className={paymentTokenPillClass}>{symbol}</span>
                 </span>
               </div>
 
@@ -462,7 +466,7 @@ export function AcquirePositionModal({
                       step="0.01"
                       disabled={isApproving || isPurchasing}
                     />
-                    <span className="join-item flex items-center px-3 bg-base-300 font-medium">{symbol}</span>
+                    <span className="join-item flex items-center px-3 bg-base-300 font-medium text-sm">{symbol}</span>
                   </div>
                 ) : (
                   <input
@@ -480,9 +484,9 @@ export function AcquirePositionModal({
               </div>
 
               {isPrimaryPurchase && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="opacity-70">Revenue Rights Position</span>
-                  <span className="font-mono">{purchaseAmount.toLocaleString()} units</span>
+                <div className="flex items-center justify-between rounded-xl border border-base-300 bg-base-100 px-4 py-3 text-sm">
+                  <span className="opacity-70">Position Received</span>
+                  <span className="font-mono">{purchaseAmount.toLocaleString()} claim units</span>
                 </div>
               )}
 
@@ -517,27 +521,29 @@ export function AcquirePositionModal({
               </div>
 
               {hasValidAmount && (
-                <div className="bg-base-200 rounded-lg p-3 space-y-1">
+                <div className="rounded-xl border border-base-300 bg-base-200 p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>{isPrimaryPurchase ? "Contribution" : "Subtotal"}</span>
-                    <span>
+                    <span className="flex items-center gap-2">
                       {Number(isPrimaryPurchase ? formattedPrincipal : formattedCost).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
-                      })}{" "}
-                      {symbol}
+                      })}
+                      <span className={paymentTokenPillClass}>{symbol}</span>
                     </span>
                   </div>
                   <div className="flex justify-between text-sm opacity-70">
                     <span>Protocol Fee</span>
-                    <span>
-                      {Number(formattedFee).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                    <span className="flex items-center gap-2">
+                      {Number(formattedFee).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <span className={paymentTokenPillClass}>{symbol}</span>
                     </span>
                   </div>
                   <div className="divider my-1"></div>
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
-                    <span className={hasInsufficientBalance ? "text-error" : ""}>
-                      {Number(formattedTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                    <span className={`flex items-center gap-2 ${hasInsufficientBalance ? "text-error" : ""}`}>
+                      {Number(formattedTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <span className={paymentTokenPillClass}>{symbol}</span>
                     </span>
                   </div>
                   {hasInsufficientBalance && (
@@ -581,14 +587,14 @@ export function AcquirePositionModal({
                     </>
                   ) : needsApproval ? (
                     isPrimaryPurchase ? (
-                      "Approve & Add"
+                      "Approve & Deposit"
                     ) : (
                       "Approve & Buy"
                     )
                   ) : purchaseTarget.kind === "primary" ? (
-                    "Add Liquidity"
+                    "Deposit"
                   ) : (
-                    "Buy Tokens"
+                    "Buy Claim Units"
                   )}
                 </button>
               </>

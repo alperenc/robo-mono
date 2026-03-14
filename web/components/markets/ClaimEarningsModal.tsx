@@ -61,7 +61,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
         </button>
 
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl">Claim Earnings</h3>
+          <h3 className="font-bold text-xl">Claim Payout</h3>
           <p className="text-sm opacity-60 mt-1">{vehicleName}</p>
         </div>
 
@@ -83,7 +83,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
             onClick={handleClaim}
             disabled={isPending || claimableAmount === 0n}
           >
-            {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Earnings"}
+            {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Payout"}
           </button>
         </div>
       </div>

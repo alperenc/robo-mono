@@ -129,8 +129,8 @@ export const EnableProceedsModal = ({
   const canSubmit =
     !!treasuryAddress && (fundingBreakdown.totalDue > 0n || (immediateProceeds && fundingBreakdown.baseLiquidity > 0n));
 
-  const proceedsProfileLabel = immediateProceeds ? "Higher Upside" : "Earlier Liquidity";
-  const proceedsAmountLabel = immediateProceeds ? "Proceeds Eligible Once Enabled" : "Proceeds Eligible Over Time";
+  const proceedsProfileLabel = immediateProceeds ? "Earlier Proceeds Access" : "Gradual Proceeds Access";
+  const proceedsAmountLabel = immediateProceeds ? "Available After Unlock" : "Available Over Time";
   const proceedsAmount = fundingBreakdown.baseLiquidity;
   const proceedsOutcomeCopy = immediateProceeds
     ? `Paying this amount enables release against up to ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} of proceeds on the current pool balance.`
@@ -178,9 +178,9 @@ export const EnableProceedsModal = ({
         </button>
 
         <div className="p-4 border-b border-base-200 shrink-0">
-          <h3 className="font-bold text-xl">Enable Proceeds</h3>
+          <h3 className="font-bold text-xl">Unlock Proceeds</h3>
           <p className="text-sm opacity-60 mt-1">
-            Pay the required amount for <span className="font-semibold">{assetName}</span> to enable partner proceeds.
+            Pay the required amount for <span className="font-semibold">{assetName}</span> to unlock proceeds.
           </p>
         </div>
 
@@ -196,17 +196,17 @@ export const EnableProceedsModal = ({
                   </div>
                 </div>
                 <div>
-                  <div className="opacity-60">Release Timing</div>
+                  <div className="opacity-60">Access Timing</div>
                   <div className="font-semibold">{proceedsProfileLabel}</div>
                 </div>
                 <div>
-                  <div className="opacity-60">Protocol Contribution</div>
+                  <div className="opacity-60">Required Reserve Funding</div>
                   <div className="font-semibold">
                     {formatTokenAmount(fundingBreakdown.protocolDue, decimals)} {symbol}
                   </div>
                 </div>
                 <div>
-                  <div className="opacity-60">{protectionEnabled ? "Protection Contribution" : "Protection"}</div>
+                  <div className="opacity-60">{protectionEnabled ? "Optional Protection Funding" : "Protection"}</div>
                   <div className="font-semibold">
                     {protectionEnabled
                       ? `${formatTokenAmount(fundingBreakdown.protectionDue, decimals)} ${symbol}`
@@ -228,8 +228,8 @@ export const EnableProceedsModal = ({
                 <p>{proceedsOutcomeCopy}</p>
                 <p>
                   {immediateProceeds
-                    ? "Once enabled, eligible proceeds can be released right away."
-                    : "Once enabled, proceeds can be released through earnings distributions."}
+                    ? "Once unlocked, proceeds can be withdrawn right away."
+                    : "Once unlocked, proceeds can be withdrawn over time through payout distributions."}
                 </p>
               </div>
             </div>
@@ -247,7 +247,7 @@ export const EnableProceedsModal = ({
               onClick={handleSubmit}
               disabled={isSubmitting || !canSubmit}
             >
-              {requiresApproval ? "Approve & Enable" : "Enable Proceeds"}
+              {requiresApproval ? "Approve & Unlock" : "Unlock Proceeds"}
             </button>
           </div>
         </div>

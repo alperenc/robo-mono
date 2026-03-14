@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { formatUnits } from "viem";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+
+const BENCHMARK_YIELD_BP = 1000n;
+const BP_PRECISION = 10000n;
+const SECONDS_PER_YEAR = 365n * 24n * 60n * 60n;
 
 interface PrimaryPoolCardProps {
   pool: {
@@ -31,6 +35,10 @@ interface PrimaryPoolCardProps {
     maturityDate: string;
     targetYieldBP?: string;
   };
+  earnings?: {
+    totalEarnings: string;
+    lastDistributionAt: string;
+  };
   partner?: {
     name: string;
     address: string;
@@ -48,6 +56,7 @@ export function PrimaryPoolCard({
   pool,
   vehicle,
   token,
+  earnings,
   partner,
   imageUrl,
   viewMode = "grid",
@@ -72,30 +81,75 @@ export function PrimaryPoolCard({
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const yieldDisplay = token?.targetYieldBP ? `${(Number(token.targetYieldBP) / 100).toFixed(2)}%` : "—";
+  const apyDisplay = useMemo(() => {
+    if (!token) {
+      return `${(Number(BENCHMARK_YIELD_BP) / 100).toFixed(2)}%`;
+    }
+
+    const currentIssuedSupply = token.supply ? BigInt(token.supply) : 0n;
+    const totalValue = BigInt(pool.pricePerToken) * currentIssuedSupply;
+    const poolCreatedAt = BigInt(pool.createdAt || "0");
+    const lastDistributionAt = BigInt(earnings?.lastDistributionAt || "0");
+    const totalEarnings = BigInt(earnings?.totalEarnings || "0");
+
+    if (totalEarnings > 0n && totalValue > 0n && poolCreatedAt > 0n && lastDistributionAt > poolCreatedAt) {
+      const duration = lastDistributionAt - poolCreatedAt;
+      const annualizedEarnings = (totalEarnings * SECONDS_PER_YEAR) / duration;
+      const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
+      return `${(Number(aprBps) / 100).toFixed(2)}%`;
+    }
+
+    const targetYieldBps = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_YIELD_BP);
+    return `${(targetYieldBps / 100).toFixed(2)}%`;
+  }, [earnings?.lastDistributionAt, earnings?.totalEarnings, pool.createdAt, pool.pricePerToken, token]);
   const statusLabel = pool.isClosed ? "Closed" : pool.isPaused ? "Paused" : "Open";
   const statusClass = pool.isClosed
     ? "bg-base-300 text-base-content/70"
     : pool.isPaused
       ? "bg-warning/15 text-warning"
       : "bg-success/15 text-success";
-  const benefitLabel = pool.immediateProceeds ? "Higher Upside" : "Early Liquidity";
+  const benefitLabel = pool.immediateProceeds ? "Gradual Liquidity" : "Earlier Liquidity";
   const benefitClass = pool.immediateProceeds
     ? "rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:text-base-content"
     : "rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:text-base-content";
   const protectionClass = pool.protectionEnabled
     ? "rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:text-base-content"
     : "rounded-full bg-base-200 px-3 py-1 text-xs font-semibold text-base-content/70";
-  const circulatingDisplay = currentSupply === 0n ? "--" : `${currentSupply.toLocaleString()} tokens`;
+  const circulatingDisplay = currentSupply === 0n ? "--" : `${currentSupply.toLocaleString()} claim units`;
   const allocatedPercentage = maxSupply > 0n ? Number((currentSupply * 100n) / maxSupply) : 0;
   const isListMode = viewMode === "list";
   const hasSecondaryActions = secondaryActions.some(action => Boolean(action.onClick));
+  const isCardPressable = Boolean(primaryActionOnClick) && !primaryActionDisabled;
+  const hasAvailableActions = isCardPressable || hasSecondaryActions;
   const enabledPrimaryButtonClass = "btn btn-primary bg-primary/15 border-0 text-primary hover:bg-primary/25";
   const enabledSuccessButtonClass = "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25";
   const disabledPrimaryButtonClass =
     "btn btn-ghost border border-base-300 bg-base-200 text-base-content/45 hover:border-base-300 hover:bg-base-200 dark:border-base-300 dark:bg-base-200 dark:text-base-content/45";
-  const isSuccessPrimary = primaryActionLabel === "Claim Earnings" || primaryActionLabel === "Claim Settlement";
+  const isSuccessPrimary = primaryActionLabel === "Claim Payout" || primaryActionLabel === "Claim Final Payout";
   const activePrimaryButtonClass = isSuccessPrimary ? enabledSuccessButtonClass : enabledPrimaryButtonClass;
+
+  const triggerPrimaryAction = () => {
+    if (!isCardPressable) return;
+    primaryActionOnClick?.();
+  };
+
+  const handleCardClick = (event: MouseEvent<HTMLElement>) => {
+    if (!isCardPressable) return;
+    const target = event.target as HTMLElement;
+    const interactiveAncestor = target.closest("button, a, input, select, textarea, [role='button']");
+    if (interactiveAncestor && interactiveAncestor !== event.currentTarget) return;
+    triggerPrimaryAction();
+  };
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!isCardPressable) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const target = event.target as HTMLElement;
+    const interactiveAncestor = target.closest("button, a, input, select, textarea, [role='button']");
+    if (interactiveAncestor && interactiveAncestor !== event.currentTarget) return;
+    event.preventDefault();
+    triggerPrimaryAction();
+  };
 
   useEffect(() => {
     if (!isActionMenuOpen) return;
@@ -198,7 +252,16 @@ export function PrimaryPoolCard({
 
   if (isListMode) {
     return (
-      <article className="overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+      <article
+        className={`overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm transition-all duration-200 ${
+          hasAvailableActions ? "hover:shadow-md" : "opacity-70 saturate-50"
+        } ${isCardPressable ? "cursor-pointer" : ""}`}
+        onClick={handleCardClick}
+        onKeyDown={handleCardKeyDown}
+        role={isCardPressable ? "button" : undefined}
+        tabIndex={isCardPressable ? 0 : undefined}
+        aria-label={isCardPressable ? primaryActionLabel : undefined}
+      >
         <div className="flex flex-col lg:flex-row">
           <div className="relative h-40 shrink-0 overflow-hidden bg-base-200 lg:h-auto lg:w-60 xl:w-72">
             {imageUrl ? (
@@ -211,12 +274,12 @@ export function PrimaryPoolCard({
             )}
             {showNewPoolBadge && (
               <div className="absolute left-[-3.5rem] top-4 rotate-[-35deg] bg-success px-16 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-success-content shadow-md">
-                New Pool
+                New Offering
               </div>
             )}
             <div className="absolute inset-x-4 bottom-4 flex items-end justify-end">
               <span className="rounded-full bg-base-100/90 px-3 py-1 text-xs font-bold text-success shadow-md backdrop-blur-sm">
-                {yieldDisplay} APY
+                {apyDisplay} APY
               </span>
             </div>
           </div>
@@ -239,24 +302,22 @@ export function PrimaryPoolCard({
                 </div>
                 <div className="mt-2 flex min-h-[4.5rem] flex-wrap content-start items-start gap-2">
                   <span className={benefitClass}>{benefitLabel}</span>
-                  <span className={protectionClass}>
-                    {pool.protectionEnabled ? "Protection Enabled" : "No Protection"}
-                  </span>
+                  <span className={protectionClass}>{pool.protectionEnabled ? "Protection On" : "Protection Off"}</span>
                 </div>
               </div>
 
               <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:w-[42%]">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide opacity-50">Circulating</div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-50">Issued</div>
                   <div className="font-semibold leading-tight">
                     {currentSupply === 0n ? "--" : currentSupply.toLocaleString()}
                   </div>
-                  <div className="text-[11px] opacity-60">tokens</div>
+                  <div className="text-[11px] opacity-60">claim units</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide opacity-50">Available</div>
                   <div className="font-semibold leading-tight">{remainingSupply.toLocaleString()}</div>
-                  <div className="text-[11px] opacity-60">tokens</div>
+                  <div className="text-[11px] opacity-60">claim units</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide opacity-50">Price</div>
@@ -279,7 +340,7 @@ export function PrimaryPoolCard({
               <div className="w-full lg:w-[220px]">
                 {renderActionButton("bottom")}
                 <div className="mt-2 text-center text-xs text-base-content/60">
-                  Max supply {maxSupply.toLocaleString()} tokens
+                  Max supply {maxSupply.toLocaleString()} claim units
                 </div>
               </div>
             </div>
@@ -290,7 +351,16 @@ export function PrimaryPoolCard({
   }
 
   return (
-    <article className="rounded-2xl border border-base-300 bg-base-100 shadow-sm overflow-hidden flex flex-col">
+    <article
+      className={`rounded-2xl border border-base-300 bg-base-100 shadow-lg transition-all duration-300 overflow-hidden flex flex-col ${
+        hasAvailableActions ? "hover:shadow-xl" : "opacity-70 saturate-50"
+      } ${isCardPressable ? "cursor-pointer" : ""}`}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      role={isCardPressable ? "button" : undefined}
+      tabIndex={isCardPressable ? 0 : undefined}
+      aria-label={isCardPressable ? primaryActionLabel : undefined}
+    >
       <div className="relative aspect-[16/10] bg-base-200">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -300,12 +370,12 @@ export function PrimaryPoolCard({
         )}
         {showNewPoolBadge && (
           <div className="absolute inset-x-0 top-0 flex items-center justify-center bg-success text-success-content px-4 py-2 text-xs font-bold tracking-wide shadow-md">
-            ✨ New Pool
+            ✨ New Offering
           </div>
         )}
         <div className="absolute inset-x-4 bottom-4 flex items-end justify-end gap-3">
           <span className="rounded-full bg-base-100/90 px-3 py-1 text-xs font-bold text-success shadow-md backdrop-blur-sm">
-            {yieldDisplay} APY
+            {apyDisplay} APY
           </span>
         </div>
       </div>
@@ -330,13 +400,13 @@ export function PrimaryPoolCard({
 
         <div className="flex flex-wrap content-start gap-2">
           <span className={benefitClass}>{benefitLabel}</span>
-          <span className={protectionClass}>{pool.protectionEnabled ? "Protection Enabled" : "No Protection"}</span>
+          <span className={protectionClass}>{pool.protectionEnabled ? "Protection On" : "Protection Off"}</span>
         </div>
 
         <div className="rounded-xl bg-base-200 p-4">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <div className="text-xs uppercase tracking-wide opacity-50">Circulating</div>
+              <div className="text-xs uppercase tracking-wide opacity-50">Issued</div>
               <div className="mt-1 text-lg font-bold">{circulatingDisplay}</div>
             </div>
             <div className="text-right">
@@ -355,7 +425,7 @@ export function PrimaryPoolCard({
           <div className="rounded-xl bg-base-200 p-3">
             <div className="text-base-content/60">Available</div>
             <div className="mt-1 text-2xl font-bold leading-none">{remainingSupply.toLocaleString()}</div>
-            <div className="mt-1 text-base-content/70 font-semibold">tokens</div>
+            <div className="mt-1 text-base-content/70 font-semibold">claim units</div>
           </div>
           <div className="rounded-xl bg-base-200 p-3">
             <div className="text-base-content/60">Price</div>
@@ -366,7 +436,9 @@ export function PrimaryPoolCard({
 
         <div className="flex flex-col gap-2 self-end">
           <div className="w-full">{renderActionButton("top")}</div>
-          <div className="text-center text-xs text-base-content/60">Max supply {maxSupply.toLocaleString()} tokens</div>
+          <div className="text-center text-xs text-base-content/60">
+            Max supply {maxSupply.toLocaleString()} claim units
+          </div>
         </div>
       </div>
     </article>
