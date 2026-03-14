@@ -66,7 +66,9 @@ export const EndSecondaryListingModal = ({
         {/* Header */}
         <div className="p-4 border-b border-base-200 shrink-0">
           <h3 className="font-bold text-xl">End Listing</h3>
-          <p className="text-sm opacity-60 mt-1">End your active marketplace listing and unlock any unsold tokens.</p>
+          <p className="text-sm opacity-60 mt-1">
+            End your active marketplace listing and unlock any unsold claim units.
+          </p>
         </div>
 
         {/* Scrollable Content */}
@@ -79,16 +81,16 @@ export const EndSecondaryListingModal = ({
             )}
             {/* Confirmation Text */}
             <p className="text-sm opacity-70">
-              Are you sure you want to end this listing? Existing purchases stay settled and any unsold tokens are
+              Are you sure you want to end this listing? Existing purchases stay settled and any unsold claim units are
               unlocked based on the listing state below.
             </p>
 
-            {/* Unsold tokens note */}
+            {/* Unsold claim units note */}
             {Number(tokenAmount) > 0 && (
               <div className="bg-base-200 rounded-xl p-4">
-                <div className="font-semibold text-sm">Unsold tokens</div>
+                <div className="font-semibold text-sm">Unsold claim units</div>
                 <div className="text-sm opacity-80 mt-1">
-                  <span className="font-bold">{formattedTokenAmount}</span> unsold tokens will be unlocked in your
+                  <span className="font-bold">{formattedTokenAmount}</span> unsold claim units will be unlocked in your
                   wallet.
                 </div>
               </div>

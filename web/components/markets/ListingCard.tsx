@@ -343,7 +343,8 @@ export function ListingCard({
   const actionState = useMemo(() => {
     type CandidateAction = { label: string; onClick?: () => void; className?: string };
 
-    const listTokensLabel = hasUserActiveListingForTokenId || isSellerOfListing ? "List More Tokens" : "List Tokens";
+    const listTokensLabel =
+      hasUserActiveListingForTokenId || isSellerOfListing ? "List More for Sale" : "List for Sale";
     const hasClaimedTokens = (walletTokenBalance || 0n) > 0n;
     const canManageOwnListing = isSellerOfListing && !isInactive;
     const canRelistInactiveOwnPrimaryListing = isSellerOfListing && !isSecondaryListing && isInactive && canListTokens;
@@ -362,20 +363,16 @@ export function ListingCard({
     };
 
     const resolvePrimaryClass = (action: CandidateAction): string => {
-      if (action.label === "Settle Asset") return isTokenMatured ? primaryGhostClass : "btn-error";
-      if (action.label === "Claim Settlement") return successGhostClass;
-      if (
-        action.label === "Distribute Earnings" ||
-        action.label === "Claim Earnings" ||
-        action.label === "Claim Tokens"
-      ) {
+      if (action.label === "Begin Final Payout") return isTokenMatured ? primaryGhostClass : "btn-error";
+      if (action.label === "Claim Final Payout") return successGhostClass;
+      if (action.label === "Send Payout" || action.label === "Claim Payout" || action.label === "Claim Tokens") {
         return successGhostClass;
       }
       if (
-        action.label === "List Tokens" ||
-        action.label === "List More Tokens" ||
+        action.label === "List for Sale" ||
+        action.label === "List More for Sale" ||
         action.label === "End Listing" ||
-        action.label === "Buy Tokens"
+        action.label === "Buy Claim Units"
       ) {
         return primaryGhostClass;
       }
@@ -385,19 +382,19 @@ export function ListingCard({
     if (isSellerOfListing && !isSecondaryListing && !isAssetSettled) {
       if (isTokenMatured && onSettleAssetClick) {
         primarySellerLifecycleActions.push({
-          label: "Settle Asset",
+          label: "Begin Final Payout",
           onClick: onSettleAssetClick,
         });
       }
       if (onDistributeEarningsClick && listingSoldAmount > 0n) {
         primarySellerLifecycleActions.push({
-          label: "Distribute Earnings",
+          label: "Send Payout",
           onClick: onDistributeEarningsClick,
         });
       }
       if (!isTokenMatured && onSettleAssetClick) {
         primarySellerLifecycleActions.push({
-          label: "Settle Asset",
+          label: "Begin Final Payout",
           onClick: onSettleAssetClick,
           className: isTokenMatured ? undefined : "text-error",
         });
@@ -429,9 +426,9 @@ export function ListingCard({
     } else if (sellerManagementActions.length > 0) {
       sellerManagementActions.forEach(pushAction);
     } else if (canClaimEarningsOnThisListing) {
-      pushAction({ label: "Claim Earnings", onClick: onClaimEarningsClick });
+      pushAction({ label: "Claim Payout", onClick: onClaimEarningsClick });
       if (canClaimSettlement) {
-        pushAction({ label: "Claim Settlement", onClick: onClaimSettlementClick });
+        pushAction({ label: "Claim Final Payout", onClick: onClaimSettlementClick });
       } else if (canListTokens) {
         pushAction({
           label: listTokensLabel,
@@ -440,7 +437,7 @@ export function ListingCard({
       }
     } else if (!isSellerOfListing && !isInactive) {
       if (hasAvailableTokens) {
-        pushAction({ label: "Buy Tokens", onClick: onBuyClick });
+        pushAction({ label: "Buy Claim Units", onClick: onBuyClick });
       }
       if (canListTokens) {
         pushAction({
@@ -450,7 +447,7 @@ export function ListingCard({
       }
     } else if (hasClaimedTokens) {
       if (canClaimSettlement) {
-        pushAction({ label: "Claim Settlement", onClick: onClaimSettlementClick });
+        pushAction({ label: "Claim Final Payout", onClick: onClaimSettlementClick });
       } else {
         pushAction({
           label: listTokensLabel,

@@ -57,7 +57,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
   const hasBothActions = hasSettleAction && hasLiquidateAction;
   const isLiquidationOnly = !hasSettleAction;
 
-  const modeLabel = mode === "settle" ? "Settle Asset" : "Liquidate Asset";
+  const modeLabel = mode === "settle" ? "Begin Final Payout" : "Force Final Payout";
   const showTopUpControls = mode === "settle" && hasSettleAction;
   const isPaymentPending = pendingAction === "settle" && isPending;
 
@@ -143,8 +143,8 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
 
   const liquidationReasonLabel = useMemo(() => {
     if (!hasLiquidateAction) return null;
-    if (liquidationReason === 0) return "Eligible by maturity";
-    if (liquidationReason === 1) return "Eligible by insolvency";
+    if (liquidationReason === 0) return "Eligible for final payout at term end";
+    if (liquidationReason === 1) return "Eligible for forced final payout";
     return "Eligible";
   }, [hasLiquidateAction, liquidationReason]);
 
@@ -173,8 +173,8 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
             <h3 className={`font-bold text-xl ${mode === "liquidate" ? "text-error" : ""}`}>{modeLabel}</h3>
             <p className="text-sm opacity-60 mt-1">
               {mode === "settle"
-                ? "End revenue distribution and trigger investor settlement"
-                : "Force liquidation and trigger investor settlement claims"}
+                ? "End payouts and make final holder payouts available"
+                : "Force final resolution and make holder payouts available"}
             </p>
           </div>
 
@@ -189,7 +189,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                     onClick={() => setMode("settle")}
                     disabled={isPending}
                   >
-                    Settle
+                    Begin Final Payout
                   </button>
                   <button
                     type="button"
@@ -197,7 +197,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                     onClick={() => setMode("liquidate")}
                     disabled={isPending}
                   >
-                    Liquidate
+                    Force Final Payout
                   </button>
                 </div>
               )}
@@ -222,13 +222,13 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                   <div className="text-sm">
                     {mode === "settle" ? (
                       <>
-                        Settling <strong>{assetName}</strong> will end revenue distribution and allow token holders to
-                        claim their settlement amount.
+                        Starting final payout for <strong>{assetName}</strong> will end payouts and allow holders to
+                        claim their final payout.
                       </>
                     ) : (
                       <>
-                        Liquidating <strong>{assetName}</strong> will force resolution and allow token holders to claim
-                        their settlement amount.
+                        Force closing <strong>{assetName}</strong> will trigger final resolution and allow holders to
+                        claim their final payout.
                       </>
                     )}
                   </div>
@@ -242,11 +242,13 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                   <div className="font-medium">{liquidationReasonLabel}</div>
                   <div className="opacity-75 mt-1">
                     {liquidationReason === 0
-                      ? "This asset is currently liquidatable because it has reached maturity."
+                      ? "This asset can be force closed because it has reached maturity."
                       : liquidationReason === 1
-                        ? "This asset is currently liquidatable due to insolvency after missed-earnings shortfall accrual."
-                        : "This asset is currently liquidatable under protocol conditions."}
-                    {mode === "settle" && hasSettleAction ? " You may still choose to settle voluntarily." : ""}
+                        ? "This asset can be force closed due to insolvency after missed-payout shortfall accrual."
+                        : "This asset can be force closed under the current rules."}
+                    {mode === "settle" && hasSettleAction
+                      ? " You may still choose to begin final payout voluntarily."
+                      : ""}
                   </div>
                 </div>
               )}
@@ -254,7 +256,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
               {!hasLiquidateAction && isLiquidationOnly && (
                 <div className="alert alert-info">
                   <span className="text-sm">
-                    This asset is not currently eligible for liquidation. Liquidation becomes available only after
+                    This asset is not currently eligible for forced final payout. That becomes available only after
                     maturity or insolvency.
                   </span>
                 </div>
@@ -316,7 +318,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                         Liquidating...
                       </>
                     ) : (
-                      "Liquidate Asset"
+                      "Force Final Payout"
                     )}
                   </button>
                   <button type="button" className="btn btn-primary" onClick={handleSettle} disabled={disableSettle}>
@@ -326,7 +328,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                         Settling...
                       </>
                     ) : (
-                      "Settle Asset"
+                      "Begin Final Payout"
                     )}
                   </button>
                 </>
@@ -338,7 +340,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                       Settling...
                     </>
                   ) : (
-                    "Settle Asset"
+                    "Begin Final Payout"
                   )}
                 </button>
               ) : (
@@ -349,7 +351,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                       Liquidating...
                     </>
                   ) : (
-                    "Liquidate Asset"
+                    "Force Final Payout"
                   )}
                 </button>
               )}

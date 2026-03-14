@@ -205,8 +205,8 @@ const PartnerDashboard: NextPage = () => {
   const isSingleAssetType = activeRegistries.length === 1;
 
   const dashboardSubtitle = isSingleAssetType
-    ? `Manage your ${activeRegistries[0].name.toLowerCase()} ${activeRegistries[0].collectiveNoun} and revenue tokens`
-    : "Manage your registered assets and revenue tokens";
+    ? `Manage your ${activeRegistries[0].name.toLowerCase()} ${activeRegistries[0].collectiveNoun} and claim units`
+    : "Manage your registered assets and claim units";
 
   // Fetch assets and listings
   useEffect(() => {
@@ -1165,7 +1165,7 @@ const PartnerDashboard: NextPage = () => {
               <p className="py-4 sm:py-6 text-base sm:text-lg opacity-80">
                 {isSingleAssetType
                   ? `You haven't registered any ${activeRegistries[0].pluralName.toLowerCase()} yet.`
-                  : "You haven't registered any assets yet. Register an asset and create a pool to start issuing revenue tokens."}
+                  : "You haven't registered any assets yet. Register an asset and create an offering to start issuing claim units."}
               </p>
               <div className="flex justify-center">
                 <button
@@ -1225,7 +1225,7 @@ const PartnerDashboard: NextPage = () => {
                   const bufferFundingDue = asset.bufferFundingDue ?? 0n;
                   const partnerTokenBalance = asset.partnerTokenBalance ?? 0n;
                   const distributeAction = {
-                    label: "Distribute Earnings",
+                    label: "Send Payout",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
                       setDistributeEarningsModalOpen(true);
@@ -1233,7 +1233,7 @@ const PartnerDashboard: NextPage = () => {
                     className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
                   };
                   const enableProceedsAction = {
-                    label: "Enable Proceeds",
+                    label: "Unlock Proceeds",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
                       setEnableProceedsModalOpen(true);
@@ -1242,7 +1242,7 @@ const PartnerDashboard: NextPage = () => {
                       "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                   };
                   const settleAction = {
-                    label: "Settle Asset",
+                    label: "Begin Final Payout",
                     onClick: () => {
                       setSelectedCategorizedAsset(asset);
                       setSettleAssetModalOpen(true);
@@ -1254,19 +1254,19 @@ const PartnerDashboard: NextPage = () => {
                   const canEnableProceeds =
                     bufferFundingDue > 0n || (!!asset.immediateProceeds && (asset.primaryInvestorLiquidity ?? 0n) > 0n);
                   const pausePoolAction = {
-                    label: "Pause Pool",
+                    label: "Pause Offering",
                     onClick: () => void updatePrimaryPoolState(tokenId, "pausePrimaryPool"),
                     className:
                       "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                   };
                   const unpausePoolAction = {
-                    label: "Unpause Pool",
+                    label: "Resume Offering",
                     onClick: () => void updatePrimaryPoolState(tokenId, "unpausePrimaryPool"),
                     className:
                       "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",
                   };
                   const closePoolAction = {
-                    label: "Close Pool",
+                    label: "Close Offering",
                     onClick: () => void updatePrimaryPoolState(tokenId, "closePrimaryPool"),
                     tone: "danger" as const,
                   };
@@ -1285,7 +1285,7 @@ const PartnerDashboard: NextPage = () => {
                     ...(partnerTokenBalance > 0n
                       ? [
                           {
-                            label: "List Tokens",
+                            label: "List for Sale",
                             onClick: () => openListModal(asset, partnerTokenBalance.toString()),
                           },
                         ]
@@ -1344,7 +1344,7 @@ const PartnerDashboard: NextPage = () => {
                 const actionEnd = { label: "End Listing", onClick: () => openModal(setEndSecondaryListingModalOpen) };
                 const actionExtend = { label: "Extend Listing", onClick: () => openModal(setExtendListingModalOpen) };
                 const actionDistribute = {
-                  label: "Distribute Earnings",
+                  label: "Send Payout",
                   onClick: () => {
                     setSelectedCategorizedAsset(asset);
                     setDistributeEarningsModalOpen(true);
@@ -1411,7 +1411,7 @@ const PartnerDashboard: NextPage = () => {
                   primaryAction={
                     asset.supply && asset.supply > 0n
                       ? {
-                          label: "List Tokens",
+                          label: "List for Sale",
                           onClick: () => openListModal(asset, asset.supply?.toString()),
                           className:
                             "btn bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25",

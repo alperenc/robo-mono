@@ -200,11 +200,11 @@ export const CreateSecondaryListingModal = ({
 
           {/* Header */}
           <div className="p-4 border-b border-base-200 shrink-0">
-            <h3 className="font-bold text-xl">List Tokens for Sale</h3>
+            <h3 className="font-bold text-xl">List Claim Units for Sale</h3>
             <p className="text-sm opacity-60 mt-1 mb-1">
-              List revenue tokens for <span className="font-semibold">{assetName || "this asset"}</span> (VIN{" "}
-              <span className="font-mono font-bold">{vin}</span>) on the marketplace. Listed tokens stay in your wallet
-              and are locked until sold, expired, or ended.
+              List claim units for <span className="font-semibold">{assetName || "this asset"}</span> (VIN{" "}
+              <span className="font-mono font-bold">{vin}</span>) on the marketplace. Listed claim units stay in your
+              wallet and are locked until sold, expired, or ended.
             </p>
           </div>
 
@@ -222,7 +222,7 @@ export const CreateSecondaryListingModal = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div className="form-control">
                     <label className="label py-0">
-                      <span className="label-text text-xs font-bold uppercase opacity-60">Tokens to List</span>
+                      <span className="label-text text-xs font-bold uppercase opacity-60">Claim Units to List</span>
                     </label>
                     <input
                       type="number"
@@ -254,7 +254,7 @@ export const CreateSecondaryListingModal = ({
                   <div className="form-control">
                     <label className="label py-0">
                       <span className="label-text text-xs font-bold uppercase opacity-60">
-                        Price per Token ({symbol})
+                        Price per Claim Unit ({symbol})
                       </span>
                     </label>
                     <div className="join w-full">
