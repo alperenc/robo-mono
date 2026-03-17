@@ -39,6 +39,12 @@ contract TreasuryAccountingHandler is Test {
         actors = _actors;
     }
 
+    // Separate state transitions by at least one second so earnings periods and
+    // token acquisitions do not collapse into the same timestamp in property runs.
+    function _advanceStepTime() internal {
+        vm.warp(block.timestamp + 1);
+    }
+
     function buyFromPrimaryPool(uint256 actorSeed, uint256 amountSeed) external {
         uint256 currentSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
         uint256 maxSupply = roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId);
@@ -50,6 +56,7 @@ contract TreasuryAccountingHandler is Test {
         (,, uint256 totalCost) = marketplace.previewPrimaryPurchase(revenueTokenId, amount);
         if (usdc.balanceOf(buyer) < totalCost) return;
 
+        _advanceStepTime();
         vm.prank(buyer);
         marketplace.buyFromPrimaryPool(revenueTokenId, amount);
     }
@@ -57,6 +64,7 @@ contract TreasuryAccountingHandler is Test {
     function enableProceeds() external {
         if (treasury.getPrimaryInvestorLiquidity(assetId) == 0) return;
 
+        _advanceStepTime();
         vm.prank(partner);
         try treasury.enableProceeds(assetId) { } catch { }
     }
@@ -71,6 +79,7 @@ contract TreasuryAccountingHandler is Test {
         uint256 totalRevenue = bound(totalRevenueSeed, 1_000 * 1e6, 100_000 * 1e6);
         if (usdc.balanceOf(partner) < totalRevenue) return;
 
+        _advanceStepTime();
         vm.prank(partner);
         treasury.distributeEarnings(assetId, totalRevenue, tryAutoRelease);
     }
@@ -79,6 +88,7 @@ contract TreasuryAccountingHandler is Test {
         address actor = actors[actorSeed % actors.length];
         if (treasury.previewClaimEarnings(assetId, actor) == 0) return;
 
+        _advanceStepTime();
         vm.prank(actor);
         treasury.claimEarnings(assetId);
     }
@@ -99,6 +109,7 @@ contract TreasuryAccountingHandler is Test {
     function releasePartialCollateral() external {
         if (treasury.previewCollateralRelease(assetId, false) == 0) return;
 
+        _advanceStepTime();
         vm.prank(partner);
         treasury.releasePartialCollateral(assetId);
     }
