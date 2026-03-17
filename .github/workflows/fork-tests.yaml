@@ -1,0 +1,39 @@
+name: Contracts Fork Tests
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  fork-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup node env
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Run forked contract tests
+        working-directory: protocols/evm
+        env:
+          FORK_URL: ${{ secrets.EVM_FORK_URL }}
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+        run: |
+          test -n "$FORK_URL"
+          forge --version
+          forge cleanup || true
+          yarn test:fork:nightly
