@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
-import { ProtocolLib, AssetLib, CollateralLib, EarningsLib, TokenLib, VehicleLib } from "../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib, CollateralLib, EarningsLib, TokenLib, VehicleLib } from "../../contracts/Libraries.sol";
 
 // Helper to expose ProtocolLib/EarningsLib pure functions
 contract ProtocolEarningsHelper {

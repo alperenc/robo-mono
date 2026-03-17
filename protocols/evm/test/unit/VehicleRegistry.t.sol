@@ -3,12 +3,12 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { VehicleLib } from "../contracts/Libraries.sol";
-import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
-import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
+import { VehicleRegistryBaseTest } from "../base/VehicleRegistryBaseTest.t.sol";
+import { VehicleLib } from "../../contracts/Libraries.sol";
+import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { VehicleRegistry } from "../../contracts/VehicleRegistry.sol";
 
-contract VehicleRegistryTest is BaseTest {
+contract VehicleRegistryTest is VehicleRegistryBaseTest {
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }

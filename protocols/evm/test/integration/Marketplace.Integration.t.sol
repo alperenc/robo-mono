@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { AssetLib, ProtocolLib } from "../contracts/Libraries.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { Marketplace } from "../contracts/Marketplace.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
+import { AssetLib, ProtocolLib } from "../../contracts/Libraries.sol";
+import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
+import { Marketplace } from "../../contracts/Marketplace.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
-contract MarketplaceIntegrationTest is BaseTest {
+contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
     event ListingCreated(
         uint256 indexed listingId,
         uint256 indexed tokenId,
@@ -1281,6 +1281,34 @@ contract MarketplaceIntegrationTest is BaseTest {
         assertEq(listing.amount, amount);
         assertEq(listing.pricePerToken, price);
         assertEq(listing.expiresAt, block.timestamp + duration);
+    }
+
+    function testFuzzPartialSecondaryFillThenEndListing(uint256 purchaseAmount) public {
+        _ensureSecondaryListingScenario();
+        purchaseAmount = bound(purchaseAmount, 1, SECONDARY_LISTING_AMOUNT - 1);
+
+        (,, uint256 expectedPayment) = marketplace.previewSecondaryPurchase(scenario.listingId, purchaseAmount);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), expectedPayment);
+        marketplace.buyFromSecondaryListing(scenario.listingId, purchaseAmount);
+        vm.stopPrank();
+
+        assertEq(
+            roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId),
+            SECONDARY_LISTING_AMOUNT - purchaseAmount,
+            "Remaining listing amount should stay locked"
+        );
+
+        vm.prank(partner1);
+        marketplace.endListing(scenario.listingId);
+
+        Marketplace.Listing memory listing = marketplace.getListing(scenario.listingId);
+        assertFalse(listing.isActive);
+        assertEq(listing.amount, 0);
+        assertEq(listing.soldAmount, purchaseAmount);
+        assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), purchaseAmount);
     }
 
     function testBuyFromSecondaryListingMinimumProtocolFee() public {

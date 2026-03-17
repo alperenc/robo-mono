@@ -3,13 +3,13 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
-import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
-import { RegistryRouter } from "../contracts/RegistryRouter.sol";
-import { Treasury } from "../contracts/Treasury.sol";
-import { Marketplace } from "../contracts/Marketplace.sol";
+import { BaseTest } from "../base/BaseTest.t.sol";
+import { MockUSDC } from "../../contracts/mocks/MockUSDC.sol";
+import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
+import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
+import { Treasury } from "../../contracts/Treasury.sol";
+import { Marketplace } from "../../contracts/Marketplace.sol";
 
 contract MarketplaceBadTotalSupplyToken {
     function totalSupply() external pure returns (uint256) {

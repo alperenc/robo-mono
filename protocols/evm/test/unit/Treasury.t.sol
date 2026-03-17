@@ -2,13 +2,13 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { ProtocolLib } from "../contracts/Libraries.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
-import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
-import { RegistryRouter } from "../contracts/RegistryRouter.sol";
-import { Treasury } from "../contracts/Treasury.sol";
+import { ProtocolLib } from "../../contracts/Libraries.sol";
+import { TreasuryFlowBaseTest } from "../base/TreasuryFlowBaseTest.t.sol";
+import { MockUSDC } from "../../contracts/mocks/MockUSDC.sol";
+import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
+import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
+import { Treasury } from "../../contracts/Treasury.sol";
 
 contract TreasuryBadTotalSupplyToken {
     function totalSupply() external pure returns (uint256) {
@@ -36,7 +36,7 @@ contract TreasuryWrongDecimalsToken {
     }
 }
 
-contract TreasuryTest is BaseTest {
+contract TreasuryTest is TreasuryFlowBaseTest {
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }

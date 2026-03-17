@@ -3,11 +3,11 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib } from "../contracts/Libraries.sol";
-import { RegistryRouter } from "../contracts/RegistryRouter.sol";
+import { AssetMetadataBaseTest } from "../base/AssetMetadataBaseTest.t.sol";
+import { AssetLib } from "../../contracts/Libraries.sol";
+import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
 
-contract RegistryRouterTest is BaseTest {
+contract RegistryRouterTest is AssetMetadataBaseTest {
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
     }

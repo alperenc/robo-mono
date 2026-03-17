@@ -3,11 +3,11 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { TokenLib } from "../contracts/Libraries.sol";
-import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
+import { AssetMetadataBaseTest } from "../base/AssetMetadataBaseTest.t.sol";
+import { TokenLib } from "../../contracts/Libraries.sol";
+import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 
-contract RoboshareTokensTest is BaseTest {
+contract RoboshareTokensTest is AssetMetadataBaseTest {
     address public minter;
     address public burner;
     address public user1 = makeAddr("user1");
@@ -17,6 +17,11 @@ contract RoboshareTokensTest is BaseTest {
         _ensureState(SetupState.ContractsDeployed);
         minter = admin; // Admin has minter role by default
         burner = admin; // Admin has burner role by default
+
+        // These helpers run against a fork in CI/local workflows, so ensure the
+        // deterministic test users are EOAs even if the forked chain has code there.
+        vm.etch(user1, bytes(""));
+        vm.etch(user2, bytes(""));
     }
 
     function _setupRevenueTokenForLocks(address holder, uint256 amount) internal returns (uint256 tokenId) {
@@ -30,6 +35,10 @@ contract RoboshareTokensTest is BaseTest {
 
         vm.prank(minter);
         roboshareTokens.mint(holder, tokenId, amount, "");
+    }
+
+    function _warpPastHoldingPeriod() internal {
+        vm.warp(block.timestamp + 30 days + 1);
     }
 
     function testInitialization() public view {
@@ -462,6 +471,28 @@ contract RoboshareTokensTest is BaseTest {
         vm.prank(user1);
         roboshareTokens.safeTransferFrom(user1, user2, tokenId, transferAmount, "");
 
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), mintAmount - transferAmount);
+        assertEq(roboshareTokens.balanceOf(user2, tokenId), transferAmount);
+    }
+
+    function testFuzzTransferLockedForListingPreservesLockAccounting(
+        uint256 mintAmount,
+        uint256 lockAmount,
+        uint256 transferAmount
+    ) public {
+        mintAmount = bound(mintAmount, 1, type(uint96).max);
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, mintAmount);
+
+        lockAmount = bound(lockAmount, 1, mintAmount);
+        transferAmount = bound(transferAmount, 1, lockAmount);
+
+        vm.prank(admin);
+        roboshareTokens.lockForListing(user1, tokenId, lockAmount);
+
+        vm.prank(admin);
+        roboshareTokens.transferLockedForListing(user1, user2, tokenId, transferAmount, "");
+
+        assertEq(roboshareTokens.getLockedAmount(user1, tokenId), lockAmount - transferAmount);
         assertEq(roboshareTokens.balanceOf(user1, tokenId), mintAmount - transferAmount);
         assertEq(roboshareTokens.balanceOf(user2, tokenId), transferAmount);
     }

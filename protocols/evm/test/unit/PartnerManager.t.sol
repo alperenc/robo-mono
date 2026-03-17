@@ -3,8 +3,8 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
-import { BaseTest } from "./BaseTest.t.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
+import { BaseTest } from "../base/BaseTest.t.sol";
 
 contract PartnerManagerTest is BaseTest {
     address public partnerAdmin = makeAddr("partnerAdmin");
@@ -68,7 +68,7 @@ contract PartnerManagerTest is BaseTest {
 
     function testAuthorizePartner() public {
         uint256 futureTime = block.timestamp + 100;
-        _warpAndSaveTime(futureTime);
+        vm.warp(futureTime);
 
         vm.prank(partnerAdmin);
         vm.expectEmit(true, false, false, true);

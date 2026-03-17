@@ -57,5 +57,14 @@ int_types = "long"
 [lint]
 exclude_lints = ["mixed-case-variable", "mixed-case-function"]
 
+[fuzz]
+runs = 256
+
+[invariant]
+runs = 32
+depth = 40
+fail_on_revert = true
+show_metrics = true
+
 
 # See more config options https://book.getfoundry.sh/reference/config/overview
