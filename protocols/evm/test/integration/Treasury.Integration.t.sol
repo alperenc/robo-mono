@@ -4,13 +4,13 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1155Holder } from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import { StdStorage, stdStorage } from "forge-std/StdStorage.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { ProtocolLib, AssetLib, TokenLib, CollateralLib, EarningsLib } from "../contracts/Libraries.sol";
-import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
-import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
+import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
+import { ProtocolLib, AssetLib, TokenLib, CollateralLib, EarningsLib } from "../../contracts/Libraries.sol";
+import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
-contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
+contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     using stdStorage for StdStorage;
 
     function setUp() public {
@@ -2473,6 +2473,34 @@ contract TreasuryIntegrationTest is BaseTest, ERC1155Holder {
         // So my assertion `treasuryBalanceAfter == treasuryBalanceBefore + investorPortion` is correct.
 
         vm.stopPrank();
+    }
+
+    function testFuzzPreviewClaimMatchesClaimThenWithdraw(uint256 totalEarnings) public {
+        totalEarnings = bound(totalEarnings, 1_000 * 1e6, 1e12 - 1);
+
+        _ensureState(SetupState.BuffersFunded);
+        _fundAddressWithUsdc(partner1, totalEarnings * 2);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(treasury), totalEarnings);
+        treasury.distributeEarnings(scenario.assetId, totalEarnings, false);
+        vm.stopPrank();
+
+        uint256 preview = treasury.previewClaimEarnings(scenario.assetId, buyer);
+        assertGt(preview, 0, "Preview should be positive after earnings distribution");
+
+        uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
+
+        vm.prank(buyer);
+        treasury.claimEarnings(scenario.assetId);
+
+        assertEq(treasury.pendingWithdrawals(buyer), preview, "Pending withdrawal should match previewed earnings");
+
+        vm.prank(buyer);
+        treasury.processWithdrawal();
+
+        assertEq(treasury.pendingWithdrawals(buyer), 0, "Withdrawal should clear pending balance");
+        assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + preview, "Buyer should receive previewed amount");
     }
 
     // ============================================

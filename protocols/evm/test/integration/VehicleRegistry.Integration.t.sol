@@ -2,72 +2,131 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib, VehicleLib, CollateralLib, ProtocolLib, EarningsLib } from "../contracts/Libraries.sol";
-import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
-import { ITreasury } from "../contracts/interfaces/ITreasury.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
-import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { BaseTest } from "../base/BaseTest.t.sol";
+import { AssetMetadataBaseTest } from "../base/AssetMetadataBaseTest.t.sol";
+import { VehicleRegistryBaseTest } from "../base/VehicleRegistryBaseTest.t.sol";
+import { TreasuryFlowBaseTest } from "../base/TreasuryFlowBaseTest.t.sol";
+import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
+import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
+import { Treasury } from "../../contracts/Treasury.sol";
+import { Marketplace } from "../../contracts/Marketplace.sol";
+import { AssetLib, VehicleLib, CollateralLib, ProtocolLib, EarningsLib } from "../../contracts/Libraries.sol";
+import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
+import { VehicleRegistry } from "../../contracts/VehicleRegistry.sol";
 
-contract VehicleRegistryIntegrationTest is BaseTest {
-    enum OwnerAction {
-        Retire,
-        RetireAndBurn,
-        Settle
+contract VehicleRegistryIntegrationHelper is Test {
+    function setupProtectedPoolWithPurchaseAndBuffers(
+        VehicleRegistry registry,
+        Marketplace market,
+        Treasury treasuryContract,
+        RoboshareTokens tokens,
+        IERC20 usdcToken,
+        address poolPartner,
+        address poolBuyer,
+        bytes memory assetData,
+        uint256 assetValue,
+        uint256 tokenPrice,
+        uint256 purchaseAmount
+    ) external returns (uint256 assetId, uint256 revenueTokenId) {
+        vm.prank(poolPartner);
+        assetId = registry.registerAsset(assetData, assetValue);
+
+        uint256 supply = assetValue / tokenPrice;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(poolPartner);
+        (revenueTokenId,) =
+            registry.createRevenueTokenPool(assetId, tokenPrice, maturityDate, 10_000, 1_000, supply, false, true);
+
+        (uint256 expectedPayment,,) = market.previewPrimaryPurchase(revenueTokenId, purchaseAmount);
+        vm.startPrank(poolBuyer);
+        usdcToken.approve(address(market), expectedPayment);
+        market.buyFromPrimaryPool(revenueTokenId, purchaseAmount);
+        vm.stopPrank();
+
+        uint256 baseAmount = treasuryContract.getPrimaryInvestorLiquidity(assetId);
+        uint256 yieldBP = tokens.getTargetYieldBP(revenueTokenId);
+        (, uint256 earningsBuffer, uint256 protocolBuffer,) =
+            CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, yieldBP);
+        uint256 requiredCollateral = protocolBuffer + earningsBuffer;
+
+        vm.prank(poolPartner);
+        usdcToken.approve(address(treasuryContract), requiredCollateral);
+        vm.prank(poolPartner);
+        treasuryContract.enableProceeds(assetId);
     }
+
+    function expectedLiquidationAfterMissedShortfall(
+        Treasury treasuryContract,
+        RoboshareTokens tokens,
+        uint256 assetId,
+        uint256 revenueTokenId
+    ) external view returns (uint256) {
+        (
+            uint256 initialBaseCollateral,
+            uint256 baseCollateral,
+            uint256 earningsBuffer,,,,,,
+            uint256 reservedForLiquidation,,,
+        ) = treasuryContract.assetCollateral(assetId);
+
+        (,,,, uint256 lastEventTimestamp,,,,) = treasuryContract.assetEarnings(assetId);
+        uint256 elapsed = block.timestamp - lastEventTimestamp;
+        uint256 targetYieldBP = tokens.getTargetYieldBP(revenueTokenId);
+        uint256 baseEarnings = EarningsLib.calculateEarnings(initialBaseCollateral, elapsed, targetYieldBP);
+        uint256 reservedIncrease = baseEarnings < earningsBuffer ? baseEarnings : earningsBuffer;
+        return baseCollateral + reservedForLiquidation + reservedIncrease;
+    }
+}
+
+contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceFlowBaseTest {
+    VehicleRegistryIntegrationHelper internal helper;
 
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
+        helper = new VehicleRegistryIntegrationHelper();
+    }
+
+    function _setupAssetRegistered() internal override(AssetMetadataBaseTest) returns (uint256 assetId) {
+        return super._setupAssetRegistered();
+    }
+
+    function _setupPrimaryPoolCreated() internal override(AssetMetadataBaseTest) returns (uint256 revenueTokenId) {
+        return super._setupPrimaryPoolCreated();
+    }
+
+    function _setupPurchasedFromPrimaryPool() internal override(AssetMetadataBaseTest) {
+        super._setupPurchasedFromPrimaryPool();
+    }
+
+    function _setupBuffersFunded() internal override(BaseTest, TreasuryFlowBaseTest) {
+        super._setupBuffersFunded();
+    }
+
+    function _setupEarningsDistributed(uint256 totalEarningsAmount) internal override(BaseTest, TreasuryFlowBaseTest) {
+        super._setupEarningsDistributed(totalEarningsAmount);
     }
 
     function _setupProtectedPoolWithPurchaseAndBuffers() internal returns (uint256 assetId, uint256 revenueTokenId) {
         string memory vin = _generateVin(999);
-        vm.prank(partner1);
-        assetId = assetRegistry.registerAsset(
+        return helper.setupProtectedPoolWithPurchaseAndBuffers(
+            assetRegistry,
+            marketplace,
+            treasury,
+            roboshareTokens,
+            usdc,
+            partner1,
+            buyer,
             abi.encode(
                 vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
             ),
-            ASSET_VALUE
+            ASSET_VALUE,
+            REVENUE_TOKEN_PRICE,
+            PRIMARY_PURCHASE_AMOUNT
         );
-
-        uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
-        uint256 maturityDate = block.timestamp + 365 days;
-
-        vm.prank(partner1);
-        (revenueTokenId,) = assetRegistry.createRevenueTokenPool(
-            assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, true
-        );
-
-        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
-        vm.startPrank(buyer);
-        usdc.approve(address(marketplace), expectedPayment);
-        marketplace.buyFromPrimaryPool(revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
-        vm.stopPrank();
-
-        uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(assetId);
-        uint256 yieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, true);
-        vm.prank(partner1);
-        usdc.approve(address(treasury), requiredCollateral);
-        vm.prank(partner1);
-        treasury.enableProceeds(assetId);
-    }
-
-    function _performOwnerAction(OwnerAction action) internal {
-        if (action == OwnerAction.Retire) {
-            assetRegistry.retireAsset(scenario.assetId);
-        } else if (action == OwnerAction.RetireAndBurn) {
-            assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
-        } else {
-            assetRegistry.settleAsset(scenario.assetId, 0);
-        }
-    }
-
-    function _expectOwnerActionRevert(address caller, bytes4 selector, OwnerAction action) internal {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        vm.prank(caller);
-        vm.expectRevert(selector);
-        _performOwnerAction(action);
     }
 
     function testRetireAssetOutstandingTokens() public {
@@ -725,8 +784,9 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         // Warp to maturity
         vm.warp(maturityDate + 1);
 
-        uint256 expectedLiquidationAmount =
-            _expectedLiquidationAfterMissedShortfall(scenario.assetId, scenario.revenueTokenId);
+        uint256 expectedLiquidationAmount = helper.expectedLiquidationAfterMissedShortfall(
+            treasury, roboshareTokens, scenario.assetId, scenario.revenueTokenId
+        );
         assetRegistry.liquidateAsset(scenario.assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
         uint256 expectedPerToken = totalSupply > 0 ? expectedLiquidationAmount / totalSupply : 0;
@@ -763,7 +823,8 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         require(warpTo < maturityDate, "Test assumes delinquency before maturity");
         vm.warp(warpTo);
 
-        uint256 expectedLiquidationAmount = _expectedLiquidationAfterMissedShortfall(assetId, revenueTokenId);
+        uint256 expectedLiquidationAmount =
+            helper.expectedLiquidationAfterMissedShortfall(treasury, roboshareTokens, assetId, revenueTokenId);
 
         assetRegistry.liquidateAsset(assetId);
 
@@ -777,19 +838,6 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Expired));
     }
 
-    function _expectedLiquidationAfterMissedShortfall(uint256 assetId, uint256 revenueTokenId)
-        internal
-        view
-        returns (uint256)
-    {
-        CollateralLib.CollateralInfo memory infoBefore = _getCollateralInfo(assetId);
-        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(assetId);
-        uint256 elapsed = block.timestamp - lastEventTimestamp;
-        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 baseEarnings = EarningsLib.calculateEarnings(infoBefore.initialBaseCollateral, elapsed, targetYieldBP);
-        uint256 reservedIncrease = baseEarnings < infoBefore.earningsBuffer ? baseEarnings : infoBefore.earningsBuffer;
-        return infoBefore.baseCollateral + infoBefore.reservedForLiquidation + reservedIncrease;
-    }
     // New Tests for Settlement and Liquidation Branches
 
     function testSettleAssetNotAssetOwner() public {
@@ -876,45 +924,16 @@ contract VehicleRegistryIntegrationTest is BaseTest {
         assetRegistry.claimSettlementFor(partner1, scenario.assetId, false);
         vm.stopPrank();
     }
-}
-
-contract VehicleRegistryAuthorizationIntegrationTest is BaseTest {
-    enum OwnerAction {
-        Retire,
-        RetireAndBurn,
-        Settle
-    }
-
-    function setUp() public {
-        _ensureState(SetupState.InitialAccountsSetup);
-    }
-
-    function _performOwnerAction(OwnerAction action) internal {
-        if (action == OwnerAction.Retire) {
-            assetRegistry.retireAsset(scenario.assetId);
-        } else if (action == OwnerAction.RetireAndBurn) {
-            assetRegistry.retireAssetAndBurnTokens(scenario.assetId);
-        } else {
-            assetRegistry.settleAsset(scenario.assetId, 0);
-        }
-    }
-
-    function _expectUnauthorizedOwnerAction(OwnerAction action) internal {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        vm.prank(unauthorized);
-        vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
-        _performOwnerAction(action);
-    }
 
     function testRetireAssetUnauthorizedPartner() public {
-        _expectUnauthorizedOwnerAction(OwnerAction.Retire);
+        _expectOwnerActionRevert(unauthorized, PartnerManager.UnauthorizedPartner.selector, OwnerAction.Retire);
     }
 
     function testRetireAssetAndBurnTokensUnauthorizedPartner() public {
-        _expectUnauthorizedOwnerAction(OwnerAction.RetireAndBurn);
+        _expectOwnerActionRevert(unauthorized, PartnerManager.UnauthorizedPartner.selector, OwnerAction.RetireAndBurn);
     }
 
     function testSettleAssetUnauthorizedPartner() public {
-        _expectUnauthorizedOwnerAction(OwnerAction.Settle);
+        _expectOwnerActionRevert(unauthorized, PartnerManager.UnauthorizedPartner.selector, OwnerAction.Settle);
     }
 }

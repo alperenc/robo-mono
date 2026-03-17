@@ -5,6 +5,19 @@ Prefer reachable public or authorized-contract flows over harness-based coverage
 
 The goal is to prove protocol behavior as it can actually occur, not to maximize branch counts with synthetic state.
 
+## CI Cadence
+Use the fast local Foundry environment for required PR checks.
+
+- PR CI runs non-forked tests via `yarn test` / `forge test`
+- PR coverage runs non-forked `forge coverage`
+- forked runs are reserved for explicit local debugging or the nightly/manual workflow in [fork-tests.yaml](/Users/alp3c/Developer/Roboshare/robo-mono/.github/workflows/fork-tests.yaml)
+- the forked CI workflow expects the `EVM_FORK_URL` GitHub secret
+
+Default commands:
+- non-forked local run: `yarn test`
+- forked local run: `FORK_URL=... yarn test:fork`
+- nightly forked pack: `FORK_URL=... yarn evm:test:fork:nightly`
+
 ## What Good Tests Look Like
 
 ### Integration tests
@@ -20,7 +33,7 @@ They should not:
 - create marketplace token inventory through stale listing-era shortcuts
 
 ### Library tests
-`protocols/evm/test/Libraries.t.sol` is the right place for:
+`protocols/evm/test/unit/Libraries.t.sol` is the right place for:
 - direct library math tests
 - raw enum validation
 - malformed-struct defensive behavior
@@ -35,8 +48,8 @@ Helper contracts are acceptable when they:
 - support valid multi-contract protocol scenarios
 
 Examples:
-- good: `AssetHelper` in `protocols/evm/test/Libraries.t.sol`
-- good: `MockRegistry` in `protocols/evm/test/RegistryRouter.Integration.t.sol`
+- good: `AssetHelper` in `protocols/evm/test/unit/Libraries.t.sol`
+- good: `MockRegistry` in `protocols/evm/test/integration/RegistryRouter.Integration.t.sol`
 
 ## When Harnesses Are Not Acceptable
 Do not add harnesses when they only:

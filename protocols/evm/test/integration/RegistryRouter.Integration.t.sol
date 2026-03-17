@@ -2,14 +2,14 @@
 pragma solidity ^0.8.19;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { BaseTest } from "./BaseTest.t.sol";
-import { AssetLib, TokenLib } from "../contracts/Libraries.sol";
-import { IAssetRegistry } from "../contracts/interfaces/IAssetRegistry.sol";
-import { Marketplace } from "../contracts/Marketplace.sol";
-import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
-import { RegistryRouter } from "../contracts/RegistryRouter.sol";
-import { Treasury } from "../contracts/Treasury.sol";
-import { PartnerManager } from "../contracts/PartnerManager.sol";
+import { TreasuryFlowBaseTest } from "../base/TreasuryFlowBaseTest.t.sol";
+import { AssetLib, TokenLib } from "../../contracts/Libraries.sol";
+import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { Marketplace } from "../../contracts/Marketplace.sol";
+import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
+import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
+import { Treasury } from "../../contracts/Treasury.sol";
+import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
 // Simple Mock Registry to simulate a second asset type (e.g., "MachineRegistry")
 contract MockRegistry is IAssetRegistry {
@@ -176,7 +176,7 @@ contract MockRegistry is IAssetRegistry {
     }
 }
 
-contract RegistryRouterIntegrationTest is BaseTest {
+contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
     MockRegistry public mockRegistry;
 
     function setUp() public {
