@@ -42,6 +42,6 @@ jobs:
             --fork-url "$FORK_URL" \
             --no-match-path 'test/property/*.Invariant.t.sol' \
             --threads 1 \
-            --compute-units-per-second 200 \
-            --fork-retries 10 \
-            --fork-retry-backoff 2000
+            --compute-units-per-second 100 \
+            --fork-retries 15 \
+            --fork-retry-backoff 1000
