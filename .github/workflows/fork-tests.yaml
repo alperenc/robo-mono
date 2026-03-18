@@ -17,7 +17,35 @@ on:
           - treasury-accounting
 
 jobs:
+  resolve-fork-block:
+    runs-on: ubuntu-latest
+    outputs:
+      block_number: ${{ steps.resolve.outputs.block_number }}
+    steps:
+      - name: Resolve fork block number
+        id: resolve
+        env:
+          FORK_URL: ${{ secrets.EVM_FORK_URL }}
+        run: |
+          test -n "$FORK_URL"
+          response=$(curl -s \
+            -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+            "$FORK_URL")
+
+          block_hex=$(printf '%s' "$response" | sed -n 's/.*"result":"\(0x[0-9a-fA-F]*\)".*/\1/p')
+          if [ -z "$block_hex" ]; then
+            echo "Failed to resolve fork block number from RPC response" >&2
+            printf '%s\n' "$response" >&2
+            exit 1
+          fi
+
+          block_number=$((16#${block_hex#0x}))
+          echo "Using fork block number: $block_number"
+          echo "block_number=$block_number" >> "$GITHUB_OUTPUT"
+
   fork-tests:
+    needs: resolve-fork-block
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -42,10 +70,14 @@ jobs:
         working-directory: protocols/evm
         env:
           FORK_URL: ${{ secrets.EVM_FORK_URL }}
+          FORK_BLOCK_NUMBER: ${{ needs.resolve-fork-block.outputs.block_number }}
         run: |
           test -n "$FORK_URL"
+          test -n "$FORK_BLOCK_NUMBER"
+          echo "Starting local fork from block $FORK_BLOCK_NUMBER"
           nohup anvil \
             --fork-url "$FORK_URL" \
+            --fork-block-number "$FORK_BLOCK_NUMBER" \
             --host 127.0.0.1 \
             --port 8545 \
             --fork-retry-backoff 1000 \
@@ -80,7 +112,9 @@ jobs:
           forge test --fork-url "$FORK_URL" --no-match-path 'test/property/*.Invariant.t.sol'
 
   fork-invariants:
-    needs: fork-tests
+    needs:
+      - resolve-fork-block
+      - fork-tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -142,10 +176,14 @@ jobs:
         working-directory: protocols/evm
         env:
           FORK_URL: ${{ secrets.EVM_FORK_URL }}
+          FORK_BLOCK_NUMBER: ${{ needs.resolve-fork-block.outputs.block_number }}
         run: |
           test -n "$FORK_URL"
+          test -n "$FORK_BLOCK_NUMBER"
+          echo "Starting local fork from block $FORK_BLOCK_NUMBER"
           nohup anvil \
             --fork-url "$FORK_URL" \
+            --fork-block-number "$FORK_BLOCK_NUMBER" \
             --host 127.0.0.1 \
             --port 8545 \
             --fork-retry-backoff 1000 \
