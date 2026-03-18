@@ -69,6 +69,7 @@ jobs:
           forge test --fork-url "$FORK_URL" --no-match-path 'test/property/*.Invariant.t.sol'
 
   fork-invariants:
+    needs: fork-tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
