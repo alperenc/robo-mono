@@ -37,8 +37,10 @@ jobs:
             --fork-url "$FORK_URL" \
             --host 127.0.0.1 \
             --port 8545 \
+            --fork-retry-backoff 1000 \
             --retries 15 \
-            --compute-units-per-second 100 \
+            --timeout 120000 \
+            --compute-units-per-second 500 \
             >/tmp/evm-fork-tests-anvil.log 2>&1 &
 
           for i in $(seq 1 30); do
@@ -97,8 +99,10 @@ jobs:
             --fork-url "$FORK_URL" \
             --host 127.0.0.1 \
             --port 8545 \
+            --fork-retry-backoff 1000 \
             --retries 15 \
-            --compute-units-per-second 100 \
+            --timeout 120000 \
+            --compute-units-per-second 500 \
             >/tmp/evm-fork-invariants-anvil.log 2>&1 &
 
           for i in $(seq 1 30); do
