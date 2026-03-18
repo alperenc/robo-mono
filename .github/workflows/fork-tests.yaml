@@ -63,5 +63,67 @@ jobs:
         run: |
           test -n "$FORK_URL"
           forge --version
-          forge cleanup || true
-          yarn test:fork:nightly
+          forge clean || true
+          forge test --fork-url "$FORK_URL" --no-match-path 'test/property/*.Invariant.t.sol'
+
+  fork-invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup node env
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Start local fork
+        working-directory: protocols/evm
+        env:
+          FORK_URL: ${{ secrets.EVM_FORK_URL }}
+        run: |
+          test -n "$FORK_URL"
+          nohup anvil \
+            --fork-url "$FORK_URL" \
+            --host 127.0.0.1 \
+            --port 8545 \
+            --retries 15 \
+            --compute-units-per-second 100 \
+            >/tmp/evm-fork-invariants-anvil.log 2>&1 &
+
+          for i in $(seq 1 30); do
+            if curl -s \
+              -H "Content-Type: application/json" \
+              --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+              http://127.0.0.1:8545 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/evm-fork-invariants-anvil.log
+          exit 1
+
+      - name: Run forked property tests
+        working-directory: protocols/evm
+        env:
+          FORK_URL: "http://127.0.0.1:8545"
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+          TREASURY_FEE_RECIPIENT: "0x000000000000000000000000000000000000dEaD"
+        run: |
+          test -n "$FORK_URL"
+          forge --version
+          forge clean || true
+          FOUNDRY_INVARIANT_RUNS=128 FOUNDRY_INVARIANT_DEPTH=200 forge test \
+            --fork-url "$FORK_URL" \
+            --match-path 'test/property/*.Invariant.t.sol'
