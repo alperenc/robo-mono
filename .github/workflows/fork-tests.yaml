@@ -32,6 +32,7 @@ jobs:
         env:
           FORK_URL: ${{ secrets.EVM_FORK_URL }}
           FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+          TREASURY_FEE_RECIPIENT: "0x000000000000000000000000000000000000dEaD"
         run: |
           test -n "$FORK_URL"
           forge --version
