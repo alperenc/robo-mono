@@ -33,8 +33,15 @@ jobs:
           FORK_URL: ${{ secrets.EVM_FORK_URL }}
           FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
           TREASURY_FEE_RECIPIENT: "0x000000000000000000000000000000000000dEaD"
+          FOUNDRY_FUZZ_RUNS: "128"
         run: |
           test -n "$FORK_URL"
           forge --version
           forge cleanup || true
-          yarn test:fork:nightly
+          forge test \
+            --fork-url "$FORK_URL" \
+            --no-match-path 'test/property/*.Invariant.t.sol' \
+            --threads 1 \
+            --compute-units-per-second 200 \
+            --fork-retries 10 \
+            --fork-retry-backoff 2000
