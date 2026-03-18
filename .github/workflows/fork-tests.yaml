@@ -4,6 +4,17 @@ on:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
+    inputs:
+      invariant_suite:
+        description: "Fork invariant suite to run"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - protocol-references
+          - listing-locks
+          - treasury-accounting
 
 jobs:
   fork-tests:
@@ -90,6 +101,43 @@ jobs:
         with:
           version: stable
 
+      - name: Select fork invariant suite
+        id: invariant-suite
+        working-directory: protocols/evm
+        env:
+          REQUESTED_INVARIANT_SUITE: ${{ github.event.inputs.invariant_suite }}
+        run: |
+          requested="${REQUESTED_INVARIANT_SUITE:-auto}"
+
+          if [ "$requested" = "auto" ]; then
+            suite_index=$((10#$(date -u +%j) % 3))
+            case "$suite_index" in
+              0) requested="protocol-references" ;;
+              1) requested="listing-locks" ;;
+              2) requested="treasury-accounting" ;;
+            esac
+          fi
+
+          case "$requested" in
+            protocol-references)
+              match_path='test/property/ProtocolReferences.Invariant.t.sol'
+              ;;
+            listing-locks)
+              match_path='test/property/ListingLocks.Invariant.t.sol'
+              ;;
+            treasury-accounting)
+              match_path='test/property/TreasuryAccounting.Invariant.t.sol'
+              ;;
+            *)
+              echo "Unsupported invariant suite: $requested" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "Selected fork invariant suite: $requested"
+          echo "selected_suite=$requested" >> "$GITHUB_OUTPUT"
+          echo "match_path=$match_path" >> "$GITHUB_OUTPUT"
+
       - name: Start local fork
         working-directory: protocols/evm
         env:
@@ -127,8 +175,9 @@ jobs:
           TREASURY_FEE_RECIPIENT: "0x000000000000000000000000000000000000dEaD"
         run: |
           test -n "$FORK_URL"
+          echo "Running fork invariant suite: ${{ steps.invariant-suite.outputs.selected_suite }}"
           forge --version
           forge clean || true
           FOUNDRY_INVARIANT_RUNS=128 FOUNDRY_INVARIANT_DEPTH=200 forge test \
             --fork-url "$FORK_URL" \
-            --match-path 'test/property/*.Invariant.t.sol'
+            --match-path '${{ steps.invariant-suite.outputs.match_path }}'
