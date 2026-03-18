@@ -60,7 +60,6 @@ jobs:
           FORK_URL: "http://127.0.0.1:8545"
           FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
           TREASURY_FEE_RECIPIENT: "0x000000000000000000000000000000000000dEaD"
-          FOUNDRY_FUZZ_RUNS: "128"
         run: |
           test -n "$FORK_URL"
           forge --version
