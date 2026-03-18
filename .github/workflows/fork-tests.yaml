@@ -37,7 +37,7 @@ jobs:
             --fork-url "$FORK_URL" \
             --host 127.0.0.1 \
             --port 8545 \
-            --fork-retries 15 \
+            --retries 15 \
             --compute-units-per-second 100 \
             >/tmp/evm-fork-tests-anvil.log 2>&1 &
 
