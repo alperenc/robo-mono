@@ -15,11 +15,12 @@ export function DebugContracts() {
     () =>
       Object.keys(contractsData).sort((a, b) => {
         return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-      }) as ContractName[],
+      }),
     [contractsData],
   );
+  const stringKeyedContractsData = contractsData as Record<string, GenericContract>;
 
-  const [selectedContract, setSelectedContract] = useSessionStorage<ContractName>(
+  const [selectedContract, setSelectedContract] = useSessionStorage<string>(
     selectedContractStorageKey,
     contractNames[0],
     { initializeWithValue: false },
@@ -50,7 +51,7 @@ export function DebugContracts() {
                   onClick={() => setSelectedContract(contractName)}
                 >
                   {contractName}
-                  {(contractsData[contractName] as GenericContract)?.external && (
+                  {stringKeyedContractsData[contractName]?.external && (
                     <span className="tooltip tooltip-top tooltip-accent" data-tip="External contract">
                       <BarsArrowUpIcon className="h-4 w-4 cursor-pointer" />
                     </span>
@@ -62,7 +63,7 @@ export function DebugContracts() {
           {contractNames.map(contractName => (
             <ContractUI
               key={contractName}
-              contractName={contractName}
+              contractName={contractName as ContractName}
               className={contractName === selectedContract ? "" : "hidden"}
             />
           ))}

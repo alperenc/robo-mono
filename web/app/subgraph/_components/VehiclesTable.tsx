@@ -1,16 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useChainId } from "wagmi";
 import { Address } from "~~/components/scaffold-eth";
+import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
 const VehiclesTable = () => {
+  const chainId = useChainId();
+  const subgraphUrl = getSubgraphQueryUrl(chainId);
   const [vehiclesData, setVehiclesData] = useState<any>(null);
   const [error, setError] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:8000/subgraphs/name/roboshare/protocol", {
+        if (!subgraphUrl) {
+          throw new Error(`No subgraph endpoint configured for chain ${chainId}.`);
+        }
+
+        const response = await fetch(subgraphUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -47,7 +55,7 @@ const VehiclesTable = () => {
     };
 
     fetchData();
-  }, []);
+  }, [chainId, subgraphUrl]);
 
   if (error) {
     return <div className="text-center text-error">Error fetching data: {error.message}</div>;

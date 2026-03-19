@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 import { formatTokenAmount } from "~~/utils/formatters";
 
 const BP_PRECISION = 10000n;
@@ -34,6 +34,7 @@ export const DistributeEarningsModal = ({
   immediateProceeds,
 }: DistributeEarningsModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const [totalRevenue, setTotalRevenue] = useState(""); // Total revenue earned
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,8 +50,8 @@ export const DistributeEarningsModal = ({
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
   const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
 
-  const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
-  const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
+  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
+  const marketplaceAddress = getDeployedContract(chainId, "Marketplace")?.address;
 
   // Get revenue token ID (assetId + 1)
   const revenueTokenId = BigInt(assetId) + 1n;
@@ -103,21 +104,23 @@ export const DistributeEarningsModal = ({
 
   // Calculate token ownership breakdown (independent of revenue)
   const tokenOwnership = useMemo(() => {
-    if (!circulatingSupply || circulatingSupply === 0n || maxSupply === 0n) {
+    const currentCirculatingSupply = (circulatingSupply as bigint | undefined) ?? 0n;
+
+    if (currentCirculatingSupply === 0n || maxSupply === 0n) {
       return null;
     }
 
-    const partnerTokens = partnerBalance || 0n;
-    const escrowTokens = escrowedTokens || 0n;
-    const investorTokens = circulatingSupply > partnerTokens ? circulatingSupply - partnerTokens : 0n;
+    const partnerTokens = (partnerBalance as bigint | undefined) ?? 0n;
+    const escrowTokens = (escrowedTokens as bigint | undefined) ?? 0n;
+    const investorTokens = currentCirculatingSupply > partnerTokens ? currentCirculatingSupply - partnerTokens : 0n;
     const investorPercentage = Number((investorTokens * 10000n) / maxSupply) / 100;
     const partnerPercentage = Number((partnerTokens * 10000n) / maxSupply) / 100;
     const escrowPercentage = Number((escrowTokens * 10000n) / maxSupply) / 100;
-    const circulatingPercentage = Number((circulatingSupply * 10000n) / maxSupply) / 100;
+    const circulatingPercentage = Number((currentCirculatingSupply * 10000n) / maxSupply) / 100;
 
     return {
       maxSupply,
-      circulatingSupply,
+      circulatingSupply: currentCirculatingSupply,
       partnerTokens,
       investorTokens,
       escrowTokens,

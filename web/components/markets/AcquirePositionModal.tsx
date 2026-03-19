@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatUnits, parseEventLogs, parseUnits } from "viem";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 
 interface SecondaryPurchaseTarget {
   kind: "secondary";
@@ -58,14 +58,15 @@ export function AcquirePositionModal({
   listedTokens,
 }: AcquirePositionModalProps) {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const [inputAmount, setInputAmount] = useState("");
   const [step, setStep] = useState<"input" | "approving" | "purchasing" | "success" | "expired" | "error">("input");
   const [error, setError] = useState<string | null>(null);
 
-  const chainId = 31337;
-  const marketplaceAddress = deployedContracts[chainId]?.Marketplace?.address;
-  const marketplaceAbi = deployedContracts[chainId]?.Marketplace?.abi;
+  const marketplaceContract = getDeployedContract(chainId, "Marketplace");
+  const marketplaceAddress = marketplaceContract?.address;
+  const marketplaceAbi = marketplaceContract?.abi;
   const publicClient = usePublicClient({ chainId });
 
   const tokenId = purchaseTarget.kind === "secondary" ? purchaseTarget.listing.tokenId : purchaseTarget.pool.tokenId;

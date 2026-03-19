@@ -16,11 +16,12 @@ import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
 import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
+import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
 // Unified Asset Interface for Dashboard logic
 interface DashboardAsset {
@@ -136,17 +137,23 @@ const PartnerDashboard: NextPage = () => {
   const { switchChain } = useSwitchChain();
   const { symbol, decimals } = usePaymentToken();
   const targetNetworks = getTargetNetworks();
+  const subgraphUrl = getSubgraphQueryUrl(chainId);
+  const partnerManagerContract = getDeployedContract(chainId, "PartnerManager");
+  const roboshareTokensContract = getDeployedContract(chainId, "RoboshareTokens");
+  const registryRouterContract = getDeployedContract(chainId, "RegistryRouter");
+  const marketplaceContract = getDeployedContract(chainId, "Marketplace");
+  const treasuryContract = getDeployedContract(chainId, "Treasury");
   const [allAssets, setAllAssets] = useState<DashboardAsset[]>([]);
   const [listings, setListings] = useState<SubgraphListing[]>([]);
   const [filterType, setFilterType] = useState<AssetType | "ALL">("ALL");
   const [filterState, setFilterState] = useState<AssetState | "ALL">("ALL");
 
   const { data: isAuthorizedPartner, isLoading: isCheckingPartner } = useReadContract({
-    address: deployedContracts[31337]?.PartnerManager?.address,
-    abi: deployedContracts[31337]?.PartnerManager?.abi,
+    address: partnerManagerContract?.address,
+    abi: partnerManagerContract?.abi,
     functionName: "isAuthorizedPartner",
     args: [connectedAddress as string],
-    query: { enabled: !!connectedAddress },
+    query: { enabled: !!connectedAddress && !!partnerManagerContract },
   });
 
   // Modal States
@@ -218,7 +225,12 @@ const PartnerDashboard: NextPage = () => {
       try {
         // Fetch vehicles and listings in one query
         if (ASSET_REGISTRIES[AssetType.VEHICLE].active) {
-          const response = await fetch("http://localhost:8000/subgraphs/name/roboshare/protocol", {
+          if (!subgraphUrl) {
+            console.error(`No subgraph endpoint configured for chain ${chainId}.`);
+            return;
+          }
+
+          const response = await fetch(subgraphUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -283,7 +295,7 @@ const PartnerDashboard: NextPage = () => {
       }
     };
     fetchData();
-  }, [connectedAddress, refreshCounter]);
+  }, [chainId, connectedAddress, refreshCounter, subgraphUrl]);
 
   // Fetch image URLs from IPFS metadata
   useEffect(() => {
@@ -318,8 +330,8 @@ const PartnerDashboard: NextPage = () => {
 
   // Fetch Token Supplies
   const contractConfig = {
-    address: deployedContracts[31337]?.RoboshareTokens?.address,
-    abi: deployedContracts[31337]?.RoboshareTokens?.abi,
+    address: roboshareTokensContract?.address,
+    abi: roboshareTokensContract?.abi,
   } as const;
 
   // Type for useReadContracts result item
@@ -331,7 +343,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "getRevenueTokenSupply",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
   });
   // Cast to break deep type inference
   const supplies = suppliesData as ContractResult<bigint>[] | undefined;
@@ -342,7 +354,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "getTokenPrice",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
   });
   const tokenPrices = tokenPricesData as ContractResult<bigint>[] | undefined;
 
@@ -352,7 +364,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "getRevenueTokenMaxSupply",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
   });
   const maxSupplies = maxSuppliesData as ContractResult<bigint>[] | undefined;
 
@@ -364,25 +376,25 @@ const PartnerDashboard: NextPage = () => {
           args: [connectedAddress, BigInt(asset.id) + 1n],
         }))
       : [],
-    query: { enabled: !!connectedAddress && allAssets.length > 0 },
+    query: { enabled: !!connectedAddress && !!roboshareTokensContract && allAssets.length > 0 },
   });
   const partnerTokenBalances = partnerTokenBalancesData as ContractResult<bigint>[] | undefined;
 
   const { data: maturityDatesData, refetch: refetchMaturityDates } = useReadContracts({
     contracts: allAssets.map(asset => ({
-      address: deployedContracts[31337]?.RoboshareTokens?.address,
-      abi: deployedContracts[31337]?.RoboshareTokens?.abi,
+      address: roboshareTokensContract?.address,
+      abi: roboshareTokensContract?.abi,
       functionName: "getTokenMaturityDate",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
   });
   const tokenMaturityDates = maturityDatesData as ContractResult<bigint>[] | undefined;
 
   // Fetch Asset Statuses from RegistryRouter
   const routerConfig = {
-    address: deployedContracts[31337]?.RegistryRouter?.address,
-    abi: deployedContracts[31337]?.RegistryRouter?.abi,
+    address: registryRouterContract?.address,
+    abi: registryRouterContract?.abi,
   } as const;
 
   const { data: statusesData, refetch: refetchStatuses } = useReadContracts({
@@ -391,14 +403,14 @@ const PartnerDashboard: NextPage = () => {
       functionName: "getAssetStatus",
       args: [BigInt(asset.id)],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!registryRouterContract && allAssets.length > 0 },
   });
   // Cast to break deep type inference
   const assetStatuses = statusesData as ContractResult<number>[] | undefined;
 
   const marketplaceConfig = {
-    address: deployedContracts[31337]?.Marketplace?.address,
-    abi: deployedContracts[31337]?.Marketplace?.abi,
+    address: marketplaceContract?.address,
+    abi: marketplaceContract?.abi,
   } as const;
 
   const { data: primaryPoolCreatedData, refetch: refetchPrimaryPoolCreated } = useReadContracts({
@@ -407,7 +419,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "primaryPoolCreated",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!marketplaceContract && allAssets.length > 0 },
   });
   const primaryPoolCreated = primaryPoolCreatedData as ContractResult<boolean>[] | undefined;
 
@@ -417,7 +429,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "getPrimaryPool",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!marketplaceContract && allAssets.length > 0 },
     allowFailure: true,
   });
   const primaryPoolDetails = primaryPoolDetailsData as
@@ -425,8 +437,8 @@ const PartnerDashboard: NextPage = () => {
     | undefined;
 
   const treasuryConfig = {
-    address: deployedContracts[31337]?.Treasury?.address,
-    abi: deployedContracts[31337]?.Treasury?.abi,
+    address: treasuryContract?.address,
+    abi: treasuryContract?.abi,
   } as const;
 
   const { data: primaryInvestorLiquidityData, refetch: refetchPrimaryInvestorLiquidity } = useReadContracts({
@@ -435,7 +447,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "getPrimaryInvestorLiquidity",
       args: [BigInt(asset.id)],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!treasuryContract && allAssets.length > 0 },
   });
   const primaryInvestorLiquidity = primaryInvestorLiquidityData as ContractResult<bigint>[] | undefined;
 
@@ -445,7 +457,7 @@ const PartnerDashboard: NextPage = () => {
       functionName: "assetCollateral",
       args: [BigInt(asset.id)],
     })),
-    query: { enabled: allAssets.length > 0 },
+    query: { enabled: !!treasuryContract && allAssets.length > 0 },
     allowFailure: true,
   });
   const collateralInfo = collateralInfoData as Array<{ result?: any; status: string; error?: Error }> | undefined;
@@ -458,7 +470,10 @@ const PartnerDashboard: NextPage = () => {
     })),
     query: {
       enabled:
-        allAssets.length > 0 && !!primaryInvestorLiquidity && primaryInvestorLiquidity.length === allAssets.length,
+        !!marketplaceContract &&
+        allAssets.length > 0 &&
+        !!primaryInvestorLiquidity &&
+        primaryInvestorLiquidity.length === allAssets.length,
     },
     allowFailure: true,
   });
@@ -517,11 +532,11 @@ const PartnerDashboard: NextPage = () => {
 
   // Fetch pending withdrawal amount for seller
   const { data: pendingWithdrawal, refetch: refetchPending } = useReadContract({
-    address: deployedContracts[31337]?.Treasury?.address,
-    abi: deployedContracts[31337]?.Treasury?.abi,
+    address: treasuryContract?.address,
+    abi: treasuryContract?.abi,
     functionName: "pendingWithdrawals",
     args: connectedAddress ? [connectedAddress] : undefined,
-    query: { enabled: !!connectedAddress },
+    query: { enabled: !!connectedAddress && !!treasuryContract },
   });
   const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
   const pendingWithdrawalDisplay = pendingWithdrawal ? formatUnits(pendingWithdrawal as bigint, decimals) : "0";

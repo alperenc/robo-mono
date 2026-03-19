@@ -1,5 +1,3 @@
-import deployedContracts from "~~/contracts/deployedContracts";
-
 export enum AssetType {
   VEHICLE = "VEHICLE",
   REAL_ESTATE = "REAL_ESTATE", // Future proofing
@@ -10,7 +8,6 @@ export const ASSET_REGISTRIES = {
     name: "Vehicle",
     pluralName: "Vehicles",
     contractName: "VehicleRegistry",
-    address: deployedContracts[31337]?.VehicleRegistry?.address,
     icon: "🚗",
     description: "Register a car, truck, or fleet vehicle.",
     active: true,

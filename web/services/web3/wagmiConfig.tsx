@@ -1,6 +1,6 @@
 import { wagmiConnectors } from "./wagmiConnectors";
 import { Chain, createClient, fallback, http } from "viem";
-import { hardhat, mainnet } from "viem/chains";
+import { foundry, mainnet } from "viem/chains";
 import { createConfig } from "wagmi";
 import scaffoldConfig, { DEFAULT_ALCHEMY_API_KEY, ScaffoldConfig } from "~~/scaffold.config";
 import { getAlchemyHttpUrl } from "~~/utils/scaffold-eth";
@@ -10,10 +10,10 @@ const { targetNetworks } = scaffoldConfig;
 // We always want to have mainnet enabled (ENS resolution, ETH price, etc). But only once.
 export const enabledChains = targetNetworks.find((network: Chain) => network.id === 1)
   ? targetNetworks
-  : ([...targetNetworks, mainnet] as const);
+  : [...targetNetworks, mainnet];
 
 export const wagmiConfig = createConfig({
-  chains: enabledChains,
+  chains: enabledChains as [Chain, ...Chain[]],
   connectors: wagmiConnectors,
   ssr: true,
   client({ chain }) {
@@ -34,7 +34,7 @@ export const wagmiConfig = createConfig({
     return createClient({
       chain,
       transport: fallback(rpcFallbacks),
-      ...(chain.id !== (hardhat as Chain).id
+      ...(chain.id !== (foundry as Chain).id
         ? {
             pollingInterval: scaffoldConfig.pollingInterval,
           }

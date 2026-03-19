@@ -19,7 +19,7 @@ dataSources:
         - Transfer
       abis:
         - name: MockUSDC
-          file: ./abis/localhost_MockUSDC.json
+          file: ./abis/MockUSDC.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleMockUSDCTransfer
@@ -40,7 +40,7 @@ dataSources:
         - RevenueTokenInfoSet
       abis:
         - name: RoboshareTokens
-          file: ./abis/localhost_RoboshareTokens.json
+          file: ./abis/RoboshareTokens.json
       eventHandlers:
         - event: TransferSingle(indexed address,indexed address,indexed
             address,uint256,uint256)
@@ -64,7 +64,7 @@ dataSources:
         - PartnerAuthorized
       abis:
         - name: PartnerManager
-          file: ./abis/localhost_PartnerManager.json
+          file: ./abis/PartnerManager.json
       eventHandlers:
         - event: PartnerAuthorized(indexed address,string)
           handler: handlePartnerAuthorized
@@ -84,7 +84,7 @@ dataSources:
         - AssetRegistered
       abis:
         - name: RegistryRouter
-          file: ./abis/localhost_RegistryRouter.json
+          file: ./abis/RegistryRouter.json
       eventHandlers:
         - event: IdBoundToRegistry(indexed uint256,indexed address)
           handler: handleIdBoundToRegistry
@@ -107,7 +107,7 @@ dataSources:
         - VehicleRegisteredAndMinted
       abis:
         - name: VehicleRegistry
-          file: ./abis/localhost_VehicleRegistry.json
+          file: ./abis/VehicleRegistry.json
       eventHandlers:
         - event: AssetRegistered(indexed uint256,indexed address,uint256,uint8)
           handler: handleAssetRegistered
@@ -129,7 +129,7 @@ dataSources:
         - CollateralLocked
       abis:
         - name: Treasury
-          file: ./abis/localhost_Treasury.json
+          file: ./abis/Treasury.json
       eventHandlers:
         - event: CollateralLocked(indexed uint256,indexed address,uint256)
           handler: handleCollateralLocked
@@ -152,7 +152,7 @@ dataSources:
         - ListingCreated
       abis:
         - name: Marketplace
-          file: ./abis/localhost_Marketplace.json
+          file: ./abis/Marketplace.json
       eventHandlers:
         - event: ListingCreated(indexed uint256,indexed uint256,indexed
             uint256,address,uint256,uint256,uint256,bool)

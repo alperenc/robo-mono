@@ -2,11 +2,11 @@
 
 import { useEscClose } from "./useEscClose";
 import { formatUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useChainId, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 
 interface WithdrawProceedsModalProps {
   isOpen: boolean;
@@ -15,18 +15,20 @@ interface WithdrawProceedsModalProps {
 
 export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModalProps) => {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
+  const treasuryContract = getDeployedContract(chainId, "Treasury");
 
   useEscClose(isOpen, onClose);
 
   // Fetch pending withdrawal amount
   const { data: pendingAmount, isLoading: isLoadingPending } = useReadContract({
-    address: deployedContracts[31337]?.Treasury?.address,
-    abi: deployedContracts[31337]?.Treasury?.abi,
+    address: treasuryContract?.address,
+    abi: treasuryContract?.abi,
     functionName: "pendingWithdrawals",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && isOpen },
+    query: { enabled: !!address && isOpen && !!treasuryContract },
   });
 
   const formattedAmount = pendingAmount ? formatUnits(pendingAmount as bigint, decimals) : "0";

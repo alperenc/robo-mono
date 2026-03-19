@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 
 interface SettleAssetModalProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ interface SettleAssetModalProps {
 
 export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: SettleAssetModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const [topUpAmount, setTopUpAmount] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -30,7 +31,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
     contractName: "VehicleRegistry",
   });
 
-  const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
+  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
 
   const assetIdBigInt = BigInt(assetId);
 
