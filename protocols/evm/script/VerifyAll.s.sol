@@ -26,8 +26,9 @@ contract VerifyAll is Script {
 
     function run() external {
         string memory root = vm.projectRoot();
+        string memory broadcastScript = _getBroadcastScript();
         string memory path =
-            string.concat(root, "/broadcast/Deploy.s.sol/", vm.toString(block.chainid), "/run-latest.json");
+            string.concat(root, "/broadcast/", broadcastScript, "/", vm.toString(block.chainid), "/run-latest.json");
         // forge-lint: disable-next-line(unsafe-cheatcode)
         string memory content = vm.readFile(path);
 
@@ -101,5 +102,13 @@ contract VerifyAll is Script {
 
     function searchStr(uint96 idx, string memory searchKey) internal pure returns (string memory) {
         return string.concat(".transactions[", vm.toString(idx), "].", searchKey);
+    }
+
+    function _getBroadcastScript() internal view returns (string memory) {
+        try vm.envString("BROADCAST_SCRIPT") returns (string memory broadcastScript) {
+            return broadcastScript;
+        } catch {
+            return "script/Deploy.s.sol";
+        }
     }
 }
