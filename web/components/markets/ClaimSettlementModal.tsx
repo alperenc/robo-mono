@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useChainId, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 
 interface ClaimSettlementModalProps {
   isOpen: boolean;
@@ -17,13 +17,15 @@ interface ClaimSettlementModalProps {
 
 export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: ClaimSettlementModalProps) => {
   const { address } = useAccount();
+  const chainId = useChainId();
   const [autoClaimEarnings, setAutoClaimEarnings] = useState(false);
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
+  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
   const { writeContractAsync: writeRouter, isPending } = useScaffoldWriteContract({
     contractName: "RegistryRouter",
   });
   const { data: previewSettlementAmount } = useReadContract({
-    address: deployedContracts[31337]?.Treasury?.address,
+    address: treasuryAddress,
     abi: [
       {
         type: "function",
@@ -38,10 +40,10 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
     ] as const,
     functionName: "previewSettlementClaim",
     args: address ? [BigInt(assetId), address] : undefined,
-    query: { enabled: isOpen && !!address },
+    query: { enabled: isOpen && !!address && !!treasuryAddress },
   });
   const { data: previewEarningsAmount } = useReadContract({
-    address: deployedContracts[31337]?.Treasury?.address,
+    address: treasuryAddress,
     abi: [
       {
         type: "function",
@@ -56,7 +58,7 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
     ] as const,
     functionName: "previewClaimEarnings",
     args: address ? [BigInt(assetId), address] : undefined,
-    query: { enabled: isOpen && !!address },
+    query: { enabled: isOpen && !!address && !!treasuryAddress },
   });
   const claimableAmount = previewSettlementAmount || 0n;
   const claimableEarnings = previewEarningsAmount || 0n;

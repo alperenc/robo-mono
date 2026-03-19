@@ -21,9 +21,10 @@ import { DistributeEarningsModal } from "~~/components/partner/DistributeEarning
 import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
-import deployedContracts from "~~/contracts/deployedContracts";
+import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
 import { getTargetNetworks } from "~~/utils/scaffold-eth";
+import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
 // Types for subgraph data
 interface SubgraphListing {
@@ -157,6 +158,11 @@ const MarketsPage: NextPage = () => {
   const networkName = currentChain?.name || "Localhost";
   const { switchChain } = useSwitchChain();
   const targetNetworks = getTargetNetworks();
+  const subgraphUrl = getSubgraphQueryUrl(chainId);
+  const roboshareTokensContract = getDeployedContract(chainId, "RoboshareTokens");
+  const marketplaceContract = getDeployedContract(chainId, "Marketplace");
+  const treasuryContract = getDeployedContract(chainId, "Treasury");
+  const registryRouterContract = getDeployedContract(chainId, "RegistryRouter");
 
   // Fetch data from subgraph
   const fetchData = useCallback(
@@ -165,6 +171,10 @@ const MarketsPage: NextPage = () => {
       setError(null);
 
       try {
+        if (!subgraphUrl) {
+          throw new Error(`No subgraph endpoint configured for chain ${chainId}.`);
+        }
+
         // Build query with optional user-specific part
         const userQueryPart = address
           ? `
@@ -174,7 +184,7 @@ const MarketsPage: NextPage = () => {
       `
           : "";
 
-        const response = await fetch("http://localhost:8000/subgraphs/name/roboshare/protocol", {
+        const response = await fetch(subgraphUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -296,7 +306,7 @@ const MarketsPage: NextPage = () => {
         if (showLoading) setLoading(false);
       }
     },
-    [address],
+    [address, chainId, subgraphUrl],
   );
 
   // Fetch Holdings (Escrow + Wallet) for "Your Holdings" filter
@@ -305,14 +315,16 @@ const MarketsPage: NextPage = () => {
     isLoading: isLoadingHoldings,
     refetch: refetchHoldings,
   } = useReadContracts({
-    contracts: listings.map(l => ({
-      address: deployedContracts[31337]?.RoboshareTokens?.address,
-      abi: deployedContracts[31337]?.RoboshareTokens?.abi,
-      functionName: "balanceOf",
-      args: [address, BigInt(l.tokenId)],
-    })) as any,
+    contracts: roboshareTokensContract
+      ? listings.map(l => ({
+          address: roboshareTokensContract.address,
+          abi: roboshareTokensContract.abi,
+          functionName: "balanceOf",
+          args: [address, BigInt(l.tokenId)],
+        }))
+      : ([] as any),
     // Also used for action-priority sorting and CTA visibility heuristics, not just the holdings-only filter.
-    query: { enabled: !!address && listings.length > 0 },
+    query: { enabled: !!address && !!roboshareTokensContract && listings.length > 0 },
   });
 
   const {
@@ -320,13 +332,15 @@ const MarketsPage: NextPage = () => {
     isLoading: isLoadingPrimaryPoolHoldings,
     refetch: refetchPrimaryPoolHoldings,
   } = useReadContracts({
-    contracts: primaryPools.map(pool => ({
-      address: deployedContracts[31337]?.RoboshareTokens?.address,
-      abi: deployedContracts[31337]?.RoboshareTokens?.abi,
-      functionName: "balanceOf",
-      args: [address, BigInt(pool.tokenId)],
-    })) as any,
-    query: { enabled: !!address && primaryPools.length > 0 },
+    contracts: roboshareTokensContract
+      ? primaryPools.map(pool => ({
+          address: roboshareTokensContract.address,
+          abi: roboshareTokensContract.abi,
+          functionName: "balanceOf",
+          args: [address, BigInt(pool.tokenId)],
+        }))
+      : ([] as any),
+    query: { enabled: !!address && !!roboshareTokensContract && primaryPools.length > 0 },
   });
 
   const {
@@ -334,31 +348,35 @@ const MarketsPage: NextPage = () => {
     isLoading: isLoadingPrimaryPoolSupply,
     refetch: refetchPrimaryPoolSupply,
   } = useReadContracts({
-    contracts: primaryPools.map(pool => ({
-      address: deployedContracts[31337]?.RoboshareTokens?.address,
-      abi: deployedContracts[31337]?.RoboshareTokens?.abi,
-      functionName: "getRevenueTokenSupply",
-      args: [BigInt(pool.tokenId)],
-    })) as any,
-    query: { enabled: primaryPools.length > 0 },
+    contracts: roboshareTokensContract
+      ? primaryPools.map(pool => ({
+          address: roboshareTokensContract.address,
+          abi: roboshareTokensContract.abi,
+          functionName: "getRevenueTokenSupply",
+          args: [BigInt(pool.tokenId)],
+        }))
+      : ([] as any),
+    query: { enabled: !!roboshareTokensContract && primaryPools.length > 0 },
   });
 
   const { data: primaryPoolRedemptionPreviewData, refetch: refetchPrimaryPoolRedemptionPreviews } = useReadContracts({
     allowFailure: true,
-    contracts: primaryPools.map((pool, index) => {
-      const holdingResult = primaryPoolHoldingsData?.[index];
-      const holding =
-        holdingResult?.status === "success" && holdingResult.result !== undefined
-          ? (holdingResult.result as bigint)
-          : 0n;
-      return {
-        address: deployedContracts[31337]?.Marketplace?.address,
-        abi: deployedContracts[31337]?.Marketplace?.abi,
-        functionName: "previewPrimaryRedemption",
-        args: [BigInt(pool.tokenId), holding > 0n ? holding : 1n],
-      };
-    }) as any,
-    query: { enabled: !!address && primaryPools.length > 0 && !!primaryPoolHoldingsData },
+    contracts: marketplaceContract
+      ? primaryPools.map((pool, index) => {
+          const holdingResult = primaryPoolHoldingsData?.[index];
+          const holding =
+            holdingResult?.status === "success" && holdingResult.result !== undefined
+              ? (holdingResult.result as bigint)
+              : 0n;
+          return {
+            address: marketplaceContract.address,
+            abi: marketplaceContract.abi,
+            functionName: "previewPrimaryRedemption",
+            args: [BigInt(pool.tokenId), holding > 0n ? holding : 1n],
+          };
+        })
+      : ([] as any),
+    query: { enabled: !!address && !!marketplaceContract && primaryPools.length > 0 && !!primaryPoolHoldingsData },
   });
 
   // Fetch actionability previews (claimable earnings/settlement) for sorting heuristics.
@@ -368,31 +386,35 @@ const MarketsPage: NextPage = () => {
 
   const { data: actionPreviewData, refetch: refetchActionPreviewData } = useReadContracts({
     allowFailure: true,
-    contracts: uniqueAssetIds.flatMap(assetId => [
-      {
-        address: deployedContracts[31337]?.Treasury?.address,
-        abi: deployedContracts[31337]?.Treasury?.abi,
-        functionName: "previewClaimEarnings",
-        args: [BigInt(assetId), address],
-      },
-      {
-        address: deployedContracts[31337]?.Treasury?.address,
-        abi: deployedContracts[31337]?.Treasury?.abi,
-        functionName: "previewSettlementClaim",
-        args: [BigInt(assetId), address],
-      },
-    ]) as any,
-    query: { enabled: !!address && uniqueAssetIds.length > 0 },
+    contracts: treasuryContract
+      ? uniqueAssetIds.flatMap(assetId => [
+          {
+            address: treasuryContract.address,
+            abi: treasuryContract.abi,
+            functionName: "previewClaimEarnings",
+            args: [BigInt(assetId), address],
+          },
+          {
+            address: treasuryContract.address,
+            abi: treasuryContract.abi,
+            functionName: "previewSettlementClaim",
+            args: [BigInt(assetId), address],
+          },
+        ])
+      : ([] as any),
+    query: { enabled: !!address && !!treasuryContract && uniqueAssetIds.length > 0 },
   });
   const { data: assetStatusPreviewData } = useReadContracts({
     allowFailure: true,
-    contracts: uniqueAssetIds.map(assetId => ({
-      address: deployedContracts[31337]?.RegistryRouter?.address,
-      abi: deployedContracts[31337]?.RegistryRouter?.abi,
-      functionName: "getAssetStatus",
-      args: [BigInt(assetId)],
-    })) as any,
-    query: { enabled: uniqueAssetIds.length > 0 },
+    contracts: registryRouterContract
+      ? uniqueAssetIds.map(assetId => ({
+          address: registryRouterContract.address,
+          abi: registryRouterContract.abi,
+          functionName: "getAssetStatus",
+          args: [BigInt(assetId)],
+        }))
+      : ([] as any),
+    query: { enabled: !!registryRouterContract && uniqueAssetIds.length > 0 },
   });
 
   // Initial fetch

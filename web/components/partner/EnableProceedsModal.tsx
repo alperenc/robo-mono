@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 import { formatTokenAmount } from "~~/utils/formatters";
 
 interface EnableProceedsModalProps {
@@ -29,6 +29,7 @@ export const EnableProceedsModal = ({
   protectionEnabled,
 }: EnableProceedsModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -37,7 +38,7 @@ export const EnableProceedsModal = ({
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
   const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
 
-  const treasuryAddress = deployedContracts[31337]?.Treasury?.address;
+  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
   const assetIdBigInt = BigInt(assetId);
   const tokenId = assetIdBigInt + 1n;
 

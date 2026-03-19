@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { getParsedError } from "~~/utils/scaffold-eth";
 
@@ -31,6 +31,7 @@ export const CreateSecondaryListingModal = ({
   prefillAmount,
 }: CreateSecondaryListingModalProps) => {
   const { address: connectedAddress } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const [formData, setFormData] = useState({
     amount: "",
@@ -46,7 +47,7 @@ export const CreateSecondaryListingModal = ({
   const { writeContractAsync: writeMarketplace } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const { writeContractAsync: writeRoboshareTokens } = useScaffoldWriteContract({ contractName: "RoboshareTokens" });
 
-  const marketplaceAddress = deployedContracts[31337]?.Marketplace?.address;
+  const marketplaceAddress = getDeployedContract(chainId, "Marketplace")?.address;
 
   const { data: isApproved } = useScaffoldReadContract({
     contractName: "RoboshareTokens",

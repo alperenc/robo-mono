@@ -12,6 +12,7 @@ import * as chains from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 
 const { onlyLocalBurnerWallet, targetNetworks } = scaffoldConfig;
+const LOCAL_CHAIN_ID = chains.foundry.id;
 
 const wallets = [
   metaMaskWallet,
@@ -20,7 +21,7 @@ const wallets = [
   coinbaseWallet,
   rainbowWallet,
   safeWallet,
-  ...(!targetNetworks.some(network => network.id !== (chains.hardhat as chains.Chain).id) || !onlyLocalBurnerWallet
+  ...(!targetNetworks.some(network => network.id !== LOCAL_CHAIN_ID) || !onlyLocalBurnerWallet
     ? [rainbowkitBurnerWallet]
     : []),
 ];
@@ -37,7 +38,7 @@ export const wagmiConnectors = connectorsForWallets(
   ],
 
   {
-    appName: "scaffold-eth-2",
+    appName: "Roboshare",
     projectId: scaffoldConfig.walletConnectProjectId,
   },
 );

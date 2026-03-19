@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import VehiclesTable from "./_components/VehiclesTable";
+import { useChainId } from "wagmi";
 import { MagnifyingGlassIcon, PlusIcon, PowerIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
 import { RequireAdmin } from "~~/components/RequireAdmin";
+import { getSubgraphGraphiqlUrl } from "~~/utils/subgraph";
 
 export default function Subgraph() {
+  const chainId = useChainId();
+  const graphiqlUrl = getSubgraphGraphiqlUrl(chainId);
+
   return (
     <RequireAdmin>
       <div>
@@ -78,15 +83,13 @@ export default function Subgraph() {
             <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
               <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
               <p className="mb-0">Explore data using the</p>
-              <Link
-                href="http://localhost:8000/subgraphs/name/roboshare/protocol/graphql"
-                passHref
-                className="link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                GraphiQL tool.
-              </Link>{" "}
+              {graphiqlUrl ? (
+                <Link href={graphiqlUrl} passHref className="link" target="_blank" rel="noopener noreferrer">
+                  GraphiQL tool.
+                </Link>
+              ) : (
+                <span className="opacity-70">configured Graph endpoint.</span>
+              )}{" "}
               Clean up any stale data using{" "}
               <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
                 yarn subgraph:clean-node

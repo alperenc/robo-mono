@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useChainId, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { getDeployedContract } from "~~/utils/contracts";
 
 interface RedeemLiquidityModalProps {
   isOpen: boolean;
@@ -28,6 +28,7 @@ export function RedeemLiquidityModal({
   maxRedeemableAmount,
 }: RedeemLiquidityModalProps) {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
   const [inputAmount, setInputAmount] = useState("");
   const [step, setStep] = useState<"input" | "redeeming" | "success" | "error">("input");
@@ -35,21 +36,23 @@ export function RedeemLiquidityModal({
   const redeemAmount = inputAmount ? BigInt(inputAmount) : 0n;
   const maxAmount = BigInt(maxRedeemableAmount || "0");
 
+  const marketplaceContract = getDeployedContract(chainId, "Marketplace");
   const { data: redemptionPreview, refetch: refetchPreview } = useReadContract({
-    address: deployedContracts[31337]?.Marketplace?.address,
-    abi: deployedContracts[31337]?.Marketplace?.abi,
+    address: marketplaceContract?.address,
+    abi: marketplaceContract?.abi,
     functionName: "previewPrimaryRedemption",
     args: [BigInt(tokenId), redeemAmount || 1n],
-    query: { enabled: isOpen && redeemAmount > 0n },
+    query: { enabled: isOpen && redeemAmount > 0n && !!marketplaceContract },
   });
 
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({
     contractName: "Marketplace",
   });
 
-  const payout = redemptionPreview?.[0] ?? 0n;
-  const redeemableLiquidity = redemptionPreview?.[1] ?? 0n;
-  const circulatingSupply = redemptionPreview?.[2] ?? 0n;
+  const previewTuple = redemptionPreview as readonly [bigint, bigint, bigint] | undefined;
+  const payout = previewTuple?.[0] ?? 0n;
+  const redeemableLiquidity = previewTuple?.[1] ?? 0n;
+  const circulatingSupply = previewTuple?.[2] ?? 0n;
   const formattedPayout = formatUnits(payout, decimals);
   const formattedLiquidity = formatUnits(redeemableLiquidity, decimals);
   const currentPercentage = useMemo(() => {
