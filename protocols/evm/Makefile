@@ -1,6 +1,8 @@
 .PHONY: build deploy generate-abis get-address account chain compile flatten fork format lint test verify
 
 DEPLOY_SCRIPT ?= script/Deploy.s.sol
+VERIFY_RUNNER ?= script/VerifyAll.s.sol
+VERIFY_TARGET_SCRIPT ?= script/Deploy.s.sol
 
 # setup wallet for anvil
 setup-anvil-wallet:
@@ -72,4 +74,4 @@ test:
 
 # Verify contracts
 verify:
-	forge script script/VerifyAll.s.sol --ffi --rpc-url $(RPC_URL)
+	BROADCAST_SCRIPT=$(VERIFY_TARGET_SCRIPT) forge script $(VERIFY_RUNNER) --ffi --rpc-url $(RPC_URL)
