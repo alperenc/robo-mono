@@ -1,0 +1,120 @@
+{
+  "contract": "Treasury",
+  "source": "contracts/Treasury.sol:Treasury",
+  "storage": [
+    {
+      "label": "partnerManager",
+      "slot": "0",
+      "offset": 0,
+      "type": "contract PartnerManager"
+    },
+    {
+      "label": "roboshareTokens",
+      "slot": "1",
+      "offset": 0,
+      "type": "contract RoboshareTokens"
+    },
+    {
+      "label": "router",
+      "slot": "2",
+      "offset": 0,
+      "type": "contract RegistryRouter"
+    },
+    {
+      "label": "usdc",
+      "slot": "3",
+      "offset": 0,
+      "type": "contract IERC20"
+    },
+    {
+      "label": "treasuryFeeRecipient",
+      "slot": "4",
+      "offset": 0,
+      "type": "address"
+    },
+    {
+      "label": "assetCollateral",
+      "slot": "5",
+      "offset": 0,
+      "type": "mapping(uint256 => struct CollateralLib.CollateralInfo)"
+    },
+    {
+      "label": "assetEarnings",
+      "slot": "6",
+      "offset": 0,
+      "type": "mapping(uint256 => struct EarningsLib.EarningsInfo)"
+    },
+    {
+      "label": "assetSettlements",
+      "slot": "7",
+      "offset": 0,
+      "type": "mapping(uint256 => struct CollateralLib.SettlementInfo)"
+    },
+    {
+      "label": "pendingWithdrawals",
+      "slot": "8",
+      "offset": 0,
+      "type": "mapping(address => uint256)"
+    },
+    {
+      "label": "totalCollateralDeposited",
+      "slot": "9",
+      "offset": 0,
+      "type": "uint256"
+    },
+    {
+      "label": "totalEarningsDeposited",
+      "slot": "10",
+      "offset": 0,
+      "type": "uint256"
+    }
+  ],
+  "types": [
+    {
+      "label": "address",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract IERC20",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract PartnerManager",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RegistryRouter",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RoboshareTokens",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "mapping(uint256 => struct CollateralLib.CollateralInfo)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct CollateralLib.CollateralInfo"
+    },
+    {
+      "label": "mapping(uint256 => struct CollateralLib.SettlementInfo)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct CollateralLib.SettlementInfo"
+    },
+    {
+      "label": "mapping(uint256 => struct EarningsLib.EarningsInfo)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct EarningsLib.EarningsInfo"
+    }
+  ]
+}

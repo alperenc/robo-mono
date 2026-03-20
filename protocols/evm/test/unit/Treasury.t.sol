@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ProtocolLib } from "../../contracts/Libraries.sol";
 import { TreasuryFlowBaseTest } from "../base/TreasuryFlowBaseTest.t.sol";
 import { MockUSDC } from "../../contracts/mocks/MockUSDC.sol";
@@ -81,63 +82,102 @@ contract TreasuryTest is TreasuryFlowBaseTest {
     function testInitializationZeroAdmin() public {
         Treasury newTreasury = new Treasury();
         vm.expectRevert(Treasury.ZeroAddress.selector);
-        newTreasury.initialize(
-            address(0),
-            address(roboshareTokens),
-            address(partnerManager),
-            address(router),
-            address(usdc),
-            config.treasuryFeeRecipient
+        new ERC1967Proxy(
+            address(newTreasury),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                address(0),
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                address(usdc),
+                config.treasuryFeeRecipient
+            )
         );
     }
 
     function testInitializationZeroTokens() public {
         Treasury newTreasury = new Treasury();
         vm.expectRevert(Treasury.ZeroAddress.selector);
-        newTreasury.initialize(
-            admin, address(0), address(partnerManager), address(router), address(usdc), config.treasuryFeeRecipient
+        new ERC1967Proxy(
+            address(newTreasury),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(0),
+                address(partnerManager),
+                address(router),
+                address(usdc),
+                config.treasuryFeeRecipient
+            )
         );
     }
 
     function testInitializationZeroPartnerManager() public {
         Treasury newTreasury = new Treasury();
         vm.expectRevert(Treasury.ZeroAddress.selector);
-        newTreasury.initialize(
-            admin, address(roboshareTokens), address(0), address(router), address(usdc), config.treasuryFeeRecipient
+        new ERC1967Proxy(
+            address(newTreasury),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(0),
+                address(router),
+                address(usdc),
+                config.treasuryFeeRecipient
+            )
         );
     }
 
     function testInitializationZeroRouter() public {
         Treasury newTreasury = new Treasury();
         vm.expectRevert(Treasury.ZeroAddress.selector);
-        newTreasury.initialize(
-            admin,
-            address(roboshareTokens),
-            address(partnerManager),
-            address(0),
-            address(usdc),
-            config.treasuryFeeRecipient
+        new ERC1967Proxy(
+            address(newTreasury),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(0),
+                address(usdc),
+                config.treasuryFeeRecipient
+            )
         );
     }
 
     function testInitializationZeroUSDC() public {
         Treasury newTreasury = new Treasury();
         vm.expectRevert(Treasury.ZeroAddress.selector);
-        newTreasury.initialize(
-            admin,
-            address(roboshareTokens),
-            address(partnerManager),
-            address(router),
-            address(0),
-            config.treasuryFeeRecipient
+        new ERC1967Proxy(
+            address(newTreasury),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                address(0),
+                config.treasuryFeeRecipient
+            )
         );
     }
 
     function testInitializationZeroFeeRecipient() public {
         Treasury newTreasury = new Treasury();
         vm.expectRevert(Treasury.ZeroAddress.selector);
-        newTreasury.initialize(
-            admin, address(roboshareTokens), address(partnerManager), address(router), address(usdc), address(0)
+        new ERC1967Proxy(
+            address(newTreasury),
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                admin,
+                address(roboshareTokens),
+                address(partnerManager),
+                address(router),
+                address(usdc),
+                address(0)
+            )
         );
     }
 

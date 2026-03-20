@@ -158,6 +158,11 @@ contract Marketplace is
     event RouterUpdated(address indexed oldAddress, address indexed newAddress);
     event TreasuryUpdated(address indexed oldAddress, address indexed newAddress);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @dev Initializes core dependencies and admin roles.
      */

@@ -1,0 +1,59 @@
+{
+  "contract": "PartnerManager",
+  "source": "contracts/PartnerManager.sol:PartnerManager",
+  "storage": [
+    {
+      "label": "_authorizedPartners",
+      "slot": "0",
+      "offset": 0,
+      "type": "mapping(address => bool)"
+    },
+    {
+      "label": "_partnerNames",
+      "slot": "1",
+      "offset": 0,
+      "type": "mapping(address => string)"
+    },
+    {
+      "label": "_partnerRegistrationTime",
+      "slot": "2",
+      "offset": 0,
+      "type": "mapping(address => uint256)"
+    },
+    {
+      "label": "_allPartners",
+      "slot": "3",
+      "offset": 0,
+      "type": "address[]"
+    }
+  ],
+  "types": [
+    {
+      "label": "address[]",
+      "encoding": "dynamic_array",
+      "numberOfBytes": "32",
+      "base": "address"
+    },
+    {
+      "label": "mapping(address => bool)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "address",
+      "value": "bool"
+    },
+    {
+      "label": "mapping(address => string)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "address",
+      "value": "string"
+    },
+    {
+      "label": "mapping(address => uint256)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "address",
+      "value": "uint256"
+    }
+  ]
+}

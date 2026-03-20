@@ -44,6 +44,11 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event RouterUpdated(address indexed oldAddress, address indexed newAddress);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @dev Initialize contract with references to core contracts
      */

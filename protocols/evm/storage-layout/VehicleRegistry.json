@@ -1,0 +1,67 @@
+{
+  "contract": "VehicleRegistry",
+  "source": "contracts/VehicleRegistry.sol:VehicleRegistry",
+  "storage": [
+    {
+      "label": "roboshareTokens",
+      "slot": "0",
+      "offset": 0,
+      "type": "contract RoboshareTokens"
+    },
+    {
+      "label": "partnerManager",
+      "slot": "1",
+      "offset": 0,
+      "type": "contract PartnerManager"
+    },
+    {
+      "label": "router",
+      "slot": "2",
+      "offset": 0,
+      "type": "contract RegistryRouter"
+    },
+    {
+      "label": "vehicles",
+      "slot": "3",
+      "offset": 0,
+      "type": "mapping(uint256 => struct VehicleLib.Vehicle)"
+    },
+    {
+      "label": "vinExists",
+      "slot": "4",
+      "offset": 0,
+      "type": "mapping(string => bool)"
+    }
+  ],
+  "types": [
+    {
+      "label": "contract PartnerManager",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RegistryRouter",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RoboshareTokens",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "mapping(string => bool)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "string",
+      "value": "bool"
+    },
+    {
+      "label": "mapping(uint256 => struct VehicleLib.Vehicle)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct VehicleLib.Vehicle"
+    }
+  ]
+}

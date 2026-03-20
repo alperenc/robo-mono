@@ -1,0 +1,139 @@
+{
+  "contract": "Marketplace",
+  "source": "contracts/Marketplace.sol:Marketplace",
+  "storage": [
+    {
+      "label": "roboshareTokens",
+      "slot": "0",
+      "offset": 0,
+      "type": "contract RoboshareTokens"
+    },
+    {
+      "label": "partnerManager",
+      "slot": "1",
+      "offset": 0,
+      "type": "contract PartnerManager"
+    },
+    {
+      "label": "router",
+      "slot": "2",
+      "offset": 0,
+      "type": "contract RegistryRouter"
+    },
+    {
+      "label": "treasury",
+      "slot": "3",
+      "offset": 0,
+      "type": "contract ITreasury"
+    },
+    {
+      "label": "usdc",
+      "slot": "4",
+      "offset": 0,
+      "type": "contract IERC20"
+    },
+    {
+      "label": "_listingIdCounter",
+      "slot": "5",
+      "offset": 0,
+      "type": "uint256"
+    },
+    {
+      "label": "primaryPools",
+      "slot": "6",
+      "offset": 0,
+      "type": "mapping(uint256 => struct Marketplace.PrimaryPool)"
+    },
+    {
+      "label": "primaryPoolCreated",
+      "slot": "7",
+      "offset": 0,
+      "type": "mapping(uint256 => bool)"
+    },
+    {
+      "label": "listings",
+      "slot": "8",
+      "offset": 0,
+      "type": "mapping(uint256 => struct Marketplace.Listing)"
+    },
+    {
+      "label": "assetListings",
+      "slot": "9",
+      "offset": 0,
+      "type": "mapping(uint256 => uint256[])"
+    },
+    {
+      "label": "tokenEscrow",
+      "slot": "10",
+      "offset": 0,
+      "type": "mapping(uint256 => uint256)"
+    }
+  ],
+  "types": [
+    {
+      "label": "contract IERC20",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract ITreasury",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract PartnerManager",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RegistryRouter",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RoboshareTokens",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "mapping(uint256 => bool)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "bool"
+    },
+    {
+      "label": "mapping(uint256 => struct Marketplace.Listing)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct Marketplace.Listing"
+    },
+    {
+      "label": "mapping(uint256 => struct Marketplace.PrimaryPool)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct Marketplace.PrimaryPool"
+    },
+    {
+      "label": "mapping(uint256 => uint256)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "uint256"
+    },
+    {
+      "label": "mapping(uint256 => uint256[])",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "uint256[]"
+    },
+    {
+      "label": "uint256",
+      "encoding": "inplace",
+      "numberOfBytes": "32"
+    }
+  ]
+}

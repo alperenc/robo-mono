@@ -1,0 +1,60 @@
+{
+  "contract": "RegistryRouter",
+  "source": "contracts/RegistryRouter.sol:RegistryRouter",
+  "storage": [
+    {
+      "label": "roboshareTokens",
+      "slot": "0",
+      "offset": 0,
+      "type": "contract RoboshareTokens"
+    },
+    {
+      "label": "partnerManager",
+      "slot": "1",
+      "offset": 0,
+      "type": "contract PartnerManager"
+    },
+    {
+      "label": "treasury",
+      "slot": "2",
+      "offset": 0,
+      "type": "address"
+    },
+    {
+      "label": "marketplace",
+      "slot": "3",
+      "offset": 0,
+      "type": "address"
+    },
+    {
+      "label": "idToRegistry",
+      "slot": "4",
+      "offset": 0,
+      "type": "mapping(uint256 => address)"
+    }
+  ],
+  "types": [
+    {
+      "label": "address",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract PartnerManager",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "contract RoboshareTokens",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
+      "label": "mapping(uint256 => address)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "address"
+    }
+  ]
+}

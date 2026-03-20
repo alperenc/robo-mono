@@ -51,6 +51,11 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     error InvalidUSDCContract(address token);
     error UnsupportedUSDCDecimals(uint8 decimals);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     modifier onlyAuthorizedAssetOwner(uint256 assetId) {
         _onlyAuthorizedAssetOwner(assetId);
         _;
