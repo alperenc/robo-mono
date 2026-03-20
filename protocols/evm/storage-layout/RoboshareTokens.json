@@ -1,0 +1,45 @@
+{
+  "contract": "RoboshareTokens",
+  "source": "contracts/RoboshareTokens.sol:RoboshareTokens",
+  "storage": [
+    {
+      "label": "_tokenIdCounter",
+      "slot": "0",
+      "offset": 0,
+      "type": "uint256"
+    },
+    {
+      "label": "_revenueTokenInfos",
+      "slot": "1",
+      "offset": 0,
+      "type": "mapping(uint256 => struct TokenLib.TokenInfo)"
+    },
+    {
+      "label": "_lockedRevenueTokenAmounts",
+      "slot": "2",
+      "offset": 0,
+      "type": "mapping(address => mapping(uint256 => uint256))"
+    }
+  ],
+  "types": [
+    {
+      "label": "mapping(address => mapping(uint256 => uint256))",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "address",
+      "value": "mapping(uint256 => uint256)"
+    },
+    {
+      "label": "mapping(uint256 => struct TokenLib.TokenInfo)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "uint256",
+      "value": "struct TokenLib.TokenInfo"
+    },
+    {
+      "label": "uint256",
+      "encoding": "inplace",
+      "numberOfBytes": "32"
+    }
+  ]
+}

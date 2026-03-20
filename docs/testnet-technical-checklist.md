@@ -47,6 +47,12 @@ Verification:
 - [ ] Verify `Arbitrum Sepolia` contracts where explorer access is available
 - [ ] Record any verification exception explicitly in the release notes
 
+Upgrade hardening:
+
+- [ ] Run `yarn evm:storage-layout:check`
+- [ ] Confirm implementation contracts disable direct initialization
+- [ ] Confirm any upgrade that adds state also defines the required migration or reinitializer path
+
 ## Managed Subgraph Deployment Checklist
 
 For each supported launch chain, record:

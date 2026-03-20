@@ -44,6 +44,9 @@ jobs:
       - name: Run EVM lint (Solidity + JS)
         run: yarn evm:lint
 
+      - name: Check upgradeable storage layouts
+        run: yarn evm:storage-layout:check
+
       - name: Run nextjs lint
         run: yarn workspace web lint --max-warnings=0
 
