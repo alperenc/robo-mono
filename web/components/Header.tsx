@@ -20,10 +20,6 @@ type HeaderMenuLink = {
 
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "Home",
-    href: "/",
-  },
-  {
     label: "Markets",
     href: "/markets",
     icon: <BuildingStorefrontIcon className="h-4 w-4" />,
@@ -104,7 +100,7 @@ export const Header = () => {
             <HeaderMenuLinks />
           </ul>
         </details>
-        <Link href="/" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
+        <Link href="/markets" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
           <div className="flex items-center justify-center w-10 h-10 text-base-content">
             <BoltIcon className="h-10 w-10" />
           </div>

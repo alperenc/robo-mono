@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NextPage } from "next";
-import { useAccount, useChainId, useChains, useReadContracts, useSwitchChain } from "wagmi";
+import { formatUnits } from "viem";
+import { useAccount, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import {
   AdjustmentsHorizontalIcon,
   ArrowsUpDownIcon,
   Bars4Icon,
   BriefcaseIcon,
+  CurrencyDollarIcon,
   Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import { AcquirePositionModal } from "~~/components/markets/AcquirePositionModal";
@@ -20,7 +22,9 @@ import { CreateSecondaryListingModal } from "~~/components/partner/CreateSeconda
 import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
+import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
 import { getTargetNetworks } from "~~/utils/scaffold-eth";
@@ -149,6 +153,7 @@ const MarketsPage: NextPage = () => {
   const [isEndListingOpen, setIsEndListingOpen] = useState(false);
   const [isDistributeEarningsOpen, setIsDistributeEarningsOpen] = useState(false);
   const [isSettleAssetOpen, setIsSettleAssetOpen] = useState(false);
+  const [isWithdrawProceedsOpen, setIsWithdrawProceedsOpen] = useState(false);
   const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
 
   // Network info
@@ -163,6 +168,17 @@ const MarketsPage: NextPage = () => {
   const marketplaceContract = getDeployedContract(chainId, "Marketplace");
   const treasuryContract = getDeployedContract(chainId, "Treasury");
   const registryRouterContract = getDeployedContract(chainId, "RegistryRouter");
+  const { symbol, decimals } = usePaymentToken();
+
+  const { data: pendingWithdrawal, refetch: refetchPendingWithdrawal } = useReadContract({
+    address: treasuryContract?.address,
+    abi: treasuryContract?.abi,
+    functionName: "pendingWithdrawals",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!treasuryContract },
+  });
+  const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
+  const pendingWithdrawalDisplay = pendingWithdrawal ? formatUnits(pendingWithdrawal as bigint, decimals) : "0";
 
   // Fetch data from subgraph
   const fetchData = useCallback(
@@ -1163,6 +1179,33 @@ const MarketsPage: NextPage = () => {
         </div>
       </div>
 
+      {showOnlyHoldings && hasPendingWithdrawal && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-br from-success/5 to-success/10 border border-success/20 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-success border border-success/10">
+              <CurrencyDollarIcon className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-sm font-medium opacity-60">Pending Withdrawal</div>
+              <div className="text-2xl font-bold flex items-baseline gap-1.5">
+                {Number(pendingWithdrawalDisplay).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                <span className="text-base font-semibold text-success">({symbol})</span>
+              </div>
+              <p className="text-sm opacity-70 mt-1">Claimable proceeds are ready to move back to your wallet.</p>
+            </div>
+          </div>
+          <button
+            className="btn btn-success text-white w-full sm:w-auto px-6 shadow-md shadow-success/20 hover:shadow-lg hover:shadow-success/30 transition-all rounded-xl"
+            onClick={() => setIsWithdrawProceedsOpen(true)}
+          >
+            Withdraw Now
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       {loading ||
       isLoadingPrimaryPoolSupply ||
@@ -1604,6 +1647,18 @@ const MarketsPage: NextPage = () => {
           })()}
         />
       )}
+
+      <WithdrawProceedsModal
+        isOpen={isWithdrawProceedsOpen}
+        onClose={() => {
+          setIsWithdrawProceedsOpen(false);
+          refetchPendingWithdrawal();
+          fetchData(false);
+          refetchHoldings?.();
+          refetchPrimaryPoolHoldings?.();
+          refetchActionPreviewData();
+        }}
+      />
     </div>
   );
 };
