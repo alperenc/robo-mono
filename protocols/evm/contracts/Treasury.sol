@@ -59,8 +59,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     modifier onlyAuthorizedAssetOwner(uint256 assetId) {
-        _requireAssetExists(assetId);
-        _requireAuthorizedAssetOwner(msg.sender, assetId);
+        _onlyAuthorizedAssetOwner(assetId);
         _;
     }
 
@@ -77,6 +76,11 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         if (!router.assetExists(assetId)) {
             revert AssetNotFound();
         }
+    }
+
+    function _onlyAuthorizedAssetOwner(uint256 assetId) internal view {
+        _requireAssetExists(assetId);
+        _requireAuthorizedAssetOwner(msg.sender, assetId);
     }
 
     /**

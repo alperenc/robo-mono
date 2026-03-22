@@ -42,8 +42,7 @@ contract EarningsManager is
     }
 
     modifier onlyAuthorizedAssetOwner(uint256 assetId) {
-        _requireAssetExists(assetId);
-        _requireAuthorizedAssetOwner(msg.sender, assetId);
+        _onlyAuthorizedAssetOwner(assetId);
         _;
     }
 
@@ -91,6 +90,11 @@ contract EarningsManager is
         if (roboshareTokens.balanceOf(partner, assetId) == 0) {
             revert ITreasury.NotAssetOwner();
         }
+    }
+
+    function _onlyAuthorizedAssetOwner(uint256 assetId) internal view {
+        _requireAssetExists(assetId);
+        _requireAuthorizedAssetOwner(msg.sender, assetId);
     }
 
     function assetEarnings(uint256 assetId)

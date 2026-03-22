@@ -793,11 +793,19 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         treasury.releasePartialCollateral(scenario.assetId);
     }
 
-    function testReleaseCollateralNotAssetOwner() public {
-        vm.expectRevert(ITreasury.NotAssetOwner.selector);
+    function testReleaseCollateralAssetNotFound() public {
+        vm.expectRevert(ITreasury.AssetNotFound.selector);
         vm.prank(partner1);
         treasury.releaseCollateral(999);
         vm.stopPrank();
+    }
+
+    function testReleaseCollateralNotAssetOwner() public {
+        _ensureState(SetupState.BuffersFunded);
+
+        vm.expectRevert(ITreasury.NotAssetOwner.selector);
+        vm.prank(partner2);
+        treasury.releaseCollateral(scenario.assetId);
     }
 
     // Withdrawal Tests

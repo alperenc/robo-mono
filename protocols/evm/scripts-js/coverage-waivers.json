@@ -1,7 +1,7 @@
 [
   {
     "file": "contracts/EarningsManager.sol",
-    "line": 327,
+    "line": 323,
     "sourceIncludes": "if (isSettled) {",
     "classification": "via_ir_artifact",
     "reason": "Settled earnings claim flow is exercised by integration tests, but the settled-branch anchor is not attributed reliably under --ir-minimum."
@@ -105,7 +105,7 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 177,
+    "line": 179,
     "classification": "via_ir_artifact",
     "reason": "Invalid collateral amount via enableProceeds(assetId) is exercised in tests, but the defensive duplicate check inside _fundCurrentBuffers is not mapped reliably under --ir-minimum."
   },
@@ -118,19 +118,19 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 209,
+    "line": 211,
     "classification": "unreachable_valid_flow",
     "reason": "Initialized collateral inside _fundCurrentBuffers cannot have lockedAt == 0 through normal flows."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 382,
+    "line": 384,
     "classification": "unreachable_valid_flow",
     "reason": "Primary redemption payout is bounded by current investor liquidity and current redemption supply under valid protocol state, so the zero-or-overflow guard is only defensive."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 364,
+    "line": 366,
     "classification": "via_ir_artifact",
     "reason": "Zero-amount primary redemption is exercised by integration tests, but the early guard is not attributed reliably under --ir-minimum coverage mapping."
   },
