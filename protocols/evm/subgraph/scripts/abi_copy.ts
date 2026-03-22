@@ -26,6 +26,7 @@ const DEFAULT_NETWORKS_BY_CHAIN_ID: Record<number, string> = {
   31337: "localhost",
   11155111: "sepolia",
 };
+const EXCLUDED_CONTRACTS = new Set(["ERC1967Proxy"]);
 
 const GRAPH_DIR = "./";
 
@@ -145,6 +146,9 @@ async function main() {
   }
 
   for (const contractName in targetContracts) {
+    if (EXCLUDED_CONTRACTS.has(contractName)) {
+      continue;
+    }
     const contractObject = targetContracts[contractName];
     if (!contractObject) {
       console.error(

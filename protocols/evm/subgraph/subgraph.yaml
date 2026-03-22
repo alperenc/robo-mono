@@ -29,7 +29,7 @@ dataSources:
     network: localhost
     source:
       abi: RoboshareTokens
-      address: "0x8ce361602B935680E8DeC218b820ff5056BeB7af"
+      address: "0xe1Aa25618fA0c7A1CFDab5d6B456af611873b629"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -54,7 +54,7 @@ dataSources:
     network: localhost
     source:
       abi: PartnerManager
-      address: "0xe1DA8919f262Ee86f9BE05059C9280142CF23f48"
+      address: "0x0C8E79F3534B00D9a3D4a856B665Bf4eBC22f2ba"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -74,7 +74,7 @@ dataSources:
     network: localhost
     source:
       abi: RegistryRouter
-      address: "0xeD1DB453C3156Ff3155a97AD217b3087D5Dc5f6E"
+      address: "0xf7Cd8fa9b94DB2Aa972023b379c7f72c65E4De9D"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -96,7 +96,7 @@ dataSources:
     network: localhost
     source:
       abi: VehicleRegistry
-      address: "0x12975173B87F7595EE45dFFb2Ab812ECE596Bf84"
+      address: "0x82Dc47734901ee7d4f4232f398752cB9Dd5dACcC"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -119,7 +119,7 @@ dataSources:
     network: localhost
     source:
       abi: Treasury
-      address: "0x196dBCBb54b8ec4958c959D8949EBFE87aC2Aaaf"
+      address: "0x82C6D3ed4cD33d8EC1E51d0B5Cc1d822Eaa0c3dC"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -133,6 +133,24 @@ dataSources:
       eventHandlers:
         - event: CollateralLocked(indexed uint256,indexed address,uint256)
           handler: handleCollateralLocked
+      file: ./src/mapping.ts
+  - kind: ethereum/contract
+    name: EarningsManager
+    network: localhost
+    source:
+      abi: EarningsManager
+      address: "0x13Bd9422D1aE8356644C4B134F7D672B5dFF6C2D"
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - EarningsDistribution
+        - AssetEarning
+      abis:
+        - name: EarningsManager
+          file: ./abis/EarningsManager.json
+      eventHandlers:
         - event: EarningsDistributed(indexed uint256,indexed
             address,uint256,uint256,uint256)
           handler: handleEarningsDistributed
@@ -142,7 +160,7 @@ dataSources:
     network: localhost
     source:
       abi: Marketplace
-      address: "0x05B4CB126885fb10464fdD12666FEb25E2563B76"
+      address: "0xc6B8FBF96CF7bbE45576417EC2163AcecFA88ECC"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6

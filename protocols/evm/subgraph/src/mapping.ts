@@ -23,9 +23,11 @@ import {
 } from "../generated/VehicleRegistry/VehicleRegistry"
 import {
   Treasury,
-  CollateralLocked as CollateralLockedEvent,
-  EarningsDistributed as EarningsDistributedEvent
+  CollateralLocked as CollateralLockedEvent
 } from "../generated/Treasury/Treasury"
+import {
+  EarningsDistributed as EarningsDistributedEvent
+} from "../generated/EarningsManager/EarningsManager"
 import {
   Marketplace,
   ListingCreated as ListingCreatedEvent,
@@ -56,7 +58,6 @@ import {
   CollateralLock,
   MarketplaceContract,
   Listing,
-  TokenTrade,
   EarningsDistribution,
   AssetEarning,
   PrimaryPool,
@@ -122,6 +123,7 @@ export function handleRevenueTokenInfoSet(event: RevenueTokenInfoSetEvent): void
   token.supply = event.params.supply
   token.targetYieldBP = roboshareTokens.getTargetYieldBP(event.params.revenueTokenId)
   token.maturityDate = event.params.maturityDate
+  token.createdAt = event.block.timestamp
   token.setAtBlock = event.block.number
   token.save()
 }
@@ -318,21 +320,6 @@ export function handleListingCreated(event: ListingCreatedEvent): void {
 }
 
 export function handleRevenueTokensTraded(event: RevenueTokensTradedEvent): void {
-  // Create TokenTrade entity
-  let trade = new TokenTrade(
-    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
-  )
-  trade.listingId = event.params.listingId
-  trade.tokenId = event.params.tokenId
-  trade.buyer = event.params.to
-  trade.seller = event.params.from
-  trade.amount = event.params.amount
-  trade.totalPrice = event.params.totalPrice
-  trade.blockNumber = event.block.number
-  trade.blockTimestamp = event.block.timestamp
-  trade.transactionHash = event.transaction.hash
-  trade.save()
-
   // Update listing amountSold and remaining amount
   let listing = Listing.load(event.params.listingId.toString())
   if (listing) {
