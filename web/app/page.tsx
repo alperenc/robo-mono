@@ -44,14 +44,17 @@ const HomePage = () => {
             {hasMarketsSupport
               ? isConnected
                 ? "Markets is supported here. You should be redirected automatically."
-                : "Markets is supported here. Connect a wallet to continue automatically, or open Markets directly."
+                : "Markets is supported here. Connect a wallet before opening Markets from this device."
               : "Markets is not configured on this network yet. Switch to a supported network to continue."}
           </p>
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link href={hasMarketsSupport ? "/markets" : "/"} className="btn btn-primary flex-1 rounded-full">
-            {hasMarketsSupport ? "Open Markets" : "Stay on Home"}
+          <Link
+            href={isConnected && hasMarketsSupport ? "/markets" : "/"}
+            className="btn btn-primary flex-1 rounded-full"
+          >
+            {isConnected && hasMarketsSupport ? "Open Markets" : "Stay on Home"}
             <ArrowRightIcon className="h-4 w-4" />
           </Link>
         </div>

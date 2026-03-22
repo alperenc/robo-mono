@@ -1014,6 +1014,7 @@ const MarketsPage: NextPage = () => {
       if (!opts?.skipImmediateFetch) {
         fetchData(false);
       }
+      refetchPendingWithdrawal();
       refetchHoldings?.();
       // Subgraph/indexing can lag by a few seconds; retry refresh to reflect latest listing state.
       window.setTimeout(() => fetchData(false), 1200);
@@ -1025,6 +1026,7 @@ const MarketsPage: NextPage = () => {
     [
       fetchData,
       refetchHoldings,
+      refetchPendingWithdrawal,
       refetchPrimaryPoolHoldings,
       refetchPrimaryPoolRedemptionPreviews,
       refetchPrimaryPoolSupply,
