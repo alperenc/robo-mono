@@ -42,13 +42,6 @@ export const EnableProceedsModal = ({
   const assetIdBigInt = BigInt(assetId);
   const tokenId = assetIdBigInt + 1n;
 
-  const { data: baseLiquidity } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "getPrimaryInvestorLiquidity",
-    args: [assetIdBigInt],
-    query: { enabled: isOpen },
-  });
-
   const { data: collateralInfo } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "assetCollateral",
@@ -56,11 +49,36 @@ export const EnableProceedsModal = ({
     query: { enabled: isOpen },
   });
 
+  const bufferTargetBase = useMemo(() => {
+    const currentCollateral = collateralInfo as
+      | {
+          baseCollateral?: bigint;
+          outstandingImmediateProceedsBase?: bigint;
+        }
+      | readonly unknown[]
+      | undefined;
+    const currentCollateralObject =
+      currentCollateral && !Array.isArray(currentCollateral)
+        ? (currentCollateral as { baseCollateral?: bigint; outstandingImmediateProceedsBase?: bigint })
+        : undefined;
+    const currentCollateralArray = Array.isArray(currentCollateral)
+      ? (currentCollateral as readonly unknown[])
+      : undefined;
+    const currentBaseLiquidity =
+      currentCollateralObject?.baseCollateral ?? (currentCollateralArray?.[1] as bigint | undefined) ?? 0n;
+    const outstandingImmediateProceedsBase =
+      currentCollateralObject?.outstandingImmediateProceedsBase ??
+      (currentCollateralArray?.[12] as bigint | undefined) ??
+      0n;
+
+    return immediateProceeds ? currentBaseLiquidity + outstandingImmediateProceedsBase : currentBaseLiquidity;
+  }, [collateralInfo, immediateProceeds]);
+
   const { data: bufferPreview } = useScaffoldReadContract({
     contractName: "Marketplace",
     functionName: "previewPrimaryPoolBufferRequirements",
-    args: [tokenId, (baseLiquidity as bigint | undefined) ?? 0n],
-    query: { enabled: isOpen && ((baseLiquidity as bigint | undefined) ?? 0n) > 0n },
+    args: [tokenId, bufferTargetBase],
+    query: { enabled: isOpen && bufferTargetBase > 0n },
   });
 
   const { data: allowance } = useScaffoldReadContract({
@@ -72,15 +90,29 @@ export const EnableProceedsModal = ({
   });
 
   const fundingBreakdown = useMemo(() => {
-    const currentBaseLiquidity = (baseLiquidity as bigint | undefined) ?? 0n;
     const currentCollateral = collateralInfo as
       | {
+          baseCollateral?: bigint;
           earningsBuffer?: bigint;
           protocolBuffer?: bigint;
-          coveredBaseCollateral?: bigint;
+          outstandingImmediateProceedsBase?: bigint;
         }
       | readonly unknown[]
       | undefined;
+    const currentCollateralObject =
+      currentCollateral && !Array.isArray(currentCollateral)
+        ? (currentCollateral as {
+            baseCollateral?: bigint;
+            earningsBuffer?: bigint;
+            protocolBuffer?: bigint;
+            outstandingImmediateProceedsBase?: bigint;
+          })
+        : undefined;
+    const currentCollateralArray = Array.isArray(currentCollateral)
+      ? (currentCollateral as readonly unknown[])
+      : undefined;
+    const currentBaseLiquidity =
+      currentCollateralObject?.baseCollateral ?? (currentCollateralArray?.[1] as bigint | undefined) ?? 0n;
     const preview = bufferPreview as readonly unknown[] | undefined;
 
     if (!preview) {
@@ -89,18 +121,12 @@ export const EnableProceedsModal = ({
         protectionDue: 0n,
         totalDue: 0n,
         baseLiquidity: currentBaseLiquidity,
+        bufferTargetBase,
       };
     }
 
     const requiredProtocol = (preview[0] as bigint | undefined) ?? 0n;
     const requiredProtection = (preview[1] as bigint | undefined) ?? 0n;
-    const currentCollateralObject =
-      currentCollateral && !Array.isArray(currentCollateral)
-        ? (currentCollateral as { earningsBuffer?: bigint; protocolBuffer?: bigint })
-        : undefined;
-    const currentCollateralArray = Array.isArray(currentCollateral)
-      ? (currentCollateral as readonly unknown[])
-      : undefined;
     const currentProtocolFromArray = (currentCollateralArray?.[3] as bigint | undefined) ?? 0n;
     const currentProtectionFromArray = (currentCollateralArray?.[2] as bigint | undefined) ?? 0n;
     const currentProtocol = currentCollateralObject?.protocolBuffer ?? currentProtocolFromArray;
@@ -114,8 +140,9 @@ export const EnableProceedsModal = ({
       protectionDue,
       totalDue: protocolDue + protectionDue,
       baseLiquidity: currentBaseLiquidity,
+      bufferTargetBase,
     };
-  }, [baseLiquidity, bufferPreview, collateralInfo]);
+  }, [bufferPreview, bufferTargetBase, collateralInfo]);
 
   useEffect(() => {
     if (!isOpen) {

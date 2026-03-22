@@ -22,8 +22,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
   const { symbol, decimals } = usePaymentToken();
   const [topUpAmount, setTopUpAmount] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [mode, setMode] = useState<"settle" | "liquidate">("settle");
-  const [pendingAction, setPendingAction] = useState<"settle" | "liquidate" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"settle" | null>(null);
 
   useEscClose(isOpen, onClose);
 
@@ -55,11 +54,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
   const isAlreadySettled = liquidationReason === 2;
   const hasSettleAction = isAssetOwner;
   const hasLiquidateAction = liquidationEligible;
-  const hasBothActions = hasSettleAction && hasLiquidateAction;
-  const isLiquidationOnly = !hasSettleAction;
-
-  const modeLabel = mode === "settle" ? "Begin Final Payout" : "Force Final Payout";
-  const showTopUpControls = mode === "settle" && hasSettleAction;
+  const showTopUpControls = hasSettleAction;
   const isPaymentPending = pendingAction === "settle" && isPending;
 
   // Check payment token allowance (settlement top-up path only)
@@ -68,7 +63,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
     functionName: "allowance",
     args: [connectedAddress, treasuryAddress],
     watch: true,
-    query: { enabled: isOpen && !!connectedAddress && !!treasuryAddress && showTopUpControls },
+    query: { enabled: isOpen && !!connectedAddress && !!treasuryAddress && hasSettleAction },
   });
 
   const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
@@ -77,18 +72,9 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
     if (!isOpen) {
       setTopUpAmount("");
       setIsConfirmed(false);
-      setMode("settle");
       setPendingAction(null);
-      return;
     }
-
-    // Role-aware default presentation.
-    if (isLiquidationOnly) {
-      setMode("liquidate");
-    } else {
-      setMode("settle");
-    }
-  }, [isOpen, isLiquidationOnly]);
+  }, [isOpen]);
 
   const handleSettle = async () => {
     if (!treasuryAddress) return;
@@ -122,26 +108,6 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
     }
   };
 
-  const handleLiquidate = async () => {
-    if (!hasLiquidateAction || isAlreadySettled) return;
-
-    try {
-      setPendingAction("liquidate");
-      await writeVehicleRegistry({
-        functionName: "liquidateAsset",
-        args: [assetIdBigInt],
-      });
-
-      setTopUpAmount("");
-      setIsConfirmed(false);
-      onClose();
-    } catch (e) {
-      console.error("Error liquidating asset:", e);
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
   const liquidationReasonLabel = useMemo(() => {
     if (!hasLiquidateAction) return null;
     if (liquidationReason === 0) return "Eligible for final payout at term end";
@@ -150,7 +116,6 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
   }, [hasLiquidateAction, liquidationReason]);
 
   const disableSettle = !isConfirmed || isPending || !hasSettleAction || isAlreadySettled;
-  const disableLiquidate = !isConfirmed || isPending || !hasLiquidateAction || isAlreadySettled;
 
   if (!isOpen) return null;
 
@@ -171,40 +136,15 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
 
           {/* Header */}
           <div className="p-4 border-b border-base-200 shrink-0">
-            <h3 className={`font-bold text-xl ${mode === "liquidate" ? "text-error" : ""}`}>{modeLabel}</h3>
-            <p className="text-sm opacity-60 mt-1">
-              {mode === "settle"
-                ? "End payouts and make final holder payouts available"
-                : "Force final resolution and make holder payouts available"}
-            </p>
+            <h3 className="font-bold text-xl">Begin Final Payout</h3>
+            <p className="text-sm opacity-60 mt-1">End payouts and make final holder payouts available</p>
           </div>
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
-              {hasBothActions && (
-                <div className="join w-full">
-                  <button
-                    type="button"
-                    className={`btn join-item flex-1 ${mode === "settle" ? "btn-primary" : "btn-ghost border-base-300"}`}
-                    onClick={() => setMode("settle")}
-                    disabled={isPending}
-                  >
-                    Begin Final Payout
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn join-item flex-1 ${mode === "liquidate" ? "btn-error" : "btn-ghost border-base-300"}`}
-                    onClick={() => setMode("liquidate")}
-                    disabled={isPending}
-                  >
-                    Force Final Payout
-                  </button>
-                </div>
-              )}
-
               {/* Warning Alert */}
-              <div className={`alert ${mode === "liquidate" ? "alert-error" : "alert-warning"}`}>
+              <div className="alert alert-warning">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="stroke-current shrink-0 h-6 w-6"
@@ -221,45 +161,29 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                 <div>
                   <div className="font-semibold">This action is irreversible</div>
                   <div className="text-sm">
-                    {mode === "settle" ? (
-                      <>
-                        Starting final payout for <strong>{assetName}</strong> will end payouts and allow holders to
-                        claim their final payout.
-                      </>
-                    ) : (
-                      <>
-                        Force closing <strong>{assetName}</strong> will trigger final resolution and allow holders to
-                        claim their final payout.
-                      </>
-                    )}
+                    Starting final payout for <strong>{assetName}</strong> will end payouts and allow holders to claim
+                    their final payout.
                   </div>
                 </div>
               </div>
 
               {hasLiquidateAction && liquidationReasonLabel && (
-                <div
-                  className={`rounded-lg border p-3 text-sm ${mode === "liquidate" ? "border-error/30 bg-error/10" : "border-warning/30 bg-warning/10"}`}
-                >
+                <div className="rounded-lg border border-base-300 bg-base-200 p-3 text-sm">
                   <div className="font-medium">{liquidationReasonLabel}</div>
                   <div className="opacity-75 mt-1">
                     {liquidationReason === 0
                       ? "This asset can be force closed because it has reached maturity."
                       : liquidationReason === 1
                         ? "This asset can be force closed due to insolvency after missed-payout shortfall accrual."
-                        : "This asset can be force closed under the current rules."}
-                    {mode === "settle" && hasSettleAction
-                      ? " You may still choose to begin final payout voluntarily."
-                      : ""}
+                        : "This asset can be force closed under the current rules."}{" "}
+                    Forced final payout remains a public protocol action and is not managed from the partner dashboard.
                   </div>
                 </div>
               )}
 
-              {!hasLiquidateAction && isLiquidationOnly && (
+              {!hasSettleAction && (
                 <div className="alert alert-info">
-                  <span className="text-sm">
-                    This asset is not currently eligible for forced final payout. That becomes available only after
-                    maturity or insolvency.
-                  </span>
+                  <span className="text-sm">Only the asset owner can begin final payout from this dashboard.</span>
                 </div>
               )}
 
@@ -269,17 +193,19 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                   <label className="label py-1">
                     <span className="label-text text-xs font-bold uppercase opacity-60">Top-Up Amount (Optional)</span>
                   </label>
-                  <div className="join w-full">
+                  <div className="flex w-full rounded-full border-2 border-base-300 bg-base-100 text-accent">
                     <input
                       type="number"
                       step="0.000001"
                       min="0"
-                      className="input input-bordered join-item w-full"
+                      className="input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70"
                       value={topUpAmount}
                       onChange={e => setTopUpAmount(e.target.value)}
                       placeholder="0.00"
                     />
-                    <span className="join-item flex items-center px-3 bg-base-200 font-medium">{symbol}</span>
+                    <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                      {symbol}
+                    </span>
                   </div>
                   <label className="label py-1">
                     <span className="label-text-alt text-xs opacity-60">
@@ -310,30 +236,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
               <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isPending}>
                 Cancel
               </button>
-              {hasBothActions ? (
-                <>
-                  <button type="button" className="btn btn-error" onClick={handleLiquidate} disabled={disableLiquidate}>
-                    {pendingAction === "liquidate" && isPending ? (
-                      <>
-                        <span className="loading loading-spinner loading-sm"></span>
-                        Liquidating...
-                      </>
-                    ) : (
-                      "Force Final Payout"
-                    )}
-                  </button>
-                  <button type="button" className="btn btn-primary" onClick={handleSettle} disabled={disableSettle}>
-                    {pendingAction === "settle" && isPending ? (
-                      <>
-                        <span className="loading loading-spinner loading-sm"></span>
-                        Settling...
-                      </>
-                    ) : (
-                      "Begin Final Payout"
-                    )}
-                  </button>
-                </>
-              ) : hasSettleAction ? (
+              {hasSettleAction ? (
                 <button type="button" className="btn btn-error" onClick={handleSettle} disabled={disableSettle}>
                   {pendingAction === "settle" && isPaymentPending ? (
                     <>
@@ -344,18 +247,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                     "Begin Final Payout"
                   )}
                 </button>
-              ) : (
-                <button type="button" className="btn btn-error" onClick={handleLiquidate} disabled={disableLiquidate}>
-                  {pendingAction === "liquidate" && isPending ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm"></span>
-                      Liquidating...
-                    </>
-                  ) : (
-                    "Force Final Payout"
-                  )}
-                </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>

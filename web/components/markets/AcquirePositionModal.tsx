@@ -455,10 +455,10 @@ export function AcquirePositionModal({
                   </span>
                 </label>
                 {isPrimaryPurchase ? (
-                  <div className="join w-full">
+                  <div className="flex w-full rounded-full border-2 border-base-300 bg-base-100 text-accent">
                     <input
                       type="number"
-                      className="input input-bordered join-item w-full"
+                      className="input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70"
                       placeholder="0.00"
                       value={inputAmount}
                       onChange={e => setInputAmount(e.target.value)}
@@ -467,12 +467,14 @@ export function AcquirePositionModal({
                       step="0.01"
                       disabled={isApproving || isPurchasing}
                     />
-                    <span className="join-item flex items-center px-3 bg-base-300 font-medium text-sm">{symbol}</span>
+                    <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                      {symbol}
+                    </span>
                   </div>
                 ) : (
                   <input
                     type="number"
-                    className="input input-bordered w-full"
+                    className="input input-bordered w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70 placeholder:text-accent/70"
                     placeholder="0"
                     value={inputAmount}
                     onChange={e => setInputAmount(e.target.value)}

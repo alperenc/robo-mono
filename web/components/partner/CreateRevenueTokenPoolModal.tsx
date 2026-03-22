@@ -210,11 +210,18 @@ export const CreateRevenueTokenPoolModal = ({
                       <span className="label-text font-medium">Token Price ({symbol})</span>
                       {isMissing("tokenPrice") && <span className="label-text-alt text-error">Required</span>}
                     </label>
-                    <div className="join w-full">
+                    <div
+                      className={`flex w-full rounded-full border-2 bg-base-100 text-accent ${
+                        isMissing("tokenPrice") ? "border-error" : "border-base-300"
+                      }`}
+                    >
                       <input
                         type="number"
                         name="tokenPrice"
-                        className={inputClass("input input-bordered join-item w-full", "tokenPrice")}
+                        className={inputClass(
+                          "input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70",
+                          "tokenPrice",
+                        )}
                         value={formData.tokenPrice}
                         onChange={handleInputChange}
                         onBlur={handleFieldBlur}
@@ -222,7 +229,9 @@ export const CreateRevenueTokenPoolModal = ({
                         step="0.01"
                         required
                       />
-                      <span className="join-item flex items-center px-3 bg-base-300 font-medium">{symbol}</span>
+                      <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                        {symbol}
+                      </span>
                     </div>
                   </div>
                   <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full self-end min-h-[88px] flex flex-col items-center justify-center">
@@ -239,7 +248,10 @@ export const CreateRevenueTokenPoolModal = ({
                     <input
                       type="number"
                       name="revenueShareBP"
-                      className={inputClass("input input-bordered w-full", "revenueShareBP")}
+                      className={inputClass(
+                        "input input-bordered w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70 placeholder:text-accent/70",
+                        "revenueShareBP",
+                      )}
                       value={formData.revenueShareBP}
                       onChange={handleInputChange}
                       onBlur={handleFieldBlur}
@@ -255,7 +267,10 @@ export const CreateRevenueTokenPoolModal = ({
                     <input
                       type="number"
                       name="targetYieldBP"
-                      className={inputClass("input input-bordered w-full", "targetYieldBP")}
+                      className={inputClass(
+                        "input input-bordered w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70 placeholder:text-accent/70",
+                        "targetYieldBP",
+                      )}
                       value={formData.targetYieldBP}
                       onChange={handleInputChange}
                       onBlur={handleFieldBlur}
@@ -270,7 +285,9 @@ export const CreateRevenueTokenPoolModal = ({
                     </label>
                     <select
                       name="maturityMonths"
-                      className={`select select-bordered w-full ${isMissing("maturityMonths") ? "select-error" : ""}`}
+                      className={`select select-bordered w-full rounded-full border-2 bg-base-100 font-medium text-base-content/70 ${
+                        isMissing("maturityMonths") ? "border-error select-error" : "border-base-300"
+                      }`}
                       value={formData.maturityMonths}
                       onChange={handleInputChange}
                       onBlur={handleFieldBlur}
