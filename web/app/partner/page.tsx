@@ -391,6 +391,28 @@ const PartnerDashboard: NextPage = () => {
   });
   const tokenMaturityDates = maturityDatesData as ContractResult<bigint>[] | undefined;
 
+  const { data: immediateProceedsData, refetch: refetchImmediateProceeds } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      address: roboshareTokensContract?.address,
+      abi: roboshareTokensContract?.abi,
+      functionName: "getRevenueTokenImmediateProceedsEnabled",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+  });
+  const immediateProceedsFlags = immediateProceedsData as ContractResult<boolean>[] | undefined;
+
+  const { data: protectionEnabledData, refetch: refetchProtectionEnabled } = useReadContracts({
+    contracts: allAssets.map(asset => ({
+      address: roboshareTokensContract?.address,
+      abi: roboshareTokensContract?.abi,
+      functionName: "getRevenueTokenProtectionEnabled",
+      args: [BigInt(asset.id) + 1n],
+    })),
+    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+  });
+  const protectionEnabledFlags = protectionEnabledData as ContractResult<boolean>[] | undefined;
+
   // Fetch Asset Statuses from RegistryRouter
   const routerConfig = {
     address: registryRouterContract?.address,
@@ -441,16 +463,6 @@ const PartnerDashboard: NextPage = () => {
     abi: treasuryContract?.abi,
   } as const;
 
-  const { data: primaryInvestorLiquidityData, refetch: refetchPrimaryInvestorLiquidity } = useReadContracts({
-    contracts: allAssets.map(asset => ({
-      ...treasuryConfig,
-      functionName: "getPrimaryInvestorLiquidity",
-      args: [BigInt(asset.id)],
-    })),
-    query: { enabled: !!treasuryContract && allAssets.length > 0 },
-  });
-  const primaryInvestorLiquidity = primaryInvestorLiquidityData as ContractResult<bigint>[] | undefined;
-
   const { data: collateralInfoData, refetch: refetchCollateralInfo } = useReadContracts({
     contracts: allAssets.map(asset => ({
       ...treasuryConfig,
@@ -466,14 +478,33 @@ const PartnerDashboard: NextPage = () => {
     contracts: allAssets.map((asset, index) => ({
       ...marketplaceConfig,
       functionName: "previewPrimaryPoolBufferRequirements",
-      args: [BigInt(asset.id) + 1n, (primaryInvestorLiquidity?.[index]?.result as bigint | undefined) ?? 0n],
+      args: [
+        BigInt(asset.id) + 1n,
+        (() => {
+          const collateral = collateralInfo?.[index]?.result as
+            | {
+                baseCollateral?: bigint;
+                outstandingImmediateProceedsBase?: bigint;
+              }
+            | readonly unknown[]
+            | undefined;
+          const collateralObject = !Array.isArray(collateral)
+            ? (collateral as { baseCollateral?: bigint; outstandingImmediateProceedsBase?: bigint } | undefined)
+            : undefined;
+          const currentBaseLiquidity = Array.isArray(collateral)
+            ? ((collateral[1] as bigint | undefined) ?? 0n)
+            : (collateralObject?.baseCollateral ?? 0n);
+          const outstandingImmediateProceedsBase = Array.isArray(collateral)
+            ? ((collateral[12] as bigint | undefined) ?? 0n)
+            : (collateralObject?.outstandingImmediateProceedsBase ?? 0n);
+          const immediateProceeds = (immediateProceedsFlags?.[index]?.result as boolean | undefined) ?? false;
+          return immediateProceeds ? currentBaseLiquidity + outstandingImmediateProceedsBase : currentBaseLiquidity;
+        })(),
+      ],
     })),
     query: {
       enabled:
-        !!marketplaceContract &&
-        allAssets.length > 0 &&
-        !!primaryInvestorLiquidity &&
-        primaryInvestorLiquidity.length === allAssets.length,
+        !!marketplaceContract && allAssets.length > 0 && !!collateralInfo && collateralInfo.length === allAssets.length,
     },
     allowFailure: true,
   });
@@ -487,9 +518,10 @@ const PartnerDashboard: NextPage = () => {
   const refetchMaxSuppliesRef = useRef(refetchMaxSupplies);
   const refetchStatusesRef = useRef(refetchStatuses);
   const refetchMaturityDatesRef = useRef(refetchMaturityDates);
+  const refetchImmediateProceedsRef = useRef(refetchImmediateProceeds);
+  const refetchProtectionEnabledRef = useRef(refetchProtectionEnabled);
   const refetchPrimaryPoolCreatedRef = useRef(refetchPrimaryPoolCreated);
   const refetchPrimaryPoolDetailsRef = useRef(refetchPrimaryPoolDetails);
-  const refetchPrimaryInvestorLiquidityRef = useRef(refetchPrimaryInvestorLiquidity);
   const refetchCollateralInfoRef = useRef(refetchCollateralInfo);
   const refetchPrimaryPoolBufferRequirementsRef = useRef(refetchPrimaryPoolBufferRequirements);
   const refetchPartnerTokenBalancesRef = useRef(refetchPartnerTokenBalances);
@@ -498,9 +530,10 @@ const PartnerDashboard: NextPage = () => {
   refetchMaxSuppliesRef.current = refetchMaxSupplies;
   refetchStatusesRef.current = refetchStatuses;
   refetchMaturityDatesRef.current = refetchMaturityDates;
+  refetchImmediateProceedsRef.current = refetchImmediateProceeds;
+  refetchProtectionEnabledRef.current = refetchProtectionEnabled;
   refetchPrimaryPoolCreatedRef.current = refetchPrimaryPoolCreated;
   refetchPrimaryPoolDetailsRef.current = refetchPrimaryPoolDetails;
-  refetchPrimaryInvestorLiquidityRef.current = refetchPrimaryInvestorLiquidity;
   refetchCollateralInfoRef.current = refetchCollateralInfo;
   refetchPrimaryPoolBufferRequirementsRef.current = refetchPrimaryPoolBufferRequirements;
   refetchPartnerTokenBalancesRef.current = refetchPartnerTokenBalances;
@@ -513,9 +546,10 @@ const PartnerDashboard: NextPage = () => {
       void refetchMaxSuppliesRef.current();
       void refetchStatusesRef.current();
       void refetchMaturityDatesRef.current();
+      void refetchImmediateProceedsRef.current();
+      void refetchProtectionEnabledRef.current();
       void refetchPrimaryPoolCreatedRef.current();
       void refetchPrimaryPoolDetailsRef.current();
-      void refetchPrimaryInvestorLiquidityRef.current();
       void refetchCollateralInfoRef.current();
       void refetchPrimaryPoolBufferRequirementsRef.current();
       void refetchPartnerTokenBalancesRef.current();
@@ -583,21 +617,16 @@ const PartnerDashboard: NextPage = () => {
         (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
           ? primaryPoolDetail.isClosed
           : primaryPoolDetail?.[7]) ?? false;
-      const immediateProceeds =
-        (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
-          ? primaryPoolDetail.immediateProceeds
-          : primaryPoolDetail?.[4]) ?? false;
+      const immediateProceeds = (immediateProceedsFlags?.[index]?.result as boolean | undefined) ?? false;
       const maxSupply = revenueTokenMaxSupply ?? 0n;
       const poolPricePerToken = tokenPrice ?? 0n;
-      const protectionEnabled =
-        (primaryPoolDetail && !Array.isArray(primaryPoolDetail)
-          ? primaryPoolDetail.protectionEnabled
-          : primaryPoolDetail?.[5]) ?? false;
-      const investorLiquidity = (primaryInvestorLiquidity?.[index]?.result as bigint | undefined) ?? 0n;
+      const protectionEnabled = (protectionEnabledFlags?.[index]?.result as boolean | undefined) ?? false;
       const collateral = collateralInfo?.[index]?.result as
         | {
+            baseCollateral?: bigint;
             earningsBuffer?: bigint;
             protocolBuffer?: bigint;
+            outstandingImmediateProceedsBase?: bigint;
           }
         | readonly unknown[]
         | undefined;
@@ -605,8 +634,18 @@ const PartnerDashboard: NextPage = () => {
       const requiredProtocolBuffer = (bufferPreview?.[0] as bigint | undefined) ?? 0n;
       const requiredProtectionBuffer = (bufferPreview?.[1] as bigint | undefined) ?? 0n;
       const collateralObject = !Array.isArray(collateral)
-        ? (collateral as { earningsBuffer?: bigint; protocolBuffer?: bigint } | undefined)
+        ? (collateral as
+            | {
+                baseCollateral?: bigint;
+                earningsBuffer?: bigint;
+                protocolBuffer?: bigint;
+                outstandingImmediateProceedsBase?: bigint;
+              }
+            | undefined)
         : undefined;
+      const investorLiquidity = Array.isArray(collateral)
+        ? ((collateral[1] as bigint | undefined) ?? 0n)
+        : (collateralObject?.baseCollateral ?? 0n);
       const currentProtocolBuffer = Array.isArray(collateral)
         ? ((collateral[3] as bigint | undefined) ?? 0n)
         : (collateralObject?.protocolBuffer ?? 0n);
@@ -1084,33 +1123,46 @@ const PartnerDashboard: NextPage = () => {
             {/* Section State Filter */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:ml-auto">
               <span className="text-xs font-bold uppercase opacity-50 lg:hidden">Status</span>
-              <div className="join bg-base-200 p-1 rounded-lg flex-wrap">
+              <div className="join w-full bg-base-200 p-1 rounded-lg sm:w-auto">
                 <button
-                  className={`btn btn-sm join-item ${filterState === "ALL" ? "btn-primary" : "btn-ghost"}`}
+                  className={`btn btn-xs sm:btn-sm join-item flex-1 sm:flex-none px-2 sm:px-3 text-[11px] sm:text-sm ${
+                    filterState === "ALL" ? "btn-primary" : "btn-ghost"
+                  }`}
                   onClick={() => setFilterState("ALL")}
                 >
                   All
                 </button>
                 <button
-                  className={`btn btn-sm join-item ${filterState === "PENDING_LISTINGS" ? "btn-primary" : "btn-ghost"}`}
+                  className={`btn btn-xs sm:btn-sm join-item flex-1 sm:flex-none px-2 sm:px-3 text-[11px] sm:text-sm ${
+                    filterState === "PENDING_LISTINGS" ? "btn-primary" : "btn-ghost"
+                  }`}
                   onClick={() => setFilterState("PENDING_LISTINGS")}
                 >
-                  Needs Setup
+                  <span className="sm:hidden">Setup</span>
+                  <span className="hidden sm:inline">Needs Setup</span>
                 </button>
                 <button
-                  className={`btn btn-sm join-item ${filterState === "ACTIVE_FLEET" ? "btn-primary" : "btn-ghost"}`}
+                  className={`btn btn-xs sm:btn-sm join-item flex-1 sm:flex-none px-2 sm:px-3 text-[11px] sm:text-sm ${
+                    filterState === "ACTIVE_FLEET" ? "btn-primary" : "btn-ghost"
+                  }`}
                   onClick={() => setFilterState("ACTIVE_FLEET")}
                 >
-                  Offerings
+                  <span className="sm:hidden">Offers</span>
+                  <span className="hidden sm:inline">Offerings</span>
                 </button>
                 <button
-                  className={`btn btn-sm join-item ${filterState === "ACTIVE_LISTINGS" ? "btn-primary" : "btn-ghost"}`}
+                  className={`btn btn-xs sm:btn-sm join-item flex-1 sm:flex-none px-2 sm:px-3 text-[11px] sm:text-sm ${
+                    filterState === "ACTIVE_LISTINGS" ? "btn-primary" : "btn-ghost"
+                  }`}
                   onClick={() => setFilterState("ACTIVE_LISTINGS")}
                 >
-                  Secondary
+                  <span className="sm:hidden">Listings</span>
+                  <span className="hidden sm:inline">Secondary</span>
                 </button>
                 <button
-                  className={`btn btn-sm join-item ${filterState === "SETTLED" ? "btn-primary" : "btn-ghost"}`}
+                  className={`btn btn-xs sm:btn-sm join-item flex-1 sm:flex-none px-2 sm:px-3 text-[11px] sm:text-sm ${
+                    filterState === "SETTLED" ? "btn-primary" : "btn-ghost"
+                  }`}
                   onClick={() => setFilterState("SETTLED")}
                 >
                   Settled

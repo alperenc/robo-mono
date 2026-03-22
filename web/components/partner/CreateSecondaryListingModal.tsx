@@ -228,7 +228,7 @@ export const CreateSecondaryListingModal = ({
                     <input
                       type="number"
                       name="amount"
-                      className="input input-bordered input-sm w-full"
+                      className="input input-bordered input-sm w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70 placeholder:text-accent/70"
                       value={formData.amount}
                       onChange={handleInputChange}
                       placeholder="e.g. 1000"
@@ -258,18 +258,20 @@ export const CreateSecondaryListingModal = ({
                         Price per Claim Unit ({symbol})
                       </span>
                     </label>
-                    <div className="join w-full">
+                    <div className="flex w-full rounded-full border-2 border-base-300 bg-base-100 text-accent">
                       <input
                         type="number"
                         step="0.000001"
                         name="pricePerToken"
-                        className="input input-bordered input-sm join-item w-full"
+                        className="input input-ghost input-sm h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70"
                         value={formData.pricePerToken}
                         onChange={handleInputChange}
                         placeholder="e.g. 1.00"
                         required
                       />
-                      <span className="join-item flex items-center px-3 bg-base-300 text-xs font-medium">{symbol}</span>
+                      <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                        {symbol}
+                      </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {[
