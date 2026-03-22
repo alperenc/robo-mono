@@ -370,10 +370,7 @@ contract RoboshareTokens is
         tokenInfo.currentRedemptionBackedPrincipal =
             releasedAmount >= backedPrincipal ? 0 : backedPrincipal - releasedAmount;
 
-        if (tokenInfo.currentRedemptionBackedPrincipal == 0) {
-            tokenInfo.currentRedemptionEpoch++;
-            tokenInfo.currentRedemptionEpochSupply = 0;
-        }
+        _rollRedemptionEpochIfExhausted(tokenInfo);
 
         emit PrimaryRedemptionStateUpdated(
             revenueTokenId,
@@ -397,10 +394,7 @@ contract RoboshareTokens is
         tokenInfo.currentRedemptionBackedPrincipal =
             payoutAmount >= backedPrincipal ? 0 : backedPrincipal - payoutAmount;
 
-        if (tokenInfo.currentRedemptionBackedPrincipal == 0) {
-            tokenInfo.currentRedemptionEpoch++;
-            tokenInfo.currentRedemptionEpochSupply = 0;
-        }
+        _rollRedemptionEpochIfExhausted(tokenInfo);
 
         emit PrimaryRedemptionStateUpdated(
             revenueTokenId,
@@ -633,6 +627,16 @@ contract RoboshareTokens is
             redemptionEpoch: epoch
         });
         queue.tail++;
+    }
+
+    function _rollRedemptionEpochIfExhausted(TokenLib.TokenInfo storage info) private {
+        if (info.currentRedemptionEpochSupply > 0 && info.currentRedemptionBackedPrincipal > 0) {
+            return;
+        }
+
+        info.currentRedemptionEpoch++;
+        info.currentRedemptionEpochSupply = 0;
+        info.currentRedemptionBackedPrincipal = 0;
     }
 
     function _transferPositionsFifo(TokenLib.TokenInfo storage info, address from, address to, uint256 amount) private {

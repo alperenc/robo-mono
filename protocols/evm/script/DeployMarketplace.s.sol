@@ -84,6 +84,8 @@ contract DeployMarketplace is ScaffoldETHDeploy {
         console.log("Deployer/Admin:", deployer);
         console.log("Dependencies verified and connected");
         console.log("==========================");
+        console.log("");
+        console.log("Post-deploy: call RegistryRouter.setMarketplace(<marketplace>)");
 
         return address(proxy);
     }

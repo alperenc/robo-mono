@@ -485,6 +485,27 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
     }
 
+    function testRecordPrimaryRedemptionPayoutAdvancesEpochWhenSupplyExhaustedBeforePrincipal() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
+
+        vm.prank(burner);
+        roboshareTokens.burn(user1, tokenId, 100);
+
+        vm.prank(burner);
+        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, principalBefore / 2);
+
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
+
+        vm.prank(minter);
+        roboshareTokens.mint(user2, tokenId, 10, "");
+
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user2, tokenId), 10);
+    }
+
     function testBurnRevenueTokenSkipsConsumedHeadPositions() public {
         uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
 

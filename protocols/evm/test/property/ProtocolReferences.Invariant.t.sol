@@ -53,8 +53,8 @@ contract ProtocolReferencesHandler {
         try treasury.updateRouter(target) { } catch { }
     }
 
-    function unauthorizedTreasuryUpdateEarningsManager(address target) external {
-        try treasury.updateEarningsManager(target) { } catch { }
+    function unauthorizedTreasurySetEarningsManager(address target) external {
+        try treasury.setEarningsManager(target) { } catch { }
     }
 
     function unauthorizedMarketplaceUpdatePartnerManager(address target) external {

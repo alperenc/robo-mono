@@ -83,6 +83,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _requireAuthorizedAssetOwner(msg.sender, assetId);
     }
 
+    function _requireEarningsManagerConfigured() internal view {
+        if (address(earningsManager) == address(0)) {
+            revert EarningsManagerNotSet();
+        }
+    }
+
     /**
      * @dev Initialize Treasury with core contract references
      */
@@ -176,6 +182,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     function _fundCurrentBuffers(address partner, uint256 assetId, uint256 baseAmount, bool protectionEnabled)
         internal
     {
+        _requireEarningsManagerConfigured();
         if (baseAmount == 0) {
             revert CollateralLib.InvalidCollateralAmount();
         }
@@ -358,6 +365,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         nonReentrant
         returns (uint256 payout)
     {
+        _requireEarningsManagerConfigured();
         _requireAssetExists(assetId);
         AssetLib.AssetStatus status = router.getAssetStatus(assetId);
         if (status != AssetLib.AssetStatus.Active && status != AssetLib.AssetStatus.Earning) {
@@ -599,6 +607,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             return (false, 2);
         }
 
+        _requireEarningsManagerConfigured();
         CollateralLib.CollateralInfo memory simulatedCollateral = assetCollateral[assetId];
         IEarningsManager.EarningsSummary memory earningsSummary = earningsManager.getAssetEarningsSummary(assetId);
         if (simulatedCollateral.isLocked && earningsSummary.lastEventTimestamp > 0) {
@@ -726,6 +735,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     function _applyMissedEarningsShortfall(uint256 assetId) internal {
+        _requireEarningsManagerConfigured();
         CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
         IEarningsManager.EarningsSummary memory earningsSummary = earningsManager.getAssetEarningsSummary(assetId);
 
@@ -870,6 +880,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         view
         returns (CollateralLib.ReleaseCalculation memory calc)
     {
+        _requireEarningsManagerConfigured();
         CollateralLib.CollateralInfo memory collateralInfo = assetCollateral[assetId];
         IEarningsManager.EarningsSummary memory earningsSummary = earningsManager.getAssetEarningsSummary(assetId);
         bool protectionEnabled = _getProtectionEnabled(assetId);
@@ -1033,7 +1044,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         emit RouterUpdated(_newRouter);
     }
 
-    function updateEarningsManager(address _earningsManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setEarningsManager(address _earningsManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_earningsManager == address(0)) {
             revert ZeroAddress();
         }

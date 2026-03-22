@@ -51,6 +51,7 @@ interface ITreasury {
     error InsufficientTokenBalance();
     error InsufficientPrimaryLiquidity();
     error SlippageExceeded();
+    error EarningsManagerNotSet();
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetNotOperationalForSettlement(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error AssetNotOperationalForLiquidation(uint256 assetId, AssetLib.AssetStatus currentStatus);
@@ -127,7 +128,7 @@ interface ITreasury {
         view
         returns (uint256 releasedAmount);
     function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256);
-    function updateEarningsManager(address _earningsManager) external;
+    function setEarningsManager(address _earningsManager) external;
     function updatePartnerManager(address _partnerManager) external;
     function updateUSDC(address _usdc) external;
     function updateRoboshareTokens(address _roboshareTokens) external;

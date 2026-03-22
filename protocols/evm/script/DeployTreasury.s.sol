@@ -89,6 +89,10 @@ contract DeployTreasury is ScaffoldETHDeploy {
         console.log("Admin:", deployer);
         console.log("Dependencies verified and connected");
         console.log("===================================");
+        console.log("");
+        console.log("Post-deploy: call RegistryRouter.setTreasury(<treasury>)");
+
+        saveDeployment("Treasury", address(proxy));
 
         return address(proxy);
     }
