@@ -25,6 +25,7 @@ type RoboshareToken @entity(immutable: true) {
   supply: BigInt!
   targetYieldBP: BigInt!
   maturityDate: BigInt!
+  createdAt: BigInt!
   setAtBlock: BigInt!
 }
 
@@ -119,19 +120,6 @@ type Listing @entity(immutable: false) {
   isEnded: Boolean!
   endedAt: BigInt
   createdAt: BigInt!
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type TokenTrade @entity(immutable: true) {
-  id: ID! # transaction hash + log index
-  listingId: BigInt!
-  tokenId: BigInt!
-  buyer: Bytes!
-  seller: Bytes!
-  amount: BigInt!
-  totalPrice: BigInt!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
