@@ -11,15 +11,15 @@ setup-anvil-wallet:
 
 # Start local chain with state persistence
 chain: setup-anvil-wallet
-	anvil --state ./anvil-state.json --state-interval 5
+	anvil --host 0.0.0.0 --state ./anvil-state.json --state-interval 5
 
 # Start local chain without persistence (fresh state)
 chain-fresh: setup-anvil-wallet
-	anvil --base-fee 1000000000 --gas-limit 30000000
+	anvil --host 0.0.0.0 --base-fee 1000000000 --gas-limit 30000000
 
 # Start a fork
 fork: setup-anvil-wallet
-	anvil --fork-url ${FORK_URL} --chain-id 31337
+	anvil --host 0.0.0.0 --fork-url ${FORK_URL} --chain-id 31337
 
 # Deploy the contracts
 deploy:

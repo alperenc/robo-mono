@@ -1,5 +1,6 @@
 import * as chains from "viem/chains";
 import deployedContracts from "~~/contracts/deployedContracts";
+import { getLocalRpcUrl, getLocalWsRpcUrl } from "~~/utils/localServiceUrls";
 
 export type ScaffoldConfig = {
   targetNetworks: readonly chains.Chain[];
@@ -18,10 +19,37 @@ const RELEASE_TARGET_NETWORKS = [
   chains.arbitrumSepolia,
   chains.baseSepolia,
 ] as const;
-const LOCAL_TARGET_NETWORK = chains.foundry;
+const buildLocalTargetNetwork = (): chains.Chain => {
+  const localRpcUrl = getLocalRpcUrl();
+  const localWsRpcUrl = getLocalWsRpcUrl();
+
+  if (!localRpcUrl) {
+    return chains.foundry;
+  }
+
+  return {
+    ...chains.foundry,
+    rpcUrls: {
+      default: {
+        http: [localRpcUrl],
+        ...(localWsRpcUrl ? { webSocket: [localWsRpcUrl] } : {}),
+      },
+      public: {
+        http: [localRpcUrl],
+        ...(localWsRpcUrl ? { webSocket: [localWsRpcUrl] } : {}),
+      },
+    },
+  };
+};
+
+const LOCAL_TARGET_NETWORK = buildLocalTargetNetwork();
+const hasDeployedContracts = (contractsForChain: unknown): boolean => {
+  return !!contractsForChain && typeof contractsForChain === "object" && Object.keys(contractsForChain).length > 0;
+};
 const deployedChainIds = new Set(
-  Object.keys(deployedContracts)
-    .map(chainId => Number.parseInt(chainId, 10))
+  Object.entries(deployedContracts)
+    .filter(([, contractsForChain]) => hasDeployedContracts(contractsForChain))
+    .map(([chainId]) => Number.parseInt(chainId, 10))
     .filter(Number.isInteger),
 );
 
@@ -51,6 +79,12 @@ const sortNetworks = (networks: readonly chains.Chain[]) => {
 };
 
 const targetNetworks = sortNetworks(configuredNetworks.length > 0 ? configuredNetworks : [LOCAL_TARGET_NETWORK]);
+const localRpcUrl = getLocalRpcUrl();
+const rpcOverrides: Record<number, string> | undefined = localRpcUrl
+  ? {
+      [LOCAL_TARGET_NETWORK.id]: localRpcUrl,
+    }
+  : undefined;
 
 const scaffoldConfig = {
   // The networks on which your DApp is live
@@ -68,10 +102,7 @@ const scaffoldConfig = {
 
   // If you want to use a different RPC for a specific network, you can add it here.
   // The key is the chain ID, and the value is the HTTP RPC URL
-  rpcOverrides: {
-    // Example:
-    // [chains.mainnet.id]: "https://mainnet.buidlguidl.com",
-  },
+  rpcOverrides,
 
   // This is ours WalletConnect's default project ID.
   // You can get your own at https://cloud.walletconnect.com

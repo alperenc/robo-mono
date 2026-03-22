@@ -4,23 +4,25 @@ import {
   Hash,
   Transaction,
   TransactionReceipt,
-  createTestClient,
+  createPublicClient,
+  fallback,
+  http,
   publicActions,
-  walletActions,
   webSocket,
 } from "viem";
 import { hardhat } from "viem/chains";
+import { getLocalRpcUrl, getLocalWsRpcUrl } from "~~/utils/localServiceUrls";
 import { decodeTransactionData } from "~~/utils/scaffold-eth";
 
 const BLOCKS_PER_PAGE = 20;
 
-export const testClient = createTestClient({
+export const testClient = createPublicClient({
   chain: hardhat,
-  mode: "hardhat",
-  transport: webSocket("ws://127.0.0.1:8545"),
-})
-  .extend(publicActions)
-  .extend(walletActions);
+  transport: fallback([
+    webSocket(getLocalWsRpcUrl() || "ws://127.0.0.1:8545"),
+    http(getLocalRpcUrl() || "http://127.0.0.1:8545"),
+  ]),
+}).extend(publicActions);
 
 export const useFetchBlocks = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
