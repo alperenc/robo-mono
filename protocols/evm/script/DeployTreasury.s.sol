@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import { console } from "forge-std/console.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 import { Treasury } from "../contracts/Treasury.sol";
 
@@ -23,9 +22,8 @@ contract DeployTreasury is ScaffoldETHDeploy {
 
         // For local Anvil/testing, deploy mock USDC if not set
         if (config.usdcToken == address(0)) {
-            MockUSDC mockUsdc = new MockUSDC();
-            config.usdcToken = address(mockUsdc);
-            console.log("Mock USDC deployed at:", address(mockUsdc));
+            config.usdcToken = ensureLocalOrTestUsdc(deployer);
+            console.log("Mock USDC deployed at:", config.usdcToken);
         }
 
         // Use deployer as treasuryFeeRecipient fallback for local testing
@@ -33,6 +31,8 @@ contract DeployTreasury is ScaffoldETHDeploy {
             config.treasuryFeeRecipient = deployer;
             console.log("Using deployer as treasuryFeeRecipient:", deployer);
         }
+
+        activeNetworkConfig = config;
 
         console.log("Deploying Treasury with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);
@@ -89,6 +89,10 @@ contract DeployTreasury is ScaffoldETHDeploy {
         console.log("Admin:", deployer);
         console.log("Dependencies verified and connected");
         console.log("===================================");
+        console.log("");
+        console.log("Post-deploy: call RegistryRouter.setTreasury(<treasury>)");
+
+        saveDeployment("Treasury", address(proxy));
 
         return address(proxy);
     }

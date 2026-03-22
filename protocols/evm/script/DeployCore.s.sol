@@ -8,6 +8,7 @@ import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 import { Treasury } from "../contracts/Treasury.sol";
+import { EarningsManager } from "../contracts/EarningsManager.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
 /**
@@ -22,6 +23,7 @@ abstract contract DeployCore is ScaffoldETHDeploy {
         RegistryRouter router;
         VehicleRegistry vehicleRegistry;
         Treasury treasury;
+        EarningsManager earningsManager;
         Marketplace marketplace;
     }
 
@@ -94,6 +96,23 @@ abstract contract DeployCore is ScaffoldETHDeploy {
             contracts.treasury = Treasury(address(treasuryProxy));
         }
 
+        // Deploy EarningsManager
+        {
+            EarningsManager earningsManagerImplementation = new EarningsManager();
+            bytes memory earningsManagerInitData = abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,address)",
+                _deployer,
+                address(contracts.roboshareTokens),
+                address(contracts.partnerManager),
+                address(contracts.router),
+                address(contracts.treasury),
+                config.usdcToken
+            );
+            ERC1967Proxy earningsManagerProxy =
+                new ERC1967Proxy(address(earningsManagerImplementation), earningsManagerInitData);
+            contracts.earningsManager = EarningsManager(address(earningsManagerProxy));
+        }
+
         // Deploy Marketplace
         {
             Marketplace marketplaceImplementation = new Marketplace();
@@ -121,7 +140,9 @@ abstract contract DeployCore is ScaffoldETHDeploy {
     function _configureRoles(DeployedContracts memory contracts) internal {
         // 1. Configure Router
         contracts.router.setTreasury(address(contracts.treasury));
+        contracts.router.setEarningsManager(address(contracts.earningsManager));
         contracts.router.setMarketplace(address(contracts.marketplace));
+        contracts.treasury.setEarningsManager(address(contracts.earningsManager));
 
         // 2. Grant Roles
         // Grant AUTHORIZED_REGISTRY_ROLE to VehicleRegistry

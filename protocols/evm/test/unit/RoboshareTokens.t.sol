@@ -37,6 +37,19 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.mint(holder, tokenId, amount, "");
     }
 
+    function _setupRevenueTokenForRedemptionEpochs(address holder, uint256 amount) internal returns (uint256 tokenId) {
+        tokenId = 104;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(minter);
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, true, false
+        );
+
+        vm.prank(minter);
+        roboshareTokens.mint(holder, tokenId, amount, "");
+    }
+
     function _warpPastHoldingPeriod() internal {
         vm.warp(block.timestamp + 30 days + 1);
     }
@@ -384,6 +397,130 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertEq(roboshareTokens.balanceOf(user2, tokenId), 15);
     }
 
+    function testBurnCurrentEpochForPrimaryRedemptionNotRevenueToken() public {
+        vm.prank(burner);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.burnCurrentEpochForPrimaryRedemption(user1, 101, 1);
+    }
+
+    function testBurnCurrentEpochForPrimaryRedemptionZeroAmount() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+
+        vm.prank(burner);
+        vm.expectRevert(RoboshareTokens.InvalidLockAmount.selector);
+        roboshareTokens.burnCurrentEpochForPrimaryRedemption(user1, tokenId, 0);
+    }
+
+    function testBurnCurrentEpochForPrimaryRedemptionRequiresEligibleEpochBalance() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+        uint256 backedPrincipal = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
+
+        vm.prank(burner);
+        roboshareTokens.recordImmediateProceedsRelease(tokenId, backedPrincipal);
+
+        vm.prank(burner);
+        vm.expectRevert(TokenLib.InsufficientTokenBalance.selector);
+        roboshareTokens.burnCurrentEpochForPrimaryRedemption(user1, tokenId, 1);
+    }
+
+    function testRecordImmediateProceedsReleaseNotRevenueToken() public {
+        vm.prank(burner);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.recordImmediateProceedsRelease(101, 1);
+    }
+
+    function testRecordImmediateProceedsReleaseZeroAmountNoOp() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+        uint256 epochBefore = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
+        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
+
+        vm.prank(burner);
+        roboshareTokens.recordImmediateProceedsRelease(tokenId, 0);
+
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), epochBefore);
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), principalBefore);
+    }
+
+    function testRecordImmediateProceedsReleaseNoBackedPrincipalNoOp() public {
+        uint256 tokenId = 106;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(minter);
+        roboshareTokens.setRevenueTokenInfo(tokenId, 100 * 1e6, 100, 100, maturityDate, 10_000, 1_000, true, false);
+
+        vm.prank(burner);
+        roboshareTokens.recordImmediateProceedsRelease(tokenId, 1);
+
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
+    }
+
+    function testRecordPrimaryRedemptionPayoutNotRevenueToken() public {
+        vm.prank(burner);
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.recordPrimaryRedemptionPayout(101, 1);
+    }
+
+    function testRecordPrimaryRedemptionPayoutZeroAmountNoOp() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+        uint256 supplyBefore = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
+        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
+
+        vm.prank(burner);
+        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, 0);
+
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), supplyBefore);
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), principalBefore);
+    }
+
+    function testRecordPrimaryRedemptionPayoutAdvancesEpochWhenExhausted() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+        uint256 backedPrincipal = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
+
+        vm.prank(burner);
+        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, backedPrincipal);
+
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
+    }
+
+    function testRecordPrimaryRedemptionPayoutAdvancesEpochWhenSupplyExhaustedBeforePrincipal() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
+
+        vm.prank(burner);
+        roboshareTokens.burn(user1, tokenId, 100);
+
+        vm.prank(burner);
+        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, principalBefore / 2);
+
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
+        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
+
+        vm.prank(minter);
+        roboshareTokens.mint(user2, tokenId, 10, "");
+
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
+        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user2, tokenId), 10);
+    }
+
+    function testBurnRevenueTokenSkipsConsumedHeadPositions() public {
+        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
+
+        vm.prank(user1);
+        roboshareTokens.safeTransferFrom(user1, user2, tokenId, 100, "");
+
+        vm.prank(minter);
+        roboshareTokens.mint(user1, tokenId, 50, "");
+
+        vm.prank(burner);
+        roboshareTokens.burn(user1, tokenId, 10);
+
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), 40);
+    }
+
     function testTransferBlockedWhenLockedAmountExceedsUnlockedBalance() public {
         uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
         vm.prank(admin);
@@ -531,6 +668,21 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         // Attempt to get positions for the vehicle NFT ID, which is not a revenue token
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
         roboshareTokens.getUserPositions(scenario.assetId, partner1);
+    }
+
+    function testGetPrimaryRedemptionEligibleBalanceNotRevenueToken() public {
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, 101);
+    }
+
+    function testGetCurrentPrimaryRedemptionEpochSupplyNotRevenueToken() public {
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(101);
+    }
+
+    function testGetCurrentPrimaryRedemptionBackedPrincipalNotRevenueToken() public {
+        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
+        roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(101);
     }
 
     function testSetRevenueTokenInfoNotRevenueToken() public {

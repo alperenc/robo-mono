@@ -19,6 +19,24 @@
       "slot": "2",
       "offset": 0,
       "type": "mapping(address => mapping(uint256 => uint256))"
+    },
+    {
+      "label": "_currentEpochBurnActive",
+      "slot": "3",
+      "offset": 0,
+      "type": "bool"
+    },
+    {
+      "label": "_currentEpochBurnHolder",
+      "slot": "3",
+      "offset": 1,
+      "type": "address"
+    },
+    {
+      "label": "_currentEpochBurnTokenId",
+      "slot": "4",
+      "offset": 0,
+      "type": "uint256"
     }
   ],
   "types": [

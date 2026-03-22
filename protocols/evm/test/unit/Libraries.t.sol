@@ -142,7 +142,8 @@ contract CollateralTokenEarningsHelper {
             uint256 reservedForLiquidation,
             uint256 liquidationThreshold,
             uint256 createdAt,
-            uint256 coveredBaseCollateral
+            uint256 coveredBaseCollateral,
+            uint256 outstandingImmediateProceedsBase
         )
     {
         return (
@@ -157,7 +158,8 @@ contract CollateralTokenEarningsHelper {
             c.reservedForLiquidation,
             c.liquidationThreshold,
             c.createdAt,
-            c.coveredBaseCollateral
+            c.coveredBaseCollateral,
+            c.outstandingImmediateProceedsBase
         );
     }
 
@@ -320,6 +322,40 @@ contract CollateralTokenEarningsHelper {
         );
         return
             (uint8(calc.status), calc.newLastProcessedPeriod, calc.grossRelease, calc.protocolFee, calc.partnerRelease);
+    }
+
+    function applyRealizedDefault(uint256 realizedEarnings, uint256 benchmarkEarnings)
+        external
+        view
+        returns (
+            uint256 earningsBuffer,
+            uint256 protocolBuffer,
+            uint256 totalCollateral,
+            uint256 reservedForLiquidation,
+            uint256 shortfallAmount,
+            uint256 replenishmentAmount,
+            uint256 excessEarnings
+        )
+    {
+        CollateralLib.CollateralInfo memory info = c;
+        (CollateralLib.CollateralInfo memory updated, uint256 shortfall, uint256 replenishment, uint256 excess) =
+            CollateralLib.applyRealizedVsBenchmarkToCollateral(info, realizedEarnings, benchmarkEarnings);
+        return (
+            updated.earningsBuffer,
+            updated.protocolBuffer,
+            updated.totalCollateral,
+            updated.reservedForLiquidation,
+            shortfall,
+            replenishment,
+            excess
+        );
+    }
+
+    function applyRealizedInStorageDefault(uint256 realizedEarnings, uint256 benchmarkEarnings)
+        external
+        returns (uint256 shortfallAmount, uint256 replenishmentAmount, uint256 excessEarnings)
+    {
+        return CollateralLib.applyRealizedVsBenchmarkToCollateralInStorage(c, realizedEarnings, benchmarkEarnings);
     }
 }
 
@@ -503,11 +539,11 @@ contract LibrariesTest is Test {
     function testCollateralShortfallCoveredByExistingBuffer() public {
         cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
 
-        (,, uint256 startingBuffer,,,,,, uint256 startingReserved,,,) = cteh.collateralDebugView();
+        (,, uint256 startingBuffer,,,,,, uint256 startingReserved,,,,) = cteh.collateralDebugView();
         uint256 shortfallAmount = startingBuffer / 2;
 
         (int256 result, uint256 replenished) = cteh.process(0, shortfallAmount);
-        (,, uint256 endingBuffer,,,,,, uint256 endingReserved,,,) = cteh.collateralDebugView();
+        (,, uint256 endingBuffer,,,,,, uint256 endingReserved,,,,) = cteh.collateralDebugView();
 
         // Casting to int256 is safe because shortfallAmount is derived from the current uint256 buffer.
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -515,6 +551,47 @@ contract LibrariesTest is Test {
         assertEq(replenished, 0);
         assertEq(endingBuffer, startingBuffer - shortfallAmount);
         assertEq(endingReserved, startingReserved + shortfallAmount);
+    }
+
+    function testApplyRealizedVsBenchmarkDefaultWrapperShortfall() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+
+        (, uint256 baseCollateral, uint256 startingBuffer, uint256 protocolBuffer,,,,,,,,,) = cteh.collateralDebugView();
+        uint256 shortfallAmount = startingBuffer / 2;
+
+        (
+            uint256 earningsBufferAfter,,
+            uint256 totalCollateralAfter,
+            uint256 reservedAfter,
+            uint256 shortfall,
+            uint256 replenishment,
+            uint256 excess
+        ) = cteh.applyRealizedDefault(0, shortfallAmount);
+
+        assertEq(shortfall, shortfallAmount);
+        assertEq(replenishment, 0);
+        assertEq(excess, 0);
+        assertEq(earningsBufferAfter, startingBuffer - shortfallAmount);
+        assertEq(reservedAfter, shortfallAmount);
+        assertEq(totalCollateralAfter, baseCollateral + earningsBufferAfter + protocolBuffer);
+    }
+
+    function testApplyRealizedVsBenchmarkInStorageDefaultWrapperShortfall() public {
+        cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
+
+        (, uint256 baseCollateral, uint256 startingBuffer, uint256 protocolBuffer,,,,,,,,,) = cteh.collateralDebugView();
+        uint256 shortfallAmount = startingBuffer / 2;
+
+        (uint256 shortfall, uint256 replenishment, uint256 excess) =
+            cteh.applyRealizedInStorageDefault(0, shortfallAmount);
+        (,, uint256 endingBuffer,, uint256 totalCollateral,,,, uint256 endingReserved,,,,) = cteh.collateralDebugView();
+
+        assertEq(shortfall, shortfallAmount);
+        assertEq(replenishment, 0);
+        assertEq(excess, 0);
+        assertEq(endingBuffer, startingBuffer - shortfallAmount);
+        assertEq(endingReserved, shortfallAmount);
+        assertEq(totalCollateral, baseCollateral + endingBuffer + protocolBuffer);
     }
 
     function testCalculateReleasePreviewReturnsNoCollateralLocked() public {

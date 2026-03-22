@@ -6,7 +6,7 @@ import { ProtocolLib, CollateralLib } from "../../contracts/Libraries.sol";
 
 abstract contract TreasuryFlowBaseTest is AssetMetadataBaseTest {
     function _setupBuffersFunded() internal virtual override {
-        uint256 baseAmount = treasury.getPrimaryInvestorLiquidity(scenario.assetId);
+        uint256 baseAmount = _getCollateralInfo(scenario.assetId).baseCollateral;
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
         uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, false);
         vm.prank(partner1);
@@ -17,8 +17,8 @@ abstract contract TreasuryFlowBaseTest is AssetMetadataBaseTest {
 
     function _setupEarningsDistributed(uint256 totalEarningsAmount) internal virtual override {
         vm.startPrank(partner1);
-        usdc.approve(address(treasury), totalEarningsAmount);
-        treasury.distributeEarnings(scenario.assetId, totalEarningsAmount, false);
+        usdc.approve(address(earningsManager), totalEarningsAmount);
+        earningsManager.distributeEarnings(scenario.assetId, totalEarningsAmount, false);
         vm.stopPrank();
     }
 
@@ -91,7 +91,8 @@ abstract contract TreasuryFlowBaseTest is AssetMetadataBaseTest {
             info.reservedForLiquidation,
             info.liquidationThreshold,
             info.createdAt,
-            info.coveredBaseCollateral
+            info.coveredBaseCollateral,
+            info.outstandingImmediateProceedsBase
         ) = treasury.assetCollateral(assetId);
     }
 

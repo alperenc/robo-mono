@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @dev Protocol utilities and constants
@@ -371,6 +372,7 @@ library TokenLib {
         uint256 amount; // Number of tokens in this position
         uint256 acquiredAt; // Timestamp when position was acquired
         uint256 soldAt; // Timestamp when position was sold (0 if still held)
+        uint256 redemptionEpoch; // Primary-redemption tranche this position belongs to
     }
 
     /**
@@ -396,6 +398,9 @@ library TokenLib {
         uint256 targetYieldBP; // Target yield for buffer benchmarks (basis points)
         bool immediateProceeds; // True: higher-upside profile, False: earlier-liquidity profile
         bool protectionEnabled; // True when protection buffer policy is enabled
+        uint256 currentRedemptionEpoch; // Current tranche for primary redemptions
+        uint256 currentRedemptionEpochSupply; // Outstanding claim units in current redemption tranche
+        uint256 currentRedemptionBackedPrincipal; // Remaining backed principal for current redemption tranche
         // Track positions per user using Queue
         mapping(address => PositionQueue) positions;
     }
@@ -467,6 +472,9 @@ library TokenLib {
             targetYieldBP < ProtocolLib.BENCHMARK_YIELD_BP ? ProtocolLib.BENCHMARK_YIELD_BP : targetYieldBP;
         info.immediateProceeds = immediateProceeds;
         info.protectionEnabled = protectionEnabled;
+        info.currentRedemptionEpoch = 0;
+        info.currentRedemptionEpochSupply = 0;
+        info.currentRedemptionBackedPrincipal = 0;
         // mappings are automatically initialized
     }
 
@@ -480,8 +488,14 @@ library TokenLib {
         PositionQueue storage queue = info.positions[holder];
         uint256 id = queue.tail;
 
-        queue.items[id] =
-            TokenPosition({ uid: id, tokenId: info.tokenId, amount: amount, acquiredAt: block.timestamp, soldAt: 0 });
+        queue.items[id] = TokenPosition({
+            uid: id,
+            tokenId: info.tokenId,
+            amount: amount,
+            acquiredAt: block.timestamp,
+            soldAt: 0,
+            redemptionEpoch: info.currentRedemptionEpoch
+        });
         queue.tail++;
     }
 
@@ -622,6 +636,7 @@ library CollateralLib {
         uint256 liquidationThreshold; // Threshold for liquidation
         uint256 createdAt; // When collateral info was initialized
         uint256 coveredBaseCollateral; // Portion of base currently backed by funded buffers
+        uint256 outstandingImmediateProceedsBase; // Released immediate-proceeds principal still backed by buffers
     }
 
     /**
@@ -684,6 +699,7 @@ library CollateralLib {
         info.liquidationThreshold = earningsBuffer; // Set initial liquidation threshold to earnings buffer
         info.createdAt = block.timestamp;
         info.coveredBaseCollateral = 0;
+        info.outstandingImmediateProceedsBase = 0;
     }
 
     /**
@@ -820,6 +836,15 @@ library CollateralLib {
         internal
         returns (int256 earningsResult, uint256 replenishmentAmount)
     {
+        return processEarningsForBuffers(info, netEarnings, baseEarnings, info.initialBaseCollateral);
+    }
+
+    function processEarningsForBuffers(
+        CollateralInfo storage info,
+        uint256 netEarnings,
+        uint256 baseEarnings,
+        uint256 benchmarkPrincipal
+    ) internal returns (int256 earningsResult, uint256 replenishmentAmount) {
         // Handle shortfall (when netEarnings < baseEarnings)
         if (netEarnings < baseEarnings) {
             uint256 shortfallAmount = baseEarnings - netEarnings;
@@ -845,7 +870,7 @@ library CollateralLib {
 
             // Calculate benchmark buffer amount (what buffer should be)
             (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
-                info.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+                benchmarkPrincipal, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
             );
             uint256 bufferDeficit =
                 benchmarkEarningsBuffer > info.earningsBuffer ? benchmarkEarningsBuffer - info.earningsBuffer : 0;
@@ -890,6 +915,15 @@ library CollateralLib {
         pure
         returns (int256 earningsResult, uint256 replenishmentAmount)
     {
+        return processEarningsForBuffersInMemory(info, netEarnings, baseEarnings, info.initialBaseCollateral);
+    }
+
+    function processEarningsForBuffersInMemory(
+        CollateralInfo memory info,
+        uint256 netEarnings,
+        uint256 baseEarnings,
+        uint256 benchmarkPrincipal
+    ) internal pure returns (int256 earningsResult, uint256 replenishmentAmount) {
         // Handle shortfall (when netEarnings < baseEarnings)
         if (netEarnings < baseEarnings) {
             uint256 shortfallAmount = baseEarnings - netEarnings;
@@ -908,7 +942,7 @@ library CollateralLib {
             uint256 excessEarnings = netEarnings - baseEarnings;
 
             (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
-                info.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+                benchmarkPrincipal, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
             );
             uint256 bufferDeficit =
                 benchmarkEarningsBuffer > info.earningsBuffer ? benchmarkEarningsBuffer - info.earningsBuffer : 0;
@@ -965,6 +999,26 @@ library CollateralLib {
             uint256 excessEarnings
         )
     {
+        return applyRealizedVsBenchmarkToCollateral(
+            info, realizedEarnings, benchmarkEarnings, info.initialBaseCollateral
+        );
+    }
+
+    function applyRealizedVsBenchmarkToCollateral(
+        CollateralInfo memory info,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings,
+        uint256 benchmarkPrincipal
+    )
+        internal
+        pure
+        returns (
+            CollateralInfo memory updated,
+            uint256 shortfallAmount,
+            uint256 replenishmentAmount,
+            uint256 excessEarnings
+        )
+    {
         updated = info;
 
         if (realizedEarnings < benchmarkEarnings) {
@@ -985,7 +1039,7 @@ library CollateralLib {
         if (realizedEarnings > benchmarkEarnings) {
             excessEarnings = realizedEarnings - benchmarkEarnings;
             (, uint256 benchmarkEarningsBuffer,,) = calculateCollateralRequirements(
-                updated.initialBaseCollateral, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
+                benchmarkPrincipal, ProtocolLib.QUARTERLY_INTERVAL, ProtocolLib.BENCHMARK_YIELD_BP
             );
             uint256 bufferDeficit =
                 benchmarkEarningsBuffer > updated.earningsBuffer ? benchmarkEarningsBuffer - updated.earningsBuffer : 0;
@@ -1011,8 +1065,19 @@ library CollateralLib {
         uint256 realizedEarnings,
         uint256 benchmarkEarnings
     ) internal returns (uint256 shortfallAmount, uint256 replenishmentAmount, uint256 excessEarnings) {
+        return applyRealizedVsBenchmarkToCollateralInStorage(
+            info, realizedEarnings, benchmarkEarnings, info.initialBaseCollateral
+        );
+    }
+
+    function applyRealizedVsBenchmarkToCollateralInStorage(
+        CollateralInfo storage info,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings,
+        uint256 benchmarkPrincipal
+    ) internal returns (uint256 shortfallAmount, uint256 replenishmentAmount, uint256 excessEarnings) {
         (CollateralInfo memory updated, uint256 shortfall, uint256 replenishment, uint256 excess) =
-            applyRealizedVsBenchmarkToCollateral(info, realizedEarnings, benchmarkEarnings);
+            applyRealizedVsBenchmarkToCollateral(info, realizedEarnings, benchmarkEarnings, benchmarkPrincipal);
 
         info.earningsBuffer = updated.earningsBuffer;
         info.protocolBuffer = updated.protocolBuffer;
@@ -1030,6 +1095,28 @@ library CollateralLib {
         uint256 lastProcessedPeriod,
         uint256 realizedEarnings,
         uint256 benchmarkEarnings
+    ) internal view returns (ReleaseCalculation memory calc) {
+        return calculateReleasePreview(
+            collateralInfo,
+            assumeNewPeriod,
+            earningsInitialized,
+            currentPeriod,
+            lastProcessedPeriod,
+            realizedEarnings,
+            benchmarkEarnings,
+            collateralInfo.initialBaseCollateral
+        );
+    }
+
+    function calculateReleasePreview(
+        CollateralInfo memory collateralInfo,
+        bool assumeNewPeriod,
+        bool earningsInitialized,
+        uint256 currentPeriod,
+        uint256 lastProcessedPeriod,
+        uint256 realizedEarnings,
+        uint256 benchmarkEarnings,
+        uint256 benchmarkPrincipal
     ) internal view returns (ReleaseCalculation memory calc) {
         if (!collateralInfo.isLocked) {
             calc.status = ReleaseEligibility.NoCollateralLocked;
@@ -1078,7 +1165,9 @@ library CollateralLib {
         calc.newLastProcessedPeriod = currentPeriod;
 
         (calc.collateral, calc.shortfallAmount, calc.replenishmentAmount, calc.excessEarnings) =
-            applyRealizedVsBenchmarkToCollateral(calc.collateral, realizedEarnings, benchmarkEarnings);
+            applyRealizedVsBenchmarkToCollateral(
+                calc.collateral, realizedEarnings, benchmarkEarnings, benchmarkPrincipal
+            );
 
         calc.grossRelease = calculateCollateralRelease(calc.collateral);
         if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
@@ -1089,6 +1178,97 @@ library CollateralLib {
         }
         if (calc.grossRelease > 0) {
             (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
+        }
+    }
+
+    function calculateCoverableBaseCollateral(
+        CollateralInfo memory collateralInfo,
+        uint256 targetYieldBP,
+        bool protectionEnabled,
+        bool immediateProceeds
+    ) internal pure returns (uint256 coverableBaseCollateral) {
+        uint256 coverableExposure = calculateCoverableProtectedExposure(
+            collateralInfo, targetYieldBP, protectionEnabled, immediateProceeds
+        );
+        if (coverableExposure == 0) {
+            return 0;
+        }
+
+        if (immediateProceeds) {
+            if (coverableExposure <= collateralInfo.outstandingImmediateProceedsBase) {
+                return 0;
+            }
+            coverableBaseCollateral = coverableExposure - collateralInfo.outstandingImmediateProceedsBase;
+        } else {
+            coverableBaseCollateral = coverableExposure;
+        }
+
+        if (coverableBaseCollateral > collateralInfo.baseCollateral) {
+            coverableBaseCollateral = collateralInfo.baseCollateral;
+        }
+    }
+
+    function calculateCoverableProtectedExposure(
+        CollateralInfo memory collateralInfo,
+        uint256 targetYieldBP,
+        bool protectionEnabled,
+        bool immediateProceeds
+    ) internal pure returns (uint256 coverableExposure) {
+        uint256 protectedExposure = collateralInfo.baseCollateral;
+        if (immediateProceeds) {
+            protectedExposure += collateralInfo.outstandingImmediateProceedsBase;
+        }
+        if (protectedExposure == 0) {
+            return 0;
+        }
+
+        (, uint256 requiredEarningsBuffer, uint256 requiredProtocolBuffer,) =
+            calculateCollateralRequirements(protectedExposure, ProtocolLib.QUARTERLY_INTERVAL, targetYieldBP);
+
+        uint256 protocolCoverCapacity = requiredProtocolBuffer == 0
+            ? type(uint256).max
+            : Math.mulDiv(collateralInfo.protocolBuffer, protectedExposure, requiredProtocolBuffer);
+        coverableExposure = protocolCoverCapacity;
+
+        if (protectionEnabled) {
+            uint256 protectionCoverCapacity = requiredEarningsBuffer == 0
+                ? type(uint256).max
+                : Math.mulDiv(collateralInfo.earningsBuffer, protectedExposure, requiredEarningsBuffer);
+            coverableExposure = Math.min(coverableExposure, protectionCoverCapacity);
+        }
+
+        if (coverableExposure > protectedExposure) {
+            coverableExposure = protectedExposure;
+        }
+    }
+
+    function calculateBenchmarkEarningsPrincipal(
+        CollateralInfo memory collateralInfo,
+        uint256 targetYieldBP,
+        bool protectionEnabled,
+        bool immediateProceeds
+    ) internal pure returns (uint256 benchmarkPrincipal) {
+        if (!protectionEnabled) {
+            return 0;
+        }
+
+        uint256 protectedExposure = collateralInfo.baseCollateral;
+        if (immediateProceeds) {
+            protectedExposure += collateralInfo.outstandingImmediateProceedsBase;
+        }
+        if (protectedExposure == 0) {
+            return 0;
+        }
+
+        (,, uint256 requiredProtocolBuffer,) =
+            calculateCollateralRequirements(protectedExposure, ProtocolLib.QUARTERLY_INTERVAL, targetYieldBP);
+
+        benchmarkPrincipal = requiredProtocolBuffer == 0
+            ? protectedExposure
+            : Math.mulDiv(collateralInfo.protocolBuffer, protectedExposure, requiredProtocolBuffer);
+
+        if (benchmarkPrincipal > protectedExposure) {
+            benchmarkPrincipal = protectedExposure;
         }
     }
 }

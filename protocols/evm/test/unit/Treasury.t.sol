@@ -10,6 +10,7 @@ import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
 import { Treasury } from "../../contracts/Treasury.sol";
+import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
 
 contract TreasuryBadTotalSupplyToken {
     function totalSupply() external pure returns (uint256) {
@@ -388,6 +389,63 @@ contract TreasuryTest is TreasuryFlowBaseTest {
         );
         treasury.updateTreasuryFeeRecipient(newRecipient);
         vm.stopPrank();
+    }
+
+    function testSetEarningsManager() public {
+        address newEarningsManager = makeAddr("newEarningsManager");
+        address oldEarningsManager = address(treasury.earningsManager());
+
+        vm.prank(admin);
+        treasury.setEarningsManager(newEarningsManager);
+
+        assertEq(address(treasury.earningsManager()), newEarningsManager);
+        assertFalse(treasury.hasRole(treasury.AUTHORIZED_EARNINGS_MANAGER_ROLE(), oldEarningsManager));
+        assertTrue(treasury.hasRole(treasury.AUTHORIZED_EARNINGS_MANAGER_ROLE(), newEarningsManager));
+    }
+
+    function testSetEarningsManagerZeroAddress() public {
+        vm.expectRevert(Treasury.ZeroAddress.selector);
+        vm.prank(admin);
+        treasury.setEarningsManager(address(0));
+    }
+
+    function testSetEarningsManagerInitialGrantRoleWhenUnset() public {
+        Treasury newTreasury = new Treasury();
+        ERC1967Proxy proxy = new ERC1967Proxy(address(newTreasury), "");
+        Treasury freshTreasury = Treasury(address(proxy));
+
+        freshTreasury.initialize(
+            admin,
+            address(roboshareTokens),
+            address(partnerManager),
+            address(router),
+            address(usdc),
+            config.treasuryFeeRecipient
+        );
+
+        address newEarningsManager = makeAddr("freshEarningsManager");
+        vm.prank(admin);
+        freshTreasury.setEarningsManager(newEarningsManager);
+
+        assertEq(address(freshTreasury.earningsManager()), newEarningsManager);
+        assertTrue(freshTreasury.hasRole(freshTreasury.AUTHORIZED_EARNINGS_MANAGER_ROLE(), newEarningsManager));
+    }
+
+    function testEnableProceedsEarningsManagerNotSet() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+
+        vm.store(address(treasury), bytes32(uint256(3)), bytes32(0));
+
+        vm.prank(partner1);
+        vm.expectRevert(ITreasury.EarningsManagerNotSet.selector);
+        treasury.enableProceeds(scenario.assetId);
+    }
+
+    function testPreviewLiquidationEligibilityEarningsManagerNotSet() public {
+        vm.store(address(treasury), bytes32(uint256(3)), bytes32(0));
+
+        vm.expectRevert(ITreasury.EarningsManagerNotSet.selector);
+        treasury.previewLiquidationEligibility(scenario.assetId);
     }
 
     function testProcessWithdrawal() public {

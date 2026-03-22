@@ -5,6 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
+import { IEarningsManager } from "./interfaces/IEarningsManager.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
 import { AssetLib, TokenLib } from "./Libraries.sol";
@@ -27,6 +28,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
     address public treasury;
+    address public earningsManager;
     address public marketplace;
 
     // Registry management
@@ -37,6 +39,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     error RegistryNotFound(uint256 id);
     error RegistryNotBoundToAsset();
     error TreasuryNotSet();
+    error EarningsManagerNotSet();
     error MarketplaceNotSet();
     error NotTreasury();
     error NotMarketplace();
@@ -292,7 +295,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev Forward earnings snapshot (and optionally claim) request from Registry to Treasury.
+     * @dev Forward earnings snapshot (and optionally claim) request from Registry to EarningsManager.
      * Called before burning tokens to preserve unclaimed earnings.
      * Callable only by authorized registries.
      */
@@ -306,11 +309,11 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert RegistryNotBoundToAsset();
         }
 
-        if (treasury == address(0)) {
-            revert TreasuryNotSet();
+        if (earningsManager == address(0)) {
+            revert EarningsManagerNotSet();
         }
 
-        return ITreasury(treasury).snapshotAndClaimEarnings(assetId, holder, autoClaim);
+        return IEarningsManager(earningsManager).snapshotAndClaimEarnings(assetId, holder, autoClaim);
     }
 
     /**
@@ -441,7 +444,33 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (idToRegistry[tokenId] == address(0)) {
             revert RegistryNotFound(tokenId);
         }
-        roboshareTokens.burn(holder, tokenId, amount);
+        roboshareTokens.burnCurrentEpochForPrimaryRedemption(holder, tokenId, amount);
+    }
+
+    function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount) external {
+        if (msg.sender != treasury) {
+            revert NotTreasury();
+        }
+        if (!TokenLib.isRevenueToken(tokenId)) {
+            revert RegistryNotFound(tokenId);
+        }
+        if (idToRegistry[tokenId] == address(0)) {
+            revert RegistryNotFound(tokenId);
+        }
+        roboshareTokens.recordImmediateProceedsRelease(tokenId, releasedAmount);
+    }
+
+    function recordPrimaryRedemptionPayout(uint256 tokenId, uint256 payoutAmount) external {
+        if (msg.sender != treasury) {
+            revert NotTreasury();
+        }
+        if (!TokenLib.isRevenueToken(tokenId)) {
+            revert RegistryNotFound(tokenId);
+        }
+        if (idToRegistry[tokenId] == address(0)) {
+            revert RegistryNotFound(tokenId);
+        }
+        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, payoutAmount);
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {
@@ -462,6 +491,11 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_treasury == address(0)) revert ZeroAddress();
         treasury = _treasury;
+    }
+
+    function setEarningsManager(address _earningsManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_earningsManager == address(0)) revert ZeroAddress();
+        earningsManager = _earningsManager;
     }
 
     /**

@@ -8,6 +8,7 @@ import { PartnerManager } from "../../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
 import { VehicleRegistry } from "../../contracts/VehicleRegistry.sol";
 import { Treasury } from "../../contracts/Treasury.sol";
+import { EarningsManager } from "../../contracts/EarningsManager.sol";
 import { Marketplace } from "../../contracts/Marketplace.sol";
 import { DeployForTest } from "../../script/DeployForTest.s.sol";
 
@@ -29,6 +30,7 @@ abstract contract BaseTest is Test {
     RoboshareTokens public roboshareTokens;
     PartnerManager public partnerManager;
     Treasury public treasury;
+    EarningsManager public earningsManager;
     RegistryRouter public router;
     VehicleRegistry public assetRegistry;
     Marketplace public marketplace;
@@ -108,7 +110,8 @@ abstract contract BaseTest is Test {
 
     function _deployContracts() internal {
         deployer = new DeployForTest();
-        (roboshareTokens, partnerManager, router, assetRegistry, treasury, marketplace) = deployer.run(admin);
+        (roboshareTokens, partnerManager, router, assetRegistry, treasury, earningsManager, marketplace) =
+            deployer.run(admin);
 
         config = deployer.getActiveNetworkConfig();
         usdc = IERC20(config.usdcToken);

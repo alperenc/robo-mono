@@ -61,12 +61,6 @@
       "slot": "9",
       "offset": 0,
       "type": "mapping(uint256 => uint256[])"
-    },
-    {
-      "label": "tokenEscrow",
-      "slot": "10",
-      "offset": 0,
-      "type": "mapping(uint256 => uint256)"
     }
   ],
   "types": [
@@ -115,13 +109,6 @@
       "numberOfBytes": "32",
       "key": "uint256",
       "value": "struct Marketplace.PrimaryPool"
-    },
-    {
-      "label": "mapping(uint256 => uint256)",
-      "encoding": "mapping",
-      "numberOfBytes": "32",
-      "key": "uint256",
-      "value": "uint256"
     },
     {
       "label": "mapping(uint256 => uint256[])",

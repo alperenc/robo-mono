@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
 import { AssetLib, CollateralLib } from "../../contracts/Libraries.sol";
+import { EarningsManager } from "../../contracts/EarningsManager.sol";
 import { Treasury } from "../../contracts/Treasury.sol";
 import { Marketplace } from "../../contracts/Marketplace.sol";
 import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
@@ -11,6 +12,7 @@ import { PropertyBase } from "./PropertyBase.t.sol";
 
 contract TreasuryAccountingHandler is Test {
     Treasury internal treasury;
+    EarningsManager internal earningsManager;
     Marketplace internal marketplace;
     RoboshareTokens internal roboshareTokens;
     IERC20 internal usdc;
@@ -21,6 +23,7 @@ contract TreasuryAccountingHandler is Test {
 
     constructor(
         Treasury _treasury,
+        EarningsManager _earningsManager,
         Marketplace _marketplace,
         RoboshareTokens _roboshareTokens,
         IERC20 _usdc,
@@ -30,6 +33,7 @@ contract TreasuryAccountingHandler is Test {
         address[] memory _actors
     ) {
         treasury = _treasury;
+        earningsManager = _earningsManager;
         marketplace = _marketplace;
         roboshareTokens = _roboshareTokens;
         usdc = _usdc;
@@ -62,7 +66,8 @@ contract TreasuryAccountingHandler is Test {
     }
 
     function enableProceeds() external {
-        if (treasury.getPrimaryInvestorLiquidity(assetId) == 0) return;
+        (, uint256 baseCollateral,,,,,,,,,,,) = treasury.assetCollateral(assetId);
+        if (baseCollateral == 0) return;
 
         _advanceStepTime();
         vm.prank(partner);
@@ -81,16 +86,18 @@ contract TreasuryAccountingHandler is Test {
 
         _advanceStepTime();
         vm.prank(partner);
-        treasury.distributeEarnings(assetId, totalRevenue, tryAutoRelease);
+        usdc.approve(address(earningsManager), totalRevenue);
+        vm.prank(partner);
+        earningsManager.distributeEarnings(assetId, totalRevenue, tryAutoRelease);
     }
 
     function claimEarnings(uint256 actorSeed) external {
         address actor = actors[actorSeed % actors.length];
-        if (treasury.previewClaimEarnings(assetId, actor) == 0) return;
+        if (earningsManager.previewClaimEarnings(assetId, actor) == 0) return;
 
         _advanceStepTime();
         vm.prank(actor);
-        treasury.claimEarnings(assetId);
+        earningsManager.claimEarnings(assetId);
     }
 
     function processWithdrawal(uint256 actorSeed) external {
@@ -128,6 +135,7 @@ contract TreasuryAccountingInvariantTest is PropertyBase {
 
         handler = new TreasuryAccountingHandler(
             treasury,
+            earningsManager,
             marketplace,
             roboshareTokens,
             usdc,
@@ -151,11 +159,6 @@ contract TreasuryAccountingInvariantTest is PropertyBase {
     function invariantTotalCollateralTracksSingleAsset() public view {
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertEq(treasury.totalCollateralDeposited(), info.totalCollateral, "treasury total collateral drifted");
-    }
-
-    function invariantPrimaryInvestorLiquidityMatchesBaseCollateral() public view {
-        CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
-        assertEq(treasury.getPrimaryInvestorLiquidity(scenario.assetId), info.baseCollateral, "base liquidity mismatch");
     }
 
     function invariantPendingWithdrawalsCoveredByTreasuryBalance() public view {

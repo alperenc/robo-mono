@@ -548,10 +548,10 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         proxyRouter.processSettlementClaimFor(partner1, assetId, 100);
     }
 
-    function testSnapshotAndClaimEarningsTreasuryNotSet() public {
+    function testSnapshotAndClaimEarningsEarningsManagerNotSet() public {
         (RegistryRouter proxyRouter, uint256 assetId) = _setupRouterWithoutTreasury();
         vm.prank(address(assetRegistry));
-        vm.expectRevert(RegistryRouter.TreasuryNotSet.selector);
+        vm.expectRevert(RegistryRouter.EarningsManagerNotSet.selector);
         proxyRouter.snapshotAndClaimEarnings(assetId, partner1, false);
     }
 

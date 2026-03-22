@@ -11,6 +11,7 @@ import { TreasuryFlowBaseTest } from "../base/TreasuryFlowBaseTest.t.sol";
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
 import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 import { Treasury } from "../../contracts/Treasury.sol";
+import { EarningsManager } from "../../contracts/EarningsManager.sol";
 import { Marketplace } from "../../contracts/Marketplace.sol";
 import { AssetLib, VehicleLib, CollateralLib, ProtocolLib, EarningsLib } from "../../contracts/Libraries.sol";
 import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
@@ -23,6 +24,7 @@ contract VehicleRegistryIntegrationHelper is Test {
         VehicleRegistry registry,
         Marketplace market,
         Treasury treasuryContract,
+        EarningsManager,
         RoboshareTokens tokens,
         IERC20 usdcToken,
         address poolPartner,
@@ -48,7 +50,7 @@ contract VehicleRegistryIntegrationHelper is Test {
         market.buyFromPrimaryPool(revenueTokenId, purchaseAmount);
         vm.stopPrank();
 
-        uint256 baseAmount = treasuryContract.getPrimaryInvestorLiquidity(assetId);
+        (, uint256 baseAmount,,,,,,,,,,,) = treasuryContract.assetCollateral(assetId);
         uint256 yieldBP = tokens.getTargetYieldBP(revenueTokenId);
         (, uint256 earningsBuffer, uint256 protocolBuffer,) =
             CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, yieldBP);
@@ -62,6 +64,7 @@ contract VehicleRegistryIntegrationHelper is Test {
 
     function expectedLiquidationAfterMissedShortfall(
         Treasury treasuryContract,
+        EarningsManager earningsManagerContract,
         RoboshareTokens tokens,
         uint256 assetId,
         uint256 revenueTokenId
@@ -70,10 +73,10 @@ contract VehicleRegistryIntegrationHelper is Test {
             uint256 initialBaseCollateral,
             uint256 baseCollateral,
             uint256 earningsBuffer,,,,,,
-            uint256 reservedForLiquidation,,,
+            uint256 reservedForLiquidation,,,,
         ) = treasuryContract.assetCollateral(assetId);
 
-        (,,,, uint256 lastEventTimestamp,,,,) = treasuryContract.assetEarnings(assetId);
+        (,,,, uint256 lastEventTimestamp,,,,) = earningsManagerContract.assetEarnings(assetId);
         uint256 elapsed = block.timestamp - lastEventTimestamp;
         uint256 targetYieldBP = tokens.getTargetYieldBP(revenueTokenId);
         uint256 baseEarnings = EarningsLib.calculateEarnings(initialBaseCollateral, elapsed, targetYieldBP);
@@ -116,6 +119,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
             assetRegistry,
             marketplace,
             treasury,
+            earningsManager,
             roboshareTokens,
             usdc,
             partner1,
@@ -785,7 +789,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         vm.warp(maturityDate + 1);
 
         uint256 expectedLiquidationAmount = helper.expectedLiquidationAfterMissedShortfall(
-            treasury, roboshareTokens, scenario.assetId, scenario.revenueTokenId
+            treasury, earningsManager, roboshareTokens, scenario.assetId, scenario.revenueTokenId
         );
         assetRegistry.liquidateAsset(scenario.assetId);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
@@ -813,7 +817,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     function testLiquidateAssetAfterMissedEarningsShortfall() public {
         (uint256 assetId, uint256 revenueTokenId) = _setupProtectedPoolWithPurchaseAndBuffers();
 
-        (,,,, uint256 lastEventTimestamp,,,,) = treasury.assetEarnings(assetId);
+        (,,,, uint256 lastEventTimestamp,,,,) = earningsManager.assetEarnings(assetId);
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(revenueTokenId);
         CollateralLib.CollateralInfo memory infoBefore = _getCollateralInfo(assetId);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
@@ -823,8 +827,9 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         require(warpTo < maturityDate, "Test assumes delinquency before maturity");
         vm.warp(warpTo);
 
-        uint256 expectedLiquidationAmount =
-            helper.expectedLiquidationAfterMissedShortfall(treasury, roboshareTokens, assetId, revenueTokenId);
+        uint256 expectedLiquidationAmount = helper.expectedLiquidationAfterMissedShortfall(
+            treasury, earningsManager, roboshareTokens, assetId, revenueTokenId
+        );
 
         assetRegistry.liquidateAsset(assetId);
 

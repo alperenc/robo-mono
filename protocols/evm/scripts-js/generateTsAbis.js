@@ -108,6 +108,7 @@ function mapDeploymentScriptToContract(deploymentScriptName) {
     DeployPartnerManager: "PartnerManager",
     DeployVehicleRegistry: "VehicleRegistry",
     DeployTreasury: "Treasury",
+    DeployEarningsManager: "EarningsManager",
     DeployRegistryRouter: "RegistryRouter",
     DeployMarketplace: "Marketplace",
   };
