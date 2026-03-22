@@ -1,7 +1,9 @@
 "use client";
 
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { formatUnits } from "viem";
+import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 const BENCHMARK_YIELD_BP = 1000n;
@@ -37,6 +39,7 @@ interface PrimaryPoolCardProps {
   };
   earnings?: {
     totalEarnings: string;
+    firstDistributionAt?: string;
     lastDistributionAt: string;
   };
   partner?: {
@@ -69,6 +72,7 @@ export function PrimaryPoolCard({
   const { symbol, decimals } = usePaymentToken();
   const actionDropdownRef = useRef<HTMLDivElement>(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const registry = ASSET_REGISTRIES[AssetType.VEHICLE];
   const displayName =
     vehicle?.make && vehicle?.model && vehicle?.year
       ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
@@ -88,12 +92,12 @@ export function PrimaryPoolCard({
 
     const currentIssuedSupply = token.supply ? BigInt(token.supply) : 0n;
     const totalValue = BigInt(pool.pricePerToken) * currentIssuedSupply;
-    const poolCreatedAt = BigInt(pool.createdAt || "0");
+    const durationStart = BigInt(pool.createdAt || "0");
     const lastDistributionAt = BigInt(earnings?.lastDistributionAt || "0");
     const totalEarnings = BigInt(earnings?.totalEarnings || "0");
 
-    if (totalEarnings > 0n && totalValue > 0n && poolCreatedAt > 0n && lastDistributionAt > poolCreatedAt) {
-      const duration = lastDistributionAt - poolCreatedAt;
+    if (totalEarnings > 0n && totalValue > 0n && durationStart > 0n && lastDistributionAt > durationStart) {
+      const duration = lastDistributionAt - durationStart;
       const annualizedEarnings = (totalEarnings * SECONDS_PER_YEAR) / duration;
       const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
       return `${(Number(aprBps) / 100).toFixed(2)}%`;
@@ -123,10 +127,16 @@ export function PrimaryPoolCard({
   const hasAvailableActions = isCardPressable || hasSecondaryActions;
   const enabledPrimaryButtonClass = "btn btn-primary bg-primary/15 border-0 text-primary hover:bg-primary/25";
   const enabledSuccessButtonClass = "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25";
+  const enabledErrorButtonClass = "btn btn-error bg-error/15 border-0 text-error hover:bg-error/25";
   const disabledPrimaryButtonClass =
     "btn btn-ghost border border-base-300 bg-base-200 text-base-content/45 hover:border-base-300 hover:bg-base-200 dark:border-base-300 dark:bg-base-200 dark:text-base-content/45";
   const isSuccessPrimary = primaryActionLabel === "Claim Payout" || primaryActionLabel === "Claim Final Payout";
-  const activePrimaryButtonClass = isSuccessPrimary ? enabledSuccessButtonClass : enabledPrimaryButtonClass;
+  const isErrorPrimary = primaryActionLabel === "Force Final Payout";
+  const activePrimaryButtonClass = isErrorPrimary
+    ? enabledErrorButtonClass
+    : isSuccessPrimary
+      ? enabledSuccessButtonClass
+      : enabledPrimaryButtonClass;
 
   const triggerPrimaryAction = () => {
     if (!isCardPressable) return;
@@ -265,11 +275,10 @@ export function PrimaryPoolCard({
         <div className="flex flex-col lg:flex-row">
           <div className="relative h-40 shrink-0 overflow-hidden bg-base-200 lg:h-auto lg:w-60 xl:w-72">
             {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt={displayName} className="h-full w-full object-cover" />
+              <Image src={imageUrl} alt={displayName} fill className="object-cover" unoptimized />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-base-content/40 text-sm">
-                No Image
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="text-6xl opacity-30">{registry.icon}</span>
               </div>
             )}
             {showNewPoolBadge && (
@@ -288,12 +297,13 @@ export function PrimaryPoolCard({
             <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
               <div className="min-w-0 lg:w-[32%]">
                 <div className="min-h-[4rem]">
-                  <div className="line-clamp-2 break-words text-lg font-bold leading-tight" title={displayName}>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-base-content/50">Vehicle</span>
+                  <div className="line-clamp-2 break-words text-lg font-bold leading-tight mt-1" title={displayName}>
                     {displayName}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span className="truncate text-sm text-base-content/60">
-                      {partner?.name || partner?.address || pool.partner}
+                      by {partner?.name || partner?.address || pool.partner}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>
                       {statusLabel}
@@ -352,24 +362,31 @@ export function PrimaryPoolCard({
 
   return (
     <article
-      className={`rounded-2xl border border-base-300 bg-base-100 shadow-lg transition-all duration-300 overflow-hidden flex flex-col ${
+      className={`relative rounded-2xl border border-base-300 bg-base-100 shadow-lg transition-all duration-300 overflow-hidden flex flex-col group ${
         hasAvailableActions ? "hover:shadow-xl" : "opacity-70 saturate-50"
-      } ${isCardPressable ? "cursor-pointer" : ""}`}
+      } ${isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       role={isCardPressable ? "button" : undefined}
       tabIndex={isCardPressable ? 0 : undefined}
       aria-label={isCardPressable ? primaryActionLabel : undefined}
     >
-      <div className="relative aspect-[16/10] bg-base-200">
+      <div className="relative aspect-[16/10] bg-base-200 overflow-hidden group">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt={displayName} className="w-full h-full object-cover" />
+          <Image
+            src={imageUrl}
+            alt={displayName}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            unoptimized
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-base-content/40 text-sm">No Image</div>
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-6xl opacity-30">{registry.icon}</span>
+          </div>
         )}
         {showNewPoolBadge && (
-          <div className="absolute inset-x-0 top-0 flex items-center justify-center bg-success text-success-content px-4 py-2 text-xs font-bold tracking-wide shadow-md">
+          <div className="absolute inset-x-0 top-0 z-10 bg-success py-2 text-center text-sm font-bold tracking-wide text-success-content">
             ✨ New Offering
           </div>
         )}
@@ -380,22 +397,23 @@ export function PrimaryPoolCard({
         </div>
       </div>
 
-      <div className="grid flex-1 grid-rows-[5.5rem_2rem_auto_auto_auto] gap-4 p-5">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] items-start gap-x-3 gap-y-1">
-          <h3 className="line-clamp-2 text-xl font-bold leading-tight" title={displayName}>
-            {displayName}
-          </h3>
+      <div className="grid flex-1 grid-rows-[7.5rem_auto_auto_auto_auto] gap-4 p-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] items-start gap-x-3 gap-y-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-base-content/50">Vehicle</span>
           <span
-            className={`row-span-2 rounded-full px-3 py-1 text-xs font-semibold shrink-0 self-start ${statusClass}`}
+            className={`row-span-3 rounded-full px-3 py-1 text-xs font-semibold shrink-0 self-start ${statusClass}`}
           >
             {statusLabel}
           </span>
-          <p
-            className="truncate text-sm text-base-content/60"
+          <h3 className="line-clamp-2 text-xl font-bold leading-tight min-h-[2.8rem]" title={displayName}>
+            {displayName}
+          </h3>
+          <div
+            className="truncate text-sm text-base-content/60 mt-0.5"
             title={partner?.name || partner?.address || pool.partner}
           >
-            {partner?.name || partner?.address || pool.partner}
-          </p>
+            by {partner?.name || partner?.address || pool.partner}
+          </div>
         </div>
 
         <div className="flex flex-wrap content-start gap-2">
@@ -424,13 +442,13 @@ export function PrimaryPoolCard({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-xl bg-base-200 p-3">
             <div className="text-base-content/60">Available</div>
-            <div className="mt-1 text-2xl font-bold leading-none">{remainingSupply.toLocaleString()}</div>
-            <div className="mt-1 text-base-content/70 font-semibold">claim units</div>
+            <div className="mt-1 text-xl font-bold leading-none">{remainingSupply.toLocaleString()}</div>
+            <div className="mt-1 text-sm text-base-content/70 font-semibold">claim units</div>
           </div>
           <div className="rounded-xl bg-base-200 p-3">
             <div className="text-base-content/60">Price</div>
-            <div className="mt-1 text-2xl font-bold leading-none">{priceDisplay}</div>
-            <div className="mt-1 text-base-content/70 font-semibold">{symbol}</div>
+            <div className="mt-1 text-xl font-bold leading-none">{priceDisplay}</div>
+            <div className="mt-1 text-sm text-base-content/70 font-semibold">{symbol}</div>
           </div>
         </div>
 

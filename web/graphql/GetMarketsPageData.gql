@@ -45,6 +45,7 @@ query GetMarketsPageData {
     revenueTokenId
     price
     supply
+    createdAt
     maturityDate
   }
   assetEarnings(first: 100) {
