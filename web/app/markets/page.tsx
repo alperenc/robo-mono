@@ -1545,6 +1545,7 @@ const MarketsPage: NextPage = () => {
                 setIsClaimSettlementOpen(false);
                 setSelectedListing(null);
                 setSelectedPool(null);
+                refetchPendingWithdrawal();
                 fetchData(false);
                 refetchHoldings();
                 refetchPrimaryPoolHoldings?.();

@@ -3,12 +3,13 @@
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useChainId, useChains, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, useChains, useSwitchChain } from "wagmi";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
 const HomePage = () => {
   const router = useRouter();
+  const { isConnected } = useAccount();
   const chainId = useChainId();
   const chains = useChains();
   const { switchChain } = useSwitchChain();
@@ -17,10 +18,10 @@ const HomePage = () => {
   const hasMarketsSupport = !!getSubgraphQueryUrl(chainId);
 
   useEffect(() => {
-    if (hasMarketsSupport) {
+    if (isConnected && hasMarketsSupport) {
       router.replace("/markets");
     }
-  }, [hasMarketsSupport, router]);
+  }, [hasMarketsSupport, isConnected, router]);
 
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-16">
@@ -41,7 +42,9 @@ const HomePage = () => {
           </p>
           <p className="mt-2 text-sm text-base-content/70">
             {hasMarketsSupport
-              ? "Markets is supported here. You should be redirected automatically."
+              ? isConnected
+                ? "Markets is supported here. You should be redirected automatically."
+                : "Markets is supported here. Connect a wallet to continue automatically, or open Markets directly."
               : "Markets is not configured on this network yet. Switch to a supported network to continue."}
           </p>
         </div>
