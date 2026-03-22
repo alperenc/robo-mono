@@ -51,11 +51,17 @@ contract RoboshareTokens is
     );
     event RevenueTokenLocked(uint256 indexed revenueTokenId, address indexed holder, uint256 amount);
     event RevenueTokenUnlocked(uint256 indexed revenueTokenId, address indexed holder, uint256 amount);
+    event PrimaryRedemptionStateUpdated(
+        uint256 indexed revenueTokenId, uint256 redemptionEpoch, uint256 epochSupply, uint256 backedPrincipal
+    );
 
     // Token state
     uint256 private _tokenIdCounter;
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
     mapping(address => mapping(uint256 => uint256)) private _lockedRevenueTokenAmounts;
+    bool private _currentEpochBurnActive;
+    address private _currentEpochBurnHolder;
+    uint256 private _currentEpochBurnTokenId;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -328,6 +334,82 @@ contract RoboshareTokens is
         emit RevenueTokenUnlocked(revenueTokenId, holder, amount);
     }
 
+    function burnCurrentEpochForPrimaryRedemption(address holder, uint256 revenueTokenId, uint256 amount)
+        external
+        onlyRole(BURNER_ROLE)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        if (amount == 0) revert InvalidLockAmount();
+
+        _currentEpochBurnActive = true;
+        _currentEpochBurnHolder = holder;
+        _currentEpochBurnTokenId = revenueTokenId;
+
+        _burn(holder, revenueTokenId, amount);
+
+        _currentEpochBurnActive = false;
+        _currentEpochBurnHolder = address(0);
+        _currentEpochBurnTokenId = 0;
+    }
+
+    function recordImmediateProceedsRelease(uint256 revenueTokenId, uint256 releasedAmount)
+        external
+        onlyRole(BURNER_ROLE)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        if (releasedAmount == 0) return;
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
+        uint256 backedPrincipal = tokenInfo.currentRedemptionBackedPrincipal;
+        if (backedPrincipal == 0) return;
+
+        tokenInfo.currentRedemptionBackedPrincipal =
+            releasedAmount >= backedPrincipal ? 0 : backedPrincipal - releasedAmount;
+
+        if (tokenInfo.currentRedemptionBackedPrincipal == 0) {
+            tokenInfo.currentRedemptionEpoch++;
+            tokenInfo.currentRedemptionEpochSupply = 0;
+        }
+
+        emit PrimaryRedemptionStateUpdated(
+            revenueTokenId,
+            tokenInfo.currentRedemptionEpoch,
+            tokenInfo.currentRedemptionEpochSupply,
+            tokenInfo.currentRedemptionBackedPrincipal
+        );
+    }
+
+    function recordPrimaryRedemptionPayout(uint256 revenueTokenId, uint256 payoutAmount)
+        external
+        onlyRole(BURNER_ROLE)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        if (payoutAmount == 0) return;
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
+        uint256 backedPrincipal = tokenInfo.currentRedemptionBackedPrincipal;
+        tokenInfo.currentRedemptionBackedPrincipal =
+            payoutAmount >= backedPrincipal ? 0 : backedPrincipal - payoutAmount;
+
+        if (tokenInfo.currentRedemptionBackedPrincipal == 0) {
+            tokenInfo.currentRedemptionEpoch++;
+            tokenInfo.currentRedemptionEpochSupply = 0;
+        }
+
+        emit PrimaryRedemptionStateUpdated(
+            revenueTokenId,
+            tokenInfo.currentRedemptionEpoch,
+            tokenInfo.currentRedemptionEpochSupply,
+            tokenInfo.currentRedemptionBackedPrincipal
+        );
+    }
+
     function transferLockedForListing(
         address from,
         address to,
@@ -373,6 +455,44 @@ contract RoboshareTokens is
         }
 
         return positions;
+    }
+
+    function getPrimaryRedemptionEligibleBalance(address holder, uint256 revenueTokenId)
+        external
+        view
+        returns (uint256)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+
+        TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 currentEpoch = info.currentRedemptionEpoch;
+        uint256 eligibleBalance = 0;
+
+        for (uint256 i = queue.head; i < queue.tail; i++) {
+            TokenLib.TokenPosition storage position = queue.items[i];
+            if (position.amount > 0 && position.redemptionEpoch == currentEpoch) {
+                eligibleBalance += position.amount;
+            }
+        }
+
+        return eligibleBalance;
+    }
+
+    function getCurrentPrimaryRedemptionEpochSupply(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].currentRedemptionEpochSupply;
+    }
+
+    function getCurrentPrimaryRedemptionBackedPrincipal(uint256 revenueTokenId) external view returns (uint256) {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+        return _revenueTokenInfos[revenueTokenId].currentRedemptionBackedPrincipal;
     }
 
     /**
@@ -476,16 +596,135 @@ contract RoboshareTokens is
         TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
 
         if (from == address(0)) {
-            // Minting - add position to receiver
+            // Minting - add position to receiver in the current redemption tranche.
             TokenLib.addPosition(tokenInfo, to, amount);
+            tokenInfo.currentRedemptionEpochSupply += amount;
+            tokenInfo.currentRedemptionBackedPrincipal += amount * tokenInfo.tokenPrice;
+            emit PrimaryRedemptionStateUpdated(
+                revenueTokenId,
+                tokenInfo.currentRedemptionEpoch,
+                tokenInfo.currentRedemptionEpochSupply,
+                tokenInfo.currentRedemptionBackedPrincipal
+            );
         } else if (to == address(0)) {
-            // Burning - remove position from sender
-            TokenLib.removePosition(tokenInfo, from, amount);
+            if (
+                _currentEpochBurnActive && from == _currentEpochBurnHolder && revenueTokenId == _currentEpochBurnTokenId
+            ) {
+                _burnCurrentEpochPositions(tokenInfo, from, amount);
+            } else {
+                _burnPositionsFifo(tokenInfo, from, amount);
+            }
         } else {
-            // Transfer between users - remove from sender, add to receiver
-            TokenLib.removePosition(tokenInfo, from, amount);
-            TokenLib.addPosition(tokenInfo, to, amount);
+            _transferPositionsFifo(tokenInfo, from, to, amount);
         }
+    }
+
+    function _appendPositionWithEpoch(TokenLib.TokenInfo storage info, address holder, uint256 amount, uint256 epoch)
+        private
+    {
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 id = queue.tail;
+        queue.items[id] = TokenLib.TokenPosition({
+            uid: id,
+            tokenId: info.tokenId,
+            amount: amount,
+            acquiredAt: block.timestamp,
+            soldAt: 0,
+            redemptionEpoch: epoch
+        });
+        queue.tail++;
+    }
+
+    function _transferPositionsFifo(TokenLib.TokenInfo storage info, address from, address to, uint256 amount) private {
+        TokenLib.PositionQueue storage queue = info.positions[from];
+        uint256 remaining = amount;
+
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenLib.TokenPosition storage pos = queue.items[i];
+            if (pos.amount == 0) continue;
+
+            uint256 toMove = remaining > pos.amount ? pos.amount : remaining;
+            uint256 epoch = pos.redemptionEpoch;
+
+            pos.amount -= toMove;
+            if (pos.amount == 0) {
+                pos.soldAt = block.timestamp;
+            }
+
+            _appendPositionWithEpoch(info, to, toMove, epoch);
+            remaining -= toMove;
+        }
+
+        if (remaining > 0) {
+            revert TokenLib.InsufficientTokenBalance();
+        }
+    }
+
+    function _burnPositionsFifo(TokenLib.TokenInfo storage info, address holder, uint256 amount) private {
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 remaining = amount;
+        uint256 currentEpoch = info.currentRedemptionEpoch;
+        uint256 burnedFromCurrentEpoch = 0;
+
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenLib.TokenPosition storage pos = queue.items[i];
+            if (pos.amount == 0) continue;
+
+            uint256 toBurn = remaining > pos.amount ? pos.amount : remaining;
+            if (pos.redemptionEpoch == currentEpoch) {
+                burnedFromCurrentEpoch += toBurn;
+            }
+
+            pos.amount -= toBurn;
+            if (pos.amount == 0) {
+                pos.soldAt = block.timestamp;
+            }
+            remaining -= toBurn;
+        }
+
+        if (remaining > 0) {
+            revert TokenLib.InsufficientTokenBalance();
+        }
+
+        if (burnedFromCurrentEpoch > 0) {
+            info.currentRedemptionEpochSupply -= burnedFromCurrentEpoch;
+            emit PrimaryRedemptionStateUpdated(
+                info.tokenId,
+                info.currentRedemptionEpoch,
+                info.currentRedemptionEpochSupply,
+                info.currentRedemptionBackedPrincipal
+            );
+        }
+    }
+
+    function _burnCurrentEpochPositions(TokenLib.TokenInfo storage info, address holder, uint256 amount) private {
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 remaining = amount;
+        uint256 currentEpoch = info.currentRedemptionEpoch;
+
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenLib.TokenPosition storage pos = queue.items[i];
+            if (pos.amount == 0 || pos.redemptionEpoch != currentEpoch) continue;
+
+            uint256 toBurn = remaining > pos.amount ? pos.amount : remaining;
+            pos.amount -= toBurn;
+            if (pos.amount == 0) {
+                pos.soldAt = block.timestamp;
+            }
+            remaining -= toBurn;
+        }
+
+        if (remaining > 0) {
+            revert TokenLib.InsufficientTokenBalance();
+        }
+
+        info.currentRedemptionEpochSupply -= amount;
+        emit PrimaryRedemptionStateUpdated(
+            info.tokenId,
+            info.currentRedemptionEpoch,
+            info.currentRedemptionEpochSupply,
+            info.currentRedemptionBackedPrincipal
+        );
     }
 
     /**

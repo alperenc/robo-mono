@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import { console } from "forge-std/console.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { ScaffoldETHDeploy } from "./DeployHelpers.s.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
@@ -24,10 +23,11 @@ contract DeployMarketplace is ScaffoldETHDeploy {
 
         // For local Anvil/testing, deploy mock USDC if not set
         if (config.usdcToken == address(0)) {
-            MockUSDC mockUsdc = new MockUSDC();
-            config.usdcToken = address(mockUsdc);
-            console.log("Mock USDC deployed at:", address(mockUsdc));
+            config.usdcToken = ensureLocalOrTestUsdc(deployer);
+            console.log("Mock USDC deployed at:", config.usdcToken);
         }
+
+        activeNetworkConfig = config;
 
         console.log("Deploying Marketplace with deployer:", deployer);
         console.log("Deployer balance:", deployer.balance);

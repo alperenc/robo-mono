@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { Script } from "forge-std/Script.sol";
+import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 
 contract ScaffoldETHDeploy is Script {
     error InvalidChain();
@@ -30,6 +31,7 @@ contract ScaffoldETHDeploy is Script {
     // Network configuration constants
     uint8 public constant USDC_DECIMALS = 6;
     uint256 public constant INITIAL_USDC_SUPPLY = 1000000 * 10 ** USDC_DECIMALS; // 1M USDC
+    address public constant LOCAL_FAUCET = 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f;
 
     /// @notice The deployer address for every run
     address deployer;
@@ -66,6 +68,22 @@ contract ScaffoldETHDeploy is Script {
 
     function saveDeployment(string memory name, address addr) public {
         deployments.push(Deployment({ name: name, addr: addr }));
+    }
+
+    function ensureLocalOrTestUsdc(address recipient) internal returns (address) {
+        NetworkConfig memory config = getActiveNetworkConfig();
+        if (config.usdcToken != address(0) || !isLocalOrTestNetwork()) {
+            return config.usdcToken;
+        }
+
+        MockUSDC mockUsdc = new MockUSDC();
+        address usdcAddress = address(mockUsdc);
+        mockUsdc.mint(recipient, INITIAL_USDC_SUPPLY);
+        mockUsdc.mint(LOCAL_FAUCET, INITIAL_USDC_SUPPLY);
+
+        config.usdcToken = usdcAddress;
+        activeNetworkConfig = config;
+        return usdcAddress;
     }
 
     function _startBroadcast() internal returns (address) {

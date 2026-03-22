@@ -5,6 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -80,7 +81,6 @@ contract Marketplace is
     mapping(uint256 => bool) public primaryPoolCreated;
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => uint256[]) public assetListings;
-    mapping(uint256 => uint256) public tokenEscrow;
 
     error ZeroAddress();
     error InvalidUSDCContract(address token);
@@ -306,18 +306,22 @@ contract Marketplace is
     /**
      * @dev Previews redemption payout from a primary pool.
      */
-    function previewPrimaryRedemption(uint256 tokenId, uint256 amount)
+    function previewPrimaryRedemption(uint256 tokenId, address holder, uint256 amount)
         external
         view
-        returns (uint256 payout, uint256 investorLiquidity, uint256 circulatingSupply)
+        returns (uint256 payout, uint256 investorLiquidity, uint256 redemptionSupply, uint256 holderEligibleBalance)
     {
         _getPrimaryPool(tokenId);
-        if (amount == 0) return (0, 0, 0);
+        holderEligibleBalance = roboshareTokens.getPrimaryRedemptionEligibleBalance(holder, tokenId);
+        if (amount == 0) return (0, 0, 0, holderEligibleBalance);
 
-        circulatingSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
+        redemptionSupply = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        investorLiquidity = treasury.getPrimaryInvestorLiquidity(assetId);
-        payout = treasury.previewPrimaryRedemptionPayout(assetId, amount, circulatingSupply);
+        (, investorLiquidity,,,,,,,,,,,) = treasury.assetCollateral(assetId);
+        if (amount > holderEligibleBalance || redemptionSupply == 0 || investorLiquidity == 0) {
+            return (0, investorLiquidity, redemptionSupply, holderEligibleBalance);
+        }
+        payout = Math.mulDiv(amount, investorLiquidity, redemptionSupply);
     }
 
     /**
@@ -335,10 +339,9 @@ contract Marketplace is
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
         if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
 
-        uint256 circulatingSupply = roboshareTokens.getRevenueTokenSupply(tokenId);
-        payout = treasury.processPrimaryRedemptionFor(msg.sender, assetId, amount, circulatingSupply, minPayout);
+        payout = treasury.processPrimaryRedemptionFor(msg.sender, assetId, amount, minPayout);
 
-        uint256 investorLiquidityAfter = treasury.getPrimaryInvestorLiquidity(assetId);
+        (, uint256 investorLiquidityAfter,,,,,,,,,,,) = treasury.assetCollateral(assetId);
         emit PrimaryPoolRedeemed(tokenId, msg.sender, amount, payout, investorLiquidityAfter);
     }
 
@@ -591,24 +594,6 @@ contract Marketplace is
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
-
-    /**
-     * @dev ERC1155 single token receiver hook.
-     */
-    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
-        return this.onERC1155Received.selector;
-    }
-
-    /**
-     * @dev ERC1155 batch token receiver hook.
-     */
-    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory)
-        public
-        virtual
-        returns (bytes4)
-    {
-        return this.onERC1155BatchReceived.selector;
-    }
 
     function _getValidatedPrimaryPool(uint256 tokenId, uint256 amount)
         internal

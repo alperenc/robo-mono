@@ -1,0 +1,394 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IEarningsManager } from "./interfaces/IEarningsManager.sol";
+import { ITreasury } from "./interfaces/ITreasury.sol";
+import { ProtocolLib, TokenLib, EarningsLib, AssetLib } from "./Libraries.sol";
+import { RoboshareTokens } from "./RoboshareTokens.sol";
+import { PartnerManager } from "./PartnerManager.sol";
+import { RegistryRouter } from "./RegistryRouter.sol";
+
+contract EarningsManager is
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IEarningsManager
+{
+    using EarningsLib for EarningsLib.EarningsInfo;
+    using SafeERC20 for IERC20;
+
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+    bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
+
+    RoboshareTokens public roboshareTokens;
+    PartnerManager public partnerManager;
+    RegistryRouter public router;
+    ITreasury public treasury;
+    IERC20 public usdc;
+
+    mapping(uint256 => EarningsLib.EarningsInfo) private _assetEarnings;
+
+    error ZeroAddress();
+
+    constructor() {
+        _disableInitializers();
+    }
+
+    modifier onlyAuthorizedAssetOwner(uint256 assetId) {
+        _requireAssetExists(assetId);
+        _requireAuthorizedAssetOwner(msg.sender, assetId);
+        _;
+    }
+
+    function initialize(
+        address _admin,
+        address _roboshareTokens,
+        address _partnerManager,
+        address _router,
+        address _treasury,
+        address _usdc
+    ) public initializer {
+        if (
+            _admin == address(0) || _roboshareTokens == address(0) || _partnerManager == address(0)
+                || _router == address(0) || _treasury == address(0) || _usdc == address(0)
+        ) {
+            revert ZeroAddress();
+        }
+
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+        _grantRole(UPGRADER_ROLE, _admin);
+        _grantRole(AUTHORIZED_CONTRACT_ROLE, _treasury);
+        _grantRole(AUTHORIZED_CONTRACT_ROLE, _router);
+
+        roboshareTokens = RoboshareTokens(_roboshareTokens);
+        partnerManager = PartnerManager(_partnerManager);
+        router = RegistryRouter(_router);
+        treasury = ITreasury(_treasury);
+        usdc = IERC20(_usdc);
+    }
+
+    function _requireAssetExists(uint256 assetId) internal view {
+        if (!router.assetExists(assetId)) {
+            revert ITreasury.AssetNotFound();
+        }
+    }
+
+    function _requireAuthorizedAssetOwner(address partner, uint256 assetId) internal view {
+        if (!partnerManager.isAuthorizedPartner(partner)) {
+            revert PartnerManager.UnauthorizedPartner();
+        }
+        if (roboshareTokens.balanceOf(partner, assetId) == 0) {
+            revert ITreasury.NotAssetOwner();
+        }
+    }
+
+    function assetEarnings(uint256 assetId)
+        external
+        view
+        returns (
+            uint256 totalRevenue,
+            uint256 totalEarnings,
+            uint256 totalEarningsPerToken,
+            uint256 currentPeriod,
+            uint256 lastEventTimestamp,
+            uint256 lastProcessedPeriod,
+            uint256 cumulativeBenchmarkEarnings,
+            uint256 cumulativeExcessEarnings,
+            bool isInitialized
+        )
+    {
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        return (
+            earningsInfo.totalRevenue,
+            earningsInfo.totalEarnings,
+            earningsInfo.totalEarningsPerToken,
+            earningsInfo.currentPeriod,
+            earningsInfo.lastEventTimestamp,
+            earningsInfo.lastProcessedPeriod,
+            earningsInfo.cumulativeBenchmarkEarnings,
+            earningsInfo.cumulativeExcessEarnings,
+            earningsInfo.isInitialized
+        );
+    }
+
+    function getAssetEarningsSummary(uint256 assetId) external view returns (EarningsSummary memory summary) {
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        summary = EarningsSummary({
+            isInitialized: earningsInfo.isInitialized,
+            currentPeriod: earningsInfo.currentPeriod,
+            lastEventTimestamp: earningsInfo.lastEventTimestamp,
+            lastProcessedPeriod: earningsInfo.lastProcessedPeriod,
+            cumulativeBenchmarkEarnings: earningsInfo.cumulativeBenchmarkEarnings,
+            cumulativeExcessEarnings: earningsInfo.cumulativeExcessEarnings
+        });
+    }
+
+    function sumRealizedEarnings(uint256 assetId, uint256 fromPeriodExclusive, uint256 toPeriodInclusive)
+        external
+        view
+        returns (uint256 realizedEarnings)
+    {
+        return EarningsLib.sumRealizedEarnings(_assetEarnings[assetId], fromPeriodExclusive, toPeriodInclusive);
+    }
+
+    function initializeLastEventTimestampIfUnset(uint256 assetId) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        if (earningsInfo.lastEventTimestamp == 0) {
+            earningsInfo.lastEventTimestamp = block.timestamp;
+        }
+    }
+
+    function recordReleaseProcessing(uint256 assetId, uint256 newLastProcessedPeriod, uint256 excessEarnings)
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+    {
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        if (excessEarnings > 0) {
+            earningsInfo.cumulativeExcessEarnings += excessEarnings;
+        }
+        earningsInfo.lastEventTimestamp = block.timestamp;
+        earningsInfo.lastProcessedPeriod = newLastProcessedPeriod;
+    }
+
+    function syncLastEventTimestamp(uint256 assetId) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
+        _assetEarnings[assetId].lastEventTimestamp = block.timestamp;
+    }
+
+    function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
+        external
+        onlyAuthorizedAssetOwner(assetId)
+        nonReentrant
+        returns (uint256 collateralReleased)
+    {
+        if (totalRevenue == 0) revert ITreasury.InvalidEarningsAmount();
+
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        if (status != AssetLib.AssetStatus.Earning) {
+            revert ITreasury.AssetNotActive(assetId, status);
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+        uint256 partnerTokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
+        if (partnerTokenBalance >= tokenTotalSupply) {
+            revert ITreasury.NoInvestors();
+        }
+
+        uint256 investorSupply;
+        unchecked {
+            investorSupply = tokenTotalSupply - partnerTokenBalance;
+        }
+
+        uint256 cap = (totalRevenue * roboshareTokens.getRevenueShareBP(revenueTokenId)) / ProtocolLib.BP_PRECISION;
+        uint256 investorAmount =
+            (totalRevenue * investorSupply) / roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId);
+        investorAmount = investorAmount > cap ? cap : investorAmount;
+
+        if (investorAmount < ProtocolLib.MIN_PROTOCOL_FEE) {
+            revert ITreasury.EarningsLessThanMinimumFee();
+        }
+
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(investorAmount);
+        uint256 netEarnings = investorAmount - protocolFee;
+
+        usdc.safeTransferFrom(msg.sender, address(treasury), investorAmount);
+
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        if (!earningsInfo.isInitialized) {
+            EarningsLib.initializeEarningsInfo(earningsInfo);
+        }
+
+        uint256 earningsPerToken = netEarnings / investorSupply;
+        unchecked {
+            earningsInfo.totalRevenue += totalRevenue;
+            earningsInfo.totalEarnings += netEarnings;
+            earningsInfo.totalEarningsPerToken += earningsPerToken;
+            earningsInfo.currentPeriod++;
+        }
+
+        earningsInfo.periods[earningsInfo.currentPeriod] = EarningsLib.EarningsPeriod({
+            earningsPerToken: earningsPerToken, timestamp: block.timestamp, totalEarnings: netEarnings
+        });
+        earningsInfo.lastEventTimestamp = block.timestamp;
+
+        emit EarningsDistributed(assetId, msg.sender, totalRevenue, netEarnings, earningsInfo.currentPeriod);
+
+        collateralReleased = treasury.processEarningsDistributionEffects(
+            msg.sender, assetId, investorAmount, protocolFee, tryAutoRelease
+        );
+    }
+
+    function claimEarnings(uint256 assetId) external nonReentrant {
+        uint256 claimedAmount = _claimEarningsFor(msg.sender, assetId);
+        if (claimedAmount == 0) {
+            revert ITreasury.NoEarningsToClaim();
+        }
+        treasury.creditEarningsWithdrawal(msg.sender, claimedAmount);
+        emit EarningsClaimed(assetId, msg.sender, claimedAmount);
+    }
+
+    function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256) {
+        if (!router.assetExists(assetId)) {
+            revert ITreasury.AssetNotFound();
+        }
+
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            return 0;
+        }
+
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        bool isSettled = status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired;
+
+        if (isSettled) {
+            uint256 settledPreview = EarningsLib.previewSettledEarnings(earningsInfo, holder);
+            if (settledPreview > 0) {
+                return settledPreview;
+            }
+            if (roboshareTokens.balanceOf(holder, assetId) > 0) {
+                return 0;
+            }
+            uint256 settledRevenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            if (roboshareTokens.balanceOf(holder, settledRevenueTokenId) == 0) {
+                return 0;
+            }
+
+            TokenLib.TokenPosition[] memory settledPositions =
+                roboshareTokens.getUserPositions(settledRevenueTokenId, holder);
+            return EarningsLib.previewEarningsForHolder(earningsInfo, holder, settledPositions);
+        }
+
+        if (roboshareTokens.balanceOf(holder, assetId) > 0) {
+            return 0;
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        if (roboshareTokens.balanceOf(holder, revenueTokenId) == 0) {
+            return 0;
+        }
+
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+        return EarningsLib.previewEarningsForHolder(earningsInfo, holder, positions);
+    }
+
+    function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
+        external
+        onlyRole(AUTHORIZED_CONTRACT_ROLE)
+        returns (uint256 snapshotAmount)
+    {
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            return 0;
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+        snapshotAmount = EarningsLib.snapshotHolderEarnings(earningsInfo, holder, positions);
+
+        if (autoClaim && snapshotAmount > 0) {
+            earningsInfo.hasClaimedSettledEarnings[holder] = true;
+            treasury.creditEarningsWithdrawal(holder, snapshotAmount);
+            emit EarningsClaimed(assetId, holder, snapshotAmount);
+        }
+    }
+
+    function _claimEarningsFor(address holder, uint256 assetId) internal returns (uint256 unclaimedAmount) {
+        if (!router.assetExists(assetId)) {
+            revert ITreasury.AssetNotFound();
+        }
+
+        EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
+        if (!earningsInfo.isInitialized || earningsInfo.currentPeriod == 0) {
+            revert ITreasury.NoEarningsToClaim();
+        }
+
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        bool isSettled = status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired;
+
+        if (isSettled) {
+            unclaimedAmount = EarningsLib.claimSettledEarnings(earningsInfo, holder);
+            if (unclaimedAmount == 0) {
+                if (roboshareTokens.balanceOf(holder, assetId) == 0) {
+                    uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+                    uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
+                    if (tokenBalance > 0) {
+                        TokenLib.TokenPosition[] memory positions =
+                            roboshareTokens.getUserPositions(revenueTokenId, holder);
+                        unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
+                        if (unclaimedAmount > 0) {
+                            EarningsLib.updateClaimPeriods(earningsInfo, holder, positions);
+                        }
+                    }
+                }
+            }
+        } else {
+            if (roboshareTokens.balanceOf(holder, assetId) > 0) {
+                revert ITreasury.NoEarningsToClaim();
+            }
+            uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
+            if (tokenBalance == 0) {
+                revert ITreasury.InsufficientTokenBalance();
+            }
+
+            TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+            unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
+
+            if (unclaimedAmount > 0) {
+                EarningsLib.updateClaimPeriods(earningsInfo, holder, positions);
+            }
+        }
+    }
+
+    function updateTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_treasury == address(0)) revert ZeroAddress();
+        address oldTreasury = address(treasury);
+        _revokeRole(AUTHORIZED_CONTRACT_ROLE, oldTreasury);
+        treasury = ITreasury(_treasury);
+        _grantRole(AUTHORIZED_CONTRACT_ROLE, _treasury);
+        emit TreasuryUpdated(oldTreasury, _treasury);
+    }
+
+    function updateRouter(address _router) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_router == address(0)) revert ZeroAddress();
+        address oldRouter = address(router);
+        _revokeRole(AUTHORIZED_CONTRACT_ROLE, oldRouter);
+        router = RegistryRouter(_router);
+        _grantRole(AUTHORIZED_CONTRACT_ROLE, _router);
+        emit RouterUpdated(oldRouter, _router);
+    }
+
+    function updatePartnerManager(address _partnerManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_partnerManager == address(0)) revert ZeroAddress();
+        address oldPartnerManager = address(partnerManager);
+        partnerManager = PartnerManager(_partnerManager);
+        emit PartnerManagerUpdated(oldPartnerManager, _partnerManager);
+    }
+
+    function updateRoboshareTokens(address _roboshareTokens) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_roboshareTokens == address(0)) revert ZeroAddress();
+        address oldRoboshareTokens = address(roboshareTokens);
+        roboshareTokens = RoboshareTokens(_roboshareTokens);
+        emit RoboshareTokensUpdated(oldRoboshareTokens, _roboshareTokens);
+    }
+
+    function updateUSDC(address _usdc) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_usdc == address(0)) revert ZeroAddress();
+        address oldUsdc = address(usdc);
+        usdc = IERC20(_usdc);
+        emit UsdcUpdated(oldUsdc, _usdc);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
+}

@@ -42,13 +42,19 @@ function findLineBySnippet(relativeContractPath, sourceIncludes) {
 
 function loadWaivers(filePath) {
   if (!fs.existsSync(filePath)) {
-    return new Map();
+    return { lineWaivers: new Map(), functionWaivers: new Map() };
   }
 
   const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-  const map = new Map();
+  const lineWaivers = new Map();
+  const functionWaivers = new Map();
 
   raw.forEach((waiver) => {
+    if (waiver.function) {
+      functionWaivers.set(`${waiver.file}:${waiver.function}`, waiver);
+      return;
+    }
+
     const resolvedLine = findLineBySnippet(waiver.file, waiver.sourceIncludes);
     const line = resolvedLine ?? waiver.line;
 
@@ -56,10 +62,10 @@ function loadWaivers(filePath) {
       return;
     }
 
-    map.set(`${waiver.file}:${line}`, { ...waiver, line });
+    lineWaivers.set(`${waiver.file}:${line}`, { ...waiver, line });
   });
 
-  return map;
+  return { lineWaivers, functionWaivers };
 }
 
 function parseLcov(filePath) {
@@ -114,7 +120,7 @@ function analyzeCoverage() {
   console.log("========================\n");
 
   const coverageData = parseLcov(lcovPath);
-  const waivers = loadWaivers(waiversPath);
+  const { lineWaivers, functionWaivers } = loadWaivers(waiversPath);
   let hasIssues = false;
   let hasWaivedItems = false;
 
@@ -129,13 +135,25 @@ function analyzeCoverage() {
     }
 
     const relativePath = file.split("protocols/evm/")[1] || file;
-    const uncoveredFunctions = data.functions.details.filter((f) => !f.hit);
+    const actionableFunctions = [];
+    const waivedFunctions = [];
+    data.functions.details
+      .filter((f) => !f.hit)
+      .forEach((func) => {
+        const waiver = functionWaivers.get(`${relativePath}:${func.name}`);
+        if (waiver) {
+          hasWaivedItems = true;
+          waivedFunctions.push({ name: func.name, ...waiver });
+        } else {
+          actionableFunctions.push(func);
+        }
+      });
     const uncoveredBranches = data.branches.details.filter((b) => !b.taken);
     const actionableBranches = [];
     const waivedBranchesByLine = {};
 
     uncoveredBranches.forEach((branch) => {
-      const waiver = waivers.get(`${relativePath}:${branch.line}`);
+      const waiver = lineWaivers.get(`${relativePath}:${branch.line}`);
       if (waiver) {
         hasWaivedItems = true;
         const key = `${branch.line}`;
@@ -153,18 +171,26 @@ function analyzeCoverage() {
     });
 
     if (
-      uncoveredFunctions.length > 0 ||
+      actionableFunctions.length > 0 ||
       actionableBranches.length > 0 ||
+      waivedFunctions.length > 0 ||
       Object.keys(waivedBranchesByLine).length > 0
     ) {
-      if (uncoveredFunctions.length > 0 || actionableBranches.length > 0) {
+      if (actionableFunctions.length > 0 || actionableBranches.length > 0) {
         hasIssues = true;
       }
       console.log(`File: ${relativePath}`);
 
-      if (uncoveredFunctions.length > 0) {
+      if (actionableFunctions.length > 0) {
         console.log("  Uncovered Functions:");
-        uncoveredFunctions.forEach((f) => console.log(`    - ${f.name}`));
+        actionableFunctions.forEach((f) => console.log(`    - ${f.name}`));
+      }
+
+      if (waivedFunctions.length > 0) {
+        console.log("  Waived Functions:");
+        waivedFunctions.forEach((f) =>
+          console.log(`    - ${f.name} [${f.classification}] - ${f.reason}`)
+        );
       }
 
       if (actionableBranches.length > 0) {

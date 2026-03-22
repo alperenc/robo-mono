@@ -22,11 +22,8 @@ interface ITreasury {
         uint256 indexed assetId, uint256 newEarningsBuffer, uint256 newReservedForLiquidation
     );
     event ImmediateProceedsReleased(uint256 indexed assetId, address indexed partner, uint256 amount);
-    event EarningsDistributed(
-        uint256 indexed assetId, address indexed partner, uint256 totalRevenue, uint256 investorEarnings, uint256 period
-    );
-    event EarningsClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
     event SettlementClaimed(uint256 indexed assetId, address indexed holder, uint256 amount);
+    event EarningsManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event PartnerManagerUpdated(address indexed oldAddress, address indexed newAddress);
     event UsdcUpdated(address indexed oldAddress, address indexed newAddress);
     event RoboshareTokensUpdated(address indexed oldAddress, address indexed newAddress);
@@ -62,6 +59,25 @@ interface ITreasury {
     error InsufficientCollateral();
     error NotRouter();
 
+    function assetCollateral(uint256 assetId)
+        external
+        view
+        returns (
+            uint256 initialBaseCollateral,
+            uint256 baseCollateral,
+            uint256 earningsBuffer,
+            uint256 protocolBuffer,
+            uint256 totalCollateral,
+            bool isLocked,
+            uint256 lockedAt,
+            uint256 lastEventTimestamp,
+            uint256 reservedForLiquidation,
+            uint256 liquidationThreshold,
+            uint256 createdAt,
+            uint256 coveredBaseCollateral,
+            uint256 outstandingImmediateProceedsBase
+        );
+
     function enableProceeds(uint256 assetId) external;
     function creditBaseLiquidity(uint256 assetId, uint256 amount) external;
     function releaseCollateral(uint256 assetId) external;
@@ -77,25 +93,9 @@ interface ITreasury {
         uint256 protocolFee,
         bool protectionEnabled
     ) external;
-    function getPrimaryInvestorLiquidity(uint256 assetId) external view returns (uint256);
-    function previewPrimaryRedemptionPayout(uint256 assetId, uint256 burnAmount, uint256 circulatingSupply)
+    function processPrimaryRedemptionFor(address holder, uint256 assetId, uint256 burnAmount, uint256 minPayout)
         external
-        view
         returns (uint256 payout);
-    function processPrimaryRedemptionFor(
-        address holder,
-        uint256 assetId,
-        uint256 burnAmount,
-        uint256 circulatingSupply,
-        uint256 minPayout
-    ) external returns (uint256 payout);
-    function distributeEarnings(uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
-        external
-        returns (uint256 collateralReleased);
-    function claimEarnings(uint256 assetId) external;
-    function snapshotAndClaimEarnings(uint256 assetId, address holder, bool autoClaim)
-        external
-        returns (uint256 snapshotAmount);
     function releasePartialCollateral(uint256 assetId) external;
     function isAssetSolvent(uint256 assetId) external view returns (bool);
     /**
@@ -113,13 +113,21 @@ interface ITreasury {
     function processSettlementClaimFor(address recipient, uint256 assetId, uint256 amount)
         external
         returns (uint256 claimedAmount);
+    function creditEarningsWithdrawal(address account, uint256 amount) external;
+    function processEarningsDistributionEffects(
+        address partner,
+        uint256 assetId,
+        uint256 investorAmount,
+        uint256 protocolFee,
+        bool tryAutoRelease
+    ) external returns (uint256 collateralReleased);
     function treasuryFeeRecipient() external view returns (address);
     function previewCollateralRelease(uint256 assetId, bool assumeNewPeriod)
         external
         view
         returns (uint256 releasedAmount);
     function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256);
-    function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256);
+    function updateEarningsManager(address _earningsManager) external;
     function updatePartnerManager(address _partnerManager) external;
     function updateUSDC(address _usdc) external;
     function updateRoboshareTokens(address _roboshareTokens) external;

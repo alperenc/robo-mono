@@ -2,12 +2,12 @@
 pragma solidity ^0.8.19;
 
 import { DeployCore } from "./DeployCore.s.sol";
-import { MockUSDC } from "../contracts/mocks/MockUSDC.sol";
 import { RoboshareTokens } from "../contracts/RoboshareTokens.sol";
 import { PartnerManager } from "../contracts/PartnerManager.sol";
 import { RegistryRouter } from "../contracts/RegistryRouter.sol";
 import { VehicleRegistry } from "../contracts/VehicleRegistry.sol";
 import { Treasury } from "../contracts/Treasury.sol";
+import { EarningsManager } from "../contracts/EarningsManager.sol";
 import { Marketplace } from "../contracts/Marketplace.sol";
 
 /**
@@ -31,6 +31,7 @@ contract DeployForTest is DeployCore {
             RegistryRouter router,
             VehicleRegistry vehicleRegistry,
             Treasury treasury,
+            EarningsManager earningsManager,
             Marketplace marketplace
         )
     {
@@ -39,11 +40,7 @@ contract DeployForTest is DeployCore {
 
         // For local testing, deploy mock USDC if not set
         if (config.usdcToken == address(0)) {
-            MockUSDC mockUsdc = new MockUSDC();
-            config.usdcToken = address(mockUsdc);
-
-            // Mint initial supply to deployer for testing
-            mockUsdc.mint(_deployer, 1_000_000 * 1e6); // 1M USDC
+            config.usdcToken = ensureLocalOrTestUsdc(_deployer);
         }
 
         // Use deployer as treasuryFeeRecipient fallback for testing
@@ -63,6 +60,7 @@ contract DeployForTest is DeployCore {
         router = contracts.router;
         vehicleRegistry = contracts.vehicleRegistry;
         treasury = contracts.treasury;
+        earningsManager = contracts.earningsManager;
         marketplace = contracts.marketplace;
     }
 }

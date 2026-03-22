@@ -110,6 +110,36 @@ contract RegistryRouterTest is AssetMetadataBaseTest {
         vm.stopPrank();
     }
 
+    function testSetEarningsManager() public {
+        address newEarningsManager = makeAddr("newEarningsManager");
+
+        vm.startPrank(admin);
+        router.setEarningsManager(newEarningsManager);
+        vm.stopPrank();
+
+        assertEq(router.earningsManager(), newEarningsManager);
+    }
+
+    function testSetEarningsManagerZeroAddress() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.ZeroAddress.selector));
+        router.setEarningsManager(address(0));
+        vm.stopPrank();
+    }
+
+    function testSetEarningsManagerUnauthorizedCaller() public {
+        address newEarningsManager = makeAddr("newEarningsManager");
+
+        vm.startPrank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, router.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        router.setEarningsManager(newEarningsManager);
+        vm.stopPrank();
+    }
+
     function testSetMarketplace() public {
         address newMarketplace = makeAddr("newMarketplace");
 
@@ -199,6 +229,42 @@ contract RegistryRouterTest is AssetMetadataBaseTest {
     function testClaimSettlementDirectCallNotAllowed() public {
         vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
         router.claimSettlement(scenario.assetId, false);
+    }
+
+    function testRecordImmediateProceedsReleaseNotTreasury() public {
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.recordImmediateProceedsRelease(102, 1);
+    }
+
+    function testRecordImmediateProceedsReleaseInvalidTokenType() public {
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, scenario.assetId));
+        router.recordImmediateProceedsRelease(scenario.assetId, 1);
+    }
+
+    function testRecordImmediateProceedsReleaseRegistryNotFound() public {
+        uint256 tokenIdWithoutRegistry = 1000;
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, tokenIdWithoutRegistry));
+        router.recordImmediateProceedsRelease(tokenIdWithoutRegistry, 1);
+    }
+
+    function testRecordPrimaryRedemptionPayoutNotTreasury() public {
+        vm.expectRevert(RegistryRouter.NotTreasury.selector);
+        router.recordPrimaryRedemptionPayout(102, 1);
+    }
+
+    function testRecordPrimaryRedemptionPayoutInvalidTokenType() public {
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, scenario.assetId));
+        router.recordPrimaryRedemptionPayout(scenario.assetId, 1);
+    }
+
+    function testRecordPrimaryRedemptionPayoutRegistryNotFound() public {
+        uint256 tokenIdWithoutRegistry = 1000;
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, tokenIdWithoutRegistry));
+        router.recordPrimaryRedemptionPayout(tokenIdWithoutRegistry, 1);
     }
 
     function testPreviewLiquidationEligibilityView() public {
