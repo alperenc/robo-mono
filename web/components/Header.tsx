@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { hardhat } from "viem/chains";
-import { Bars3Icon, BugAntIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, BugAntIcon, HomeIcon } from "@heroicons/react/24/outline";
 import { BuildingStorefrontIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { BoltIcon } from "@heroicons/react/24/outline";
 import { FaucetButton, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
@@ -19,6 +19,11 @@ type HeaderMenuLink = {
 };
 
 export const menuLinks: HeaderMenuLink[] = [
+  {
+    label: "Home",
+    href: "/",
+    icon: <HomeIcon className="h-4 w-4" />,
+  },
   {
     label: "Markets",
     href: "/markets",
@@ -100,7 +105,7 @@ export const Header = () => {
             <HeaderMenuLinks />
           </ul>
         </details>
-        <Link href="/markets" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
+        <Link href="/" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
           <div className="flex items-center justify-center w-10 h-10 text-base-content">
             <BoltIcon className="h-10 w-10" />
           </div>
