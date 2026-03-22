@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { foundry } from "viem/chains";
 import { useAccount, useChainId, useChains, useSwitchChain } from "wagmi";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { getSubgraphQueryUrl } from "~~/utils/subgraph";
@@ -14,7 +15,10 @@ const HomePage = () => {
   const chains = useChains();
   const { switchChain } = useSwitchChain();
 
-  const supportedChains = useMemo(() => chains.filter(chain => !!getSubgraphQueryUrl(chain.id)), [chains]);
+  const supportedChains = useMemo(
+    () => chains.filter(chain => chain.id !== foundry.id && !!getSubgraphQueryUrl(chain.id)),
+    [chains],
+  );
   const hasMarketsSupport = !!getSubgraphQueryUrl(chainId);
 
   useEffect(() => {
