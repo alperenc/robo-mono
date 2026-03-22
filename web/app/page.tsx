@@ -47,8 +47,8 @@ const HomePage = () => {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link href={hasMarketsSupport ? "/markets" : "/partner"} className="btn btn-primary flex-1 rounded-full">
-            {hasMarketsSupport ? "Open Markets" : "Open Dashboard"}
+          <Link href={hasMarketsSupport ? "/markets" : "/"} className="btn btn-primary flex-1 rounded-full">
+            {hasMarketsSupport ? "Open Markets" : "Stay on Home"}
             <ArrowRightIcon className="h-4 w-4" />
           </Link>
         </div>

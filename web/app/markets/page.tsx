@@ -1179,7 +1179,7 @@ const MarketsPage: NextPage = () => {
         </div>
       </div>
 
-      {showOnlyHoldings && hasPendingWithdrawal && (
+      {hasPendingWithdrawal && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-br from-success/5 to-success/10 border border-success/20 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-success border border-success/10">
