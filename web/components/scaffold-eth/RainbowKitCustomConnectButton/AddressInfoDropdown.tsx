@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { NetworkOptions } from "./NetworkOptions";
-import { getAddress } from "viem";
-import { Address } from "viem";
+import { Address, formatEther, formatUnits, getAddress } from "viem";
 import { useDisconnect } from "wagmi";
 import {
   ArrowLeftOnRectangleIcon,
@@ -13,7 +12,14 @@ import {
   QrCodeIcon,
 } from "@heroicons/react/24/outline";
 import { BlockieAvatar, isENS } from "~~/components/scaffold-eth";
-import { useCopyToClipboard, useOutsideClick } from "~~/hooks/scaffold-eth";
+import {
+  useCopyToClipboard,
+  useNetworkColor,
+  useOutsideClick,
+  useWatchBalance,
+  useWatchTokenBalance,
+} from "~~/hooks/scaffold-eth";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { getTargetNetworks } from "~~/utils/scaffold-eth";
 
 const allowedNetworks = getTargetNetworks();
@@ -23,6 +29,7 @@ type AddressInfoDropdownProps = {
   blockExplorerAddressLink: string | undefined;
   displayName: string;
   ensAvatar?: string;
+  chainName?: string;
 };
 
 export const AddressInfoDropdown = ({
@@ -30,9 +37,37 @@ export const AddressInfoDropdown = ({
   ensAvatar,
   displayName,
   blockExplorerAddressLink,
+  chainName,
 }: AddressInfoDropdownProps) => {
   const { disconnect } = useDisconnect();
   const checkSumAddress = getAddress(address);
+  const networkColor = useNetworkColor();
+  const {
+    address: paymentTokenAddress,
+    symbol: paymentTokenSymbol,
+    decimals: paymentTokenDecimals,
+  } = usePaymentToken();
+  const { data: nativeBalance } = useWatchBalance({ address });
+  const { data: paymentTokenBalance } = useWatchTokenBalance({
+    tokenAddress: paymentTokenAddress,
+    ownerAddress: address,
+  });
+
+  const formattedNativeBalance =
+    nativeBalance !== undefined
+      ? Number(formatEther(nativeBalance.value)).toLocaleString(undefined, {
+          minimumFractionDigits: 4,
+          maximumFractionDigits: 4,
+        })
+      : null;
+
+  const formattedPaymentTokenBalance =
+    paymentTokenBalance !== undefined
+      ? Number(formatUnits(paymentTokenBalance as bigint, paymentTokenDecimals)).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : null;
 
   const { copyToClipboard: copyAddressToClipboard, isCopiedToClipboard: isAddressCopiedToClipboard } =
     useCopyToClipboard();
@@ -57,6 +92,30 @@ export const AddressInfoDropdown = ({
           <ChevronDownIcon className="h-6 w-4 ml-2 sm:ml-0" />
         </summary>
         <ul className="dropdown-content menu z-2 p-2 mt-2 shadow-center shadow-accent bg-base-200 rounded-box gap-1">
+          <li className={`${selectingNetwork ? "hidden" : ""} w-full border-b border-base-300/80 px-3 py-2 sm:hidden`}>
+            <div className="pointer-events-none !flex !w-full !flex-col !items-end !justify-start !gap-0.5 !bg-transparent !px-0 !py-0 text-right leading-tight shadow-none">
+              {formattedNativeBalance !== null ? (
+                <div className="flex items-baseline justify-end gap-1 text-sm font-semibold text-base-content">
+                  <span>{formattedNativeBalance}</span>
+                  <span className="text-[11px] font-bold text-base-content/80">ETH</span>
+                </div>
+              ) : null}
+              {formattedPaymentTokenBalance !== null ? (
+                <div className="text-xs font-medium text-base-content/70">
+                  <span>
+                    {formattedPaymentTokenBalance} {paymentTokenSymbol}
+                  </span>
+                </div>
+              ) : null}
+              {chainName ? (
+                <div>
+                  <span className="text-[11px]" style={{ color: networkColor }}>
+                    {chainName}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </li>
           <NetworkOptions hidden={!selectingNetwork} />
           <li className={selectingNetwork ? "hidden" : ""}>
             <div

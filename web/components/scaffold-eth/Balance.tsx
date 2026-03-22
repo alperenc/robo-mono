@@ -50,6 +50,14 @@ export const Balance = ({ address, className = "", usdMode }: BalanceProps) => {
   }
 
   const formattedBalance = balance ? Number(formatEther(balance.value)) : 0;
+  const localizedNativeBalance = formattedBalance.toLocaleString(undefined, {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
+  const localizedUsdBalance = (formattedBalance * nativeCurrencyPrice).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   return (
     <button
@@ -61,11 +69,11 @@ export const Balance = ({ address, className = "", usdMode }: BalanceProps) => {
         {displayUsdMode ? (
           <>
             <span className="text-[0.8em] font-bold mr-1">$</span>
-            <span>{(formattedBalance * nativeCurrencyPrice).toFixed(2)}</span>
+            <span>{localizedUsdBalance}</span>
           </>
         ) : (
           <>
-            <span>{formattedBalance.toFixed(4)}</span>
+            <span>{localizedNativeBalance}</span>
             <span className="text-[0.8em] font-bold ml-1">{targetNetwork.nativeCurrency.symbol}</span>
           </>
         )}

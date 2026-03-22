@@ -5,16 +5,27 @@ import { useRouter } from "next/navigation";
 import { isAddress, isHex } from "viem";
 import { hardhat } from "viem/chains";
 import { usePublicClient } from "wagmi";
+import { useTargetNetwork } from "~~/hooks/scaffold-eth";
+import { getBlockExplorerAddressLink, getBlockExplorerTxLink } from "~~/utils/scaffold-eth";
 
 export const SearchBar = () => {
   const [searchInput, setSearchInput] = useState("");
   const router = useRouter();
+  const { targetNetwork } = useTargetNetwork();
 
   const client = usePublicClient({ chainId: hardhat.id });
 
   const handleSearch = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isHex(searchInput)) {
+      if (targetNetwork.id !== hardhat.id) {
+        const txUrl = getBlockExplorerTxLink(targetNetwork.id, searchInput);
+        if (txUrl) {
+          window.open(txUrl, "_blank", "noopener,noreferrer");
+        }
+        return;
+      }
+
       try {
         const tx = await client?.getTransaction({ hash: searchInput });
         if (tx) {
@@ -27,6 +38,11 @@ export const SearchBar = () => {
     }
 
     if (isAddress(searchInput)) {
+      if (targetNetwork.id !== hardhat.id) {
+        window.open(getBlockExplorerAddressLink(targetNetwork, searchInput), "_blank", "noopener,noreferrer");
+        return;
+      }
+
       router.push(`/blockexplorer/address/${searchInput}`);
       return;
     }

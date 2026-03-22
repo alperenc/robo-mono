@@ -60,6 +60,22 @@ print_error() {
     echo -e "${RED}[✗]${NC} $1"
 }
 
+detect_lan_ip() {
+    local interface=""
+    local lan_ip=""
+
+    interface=$(route -n get default 2>/dev/null | awk '/interface: / {print $2; exit}')
+    if [ -n "$interface" ]; then
+        lan_ip=$(ipconfig getifaddr "$interface" 2>/dev/null || true)
+    fi
+
+    if [ -z "$lan_ip" ]; then
+        lan_ip=$(ifconfig 2>/dev/null | awk '/inet / && $2 != "127.0.0.1" {print $2; exit}')
+    fi
+
+    echo "$lan_ip"
+}
+
 # Handle --kill flag
 if [[ " $@ " =~ " --kill " ]]; then
     print_header
@@ -102,6 +118,8 @@ check_prerequisites() {
 
 print_header
 check_prerequisites
+
+LAN_IP="$(detect_lan_ip)"
 
 # Handle --reset mode: clean up graph node data and chain state
 if [ "$RESET_MODE" = true ]; then
@@ -207,10 +225,19 @@ echo "  • Pane 2: Contract deployment"
 echo "  • Pane 3: Graph Node (Docker)"
 echo "  • Pane 4: Subgraph deployment"
 echo "  • Pane 5: Shell - Quick commands"
+if [ -n "$LAN_IP" ]; then
+    echo ""
+    echo -e "${BLUE}LAN Endpoints:${NC}"
+    echo "  • Web app:    http://$LAN_IP:3000"
+    echo "  • Chain RPC:  http://$LAN_IP:8545"
+    echo "  • GraphQL:    http://$LAN_IP:8000/subgraphs/name/roboshare/protocol"
+    echo "  • Graph admin:http://$LAN_IP:8020"
+    echo "  • IPFS API:   http://$LAN_IP:5001"
+    echo "  • IPFS GW:    http://$LAN_IP:8080"
+fi
 echo ""
 echo -e "${GREEN}Attaching to session...${NC}"
 echo ""
 
 # Attach to session
 tmux attach -t $SESSION
-

@@ -1,8 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Hash, SendTransactionParameters, TransactionReceipt, WalletClient } from "viem";
 import { Config, useWalletClient } from "wagmi";
 import { getPublicClient } from "wagmi/actions";
 import { SendTransactionMutate } from "wagmi/query";
-import { wagmiConfig } from "~~/services/web3/wagmiConfig";
+import { getWagmiConfig } from "~~/services/web3/wagmiConfig";
 import { getBlockExplorerTxLink, getParsedError, notification } from "~~/utils/scaffold-eth";
 import { TransactorFuncOptions } from "~~/utils/scaffold-eth/contract";
 
@@ -35,6 +36,7 @@ const TxnNotification = ({ message, blockExplorerLink }: { message: string; bloc
 export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => {
   let walletClient = _walletClient;
   const { data } = useWalletClient();
+  const queryClient = useQueryClient();
   if (walletClient === undefined && data) {
     walletClient = data;
   }
@@ -53,7 +55,7 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
     try {
       const network = await walletClient.getChainId();
       // Get full transaction from public client
-      const publicClient = getPublicClient(wagmiConfig);
+      const publicClient = getPublicClient(getWagmiConfig());
       if (!publicClient) {
         throw new Error("No public client configured for the active network");
       }
@@ -90,6 +92,8 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
           icon: "🎉",
         },
       );
+
+      queryClient.invalidateQueries();
 
       if (options?.onBlockConfirmation) options.onBlockConfirmation(transactionReceipt);
     } catch (error: any) {

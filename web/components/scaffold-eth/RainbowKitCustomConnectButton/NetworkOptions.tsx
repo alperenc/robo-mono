@@ -15,34 +15,37 @@ export const NetworkOptions = ({ hidden = false }: NetworkOptionsProps) => {
   const { chain } = useAccount();
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
+  const availableNetworks = allowedNetworks.filter(allowedNetwork => allowedNetwork.id !== chain?.id);
+
+  if (availableNetworks.length === 0) {
+    return null;
+  }
 
   return (
     <>
-      {allowedNetworks
-        .filter(allowedNetwork => allowedNetwork.id !== chain?.id)
-        .map(allowedNetwork => (
-          <li key={allowedNetwork.id} className={hidden ? "hidden" : ""}>
-            <button
-              className="menu-item btn-sm rounded-xl! flex gap-3 py-3 whitespace-nowrap"
-              type="button"
-              onClick={() => {
-                switchChain?.({ chainId: allowedNetwork.id });
-              }}
-            >
-              <ArrowsRightLeftIcon className="h-6 w-4 ml-2 sm:ml-0" />
-              <span>
-                Switch to{" "}
-                <span
-                  style={{
-                    color: getNetworkColor(allowedNetwork, isDarkMode),
-                  }}
-                >
-                  {allowedNetwork.name}
-                </span>
+      {availableNetworks.map(allowedNetwork => (
+        <li key={allowedNetwork.id} className={hidden ? "hidden" : ""}>
+          <button
+            className="menu-item btn-sm rounded-xl! flex gap-3 py-3 whitespace-nowrap"
+            type="button"
+            onClick={() => {
+              switchChain?.({ chainId: allowedNetwork.id });
+            }}
+          >
+            <ArrowsRightLeftIcon className="h-6 w-4 ml-2 sm:ml-0" />
+            <span>
+              Switch to{" "}
+              <span
+                style={{
+                  color: getNetworkColor(allowedNetwork, isDarkMode),
+                }}
+              >
+                {allowedNetwork.name}
               </span>
-            </button>
-          </li>
-        ))}
+            </span>
+          </button>
+        </li>
+      ))}
     </>
   );
 };

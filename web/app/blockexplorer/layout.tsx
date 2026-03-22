@@ -1,3 +1,4 @@
+import { LocalExplorerGuard } from "./_components/LocalExplorerGuard";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
@@ -6,7 +7,7 @@ export const metadata = getMetadata({
 });
 
 const BlockExplorerLayout = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>;
+  return <LocalExplorerGuard>{children}</LocalExplorerGuard>;
 };
 
 export default BlockExplorerLayout;
