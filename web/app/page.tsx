@@ -1,69 +1,88 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
-import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Address } from "~~/components/scaffold-eth";
+import { useRouter } from "next/navigation";
+import { foundry } from "viem/chains";
+import { useAccount, useChainId, useChains, useSwitchChain } from "wagmi";
+import { ArrowRightIcon } from "@heroicons/react/24/outline";
+import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
-const Home: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
+const HomePage = () => {
+  const router = useRouter();
+  const { isConnected } = useAccount();
+  const chainId = useChainId();
+  const chains = useChains();
+  const { switchChain } = useSwitchChain();
+
+  const supportedChains = useMemo(
+    () => chains.filter(chain => chain.id !== foundry.id && !!getSubgraphQueryUrl(chain.id)),
+    [chains],
+  );
+  const hasMarketsSupport = !!getSubgraphQueryUrl(chainId);
+
+  useEffect(() => {
+    if (isConnected && hasMarketsSupport) {
+      router.replace("/markets");
+    }
+  }, [hasMarketsSupport, isConnected, router]);
 
   return (
-    <>
-      <div className="flex items-center flex-col grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Roboshare Protocol</span>
-          </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address address={connectedAddress} />
-          </div>
-
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              web/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Interact with Roboshare smart contracts: RoboshareTokens, PartnerManager, VehicleRegistry, Marketplace, and
-            Treasury in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              protocols/evm/contracts
-            </code>
+    <div className="flex flex-1 items-center justify-center px-6 py-16">
+      <div className="w-full max-w-2xl rounded-[2rem] border border-base-300 bg-base-100 p-8 shadow-xl shadow-base-300/40 sm:p-10">
+        <div className="space-y-4">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-base-content/50">Roboshare</p>
+          <h1 className="text-4xl font-black tracking-tight text-base-content sm:text-5xl">Vehicle-backed markets.</h1>
+          <p className="max-w-xl text-lg leading-relaxed text-base-content/70">
+            The markets experience is available on supported Roboshare networks. This root page stays renderable for
+            static export and unsupported wallet networks.
           </p>
         </div>
 
-        <div className="grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col md:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
+        <div className="mt-8 rounded-3xl border border-base-300 bg-base-200/60 p-5">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-base-content/50">Current Network</p>
+          <p className="mt-2 text-xl font-bold text-base-content">
+            {chains.find(chain => chain.id === chainId)?.name ?? `Chain ${chainId}`}
+          </p>
+          <p className="mt-2 text-sm text-base-content/70">
+            {hasMarketsSupport
+              ? isConnected
+                ? "Markets is supported here. You should be redirected automatically."
+                : "Markets is supported here. Connect a wallet before opening Markets from this device."
+              : "Markets is not configured on this network yet. Switch to a supported network to continue."}
+          </p>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href={isConnected && hasMarketsSupport ? "/markets" : "/"}
+            className="btn btn-primary flex-1 rounded-full"
+          >
+            {isConnected && hasMarketsSupport ? "Open Markets" : "Stay on Home"}
+            <ArrowRightIcon className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {!hasMarketsSupport && supportedChains.length > 0 ? (
+          <div className="mt-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-base-content/50">Supported Networks</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {supportedChains.map(chain => (
+                <button
+                  key={chain.id}
+                  type="button"
+                  className="btn btn-outline rounded-full"
+                  onClick={() => switchChain({ chainId: chain.id })}
+                >
+                  {chain.name}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
+        ) : null}
       </div>
-    </>
+    </div>
   );
 };
 
-export default Home;
+export default HomePage;

@@ -3,14 +3,13 @@
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { formatUnits } from "viem";
-import { useAccount, useBlock } from "wagmi";
+import { useAccount } from "wagmi";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 const BP_PRECISION = 10000n;
 const BENCHMARK_YIELD_BP = 1000n;
-const DEPRECIATION_RATE_BP = 1200n;
 
 interface ListingCardProps {
   listing: {
@@ -39,6 +38,7 @@ interface ListingCardProps {
   token?: {
     price: string;
     supply: string;
+    createdAt?: string;
     maturityDate: string;
     targetYieldBP?: string;
   };
@@ -54,22 +54,16 @@ interface ListingCardProps {
     address: string;
   };
   imageUrl?: string;
-  networkName?: string;
   assetType?: AssetType;
   priority?: boolean;
   viewMode?: "list" | "grid";
-  hasUserListingForTokenId?: boolean;
   hasUserActiveListingForTokenId?: boolean;
-  hasUserPrimaryListingForTokenId?: boolean;
-  hasUserBoughtListing?: boolean;
   tokenTotalSoldAmount?: string;
   onBuyClick?: () => void;
   onClaimEarningsClick?: () => void;
   onClaimSettlementClick?: () => void;
   onListTokensClick?: (amount: string) => void;
   onEndListingClick?: () => void;
-  onDistributeEarningsClick?: () => void;
-  onSettleAssetClick?: () => void;
 }
 
 export function ListingCard({
@@ -79,42 +73,28 @@ export function ListingCard({
   earnings,
   partner,
   imageUrl,
-  networkName = "Localhost",
   assetType = AssetType.VEHICLE,
   priority,
   viewMode = "grid",
   hasUserActiveListingForTokenId = false,
-  hasUserPrimaryListingForTokenId = false,
-  hasUserBoughtListing = false,
   tokenTotalSoldAmount,
   onBuyClick,
   onClaimEarningsClick,
   onClaimSettlementClick,
   onListTokensClick,
   onEndListingClick,
-  onDistributeEarningsClick,
-  onSettleAssetClick,
 }: ListingCardProps) {
   const { address } = useAccount();
-  const { data: latestBlock } = useBlock({ watch: true });
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const actionDropdownRef = useRef<HTMLDivElement>(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
-  const chainNowSec = latestBlock?.timestamp ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
-
-  const { data: primaryTokenEscrow } = useScaffoldReadContract({
-    contractName: "Marketplace",
-    functionName: "tokenEscrow",
-    args: [BigInt(listing.tokenId)],
-  });
-
   const { data: walletTokenBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "balanceOf",
     args: [address, BigInt(listing.tokenId)],
   });
   const { data: previewClaimAmount } = useScaffoldReadContract({
-    contractName: "Treasury",
+    contractName: "EarningsManager",
     functionName: "previewClaimEarnings",
     args: [BigInt(listing.assetId), address],
     query: { enabled: !!address },
@@ -126,9 +106,9 @@ export function ListingCard({
   });
   const hasAvailableTokens = BigInt(listing.amount) > 0n;
   const hasEarnings = Boolean(earnings && (earnings.distributionCount !== "0" || earnings.totalEarnings !== "0"));
-  const canClaimEarnings = (previewClaimAmount || 0n) > 0n;
-  const canClaimEarningsOnThisListing = canClaimEarnings && hasUserBoughtListing;
   const hasHoldings = (walletTokenBalance || 0n) > 0n;
+  const canClaimEarnings = (previewClaimAmount || 0n) > 0n;
+  const canClaimEarningsOnThisListing = canClaimEarnings && hasHoldings;
   const isAssetSettled = Number(assetStatus ?? -1) === 3 || Number(assetStatus ?? -1) === 4;
   const canClaimSettlement = hasHoldings && isAssetSettled;
   const listingSoldAmount = useMemo(() => {
@@ -160,27 +140,25 @@ export function ListingCard({
     return `Asset #${listing.assetId}`;
   }, [vehicle, listing.assetId]);
 
-  // Calculate APY - use realized if available, otherwise target yield
+  // Calculate APY - use token-level realized earnings if available, otherwise target yield
   const apyDisplay = useMemo(() => {
     if (!token) {
       return `${(Number(BENCHMARK_YIELD_BP) / 100).toFixed(2)}%`;
     }
 
     const tokenPrice = BigInt(token.price);
-    const principalAmount = listingSoldAmount > 0n ? listingSoldAmount : BigInt(listing.amount);
-    const totalValue = tokenPrice * principalAmount;
+    const tokenSupply = BigInt(token.supply);
+    const totalValue = tokenPrice * tokenSupply;
 
-    if (earnings && listingActualEarnings > 0n && totalValue > 0n) {
-      // Annualize realized returns only when listing end timestamp is available.
-      // Otherwise fallback to target yield APY instead of using inaccurate timing guesses.
-      const listingEndedAtOnChain = BigInt(listing.endedAt || "0");
+    if (earnings && earnings.totalEarnings !== "0" && totalValue > 0n) {
+      const durationStart = BigInt(token.createdAt || "0");
       const lastDistAt = BigInt(earnings.lastDistributionAt || "0");
-      const duration =
-        listingEndedAtOnChain > 0n && lastDistAt > listingEndedAtOnChain ? lastDistAt - listingEndedAtOnChain : 0n;
+      const totalEarnings = BigInt(earnings.totalEarnings);
+      const duration = durationStart > 0n && lastDistAt > durationStart ? lastDistAt - durationStart : 0n;
 
-      if (duration > 0n) {
+      if (duration > 0n && totalEarnings > 0n) {
         const secondsPerYear = 365n * 24n * 60n * 60n;
-        const annualizedEarnings = (listingActualEarnings * secondsPerYear) / duration;
+        const annualizedEarnings = (totalEarnings * secondsPerYear) / duration;
         const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
         const aprPercent = Number(aprBps) / 100;
         return `${aprPercent.toFixed(2)}%`;
@@ -191,7 +169,7 @@ export function ListingCard({
     const targetYieldBps = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_YIELD_BP);
     const targetYieldPercent = targetYieldBps / 100;
     return `${targetYieldPercent.toFixed(2)}%`;
-  }, [token, earnings, listing.amount, listing.endedAt, listingActualEarnings, listingSoldAmount]);
+  }, [earnings, token]);
 
   // Format listing-scoped actual earnings (numeric value only — symbol rendered separately)
   const actualEarningsDisplay = useMemo(() => {
@@ -200,60 +178,23 @@ export function ListingCard({
     return Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [listingActualEarnings, paymentDecimals]);
 
-  // Calculate projected earnings (per year and at maturity)
-  const projectedEarnings = useMemo(() => {
-    if (!token) return { perYear: "—", atMaturity: "—" };
+  // Calculate projected annual earnings
+  const projectedEarningsPerYear = useMemo(() => {
+    if (!token) return "—";
     const tokenPrice = BigInt(token.price);
     const listingAmountForProjection =
       listing.isEnded || !hasAvailableTokens ? listingSoldAmount : BigInt(listing.amount);
-    const totalValue = tokenPrice * listingAmountForProjection; // listing-specific value basis for projections
-    if (totalValue === 0n) {
-      return { perYear: "0.00", atMaturity: "0.00" };
-    }
+    const totalValue = tokenPrice * listingAmountForProjection;
+    if (totalValue === 0n) return "0.00";
+
     const targetYieldBps = token.targetYieldBP ? BigInt(token.targetYieldBP) : BENCHMARK_YIELD_BP;
-
-    // earnings per year = totalValue * targetYieldBP / 10000
     const earningsPerYear = (totalValue * targetYieldBps) / BP_PRECISION;
-    const perYearFormatted = Number(formatUnits(earningsPerYear, paymentDecimals)).toLocaleString(undefined, {
+
+    return Number(formatUnits(earningsPerYear, paymentDecimals)).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
-
-    // earnings at maturity = earningsPerYear * yearsToMaturity
-    const maturitySec = Number(token.maturityDate);
-    const nowSec = chainNowSec;
-    const secondsPerYear = 365 * 24 * 60 * 60;
-    // Use full term from listing creation (approximate) — or remaining time if already listed
-    const remainingSec = maturitySec > nowSec ? maturitySec - nowSec : 0;
-    const yearsRemaining = remainingSec / secondsPerYear;
-
-    if (yearsRemaining <= 0) {
-      // Already at maturity — base is returned, show base + one year of earnings as minimum
-      const atMaturityTotal = totalValue + earningsPerYear;
-      const atMaturityFormatted = Number(formatUnits(atMaturityTotal, paymentDecimals)).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return { perYear: perYearFormatted, atMaturity: atMaturityFormatted };
-    }
-
-    // base (principal returned at settlement) + projected earnings over remaining term
-    const projectedTotalEarnings = (earningsPerYear * BigInt(Math.round(yearsRemaining * 1000))) / 1000n;
-
-    // Principal depreciates by 12% per year (released to partner)
-    // recoverableBase = totalValue - (totalValue * 12% * yearsRemaining)
-    const depreciationAmount =
-      (totalValue * DEPRECIATION_RATE_BP * BigInt(Math.round(yearsRemaining * 1000))) / (BP_PRECISION * 1000n);
-    const recoverableBase = totalValue > depreciationAmount ? totalValue - depreciationAmount : 0n;
-
-    const atMaturityTotal = recoverableBase + projectedTotalEarnings;
-    const atMaturityFormatted = Number(formatUnits(atMaturityTotal, paymentDecimals)).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    return { perYear: perYearFormatted, atMaturity: atMaturityFormatted };
-  }, [token, listing.amount, listing.isEnded, hasAvailableTokens, listingSoldAmount, paymentDecimals, chainNowSec]);
+  }, [token, listing.amount, listing.isEnded, hasAvailableTokens, listingSoldAmount, paymentDecimals]);
 
   // Format price per token (numeric value only — symbol rendered separately)
   const priceDisplay = useMemo(() => {
@@ -310,8 +251,14 @@ export function ListingCard({
   }, [listing.expiresAt]);
 
   const isEnded = listing.isEnded;
+  const statusLabel = isEnded ? "Ended" : isExpired ? "Expired" : "Open";
+  const statusClass = isEnded
+    ? "bg-base-300 text-base-content/70"
+    : isExpired
+      ? "bg-warning/15 text-warning"
+      : "bg-success/15 text-success";
+
   const isInactive = isEnded || isExpired;
-  const isTokenMatured = token ? Number(token.maturityDate) <= chainNowSec : false;
   const soldOutDurationLabel = useMemo(() => {
     if (hasAvailableTokens) return null;
     if (!listing.createdAt || !listing.soldOutAt) return "Sold Out";
@@ -325,37 +272,24 @@ export function ListingCard({
   }, [hasAvailableTokens, listing.createdAt, listing.soldOutAt]);
   const isNewlyListed = hasAvailableTokens && !isEnded && (!earnings || earnings.distributionCount === "0");
   const isSellerOfListing = Boolean(address && listing.seller.toLowerCase() === address.toLowerCase());
-  const isSecondaryListing = true;
   const showSecondaryListingBadge = !isInactive;
-  // Primary sellers should not list wallet tokens; only secondary sellers can.
-  const canListWalletTokens = !hasUserPrimaryListingForTokenId;
-  // For primary sellers, relistable inventory is pooled in Marketplace tokenEscrow(tokenId),
-  // not per-listing amount.
-  const primarySellerInactiveEscrowAmount =
-    isSellerOfListing && !isSecondaryListing && isInactive ? primaryTokenEscrow || 0n : 0n;
-  const walletListableAmount = canListWalletTokens ? walletTokenBalance || 0n : 0n;
-  const listableTokensAmount =
-    isSellerOfListing && !isSecondaryListing ? primarySellerInactiveEscrowAmount : walletListableAmount;
+  const listableTokensAmount = walletTokenBalance || 0n;
   const canListTokens = listableTokensAmount > 0n;
 
   const registry = ASSET_REGISTRIES[assetType];
-  const showInvestedBadge = !isSellerOfListing && ((walletTokenBalance || 0n) > 0n || hasUserBoughtListing);
+  const showInvestedBadge = !isSellerOfListing && hasHoldings;
   const actionState = useMemo(() => {
     type CandidateAction = { label: string; onClick?: () => void; className?: string };
 
     const listTokensLabel =
       hasUserActiveListingForTokenId || isSellerOfListing ? "List More for Sale" : "List for Sale";
-    const hasClaimedTokens = (walletTokenBalance || 0n) > 0n;
+    const hasClaimedTokens = hasHoldings;
     const canManageOwnListing = isSellerOfListing && !isInactive;
-    const canRelistInactiveOwnPrimaryListing = isSellerOfListing && !isSecondaryListing && isInactive && canListTokens;
-
     const sellerManagementActions: CandidateAction[] = [];
-    const primarySellerLifecycleActions: CandidateAction[] = [];
     const actionCandidates: CandidateAction[] = [];
 
     const successGhostClass = "btn-success bg-success/15 border-0 text-success hover:bg-success/25";
-    const primaryGhostClass =
-      "btn-primary bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 dark:bg-white/15 dark:text-white dark:border-white/20 dark:hover:bg-white/25";
+    const primaryGhostClass = "btn-primary bg-primary/15 border-0 text-primary hover:bg-primary/25";
 
     const pushAction = (action: CandidateAction) => {
       if (!action.onClick) return;
@@ -363,7 +297,6 @@ export function ListingCard({
     };
 
     const resolvePrimaryClass = (action: CandidateAction): string => {
-      if (action.label === "Begin Final Payout") return isTokenMatured ? primaryGhostClass : "btn-error";
       if (action.label === "Claim Final Payout") return successGhostClass;
       if (action.label === "Send Payout" || action.label === "Claim Payout" || action.label === "Claim Tokens") {
         return successGhostClass;
@@ -379,51 +312,17 @@ export function ListingCard({
       return action.className || "btn-primary";
     };
 
-    if (isSellerOfListing && !isSecondaryListing && !isAssetSettled) {
-      if (isTokenMatured && onSettleAssetClick) {
-        primarySellerLifecycleActions.push({
-          label: "Begin Final Payout",
-          onClick: onSettleAssetClick,
-        });
-      }
-      if (onDistributeEarningsClick && listingSoldAmount > 0n) {
-        primarySellerLifecycleActions.push({
-          label: "Send Payout",
-          onClick: onDistributeEarningsClick,
-        });
-      }
-      if (!isTokenMatured && onSettleAssetClick) {
-        primarySellerLifecycleActions.push({
-          label: "Begin Final Payout",
-          onClick: onSettleAssetClick,
-          className: isTokenMatured ? undefined : "text-error",
-        });
-      }
-    }
-
     if (canManageOwnListing) {
-      if (isSecondaryListing) {
-        if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
-        if (canListTokens) {
-          sellerManagementActions.push({
-            label: listTokensLabel,
-            onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
-          });
-        }
-      } else {
-        if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
+      if (onEndListingClick) sellerManagementActions.push({ label: "End Listing", onClick: onEndListingClick });
+      if (canListTokens) {
+        sellerManagementActions.push({
+          label: listTokensLabel,
+          onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
+        });
       }
     }
 
-    if (canRelistInactiveOwnPrimaryListing) {
-      pushAction({
-        label: listTokensLabel,
-        onClick: () => onListTokensClick?.(listableTokensAmount.toString()),
-      });
-      primarySellerLifecycleActions.forEach(pushAction);
-    } else if (isSellerOfListing && !isSecondaryListing && isInactive && primarySellerLifecycleActions.length > 0) {
-      primarySellerLifecycleActions.forEach(pushAction);
-    } else if (sellerManagementActions.length > 0) {
+    if (sellerManagementActions.length > 0) {
       sellerManagementActions.forEach(pushAction);
     } else if (canClaimEarningsOnThisListing) {
       pushAction({ label: "Claim Payout", onClick: onClaimEarningsClick });
@@ -474,10 +373,10 @@ export function ListingCard({
           ? "Ended"
           : isExpired
             ? "Expired"
-            : "Buy Tokens";
+            : "Buy Claim Units";
     return {
       primaryLabel: defaultLabel,
-      primaryClass: defaultLabel === "Buy Tokens" ? primaryGhostClass : "btn-primary",
+      primaryClass: defaultLabel === "Buy Claim Units" ? primaryGhostClass : "btn-primary",
       primaryDisabled: true,
       primaryOnClick: undefined,
       secondaryActions: [],
@@ -488,24 +387,18 @@ export function ListingCard({
     hasAvailableTokens,
     soldOutDurationLabel,
     hasUserActiveListingForTokenId,
-    listingSoldAmount,
-    isTokenMatured,
     isEnded,
     isExpired,
     isInactive,
-    isAssetSettled,
-    isSecondaryListing,
     isSellerOfListing,
     listableTokensAmount,
     canListTokens,
     onBuyClick,
-    onDistributeEarningsClick,
     onClaimEarningsClick,
     onClaimSettlementClick,
     onEndListingClick,
     onListTokensClick,
-    onSettleAssetClick,
-    walletTokenBalance,
+    hasHoldings,
   ]);
 
   const isCardPressable = Boolean(actionState.primaryOnClick) && !actionState.primaryDisabled;
@@ -564,8 +457,8 @@ export function ListingCard({
 
   if (isListMode) {
     return (
-      <div
-        className={`rounded-2xl border border-base-300 bg-base-100 shadow-sm transition-all duration-200 ${
+      <article
+        className={`overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm transition-all duration-200 ${
           hasAvailableActions ? "hover:shadow-md" : "opacity-70 saturate-50"
         } ${isCardPressable ? "cursor-pointer" : ""}`}
         onClick={handleCardClick}
@@ -574,145 +467,178 @@ export function ListingCard({
         tabIndex={isCardPressable ? 0 : undefined}
         aria-label={isCardPressable ? actionState.primaryLabel : undefined}
       >
-        <div className="p-3 sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-            <div className="flex min-w-0 items-center gap-3 lg:w-[30%]">
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-base-200">
-                {imageUrl ? (
-                  <Image src={imageUrl} alt={displayName} fill className="object-cover" unoptimized />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <span className="text-xl opacity-40">{registry.icon}</span>
+        <div className="flex flex-col lg:flex-row">
+          <div className="relative h-40 shrink-0 overflow-hidden bg-base-200 lg:h-auto lg:w-60 xl:w-72">
+            {imageUrl ? (
+              <Image src={imageUrl} alt={displayName} fill className="object-cover" unoptimized />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="text-6xl opacity-30">{registry.icon}</span>
+              </div>
+            )}
+            {showSecondaryListingBadge && (
+              <div className="absolute inset-x-4 top-4 flex items-start justify-start">
+                <span className="rounded-full bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content/70 shadow-md backdrop-blur-sm">
+                  Secondary Listing
+                </span>
+              </div>
+            )}
+            <div className="absolute inset-x-4 bottom-4 flex items-end justify-end">
+              <span className="rounded-full bg-base-100/90 px-3 py-1 text-xs font-bold text-success shadow-md backdrop-blur-sm">
+                {apyDisplay} APY
+              </span>
+            </div>
+            {/* Status Overlays */}
+            {isEnded && !hasAvailableActions && (
+              <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center z-10">
+                <span className="badge badge-neutral badge-sm font-bold shadow-lg uppercase">Sale Ended</span>
+              </div>
+            )}
+            {isExpired && !isEnded && !hasAvailableActions && (
+              <div className="absolute inset-0 bg-warning/80 flex items-center justify-center z-10">
+                <span className="badge badge-warning badge-sm font-bold shadow-lg uppercase">Expired</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+              <div className="min-w-0 lg:w-[32%]">
+                <div className="min-h-[4rem]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-base-content/50">
+                    {assetType}
+                  </span>
+                  <div className="line-clamp-2 break-words text-lg font-bold leading-tight mt-1" title={displayName}>
+                    {displayName}
                   </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {partner && <span className="truncate text-sm text-base-content/60">by {partner.name}</span>}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 flex min-h-[4.5rem] flex-wrap content-start items-start gap-2">
+                  {showInvestedBadge && (
+                    <span className="badge badge-primary px-3 py-3 text-xs font-bold">💼 Invested</span>
+                  )}
+                  {isNewlyListed && <span className="badge badge-success px-3 py-3 text-xs font-bold">✨ New</span>}
+                </div>
+              </div>
+
+              <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:w-[42%]">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-50">
+                    {hasEarnings ? "Earnings" : "Est. / Year"}
+                  </div>
+                  <div className="font-semibold leading-tight text-success">
+                    {hasEarnings ? actualEarningsDisplay : projectedEarningsPerYear}
+                  </div>
+                  <div className="text-[11px] opacity-60">{paymentSymbol}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-50">Available</div>
+                  <div className="font-semibold leading-tight">
+                    {availableTokensDisplay.available}
+                    <span className="opacity-50 text-[11px]"> / {availableTokensDisplay.total}</span>
+                  </div>
+                  <div className="text-[11px] opacity-60">units</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-50">Price</div>
+                  <div className="font-semibold leading-tight">{priceDisplay}</div>
+                  <div className="text-[11px] opacity-60">{paymentSymbol}</div>
+                </div>
+                <div className="col-span-2 sm:col-span-3">
+                  <div className="mb-1 flex justify-between text-[10px] uppercase tracking-wide opacity-50">
+                    <span>Sold</span>
+                    <span className="font-semibold opacity-100">{availableTokensDisplay.soldPercentage}%</span>
+                  </div>
+                  <progress
+                    className="progress h-1.5 w-full progress-primary"
+                    value={availableTokensDisplay.soldPercentage}
+                    max="100"
+                  ></progress>
+                </div>
+              </div>
+
+              <div className="w-full lg:w-[220px]">
+                {actionState.secondaryActions.length > 0 ? (
+                  <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
+                    <div className="flex w-full">
+                      <button
+                        type="button"
+                        className={`btn ${primaryButtonClass} rounded-r-none flex-1 shadow-none`}
+                        onClick={() => {
+                          setIsActionMenuOpen(false);
+                          actionState.primaryOnClick?.();
+                        }}
+                        disabled={actionState.primaryDisabled}
+                      >
+                        {actionState.primaryLabel}
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${primaryButtonClass} rounded-l-none px-2 border-l border-current/15 shadow-none`}
+                        aria-expanded={isActionMenuOpen}
+                        aria-haspopup="menu"
+                        onClick={() => setIsActionMenuOpen(prev => !prev)}
+                        disabled={actionState.primaryDisabled && actionState.secondaryActions.length === 0}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                      </button>
+                    </div>
+                    {isActionMenuOpen && (
+                      <ul className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
+                        {actionState.secondaryActions.map(action => (
+                          <li key={action.label}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsActionMenuOpen(false);
+                                action.onClick?.();
+                              }}
+                              className={action.className ?? ""}
+                            >
+                              {action.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    className={`btn ${primaryButtonClass} w-full shadow-none`}
+                    onClick={actionState.primaryOnClick}
+                    disabled={actionState.primaryDisabled}
+                  >
+                    {actionState.primaryLabel}
+                  </button>
                 )}
               </div>
-              <div className="min-w-0">
-                <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide opacity-50">{assetType}</span>
-                  {showInvestedBadge && <span className="badge badge-xs badge-primary">💼 Invested</span>}
-                  {isNewlyListed && <span className="badge badge-xs badge-success">✨ New</span>}
-                  {showSecondaryListingBadge && <span className="badge badge-xs">🔁 Secondary</span>}
-                  {(isEnded || isExpired) && (
-                    <span className={`badge badge-xs ${isExpired ? "badge-warning" : "badge-neutral"}`}>
-                      {isExpired ? "Expired" : "Ended"}
-                    </span>
-                  )}
-                </div>
-                <div className="line-clamp-2 break-words text-base font-bold leading-tight" title={displayName}>
-                  {displayName}
-                </div>
-                {partner && <div className="truncate text-xs text-primary/80">by {partner.name}</div>}
-              </div>
-            </div>
-
-            <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4 lg:w-[50%]">
-              <div>
-                <div className="text-[10px] uppercase tracking-wide opacity-50">Price</div>
-                <div className="font-semibold leading-tight">{priceDisplay}</div>
-                <div className="text-[11px] opacity-60">{paymentSymbol}</div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide opacity-50">Available</div>
-                <div className="font-semibold leading-tight">
-                  {availableTokensDisplay.available}
-                  <span className="opacity-50"> / {availableTokensDisplay.total}</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide opacity-50">Sold</div>
-                <div className="font-semibold leading-tight">{availableTokensDisplay.soldPercentage}%</div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide opacity-50">APY</div>
-                <div className="font-semibold leading-tight text-success">{apyDisplay}</div>
-              </div>
-              <div className="col-span-2 sm:col-span-4">
-                <progress
-                  className="progress h-1.5 w-full progress-primary"
-                  value={availableTokensDisplay.soldPercentage}
-                  max="100"
-                ></progress>
-              </div>
-            </div>
-
-            <div className="w-full lg:w-[220px]">
-              {actionState.secondaryActions.length > 0 ? (
-                <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
-                  <div className="flex w-full">
-                    <button
-                      type="button"
-                      className={`btn ${primaryButtonClass} rounded-r-none flex-1`}
-                      onClick={() => {
-                        setIsActionMenuOpen(false);
-                        actionState.primaryOnClick?.();
-                      }}
-                      disabled={actionState.primaryDisabled}
-                    >
-                      {actionState.primaryLabel}
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn ${primaryButtonClass} rounded-l-none px-2 border-l border-current/15`}
-                      aria-expanded={isActionMenuOpen}
-                      aria-haspopup="menu"
-                      onClick={() => setIsActionMenuOpen(prev => !prev)}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1.5"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                        data-slot="icon"
-                        className="h-4 w-4"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                      </svg>
-                    </button>
-                  </div>
-                  {isActionMenuOpen && (
-                    <ul className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mt-2">
-                      {actionState.secondaryActions.map(action => (
-                        <li key={action.label}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsActionMenuOpen(false);
-                              action.onClick?.();
-                            }}
-                            className={action.className ?? ""}
-                          >
-                            {action.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : (
-                <button
-                  className={`btn ${primaryButtonClass} w-full`}
-                  onClick={actionState.primaryOnClick}
-                  disabled={actionState.primaryDisabled}
-                >
-                  {actionState.primaryLabel}
-                </button>
-              )}
             </div>
           </div>
         </div>
-      </div>
+      </article>
     );
   }
 
   return (
-    <div
-      className={`card h-full bg-base-100 shadow-lg transition-all duration-300 overflow-hidden group ${
+    <article
+      className={`rounded-2xl border border-base-300 bg-base-100 shadow-lg transition-all duration-300 overflow-hidden flex flex-col group ${
         hasAvailableActions ? "hover:shadow-xl" : "opacity-70 saturate-50"
-      } ${
-        isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""
-      } ${isListMode ? "sm:flex sm:flex-row sm:min-h-[18rem]" : ""}`}
+      } ${isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       role={isCardPressable ? "button" : undefined}
@@ -727,18 +653,10 @@ export function ListingCard({
         <div className="absolute top-0 left-0 right-0 z-20 bg-success py-2 text-center text-sm font-bold tracking-wide text-success-content rounded-t-2xl">
           ✨ Newly Listed
         </div>
-      ) : showSecondaryListingBadge ? (
-        <div className="absolute top-0 left-0 right-0 z-20 bg-base-100/90 backdrop-blur-sm border-b border-base-300 py-2 text-center text-sm font-semibold tracking-wide text-base-content rounded-t-2xl">
-          🔁 Secondary Listing
-        </div>
       ) : null}
 
       {/* Image Section */}
-      <figure
-        className={`relative bg-gradient-to-br from-base-200 to-base-300 overflow-hidden ${
-          isListMode ? "h-44 sm:h-auto sm:w-64 md:w-72" : "h-48"
-        }`}
-      >
+      <div className="relative aspect-[16/10] bg-base-200 overflow-hidden group">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -754,170 +672,154 @@ export function ListingCard({
           </div>
         )}
 
-        {/* Badges - stacked to prevent overlap */}
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end gap-2 flex-wrap">
-          <span className="badge badge-sm bg-base-100/90 backdrop-blur-sm border-0 shadow-md truncate max-w-[45%]">
-            🔗 {networkName}
+        {/* Badges */}
+        {showSecondaryListingBadge && (
+          <div className="absolute inset-x-4 top-4 flex items-start justify-start">
+            <span className="rounded-full bg-base-100/90 px-3 py-1 text-xs font-semibold text-base-content/70 shadow-md backdrop-blur-sm">
+              Secondary Listing
+            </span>
+          </div>
+        )}
+        <div className="absolute inset-x-4 bottom-4 flex items-end justify-end">
+          <span className="rounded-full bg-base-100/90 px-3 py-1 text-xs font-bold text-success shadow-md backdrop-blur-sm">
+            {apyDisplay} APY
           </span>
-          <span className="badge badge-success font-bold shadow-md text-xs">{apyDisplay} APY</span>
         </div>
 
         {/* Status Overlays */}
         {isEnded && !hasAvailableActions && (
           <div className="absolute inset-0 bg-base-300/80 flex items-center justify-center z-10">
-            <span className="badge badge-neutral badge-lg font-bold shadow-lg">SALE ENDED</span>
+            <span className="badge badge-neutral badge-lg font-bold shadow-lg uppercase">Sale Ended</span>
           </div>
         )}
         {isExpired && !isEnded && !hasAvailableActions && (
           <div className="absolute inset-0 bg-warning/80 flex items-center justify-center z-10">
-            <span className="badge badge-warning badge-lg font-bold shadow-lg">EXPIRED</span>
+            <span className="badge badge-warning badge-lg font-bold shadow-lg uppercase">Expired</span>
           </div>
         )}
-      </figure>
+      </div>
 
       {/* Content Section */}
-      <div className={`card-body gap-2 flex-1 ${isListMode ? "p-5 sm:py-4 sm:px-5" : "p-4"}`}>
-        {/* Asset Type */}
-        <span className="text-xs font-semibold uppercase tracking-wider opacity-50">{assetType}</span>
-
-        {/* Asset Name */}
-        <h3
-          className={`card-title text-lg font-bold line-clamp-2 ${isListMode ? "" : "min-h-[3.5rem]"}`}
-          title={displayName}
-        >
-          {displayName}
-        </h3>
-
-        {/* Partner Name */}
-        {partner && <span className="text-xs text-primary -mt-1">by {partner.name}</span>}
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 py-2">
-          <div className="flex flex-col">
-            <span className="text-xs opacity-50 uppercase tracking-wide">Price/Token</span>
-            <span className="font-bold text-lg">{priceDisplay}</span>
-            <span className="text-xs opacity-50 -mt-0.5">{paymentSymbol}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs opacity-50 uppercase tracking-wide">Available</span>
-            <span className="font-bold text-lg">
-              {availableTokensDisplay.available}
-              <span className="text-sm font-normal opacity-50"> / {availableTokensDisplay.total}</span>
-            </span>
-          </div>
+      <div className="grid flex-1 grid-rows-[7.5rem_auto_auto_auto] gap-4 p-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] items-start gap-x-3 gap-y-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-base-content/50">{assetType}</span>
+          <span
+            className={`row-span-3 rounded-full px-3 py-1 text-xs font-semibold shrink-0 self-start ${statusClass}`}
+          >
+            {statusLabel}
+          </span>
+          <h3 className="line-clamp-2 text-xl font-bold leading-tight min-h-[2.8rem]" title={displayName}>
+            {displayName}
+          </h3>
+          {partner && <div className="text-sm text-base-content/60 truncate mt-0.5">by {partner.name}</div>}
         </div>
 
-        {/* Sold Progress Bar */}
-        <div className="w-full">
-          <div className="flex justify-between text-xs mb-1">
-            <span className="opacity-50">Sold</span>
-            <span className="font-semibold">{availableTokensDisplay.soldPercentage}%</span>
+        <div className="rounded-xl bg-base-200 p-4">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-wide opacity-50">Sold</div>
+              <div className="mt-1 text-lg font-bold">{availableTokensDisplay.soldPercentage}%</div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wide opacity-50">Available</div>
+              <div className="mt-1 font-semibold">
+                {availableTokensDisplay.available} / {availableTokensDisplay.total}
+              </div>
+            </div>
           </div>
           <progress
-            className="progress w-full h-2 progress-primary"
+            className="progress w-full h-2 progress-primary mt-3"
             value={availableTokensDisplay.soldPercentage}
             max="100"
           ></progress>
         </div>
 
-        {/* Earnings Row — always visible */}
-        <div className="grid grid-cols-2 gap-3 py-2">
-          {hasEarnings ? (
-            <>
-              <div className="flex flex-col">
-                <span className="text-xs opacity-50 uppercase tracking-wide">Actual Earnings</span>
-                <span className="font-semibold text-success">{actualEarningsDisplay}</span>
-                <span className="text-xs opacity-50 -mt-0.5">{paymentSymbol}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs opacity-50 uppercase tracking-wide">Est. at Maturity</span>
-                <span className="font-semibold text-success/70">{projectedEarnings.atMaturity}</span>
-                <span className="text-xs opacity-50 -mt-0.5">{paymentSymbol}</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex flex-col">
-                <span className="text-xs opacity-50 uppercase tracking-wide">Est. / Year</span>
-                <span className="font-semibold text-success/70">{projectedEarnings.perYear}</span>
-                <span className="text-xs opacity-50 -mt-0.5">{paymentSymbol}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs opacity-50 uppercase tracking-wide">Est. at Maturity</span>
-                <span className="font-semibold text-success/70">{projectedEarnings.atMaturity}</span>
-                <span className="text-xs opacity-50 -mt-0.5">{paymentSymbol}</span>
-              </div>
-            </>
-          )}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-xl bg-base-200 p-3">
+            <div className="text-base-content/60 truncate uppercase text-[10px] tracking-wide font-semibold">
+              {hasEarnings ? "Earnings" : "Est. / Year"}
+            </div>
+            <div className="mt-1 text-2xl font-bold leading-none">
+              {hasEarnings ? actualEarningsDisplay : projectedEarningsPerYear}
+            </div>
+            <div className="mt-1 text-base-content/70 font-semibold">{paymentSymbol}</div>
+          </div>
+          <div className="rounded-xl bg-base-200 p-3">
+            <div className="text-base-content/60 truncate uppercase text-[10px] tracking-wide font-semibold">Price</div>
+            <div className="mt-1 text-2xl font-bold leading-none">{priceDisplay}</div>
+            <div className="mt-1 text-base-content/70 font-semibold">{paymentSymbol}</div>
+          </div>
         </div>
 
         {/* Action Button */}
-        <div className="card-actions mt-2">
-          {actionState.secondaryActions.length > 0 ? (
-            <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
-              <div className="flex w-full">
-                <button
-                  type="button"
-                  className={`btn ${primaryButtonClass} rounded-r-none flex-1`}
-                  onClick={() => {
-                    setIsActionMenuOpen(false);
-                    actionState.primaryOnClick?.();
-                  }}
-                  disabled={actionState.primaryDisabled}
-                >
-                  {actionState.primaryLabel}
-                </button>
-                <button
-                  type="button"
-                  className={`btn ${primaryButtonClass} rounded-l-none px-3 border-l border-current/15`}
-                  aria-expanded={isActionMenuOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setIsActionMenuOpen(prev => !prev)}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth="1.5"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                    data-slot="icon"
-                    className="h-5 w-5"
+        <div className="flex flex-col gap-2 self-end">
+          <div className="w-full">
+            {actionState.secondaryActions.length > 0 ? (
+              <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
+                <div className="flex w-full">
+                  <button
+                    type="button"
+                    className={`btn ${primaryButtonClass} rounded-r-none flex-1 shadow-none`}
+                    onClick={() => {
+                      setIsActionMenuOpen(false);
+                      actionState.primaryOnClick?.();
+                    }}
+                    disabled={actionState.primaryDisabled}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                  </svg>
-                </button>
+                    {actionState.primaryLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${primaryButtonClass} rounded-l-none px-3 border-l border-current/15 shadow-none`}
+                    aria-expanded={isActionMenuOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setIsActionMenuOpen(prev => !prev)}
+                    disabled={actionState.primaryDisabled && actionState.secondaryActions.length === 0}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="1.5"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                </div>
+                {isActionMenuOpen && (
+                  <ul className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mb-2 bottom-full">
+                    {actionState.secondaryActions.map(action => (
+                      <li key={action.label}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsActionMenuOpen(false);
+                            action.onClick?.();
+                          }}
+                          className={action.className ?? ""}
+                        >
+                          {action.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              {isActionMenuOpen && (
-                <ul className="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 mb-2 bottom-full">
-                  {actionState.secondaryActions.map(action => (
-                    <li key={action.label}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsActionMenuOpen(false);
-                          action.onClick?.();
-                        }}
-                        className={action.className ?? ""}
-                      >
-                        {action.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : (
-            <button
-              className={`btn ${primaryButtonClass} btn-block`}
-              onClick={actionState.primaryOnClick}
-              disabled={actionState.primaryDisabled}
-            >
-              {actionState.primaryLabel}
-            </button>
-          )}
+            ) : (
+              <button
+                className={`btn ${primaryButtonClass} btn-block shadow-none`}
+                onClick={actionState.primaryOnClick}
+                disabled={actionState.primaryDisabled}
+              >
+                {actionState.primaryLabel}
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

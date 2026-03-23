@@ -167,38 +167,9 @@ function getInheritedFunctions(mainArtifact) {
   return inheritedFunctions;
 }
 
-function getProxyMapping(chainId) {
-  // Hardcoded proxy mappings from chain analysis
-  // Implementation -> Proxy address mappings for upgradeable contracts
-  const proxyMapping = new Map();
-
-  if (chainId === "31337") {
-    // Local development mappings
-    proxyMapping.set(
-      "0xa44b9f3f5bb8c278c1ee85d8f32517c6efa64b0d",
-      "0x7f65d50b2915d5b2ca6cbb879cd5fe940fd44b86"
-    ); // RoboshareTokens
-    proxyMapping.set(
-      "0x21db43cdd6fbd4998ff67af132f953747bfacb97",
-      "0x9ea2f17f8e53d15c6828c2d99651b1ffe9b16e0e"
-    ); // PartnerManager
-    proxyMapping.set(
-      "0x58fff7cf21aecd9d4b500e5490b10b07b9553e89",
-      "0x3dc1ec9c2867fd75f63f089b5c9760b3d259e07d"
-    ); // VehicleRegistry
-    proxyMapping.set(
-      "0xc05e24398c12b31ee2626ab1b9708aacd287082f",
-      "0xc84678cbf0ce9cc53a1cb54c92eafe7ce0350e0a"
-    ); // Treasury
-  }
-
-  return proxyMapping;
-}
-
 function processAllDeployments(broadcastPath) {
   const scriptFolders = getDirectories(broadcastPath);
   const allDeployments = new Map();
-  const proxyMapping = getProxyMapping("31337");
 
   scriptFolders.forEach((scriptFolder) => {
     const scriptPath = join(broadcastPath, scriptFolder);
@@ -219,14 +190,9 @@ function processAllDeployments(broadcastPath) {
           !allDeployments.has(key) ||
           timestamp > allDeployments.get(key).timestamp
         ) {
-          // Use proxy address if available, otherwise use implementation address
-          const finalAddress =
-            proxyMapping.get(deployment.address) || deployment.address;
-
           allDeployments.set(key, {
             ...deployment,
-            address: finalAddress,
-            implementationAddress: deployment.address,
+            address: deployment.address,
             timestamp,
             chainId,
             deploymentScript: scriptFolder,
@@ -240,6 +206,9 @@ function processAllDeployments(broadcastPath) {
 
   allDeployments.forEach((deployment) => {
     const { chainId, contractName } = deployment;
+    if (contractName === "ERC1967Proxy") {
+      return;
+    }
     const artifact = getArtifactOfContract(contractName);
 
     if (artifact) {
@@ -312,7 +281,14 @@ function main() {
     });
   });
 
-  const NEXTJS_TARGET_DIR = "../../web/contracts/";
+  const NEXTJS_TARGET_DIR = join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "web",
+    "contracts"
+  );
 
   // Ensure target directories exist
   if (!existsSync(NEXTJS_TARGET_DIR)) {
@@ -320,7 +296,13 @@ function main() {
   }
 
   // Generate the deployedContracts content
-  const fileContent = Object.entries(allGeneratedContracts).reduce(
+  const webContracts = Object.fromEntries(
+    Object.entries(allGeneratedContracts).filter(
+      ([, chainConfig]) => Object.keys(chainConfig).length > 0
+    )
+  );
+
+  const fileContent = Object.entries(webContracts).reduce(
     (content, [chainId, chainConfig]) => {
       return `${content}${parseInt(chainId).toFixed(0)}:${JSON.stringify(
         chainConfig,
@@ -342,14 +324,17 @@ function main() {
   `;
 
   writeFileSync(
-    `${NEXTJS_TARGET_DIR}deployedContracts.ts`,
+    join(NEXTJS_TARGET_DIR, "deployedContracts.ts"),
     format(fileTemplate("~~/utils/scaffold-eth/contract"), {
       parser: "typescript",
     })
   );
 
   console.log(
-    `📝 Updated TypeScript contract definition file on ${NEXTJS_TARGET_DIR}deployedContracts.ts`
+    `📝 Updated TypeScript contract definition file on ${join(
+      NEXTJS_TARGET_DIR,
+      "deployedContracts.ts"
+    )}`
   );
 }
 

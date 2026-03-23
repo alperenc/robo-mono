@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { getDeployedContract } from "~~/utils/contracts";
 
@@ -13,9 +13,16 @@ interface ClaimSettlementModalProps {
   onClose: () => void;
   assetId: string;
   vehicleName: string;
+  autoWithdraw?: boolean;
 }
 
-export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: ClaimSettlementModalProps) => {
+export const ClaimSettlementModal = ({
+  isOpen,
+  onClose,
+  assetId,
+  vehicleName,
+  autoWithdraw = true,
+}: ClaimSettlementModalProps) => {
   const { address } = useAccount();
   const chainId = useChainId();
   const [autoClaimEarnings, setAutoClaimEarnings] = useState(false);
@@ -23,6 +30,9 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
   const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
   const { writeContractAsync: writeRouter, isPending } = useScaffoldWriteContract({
     contractName: "RegistryRouter",
+  });
+  const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({
+    contractName: "Treasury",
   });
   const { data: previewSettlementAmount } = useReadContract({
     address: treasuryAddress,
@@ -42,23 +52,11 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
     args: address ? [BigInt(assetId), address] : undefined,
     query: { enabled: isOpen && !!address && !!treasuryAddress },
   });
-  const { data: previewEarningsAmount } = useReadContract({
-    address: treasuryAddress,
-    abi: [
-      {
-        type: "function",
-        name: "previewClaimEarnings",
-        stateMutability: "view",
-        inputs: [
-          { name: "assetId", type: "uint256" },
-          { name: "holder", type: "address" },
-        ],
-        outputs: [{ name: "", type: "uint256" }],
-      },
-    ] as const,
+  const { data: previewEarningsAmount } = useScaffoldReadContract({
+    contractName: "EarningsManager",
     functionName: "previewClaimEarnings",
-    args: address ? [BigInt(assetId), address] : undefined,
-    query: { enabled: isOpen && !!address && !!treasuryAddress },
+    args: [BigInt(assetId), address],
+    query: { enabled: isOpen && !!address },
   });
   const claimableAmount = previewSettlementAmount || 0n;
   const claimableEarnings = previewEarningsAmount || 0n;
@@ -89,6 +87,11 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
         functionName: "claimSettlementFor",
         args: [address, BigInt(assetId), autoClaimEarnings],
       });
+      if (autoWithdraw) {
+        await writeTreasury({
+          functionName: "processWithdrawal",
+        });
+      }
       onClose();
     } catch (e) {
       console.error("Error claiming settlement:", e);
@@ -121,7 +124,9 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
               {claimableDisplay} <span className="text-base font-semibold opacity-80">{paymentSymbol}</span>
             </p>
             <p className="text-sm opacity-70 mt-3">
-              Claim your final payout. This will close your position in this offering.
+              {autoWithdraw
+                ? "Claim your final payout and process the resulting withdrawal back to your wallet."
+                : "Claim your final payout into pending withdrawals so you can withdraw after claiming other assets."}
             </p>
             <div className="mt-4 space-y-1 text-sm">
               <div className="flex justify-between gap-3">
@@ -179,7 +184,13 @@ export const ClaimSettlementModal = ({ isOpen, onClose, assetId, vehicleName }: 
             onClick={handleClaim}
             disabled={isPending || claimableAmount === 0n}
           >
-            {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Final Payout"}
+            {isPending ? (
+              <span className="loading loading-spinner loading-sm" />
+            ) : autoWithdraw ? (
+              "Claim Final Payout"
+            ) : (
+              "Claim Final Payout to Pending Withdrawals"
+            )}
           </button>
         </div>
       </div>

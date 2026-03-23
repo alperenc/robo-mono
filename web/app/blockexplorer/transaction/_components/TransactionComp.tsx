@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Hash, Transaction, TransactionReceipt, formatEther, formatUnits } from "viem";
 import { hardhat } from "viem/chains";
@@ -9,6 +10,7 @@ import { Address } from "~~/components/scaffold-eth";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { decodeTransactionData, getFunctionDetails } from "~~/utils/scaffold-eth";
 import { replacer } from "~~/utils/scaffold-eth/common";
+import { getBlockExplorerTxLink } from "~~/utils/scaffold-eth/networks";
 
 const TransactionComp = ({ txHash }: { txHash: Hash }) => {
   const client = usePublicClient({ chainId: hardhat.id });
@@ -18,6 +20,7 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
   const [functionCalled, setFunctionCalled] = useState<string>();
 
   const { targetNetwork } = useTargetNetwork();
+  const isLocalNetwork = targetNetwork.id === hardhat.id;
 
   useEffect(() => {
     if (txHash && client) {
@@ -36,6 +39,30 @@ const TransactionComp = ({ txHash }: { txHash: Hash }) => {
       fetchTransaction();
     }
   }, [client, txHash]);
+
+  if (!isLocalNetwork) {
+    return (
+      <div className="container mx-auto mt-10 mb-20 px-10 md:px-0">
+        <button className="btn btn-sm btn-primary mb-6" onClick={() => router.back()}>
+          Back
+        </button>
+        <div className="rounded-3xl border border-base-300 bg-base-100 p-8 shadow-lg">
+          <h2 className="text-3xl font-bold mb-4">External Explorer Only</h2>
+          <p className="text-base-content/70 mb-6">
+            Transaction details for testnets are shown in the network&apos;s external explorer.
+          </p>
+          <Link
+            href={getBlockExplorerTxLink(targetNetwork.id, txHash) || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary"
+          >
+            Open in {targetNetwork.blockExplorers?.default?.name || `${targetNetwork.name} Explorer`}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto mt-10 mb-20 px-10 md:px-0">

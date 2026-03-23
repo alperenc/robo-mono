@@ -3,6 +3,7 @@ import {
   coinbaseWallet,
   ledgerWallet,
   metaMaskWallet,
+  rabbyWallet,
   rainbowWallet,
   safeWallet,
   walletConnectWallet,
@@ -19,6 +20,7 @@ const wallets = [
   walletConnectWallet,
   ledgerWallet,
   coinbaseWallet,
+  rabbyWallet,
   rainbowWallet,
   safeWallet,
   ...(!targetNetworks.some(network => network.id !== LOCAL_CHAIN_ID) || !onlyLocalBurnerWallet
@@ -29,16 +31,17 @@ const wallets = [
 /**
  * wagmi connectors for the wagmi context
  */
-export const wagmiConnectors = connectorsForWallets(
-  [
-    {
-      groupName: "Supported Wallets",
-      wallets,
-    },
-  ],
+export const getWagmiConnectors = () =>
+  connectorsForWallets(
+    [
+      {
+        groupName: "Supported Wallets",
+        wallets,
+      },
+    ],
 
-  {
-    appName: "Roboshare",
-    projectId: scaffoldConfig.walletConnectProjectId,
-  },
-);
+    {
+      appName: "Roboshare",
+      projectId: scaffoldConfig.walletConnectProjectId,
+    },
+  );

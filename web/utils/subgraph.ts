@@ -1,4 +1,6 @@
-const LOCAL_SUBGRAPH_QUERY_URL = "http://localhost:8000/subgraphs/name/roboshare/protocol";
+import { getLocalSubgraphUrl } from "~~/utils/localServiceUrls";
+
+const LOCAL_SUBGRAPH_QUERY_URL = getLocalSubgraphUrl() || "http://localhost:8000/subgraphs/name/roboshare/protocol";
 
 const CHAIN_SUBGRAPH_URLS: Record<number, string | undefined> = {
   31337: process.env.NEXT_PUBLIC_SUBGRAPH_URL_31337 || LOCAL_SUBGRAPH_QUERY_URL,

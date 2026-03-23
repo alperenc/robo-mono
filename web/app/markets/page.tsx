@@ -2,28 +2,32 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NextPage } from "next";
-import { useAccount, useChainId, useChains, useReadContracts, useSwitchChain } from "wagmi";
+import { formatUnits } from "viem";
+import { useAccount, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import {
   AdjustmentsHorizontalIcon,
   ArrowsUpDownIcon,
   Bars4Icon,
   BriefcaseIcon,
+  CurrencyDollarIcon,
   Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import { AcquirePositionModal } from "~~/components/markets/AcquirePositionModal";
 import { ClaimEarningsModal } from "~~/components/markets/ClaimEarningsModal";
 import { ClaimSettlementModal } from "~~/components/markets/ClaimSettlementModal";
+import { ForceFinalPayoutModal } from "~~/components/markets/ForceFinalPayoutModal";
 import { ListingCard } from "~~/components/markets/ListingCard";
 import { PrimaryPoolCard } from "~~/components/markets/PrimaryPoolCard";
 import { RedeemLiquidityModal } from "~~/components/markets/RedeemLiquidityModal";
 import { CreateSecondaryListingModal } from "~~/components/partner/CreateSecondaryListingModal";
-import { DistributeEarningsModal } from "~~/components/partner/DistributeEarningsModal";
 import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
-import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
+import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
-import { getTargetNetworks } from "~~/utils/scaffold-eth";
+import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
 import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
 // Types for subgraph data
@@ -74,6 +78,7 @@ interface SubgraphToken {
   revenueTokenId: string;
   price: string;
   supply: string;
+  createdAt: string;
   targetYieldBP?: string;
   maturityDate: string;
 }
@@ -101,6 +106,8 @@ type MarketTab = "pools" | "secondary";
 const BENCHMARK_EARNINGS_BP = 1000n;
 const BP_PRECISION = 10000n;
 const NEW_POOL_BADGE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MARKETS_PAGE_BATCH_SIZE = 12;
+const MARKETS_PAGE_PREFS_KEY = "roboshare:markets-page-prefs";
 
 const MarketsPage: NextPage = () => {
   const { address } = useAccount();
@@ -111,8 +118,6 @@ const MarketsPage: NextPage = () => {
   const [tokens, setTokens] = useState<SubgraphToken[]>([]);
   const [assetEarnings, setAssetEarnings] = useState<SubgraphAssetEarnings[]>([]);
   const [partners, setPartners] = useState<SubgraphPartner[]>([]);
-  const [userListingIds, setUserListingIds] = useState<Set<string>>(new Set());
-  const [recentPurchases, setRecentPurchases] = useState<Set<string>>(new Set());
   const [recentPrimaryPoolPurchases, setRecentPrimaryPoolPurchases] = useState<Set<string>>(new Set());
   const [soldOutAtByListing, setSoldOutAtByListing] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
@@ -125,6 +130,9 @@ const MarketsPage: NextPage = () => {
   const [showOnlyHoldings, setShowOnlyHoldings] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [marketTab, setMarketTab] = useState<MarketTab>("pools");
+  const [hasRestoredPreferences, setHasRestoredPreferences] = useState(false);
+  const [visiblePrimaryPoolCount, setVisiblePrimaryPoolCount] = useState(MARKETS_PAGE_BATCH_SIZE);
+  const [visibleListingCount, setVisibleListingCount] = useState(MARKETS_PAGE_BATCH_SIZE);
 
   useEffect(() => {
     const enforceGridOnMobile = () => {
@@ -133,22 +141,68 @@ const MarketsPage: NextPage = () => {
       }
     };
 
-    enforceGridOnMobile();
     window.addEventListener("resize", enforceGridOnMobile);
     return () => window.removeEventListener("resize", enforceGridOnMobile);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(MARKETS_PAGE_PREFS_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as Partial<{
+        filterType: AssetType | "ALL";
+        sortBy: SortOption;
+        showOnlyHoldings: boolean;
+        viewMode: "list" | "grid";
+        marketTab: MarketTab;
+      }>;
+
+      if (parsed.filterType) setFilterType(parsed.filterType);
+      if (parsed.sortBy) setSortBy(parsed.sortBy);
+      if (typeof parsed.showOnlyHoldings === "boolean") setShowOnlyHoldings(parsed.showOnlyHoldings);
+      if (parsed.viewMode) setViewMode(parsed.viewMode);
+      if (parsed.marketTab) setMarketTab(parsed.marketTab);
+    } catch (error) {
+      console.error("Failed to restore markets page preferences:", error);
+    } finally {
+      setHasRestoredPreferences(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasRestoredPreferences) return;
+
+    try {
+      window.localStorage.setItem(
+        MARKETS_PAGE_PREFS_KEY,
+        JSON.stringify({
+          filterType,
+          sortBy,
+          showOnlyHoldings,
+          viewMode,
+          marketTab,
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to persist markets page preferences:", error);
+    }
+  }, [filterType, hasRestoredPreferences, marketTab, showOnlyHoldings, sortBy, viewMode]);
 
   // Modal states
   const [selectedListing, setSelectedListing] = useState<SubgraphListing | null>(null);
   const [selectedPool, setSelectedPool] = useState<SubgraphPrimaryPool | null>(null);
   const [selectedRedeemPool, setSelectedRedeemPool] = useState<SubgraphPrimaryPool | null>(null);
+  const [selectedLiquidationPool, setSelectedLiquidationPool] = useState<SubgraphPrimaryPool | null>(null);
   const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
   const [isClaimEarningsOpen, setIsClaimEarningsOpen] = useState(false);
   const [isClaimSettlementOpen, setIsClaimSettlementOpen] = useState(false);
   const [isListTokensOpen, setIsListTokensOpen] = useState(false);
   const [isEndListingOpen, setIsEndListingOpen] = useState(false);
-  const [isDistributeEarningsOpen, setIsDistributeEarningsOpen] = useState(false);
-  const [isSettleAssetOpen, setIsSettleAssetOpen] = useState(false);
+  const [isWithdrawProceedsOpen, setIsWithdrawProceedsOpen] = useState(false);
+  const [isBatchClaimPayoutsPending, setIsBatchClaimPayoutsPending] = useState(false);
   const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
 
   // Network info
@@ -163,6 +217,20 @@ const MarketsPage: NextPage = () => {
   const marketplaceContract = getDeployedContract(chainId, "Marketplace");
   const treasuryContract = getDeployedContract(chainId, "Treasury");
   const registryRouterContract = getDeployedContract(chainId, "RegistryRouter");
+  const earningsManagerContract = getDeployedContract(chainId, "EarningsManager");
+  const { symbol, decimals } = usePaymentToken();
+  const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
+  const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
+
+  const { data: pendingWithdrawal, refetch: refetchPendingWithdrawal } = useReadContract({
+    address: treasuryContract?.address,
+    abi: treasuryContract?.abi,
+    functionName: "pendingWithdrawals",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!treasuryContract },
+  });
+  const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
+  const pendingWithdrawalDisplay = pendingWithdrawal ? formatUnits(pendingWithdrawal as bigint, decimals) : "0";
 
   // Fetch data from subgraph
   const fetchData = useCallback(
@@ -174,15 +242,6 @@ const MarketsPage: NextPage = () => {
         if (!subgraphUrl) {
           throw new Error(`No subgraph endpoint configured for chain ${chainId}.`);
         }
-
-        // Build query with optional user-specific part
-        const userQueryPart = address
-          ? `
-        tokenTrades(where: { buyer: "${address.toLowerCase()}" }, first: 1000) {
-          listingId
-        }
-      `
-          : "";
 
         const response = await fetch(subgraphUrl, {
           method: "POST",
@@ -234,6 +293,7 @@ const MarketsPage: NextPage = () => {
                 revenueTokenId
                 price
                 supply
+                createdAt
                 targetYieldBP
                 maturityDate
               }
@@ -251,7 +311,6 @@ const MarketsPage: NextPage = () => {
                 firstDistributionAt
                 lastDistributionAt
               }
-              ${userQueryPart}
             }
           `,
           }),
@@ -292,13 +351,6 @@ const MarketsPage: NextPage = () => {
         setTokens(data?.roboshareTokens || []);
         setAssetEarnings(data?.assetEarnings || []);
         setPartners(data?.partners || []);
-
-        if (data?.tokenTrades) {
-          const ids = new Set<string>(data.tokenTrades.map((t: any) => t.listingId));
-          setUserListingIds(ids);
-        } else {
-          setUserListingIds(new Set());
-        }
       } catch (e: any) {
         console.error("Error fetching market data:", e);
         setError(e.message || "Failed to fetch market data");
@@ -306,10 +358,10 @@ const MarketsPage: NextPage = () => {
         if (showLoading) setLoading(false);
       }
     },
-    [address, chainId, subgraphUrl],
+    [chainId, subgraphUrl],
   );
 
-  // Fetch Holdings (Escrow + Wallet) for "Your Holdings" filter
+  // Fetch current wallet holdings for "Your Holdings"
   const {
     data: holdingsData,
     isLoading: isLoadingHoldings,
@@ -359,24 +411,39 @@ const MarketsPage: NextPage = () => {
     query: { enabled: !!roboshareTokensContract && primaryPools.length > 0 },
   });
 
+  const { data: primaryPoolEligibleRedemptionData, refetch: refetchPrimaryPoolEligibleRedemptionBalances } =
+    useReadContracts({
+      contracts: roboshareTokensContract
+        ? primaryPools.map(pool => ({
+            address: roboshareTokensContract.address,
+            abi: roboshareTokensContract.abi,
+            functionName: "getPrimaryRedemptionEligibleBalance",
+            args: [address, BigInt(pool.tokenId)],
+          }))
+        : ([] as any),
+      query: { enabled: !!address && !!roboshareTokensContract && primaryPools.length > 0 },
+    });
+
   const { data: primaryPoolRedemptionPreviewData, refetch: refetchPrimaryPoolRedemptionPreviews } = useReadContracts({
     allowFailure: true,
     contracts: marketplaceContract
       ? primaryPools.map((pool, index) => {
-          const holdingResult = primaryPoolHoldingsData?.[index];
-          const holding =
-            holdingResult?.status === "success" && holdingResult.result !== undefined
-              ? (holdingResult.result as bigint)
+          const eligibleResult = primaryPoolEligibleRedemptionData?.[index];
+          const eligibleBalance =
+            eligibleResult?.status === "success" && eligibleResult.result !== undefined
+              ? (eligibleResult.result as bigint)
               : 0n;
           return {
             address: marketplaceContract.address,
             abi: marketplaceContract.abi,
             functionName: "previewPrimaryRedemption",
-            args: [BigInt(pool.tokenId), holding > 0n ? holding : 1n],
+            args: [BigInt(pool.tokenId), address, eligibleBalance],
           };
         })
       : ([] as any),
-    query: { enabled: !!address && !!marketplaceContract && primaryPools.length > 0 && !!primaryPoolHoldingsData },
+    query: {
+      enabled: !!address && !!marketplaceContract && primaryPools.length > 0 && !!primaryPoolEligibleRedemptionData,
+    },
   });
 
   // Fetch actionability previews (claimable earnings/settlement) for sorting heuristics.
@@ -386,23 +453,24 @@ const MarketsPage: NextPage = () => {
 
   const { data: actionPreviewData, refetch: refetchActionPreviewData } = useReadContracts({
     allowFailure: true,
-    contracts: treasuryContract
-      ? uniqueAssetIds.flatMap(assetId => [
-          {
-            address: treasuryContract.address,
-            abi: treasuryContract.abi,
-            functionName: "previewClaimEarnings",
-            args: [BigInt(assetId), address],
-          },
-          {
-            address: treasuryContract.address,
-            abi: treasuryContract.abi,
-            functionName: "previewSettlementClaim",
-            args: [BigInt(assetId), address],
-          },
-        ])
-      : ([] as any),
-    query: { enabled: !!address && !!treasuryContract && uniqueAssetIds.length > 0 },
+    contracts:
+      treasuryContract && earningsManagerContract
+        ? uniqueAssetIds.flatMap(assetId => [
+            {
+              address: earningsManagerContract.address,
+              abi: earningsManagerContract.abi,
+              functionName: "previewClaimEarnings",
+              args: [BigInt(assetId), address],
+            },
+            {
+              address: treasuryContract.address,
+              abi: treasuryContract.abi,
+              functionName: "previewSettlementClaim",
+              args: [BigInt(assetId), address],
+            },
+          ])
+        : ([] as any),
+    query: { enabled: !!address && !!treasuryContract && !!earningsManagerContract && uniqueAssetIds.length > 0 },
   });
   const { data: assetStatusPreviewData } = useReadContracts({
     allowFailure: true,
@@ -411,6 +479,18 @@ const MarketsPage: NextPage = () => {
           address: registryRouterContract.address,
           abi: registryRouterContract.abi,
           functionName: "getAssetStatus",
+          args: [BigInt(assetId)],
+        }))
+      : ([] as any),
+    query: { enabled: !!registryRouterContract && uniqueAssetIds.length > 0 },
+  });
+  const { data: liquidationPreviewData, refetch: refetchLiquidationPreviewData } = useReadContracts({
+    allowFailure: true,
+    contracts: registryRouterContract
+      ? uniqueAssetIds.map(assetId => ({
+          address: registryRouterContract.address,
+          abi: registryRouterContract.abi,
+          functionName: "previewLiquidationEligibility",
           args: [BigInt(assetId)],
         }))
       : ([] as any),
@@ -440,12 +520,6 @@ const MarketsPage: NextPage = () => {
     });
   }, [listings]);
 
-  // Reset user-specific filters when the account changes
-  useEffect(() => {
-    setUserListingIds(new Set());
-    setRecentPurchases(new Set());
-  }, [address]);
-
   // Refetch holdings when the account or holdings filter changes
   useEffect(() => {
     if (showOnlyHoldings && address) {
@@ -453,7 +527,7 @@ const MarketsPage: NextPage = () => {
     }
   }, [address, showOnlyHoldings, refetchHoldings]);
 
-  // Extract listing IDs where user has tokens or escrow
+  // Extract listing IDs where the connected account currently holds tokens.
   const userHoldingsIds = useMemo(() => {
     const ids = new Set<string>();
     if (holdingsData) {
@@ -490,6 +564,14 @@ const MarketsPage: NextPage = () => {
     return byTokenId;
   }, [primaryPools, primaryPoolSupplyData]);
 
+  const primaryPoolCreatedAtByTokenId = useMemo(() => {
+    const byTokenId = new Map<string, string>();
+    primaryPools.forEach(pool => {
+      byTokenId.set(pool.tokenId, pool.createdAt);
+    });
+    return byTokenId;
+  }, [primaryPools]);
+
   const primaryPoolHoldingsByTokenId = useMemo(() => {
     const byTokenId = new Map<string, bigint>();
     primaryPools.forEach((pool, index) => {
@@ -500,19 +582,35 @@ const MarketsPage: NextPage = () => {
     return byTokenId;
   }, [primaryPools, primaryPoolHoldingsData]);
 
+  const arePrimaryPoolHoldingsReady = useMemo(() => {
+    if (!address) return true;
+    if (isLoadingPrimaryPoolHoldings) return false;
+    if (primaryPools.length === 0) return true;
+    if (!primaryPoolHoldingsData) return false;
+    return primaryPoolHoldingsData.length === primaryPools.length;
+  }, [address, isLoadingPrimaryPoolHoldings, primaryPoolHoldingsData, primaryPools.length]);
+
   const primaryPoolRedemptionByTokenId = useMemo(() => {
-    const byTokenId = new Map<string, { payout: bigint; liquidity: bigint; circulatingSupply: bigint }>();
+    const byTokenId = new Map<
+      string,
+      { payout: bigint; liquidity: bigint; redemptionSupply: bigint; eligibleBalance: bigint }
+    >();
     primaryPools.forEach((pool, index) => {
       const result = primaryPoolRedemptionPreviewData?.[index];
       if (result?.status !== "success" || !Array.isArray(result.result)) {
-        byTokenId.set(pool.tokenId, { payout: 0n, liquidity: 0n, circulatingSupply: 0n });
+        const eligibleResult = primaryPoolEligibleRedemptionData?.[index];
+        const eligibleBalance =
+          eligibleResult?.status === "success" && eligibleResult.result !== undefined
+            ? (eligibleResult.result as bigint)
+            : 0n;
+        byTokenId.set(pool.tokenId, { payout: 0n, liquidity: 0n, redemptionSupply: 0n, eligibleBalance });
         return;
       }
-      const [payout, liquidity, circulatingSupply] = result.result as [bigint, bigint, bigint];
-      byTokenId.set(pool.tokenId, { payout, liquidity, circulatingSupply });
+      const [payout, liquidity, redemptionSupply, eligibleBalance] = result.result as [bigint, bigint, bigint, bigint];
+      byTokenId.set(pool.tokenId, { payout, liquidity, redemptionSupply, eligibleBalance });
     });
     return byTokenId;
-  }, [primaryPools, primaryPoolRedemptionPreviewData]);
+  }, [primaryPoolEligibleRedemptionData, primaryPools, primaryPoolRedemptionPreviewData]);
 
   const assetActionPreview = useMemo(() => {
     const byAssetId = new Map<string, { claimableEarnings: bigint; claimableSettlement: bigint }>();
@@ -544,6 +642,24 @@ const MarketsPage: NextPage = () => {
 
     return byAssetId;
   }, [assetStatusPreviewData, uniqueAssetIds]);
+
+  const liquidationPreviewByAssetId = useMemo(() => {
+    const byAssetId = new Map<string, { eligible: boolean; reason: number }>();
+    if (!liquidationPreviewData) return byAssetId;
+
+    uniqueAssetIds.forEach((assetId, index) => {
+      const result = liquidationPreviewData[index];
+      if (result?.status === "success" && Array.isArray(result.result)) {
+        const [eligible, reason] = result.result as [boolean, number | bigint];
+        byAssetId.set(assetId, { eligible, reason: Number(reason) });
+        return;
+      }
+
+      byAssetId.set(assetId, { eligible: false, reason: 3 });
+    });
+
+    return byAssetId;
+  }, [liquidationPreviewData, uniqueAssetIds]);
 
   // Fetch IPFS images
   useEffect(() => {
@@ -591,33 +707,19 @@ const MarketsPage: NextPage = () => {
 
       if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
 
-      const listingSoldAmount =
-        listing.amountSold && listing.amountSold !== "0"
-          ? BigInt(listing.amountSold)
-          : (() => {
-              const derived = BigInt(token.supply) - BigInt(listing.amount);
-              return derived > 0n ? derived : 0n;
-            })();
-
-      const soldSupplyForAllocation = tokenSoldTotals.get(listing.tokenId) ?? listingSoldAmount;
-      const listingActualEarnings =
-        !earning || earning.totalEarnings === "0" || listingSoldAmount <= 0n || soldSupplyForAllocation <= 0n
-          ? 0n
-          : (BigInt(earning.totalEarnings) * listingSoldAmount) / soldSupplyForAllocation;
-
+      const tokenSupply = BigInt(primaryPoolSupplyByTokenId.get(listing.tokenId) || token.supply);
       const tokenPrice = BigInt(token.price);
-      const principalAmount = listingSoldAmount > 0n ? listingSoldAmount : BigInt(listing.amount);
-      const totalValue = tokenPrice * principalAmount;
+      const totalValue = tokenPrice * tokenSupply;
 
-      if (earning && listingActualEarnings > 0n && totalValue > 0n) {
-        const listingEndedAtOnChain = BigInt(listing.endedAt || "0");
+      if (earning && earning.totalEarnings !== "0" && totalValue > 0n) {
+        const durationStart = BigInt(token.createdAt || primaryPoolCreatedAtByTokenId.get(listing.tokenId) || "0");
         const lastDistAt = BigInt(earning.lastDistributionAt || "0");
-        const duration =
-          listingEndedAtOnChain > 0n && lastDistAt > listingEndedAtOnChain ? lastDistAt - listingEndedAtOnChain : 0n;
+        const totalEarnings = BigInt(earning.totalEarnings);
+        const duration = durationStart > 0n && lastDistAt > durationStart ? lastDistAt - durationStart : 0n;
 
-        if (duration > 0n) {
+        if (duration > 0n && totalEarnings > 0n) {
           const secondsPerYear = 365n * 24n * 60n * 60n;
-          const annualizedEarnings = (listingActualEarnings * secondsPerYear) / duration;
+          const annualizedEarnings = (totalEarnings * secondsPerYear) / duration;
           const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
           return Number(aprBps) / 100;
         }
@@ -626,7 +728,7 @@ const MarketsPage: NextPage = () => {
       const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
       return targetYieldBp / 100;
     },
-    [tokens, assetEarnings, tokenSoldTotals],
+    [assetEarnings, primaryPoolCreatedAtByTokenId, primaryPoolSupplyByTokenId, tokens],
   );
 
   const calculatePrimaryPoolApy = useCallback(
@@ -638,12 +740,12 @@ const MarketsPage: NextPage = () => {
 
       const issuedSupply = BigInt(primaryPoolSupplyByTokenId.get(pool.tokenId) || token.supply);
       const totalValue = BigInt(pool.pricePerToken) * issuedSupply;
-      const poolCreatedAt = BigInt(pool.createdAt || "0");
+      const durationStart = BigInt(pool.createdAt || "0");
       const lastDistAt = BigInt(earning?.lastDistributionAt || "0");
       const totalEarnings = BigInt(earning?.totalEarnings || "0");
 
-      if (totalEarnings > 0n && totalValue > 0n && poolCreatedAt > 0n && lastDistAt > poolCreatedAt) {
-        const duration = lastDistAt - poolCreatedAt;
+      if (totalEarnings > 0n && totalValue > 0n && durationStart > 0n && lastDistAt > durationStart) {
+        const duration = lastDistAt - durationStart;
         const secondsPerYear = 365n * 24n * 60n * 60n;
         const annualizedEarnings = (totalEarnings * secondsPerYear) / duration;
         const aprBps = (annualizedEarnings * BP_PRECISION) / totalValue;
@@ -666,7 +768,6 @@ const MarketsPage: NextPage = () => {
       if (!address) return false;
 
       const isSeller = listing.seller.toLowerCase() === address.toLowerCase();
-      const hasBoughtListing = userListingIds.has(listing.id) || recentPurchases.has(listing.id);
       const hasTokensForListing = userHoldingsIds.has(listing.id);
       const preview = assetActionPreview.get(listing.assetId);
       const assetStatus = assetStatusById.get(listing.assetId) ?? -1;
@@ -679,18 +780,17 @@ const MarketsPage: NextPage = () => {
       // (e.g. Distribute Earnings / Settle Asset on primary listings).
       if (isSeller && (!listing.isEnded || !isAssetSettled)) return true;
 
-      // Non-ended listings the user participated in often still expose actionable CTAs
-      // (e.g. claim earnings on expired listings) even when generic availability is zero.
-      if (!listing.isEnded && hasBoughtListing) return true;
+      // Current holders can still expose claim/list actions even when generic availability is zero.
+      if (!listing.isEnded && hasTokensForListing) return true;
 
-      // Buyer/holder actions that the card can actually surface.
-      if (hasBoughtListing && hasClaimableEarnings) return true;
+      // Holder actions that the card can actually surface.
+      if (hasTokensForListing && hasClaimableEarnings) return true;
       if (hasTokensForListing && hasClaimableSettlement) return true;
 
       // Conservative fallback: do not prioritize based on holdings/history alone.
       return false;
     },
-    [address, assetActionPreview, assetStatusById, recentPurchases, userHoldingsIds, userListingIds],
+    [address, assetActionPreview, assetStatusById, userHoldingsIds],
   );
 
   // Filter and sort listings
@@ -704,20 +804,10 @@ const MarketsPage: NextPage = () => {
       }
     }
 
-    // Filter by Holdings
+    // Filter by current holdings only.
     if (showOnlyHoldings) {
       if (!address) return [];
-      filtered = filtered.filter(l => {
-        // Include if user traded in this listing (subgraph)
-        if (userListingIds.has(l.id)) return true;
-        // Include if user recently purchased (optimistic)
-        if (recentPurchases.has(l.id)) return true;
-        // Include if user has tokens or escrow (contract state)
-        if (userHoldingsIds.has(l.id)) return true;
-        // Include if user is the seller
-        if (address && l.seller.toLowerCase() === address.toLowerCase()) return true;
-        return false;
-      });
+      filtered = filtered.filter(l => userHoldingsIds.has(l.id));
     }
 
     // Sort (active listings first)
@@ -766,8 +856,6 @@ const MarketsPage: NextPage = () => {
     assetEarnings,
     calculateListingApy,
     showOnlyHoldings,
-    userListingIds,
-    recentPurchases,
     userHoldingsIds,
     address,
     hasLikelyAction,
@@ -823,8 +911,121 @@ const MarketsPage: NextPage = () => {
     calculatePrimaryPoolApy,
   ]);
 
+  useEffect(() => {
+    setVisiblePrimaryPoolCount(MARKETS_PAGE_BATCH_SIZE);
+  }, [marketTab, filterType, sortBy, showOnlyHoldings, address, displayPrimaryPools.length]);
+
+  useEffect(() => {
+    setVisibleListingCount(MARKETS_PAGE_BATCH_SIZE);
+  }, [marketTab, filterType, sortBy, showOnlyHoldings, address, displayListings.length]);
+
+  const visiblePrimaryPools = useMemo(
+    () => displayPrimaryPools.slice(0, visiblePrimaryPoolCount),
+    [displayPrimaryPools, visiblePrimaryPoolCount],
+  );
+
+  const visibleListings = useMemo(
+    () => displayListings.slice(0, visibleListingCount),
+    [displayListings, visibleListingCount],
+  );
+
+  const holdingsAssetIds = useMemo(() => {
+    if (!showOnlyHoldings || !address) return [];
+    const ids = new Set<string>();
+    displayPrimaryPools.forEach(pool => ids.add(pool.assetId));
+    displayListings.forEach(listing => ids.add(listing.assetId));
+    return Array.from(ids);
+  }, [address, displayListings, displayPrimaryPools, showOnlyHoldings]);
+
+  const hasActualHoldingsInView = useMemo(() => {
+    if (!showOnlyHoldings || !address) return false;
+
+    if (displayPrimaryPools.length > 0) return true;
+
+    return displayListings.some(listing => userHoldingsIds.has(listing.id));
+  }, [address, displayListings, displayPrimaryPools, showOnlyHoldings, userHoldingsIds]);
+
+  const claimableSettlementAssetIds = useMemo(
+    () =>
+      holdingsAssetIds.filter(assetId => {
+        const preview = assetActionPreview.get(assetId);
+        return (preview?.claimableSettlement ?? 0n) > 0n;
+      }),
+    [assetActionPreview, holdingsAssetIds],
+  );
+
+  const claimableEarningsOnlyAssetIds = useMemo(
+    () =>
+      holdingsAssetIds.filter(assetId => {
+        const preview = assetActionPreview.get(assetId);
+        return (preview?.claimableSettlement ?? 0n) === 0n && (preview?.claimableEarnings ?? 0n) > 0n;
+      }),
+    [assetActionPreview, holdingsAssetIds],
+  );
+
+  const claimablePayoutAssetIds = useMemo(
+    () =>
+      holdingsAssetIds.filter(assetId => {
+        const preview = assetActionPreview.get(assetId);
+        return (preview?.claimableEarnings ?? 0n) > 0n;
+      }),
+    [assetActionPreview, holdingsAssetIds],
+  );
+
+  const totalClaimableHoldingsAssets = claimableSettlementAssetIds.length + claimableEarningsOnlyAssetIds.length;
+  const shouldAutoWithdrawSingleClaim = !showOnlyHoldings || totalClaimableHoldingsAssets <= 1;
+
+  const refreshHoldingsActions = useCallback(async () => {
+    await fetchData(false);
+    refetchHoldings?.();
+    refetchPrimaryPoolHoldings?.();
+    refetchPrimaryPoolEligibleRedemptionBalances?.();
+    refetchPrimaryPoolSupply?.();
+    refetchPrimaryPoolRedemptionPreviews?.();
+    refetchActionPreviewData();
+    refetchLiquidationPreviewData();
+    refetchPendingWithdrawal();
+  }, [
+    fetchData,
+    refetchActionPreviewData,
+    refetchHoldings,
+    refetchLiquidationPreviewData,
+    refetchPendingWithdrawal,
+    refetchPrimaryPoolEligibleRedemptionBalances,
+    refetchPrimaryPoolHoldings,
+    refetchPrimaryPoolRedemptionPreviews,
+    refetchPrimaryPoolSupply,
+  ]);
+
+  const handleBatchClaimPayouts = useCallback(async () => {
+    if (!address || claimablePayoutAssetIds.length === 0) return;
+
+    setIsBatchClaimPayoutsPending(true);
+    try {
+      for (const assetId of claimablePayoutAssetIds) {
+        await writeEarningsManager({
+          functionName: "claimEarnings",
+          args: [BigInt(assetId)],
+        });
+      }
+
+      await writeTreasury({
+        functionName: "processWithdrawal",
+      });
+
+      notification.success("Payout claims processed and withdrawn to your wallet.");
+      await refreshHoldingsActions();
+    } catch (e) {
+      console.error("Error claiming payouts across holdings:", e);
+      notification.error(e instanceof Error ? e.message : "Claim all payouts failed");
+    } finally {
+      setIsBatchClaimPayoutsPending(false);
+    }
+  }, [address, claimablePayoutAssetIds, refreshHoldingsActions, writeEarningsManager, writeTreasury]);
+
   const shouldShowNewPoolBadge = useCallback(
     (pool: SubgraphPrimaryPool) => {
+      if (!arePrimaryPoolHoldingsReady) return false;
       if (pool.isPaused || pool.isClosed) return false;
       if (recentPrimaryPoolPurchases.has(pool.id)) return false;
       if ((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n) > 0n) return false;
@@ -833,19 +1034,8 @@ const MarketsPage: NextPage = () => {
       if (!Number.isFinite(poolCreatedAtMs) || poolCreatedAtMs <= 0) return false;
       return Date.now() - poolCreatedAtMs < NEW_POOL_BADGE_TTL_MS;
     },
-    [primaryPoolHoldingsByTokenId, recentPrimaryPoolPurchases],
+    [arePrimaryPoolHoldingsReady, primaryPoolHoldingsByTokenId, recentPrimaryPoolPurchases],
   );
-
-  const sellerTokenIdCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    if (!address) return counts;
-    const lower = address.toLowerCase();
-    for (const listing of listings) {
-      if (listing.seller.toLowerCase() !== lower) continue;
-      counts.set(listing.tokenId, (counts.get(listing.tokenId) ?? 0) + 1);
-    }
-    return counts;
-  }, [address, listings]);
 
   const activeSellerTokenIdCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -866,10 +1056,10 @@ const MarketsPage: NextPage = () => {
       {
         primaryLabel: string;
         primaryDisabled: boolean;
-        primaryAction: "buy" | "redeem" | "list" | "claim_earnings" | "claim_settlement" | null;
+        primaryAction: "buy" | "redeem" | "list" | "claim_earnings" | "claim_settlement" | "force_final_payout" | null;
         secondaryActions: Array<{
           label: string;
-          action: "buy" | "redeem" | "list" | "claim_earnings" | "claim_settlement";
+          action: "buy" | "redeem" | "list" | "claim_earnings" | "claim_settlement" | "force_final_payout";
         }>;
       }
     >();
@@ -884,15 +1074,38 @@ const MarketsPage: NextPage = () => {
       const redemption = primaryPoolRedemptionByTokenId.get(pool.tokenId) ?? {
         payout: 0n,
         liquidity: 0n,
-        circulatingSupply: 0n,
+        redemptionSupply: 0n,
+        eligibleBalance: 0n,
       };
-      const canRedeem = hasHolding && redemption.payout > 0n;
+      const canRedeem = redemption.eligibleBalance > 0n && redemption.payout > 0n;
       const canAddMore = !pool.isClosed && !pool.isPaused && remainingSupply > 0n;
       const canList = hasHolding;
       const claimableEarnings = assetActionPreview.get(pool.assetId)?.claimableEarnings ?? 0n;
       const claimableSettlement = assetActionPreview.get(pool.assetId)?.claimableSettlement ?? 0n;
       const canClaimEarnings = hasHolding && claimableEarnings > 0n;
       const canClaimSettlement = hasHolding && claimableSettlement > 0n;
+      const liquidationPreview = liquidationPreviewByAssetId.get(pool.assetId);
+      const canForceFinalPayout =
+        liquidationPreview?.eligible && (liquidationPreview.reason === 0 || liquidationPreview.reason === 1);
+      const liquidationActionLabel = liquidationPreview?.reason === 1 ? "Force Final Payout" : "Finalize at Maturity";
+
+      if (canForceFinalPayout) {
+        byTokenId.set(pool.tokenId, {
+          primaryLabel: liquidationActionLabel,
+          primaryDisabled: false,
+          primaryAction: "force_final_payout",
+          secondaryActions: [
+            ...(canClaimSettlement ? [{ label: "Claim Final Payout", action: "claim_settlement" as const }] : []),
+            ...(canClaimEarnings ? [{ label: "Claim Payout", action: "claim_earnings" as const }] : []),
+            ...(canRedeem ? [{ label: "Withdraw", action: "redeem" as const }] : []),
+            ...(canList
+              ? [{ label: hasActiveListing ? "List More for Sale" : "List for Sale", action: "list" as const }]
+              : []),
+            ...(canAddMore ? [{ label: "Deposit More", action: "buy" as const }] : []),
+          ],
+        });
+        continue;
+      }
 
       if (canClaimSettlement) {
         byTokenId.set(pool.tokenId, {
@@ -963,13 +1176,12 @@ const MarketsPage: NextPage = () => {
   }, [
     activeSellerTokenIdCounts,
     assetActionPreview,
+    liquidationPreviewByAssetId,
     primaryPoolHoldingsByTokenId,
     primaryPoolRedemptionByTokenId,
     primaryPoolSupplyByTokenId,
     primaryPools,
   ]);
-
-  const primarySellerTokenIdCounts = useMemo(() => new Map<string, number>(), []);
 
   const openBuyModalForPool = useCallback((pool: SubgraphPrimaryPool) => {
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
@@ -998,17 +1210,21 @@ const MarketsPage: NextPage = () => {
       if (!opts?.skipImmediateFetch) {
         fetchData(false);
       }
+      refetchPendingWithdrawal();
       refetchHoldings?.();
       // Subgraph/indexing can lag by a few seconds; retry refresh to reflect latest listing state.
       window.setTimeout(() => fetchData(false), 1200);
       window.setTimeout(() => fetchData(false), 3500);
       refetchPrimaryPoolHoldings?.();
+      refetchPrimaryPoolEligibleRedemptionBalances?.();
       refetchPrimaryPoolSupply?.();
       refetchPrimaryPoolRedemptionPreviews?.();
     },
     [
       fetchData,
       refetchHoldings,
+      refetchPendingWithdrawal,
+      refetchPrimaryPoolEligibleRedemptionBalances,
       refetchPrimaryPoolHoldings,
       refetchPrimaryPoolRedemptionPreviews,
       refetchPrimaryPoolSupply,
@@ -1084,26 +1300,28 @@ const MarketsPage: NextPage = () => {
           </div>
 
           {/* Asset Type Filter */}
-          <div className="flex items-center gap-3 min-w-0">
-            <AdjustmentsHorizontalIcon className="w-5 h-5 opacity-50 shrink-0" />
-            <div className="flex bg-base-100 rounded-lg p-1 gap-1 overflow-x-auto scrollbar-hide">
-              <button
-                className={`btn btn-sm shrink-0 ${filterType === "ALL" ? "btn-primary" : "btn-ghost"}`}
-                onClick={() => setFilterType("ALL")}
-              >
-                All Markets
-              </button>
-              {activeRegistries.map(([key, registry]) => (
+          {activeRegistries.length > 1 ? (
+            <div className="flex items-center gap-3 min-w-0">
+              <AdjustmentsHorizontalIcon className="w-5 h-5 opacity-50 shrink-0" />
+              <div className="flex bg-base-100 rounded-lg p-1 gap-1 overflow-x-auto scrollbar-hide">
                 <button
-                  key={key}
-                  className={`btn btn-sm shrink-0 ${filterType === key ? "btn-primary" : "btn-ghost"}`}
-                  onClick={() => setFilterType(key as AssetType)}
+                  className={`btn btn-sm shrink-0 ${filterType === "ALL" ? "btn-primary" : "btn-ghost"}`}
+                  onClick={() => setFilterType("ALL")}
                 >
-                  {registry.icon} {registry.pluralName}
+                  All Markets
                 </button>
-              ))}
+                {activeRegistries.map(([key, registry]) => (
+                  <button
+                    key={key}
+                    className={`btn btn-sm shrink-0 ${filterType === key ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setFilterType(key as AssetType)}
+                  >
+                    {registry.icon} {registry.pluralName}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {/* Spacer */}
           <div className="flex-1" />
@@ -1163,8 +1381,67 @@ const MarketsPage: NextPage = () => {
         </div>
       </div>
 
+      {hasPendingWithdrawal && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-br from-success/5 to-success/10 border border-success/20 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-success border border-success/10">
+              <CurrencyDollarIcon className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-sm font-medium opacity-60">Pending Withdrawal</div>
+              <div className="text-2xl font-bold flex items-baseline gap-1.5">
+                {Number(pendingWithdrawalDisplay).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                <span className="text-base font-semibold text-success">({symbol})</span>
+              </div>
+              <p className="text-sm opacity-70 mt-1">Claimable proceeds are ready to move back to your wallet.</p>
+            </div>
+          </div>
+          <button
+            className="btn btn-success text-white w-full sm:w-auto px-6 shadow-md shadow-success/20 hover:shadow-lg hover:shadow-success/30 transition-all rounded-xl"
+            onClick={() => setIsWithdrawProceedsOpen(true)}
+          >
+            Withdraw Now
+          </button>
+        </div>
+      )}
+
+      {showOnlyHoldings && hasActualHoldingsInView && claimablePayoutAssetIds.length > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-br from-success/5 to-success/10 border border-success/20 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-success border border-success/10">
+              <CurrencyDollarIcon className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-sm font-medium opacity-60">Claimable Payouts</div>
+              <div className="text-lg font-semibold">
+                {claimablePayoutAssetIds.length} holdings have payouts ready to claim.
+              </div>
+              <p className="text-sm opacity-70 mt-1">This claims each payout, then withdraws the funds once.</p>
+            </div>
+          </div>
+          <button
+            className="btn btn-success text-white w-full sm:w-auto px-6 shadow-md shadow-success/20 hover:shadow-lg hover:shadow-success/30 transition-all rounded-xl"
+            onClick={() => void handleBatchClaimPayouts()}
+            disabled={isBatchClaimPayoutsPending}
+          >
+            {isBatchClaimPayoutsPending ? (
+              <>
+                <span className="loading loading-spinner loading-sm" />
+                Claiming...
+              </>
+            ) : (
+              "Claim All Payouts"
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Content */}
-      {loading ||
+      {!hasRestoredPreferences ||
+      loading ||
       isLoadingPrimaryPoolSupply ||
       (showOnlyHoldings && (isLoadingHoldings || isLoadingPrimaryPoolHoldings)) ? (
         <div className="flex justify-center py-20">
@@ -1185,100 +1462,124 @@ const MarketsPage: NextPage = () => {
             </div>
           </div>
         ) : (
-          <div
-            className={`grid gap-6 items-stretch ${
-              viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
-            }`}
-          >
-            {displayPrimaryPools.map(pool => {
-              const vehicle = vehicles.find(v => v.id === pool.assetId);
-              const token = tokens.find(t => t.revenueTokenId === pool.tokenId);
-              const partner = partners.find(p => p.address.toLowerCase() === pool.partner.toLowerCase());
+          <div className="flex flex-col gap-8">
+            <div
+              className={`grid gap-6 items-stretch ${
+                viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
+              }`}
+            >
+              {visiblePrimaryPools.map(pool => {
+                const vehicle = vehicles.find(v => v.id === pool.assetId);
+                const token = tokens.find(t => t.revenueTokenId === pool.tokenId);
+                const partner = partners.find(p => p.address.toLowerCase() === pool.partner.toLowerCase());
 
-              return (
-                <PrimaryPoolCard
-                  key={pool.id}
-                  pool={pool}
-                  vehicle={vehicle}
-                  token={
-                    token
-                      ? { ...token, supply: primaryPoolSupplyByTokenId.get(pool.tokenId) || token.supply }
-                      : undefined
-                  }
-                  earnings={assetEarnings.find(e => e.assetId === pool.assetId)}
-                  partner={partner}
-                  imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
-                  viewMode={viewMode}
-                  showNewPoolBadge={shouldShowNewPoolBadge(pool)}
-                  primaryActionLabel={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryLabel || "Deposit"}
-                  primaryActionDisabled={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryDisabled ?? true}
-                  primaryActionOnClick={() => {
-                    const action = poolUserActionStateByTokenId.get(pool.tokenId)?.primaryAction;
-                    if (action === "claim_earnings") {
-                      setSelectedPool(pool);
-                      setSelectedListing(null);
-                      setIsClaimEarningsOpen(true);
-                      return;
+                return (
+                  <PrimaryPoolCard
+                    key={pool.id}
+                    pool={pool}
+                    vehicle={vehicle}
+                    token={
+                      token
+                        ? { ...token, supply: primaryPoolSupplyByTokenId.get(pool.tokenId) || token.supply }
+                        : undefined
                     }
-                    if (action === "claim_settlement") {
-                      setSelectedPool(pool);
-                      setSelectedListing(null);
-                      setIsClaimSettlementOpen(true);
-                      return;
-                    }
-                    if (action === "redeem") {
-                      setSelectedRedeemPool(pool);
-                      setSelectedListing(null);
-                      setSelectedPool(null);
-                      return;
-                    }
-                    if (action === "list") {
-                      setSelectedPool(pool);
-                      setSelectedListing(null);
-                      setPrefillListAmount((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n).toString());
-                      setIsListTokensOpen(true);
-                      return;
-                    }
-                    if (action === "buy") {
-                      openBuyModalForPool(pool);
-                    }
-                  }}
-                  secondaryActions={(poolUserActionStateByTokenId.get(pool.tokenId)?.secondaryActions || []).map(
-                    action => ({
-                      label: action.label,
-                      onClick: () => {
-                        if (action.action === "claim_earnings") {
-                          setSelectedPool(pool);
-                          setSelectedListing(null);
-                          setIsClaimEarningsOpen(true);
-                          return;
-                        }
-                        if (action.action === "claim_settlement") {
-                          setSelectedPool(pool);
-                          setSelectedListing(null);
-                          setIsClaimSettlementOpen(true);
-                          return;
-                        }
-                        if (action.action === "redeem") {
-                          setSelectedRedeemPool(pool);
-                          setSelectedListing(null);
-                          setSelectedPool(null);
-                          return;
-                        }
-                        if (action.action === "list") {
-                          setSelectedPool(pool);
-                          setSelectedListing(null);
-                          setPrefillListAmount((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n).toString());
-                          setIsListTokensOpen(true);
-                          return;
-                        }
+                    earnings={assetEarnings.find(e => e.assetId === pool.assetId)}
+                    partner={partner}
+                    imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
+                    viewMode={viewMode}
+                    showNewPoolBadge={shouldShowNewPoolBadge(pool)}
+                    primaryActionLabel={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryLabel || "Deposit"}
+                    primaryActionDisabled={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryDisabled ?? true}
+                    primaryActionOnClick={() => {
+                      const action = poolUserActionStateByTokenId.get(pool.tokenId)?.primaryAction;
+                      if (action === "claim_earnings") {
+                        setSelectedPool(pool);
+                        setSelectedListing(null);
+                        setIsClaimEarningsOpen(true);
+                        return;
+                      }
+                      if (action === "force_final_payout") {
+                        setSelectedLiquidationPool(pool);
+                        setSelectedListing(null);
+                        setSelectedPool(null);
+                        return;
+                      }
+                      if (action === "claim_settlement") {
+                        setSelectedPool(pool);
+                        setSelectedListing(null);
+                        setIsClaimSettlementOpen(true);
+                        return;
+                      }
+                      if (action === "redeem") {
+                        setSelectedRedeemPool(pool);
+                        setSelectedListing(null);
+                        setSelectedPool(null);
+                        return;
+                      }
+                      if (action === "list") {
+                        setSelectedPool(pool);
+                        setSelectedListing(null);
+                        setPrefillListAmount((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n).toString());
+                        setIsListTokensOpen(true);
+                        return;
+                      }
+                      if (action === "buy") {
                         openBuyModalForPool(pool);
-                      },
-                    }),
-                  )}
-                />
-              );
-            })}
+                      }
+                    }}
+                    secondaryActions={(poolUserActionStateByTokenId.get(pool.tokenId)?.secondaryActions || []).map(
+                      action => ({
+                        label: action.label,
+                        onClick: () => {
+                          if (action.action === "claim_earnings") {
+                            setSelectedPool(pool);
+                            setSelectedListing(null);
+                            setIsClaimEarningsOpen(true);
+                            return;
+                          }
+                          if (action.action === "force_final_payout") {
+                            setSelectedLiquidationPool(pool);
+                            setSelectedListing(null);
+                            setSelectedPool(null);
+                            return;
+                          }
+                          if (action.action === "claim_settlement") {
+                            setSelectedPool(pool);
+                            setSelectedListing(null);
+                            setIsClaimSettlementOpen(true);
+                            return;
+                          }
+                          if (action.action === "redeem") {
+                            setSelectedRedeemPool(pool);
+                            setSelectedListing(null);
+                            setSelectedPool(null);
+                            return;
+                          }
+                          if (action.action === "list") {
+                            setSelectedPool(pool);
+                            setSelectedListing(null);
+                            setPrefillListAmount((primaryPoolHoldingsByTokenId.get(pool.tokenId) ?? 0n).toString());
+                            setIsListTokensOpen(true);
+                            return;
+                          }
+                          openBuyModalForPool(pool);
+                        },
+                      }),
+                    )}
+                  />
+                );
+              })}
+            </div>
+            {displayPrimaryPools.length > visiblePrimaryPoolCount && (
+              <div className="flex justify-center">
+                <button
+                  className="btn btn-outline px-8 rounded-xl"
+                  onClick={() => setVisiblePrimaryPoolCount(count => count + MARKETS_PAGE_BATCH_SIZE)}
+                >
+                  Load More Offerings
+                </button>
+              </div>
+            )}
           </div>
         )
       ) : displayListings.length === 0 ? (
@@ -1291,69 +1592,71 @@ const MarketsPage: NextPage = () => {
           </div>
         </div>
       ) : (
-        <div
-          className={`grid gap-6 items-stretch ${
-            viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
-          }`}
-        >
-          {displayListings.map((listing, index) => {
-            const vehicle = vehicles.find(v => v.id === listing.assetId);
-            const tokenId = (BigInt(listing.assetId) + 1n).toString();
-            const token = tokens.find(t => t.revenueTokenId === tokenId);
-            const earning = assetEarnings.find(e => e.assetId === listing.assetId);
-            const partner = vehicle
-              ? partners.find(p => p.address.toLowerCase() === vehicle.partner.toLowerCase())
-              : undefined;
+        <div className="flex flex-col gap-8">
+          <div
+            className={`grid gap-6 items-stretch ${
+              viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
+            }`}
+          >
+            {visibleListings.map((listing, index) => {
+              const vehicle = vehicles.find(v => v.id === listing.assetId);
+              const rawToken = tokens.find(t => t.revenueTokenId === listing.tokenId);
+              const token = rawToken
+                ? { ...rawToken, supply: primaryPoolSupplyByTokenId.get(listing.tokenId) || rawToken.supply }
+                : undefined;
+              const earning = assetEarnings.find(e => e.assetId === listing.assetId);
+              const partner = vehicle
+                ? partners.find(p => p.address.toLowerCase() === vehicle.partner.toLowerCase())
+                : undefined;
 
-            return (
-              <ListingCard
-                key={listing.id}
-                listing={{ ...listing, soldOutAt: soldOutAtByListing[listing.id] }}
-                vehicle={vehicle}
-                token={token}
-                earnings={earning}
-                partner={partner}
-                imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
-                networkName={networkName}
-                assetType={AssetType.VEHICLE}
-                priority={index < 4}
-                viewMode={viewMode}
-                hasUserListingForTokenId={(sellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
-                hasUserActiveListingForTokenId={(activeSellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
-                hasUserPrimaryListingForTokenId={(primarySellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
-                hasUserBoughtListing={userListingIds.has(listing.id) || recentPurchases.has(listing.id)}
-                tokenTotalSoldAmount={(tokenSoldTotals.get(listing.tokenId) ?? 0n).toString()}
-                onBuyClick={() => {
-                  openBuyModalForListing(listing);
-                }}
-                onClaimEarningsClick={() => {
-                  setSelectedListing(listing);
-                  setIsClaimEarningsOpen(true);
-                }}
-                onClaimSettlementClick={() => {
-                  setSelectedListing(listing);
-                  setIsClaimSettlementOpen(true);
-                }}
-                onListTokensClick={amount => {
-                  setSelectedListing(listing);
-                  setPrefillListAmount(amount);
-                  setIsListTokensOpen(true);
-                }}
-                onEndListingClick={() => {
-                  setSelectedListing(listing);
-                  setIsEndListingOpen(true);
-                }}
-                onDistributeEarningsClick={() => {
-                  setSelectedListing(listing);
-                  setIsDistributeEarningsOpen(true);
-                }}
-                onSettleAssetClick={() => {
-                  setSelectedListing(listing);
-                  setIsSettleAssetOpen(true);
-                }}
-              />
-            );
-          })}
+              return (
+                <ListingCard
+                  key={listing.id}
+                  listing={{ ...listing, soldOutAt: soldOutAtByListing[listing.id] }}
+                  vehicle={vehicle}
+                  token={token}
+                  earnings={earning}
+                  partner={partner}
+                  imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
+                  assetType={AssetType.VEHICLE}
+                  priority={index < 4}
+                  viewMode={viewMode}
+                  hasUserActiveListingForTokenId={(activeSellerTokenIdCounts.get(listing.tokenId) ?? 0) > 0}
+                  tokenTotalSoldAmount={(tokenSoldTotals.get(listing.tokenId) ?? 0n).toString()}
+                  onBuyClick={() => {
+                    openBuyModalForListing(listing);
+                  }}
+                  onClaimEarningsClick={() => {
+                    setSelectedListing(listing);
+                    setIsClaimEarningsOpen(true);
+                  }}
+                  onClaimSettlementClick={() => {
+                    setSelectedListing(listing);
+                    setIsClaimSettlementOpen(true);
+                  }}
+                  onListTokensClick={amount => {
+                    setSelectedListing(listing);
+                    setPrefillListAmount(amount);
+                    setIsListTokensOpen(true);
+                  }}
+                  onEndListingClick={() => {
+                    setSelectedListing(listing);
+                    setIsEndListingOpen(true);
+                  }}
+                />
+              );
+            })}
+          </div>
+          {displayListings.length > visibleListingCount && (
+            <div className="flex justify-center">
+              <button
+                className="btn btn-outline px-8 rounded-xl"
+                onClick={() => setVisibleListingCount(count => count + MARKETS_PAGE_BATCH_SIZE)}
+              >
+                Load More Listings
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1374,7 +1677,32 @@ const MarketsPage: NextPage = () => {
               ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
               : `Asset #${selectedRedeemPool.assetId}`;
           })()}
-          maxRedeemableAmount={(primaryPoolHoldingsByTokenId.get(selectedRedeemPool.tokenId) ?? 0n).toString()}
+          totalPositionAmount={(primaryPoolHoldingsByTokenId.get(selectedRedeemPool.tokenId) ?? 0n).toString()}
+          maxRedeemableAmount={(
+            primaryPoolRedemptionByTokenId.get(selectedRedeemPool.tokenId)?.eligibleBalance ?? 0n
+          ).toString()}
+          pricePerToken={selectedRedeemPool.pricePerToken}
+        />
+      )}
+
+      {selectedLiquidationPool && (
+        <ForceFinalPayoutModal
+          isOpen={!!selectedLiquidationPool}
+          onClose={() => {
+            setSelectedLiquidationPool(null);
+            refreshHoldingsActions();
+          }}
+          onSuccess={() => {
+            refreshHoldingsActions();
+          }}
+          assetId={selectedLiquidationPool.assetId}
+          liquidationReason={liquidationPreviewByAssetId.get(selectedLiquidationPool.assetId)?.reason}
+          vehicleName={(() => {
+            const vehicle = vehicles.find(v => v.id === selectedLiquidationPool.assetId);
+            return vehicle
+              ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+              : `Asset #${selectedLiquidationPool.assetId}`;
+          })()}
         />
       )}
 
@@ -1412,12 +1740,10 @@ const MarketsPage: NextPage = () => {
             fetchData(false);
             refetchHoldings?.();
             refetchPrimaryPoolHoldings?.();
+            refetchPrimaryPoolEligibleRedemptionBalances?.();
             refetchPrimaryPoolSupply?.();
           }}
           onPurchaseComplete={id => {
-            if (selectedListing && id) {
-              setRecentPurchases(prev => new Set(prev).add(id));
-            }
             if (selectedPool && id) {
               setRecentPrimaryPoolPurchases(prev => new Set(prev).add(id));
             }
@@ -1425,6 +1751,7 @@ const MarketsPage: NextPage = () => {
             fetchData(false);
             refetchHoldings?.();
             refetchPrimaryPoolHoldings?.();
+            refetchPrimaryPoolEligibleRedemptionBalances?.();
             refetchPrimaryPoolSupply?.();
           }}
           purchaseTarget={
@@ -1484,9 +1811,7 @@ const MarketsPage: NextPage = () => {
               setIsClaimEarningsOpen(false);
               setSelectedListing(null);
               setSelectedPool(null);
-              fetchData(false);
-              refetchHoldings();
-              refetchActionPreviewData();
+              refreshHoldingsActions();
             }}
             assetId={selectedListing?.assetId || selectedPool!.assetId}
             vehicleName={(() => {
@@ -1502,12 +1827,7 @@ const MarketsPage: NextPage = () => {
                 setIsClaimSettlementOpen(false);
                 setSelectedListing(null);
                 setSelectedPool(null);
-                fetchData(false);
-                refetchHoldings();
-                refetchPrimaryPoolHoldings?.();
-                refetchPrimaryPoolSupply?.();
-                refetchPrimaryPoolRedemptionPreviews?.();
-                refetchActionPreviewData();
+                refreshHoldingsActions();
               }}
               assetId={selectedListing?.assetId || selectedPool!.assetId}
               vehicleName={(() => {
@@ -1515,6 +1835,7 @@ const MarketsPage: NextPage = () => {
                 const vehicle = assetId ? vehicles.find(v => v.id === assetId) : undefined;
                 return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
               })()}
+              autoWithdraw={shouldAutoWithdrawSingleClaim}
             />
           )}
         </>
@@ -1562,48 +1883,17 @@ const MarketsPage: NextPage = () => {
         />
       )}
 
-      {selectedListing && (
-        <DistributeEarningsModal
-          isOpen={isDistributeEarningsOpen}
-          onSuccess={() => {
-            refreshMarketsAfterSuccess();
-          }}
-          onClose={() => {
-            setIsDistributeEarningsOpen(false);
-            setSelectedListing(null);
-            refreshMarketsAfterSuccess();
-          }}
-          assetId={selectedListing.assetId}
-          assetName={(() => {
-            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
-            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
-          })()}
-          maxSupply={(() => {
-            const pool = primaryPools.find(p => p.assetId === selectedListing.assetId);
-            return pool ? BigInt(pool.maxSupply) : 0n;
-          })()}
-          immediateProceeds={(() => {
-            const pool = primaryPools.find(p => p.assetId === selectedListing.assetId);
-            return pool?.immediateProceeds ?? false;
-          })()}
-        />
-      )}
-
-      {selectedListing && (
-        <SettleAssetModal
-          isOpen={isSettleAssetOpen}
-          onClose={() => {
-            setIsSettleAssetOpen(false);
-            setSelectedListing(null);
-            refreshMarketsAfterSuccess();
-          }}
-          assetId={selectedListing.assetId}
-          assetName={(() => {
-            const vehicle = vehicles.find(v => v.id === selectedListing.assetId);
-            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${selectedListing.assetId}`;
-          })()}
-        />
-      )}
+      <WithdrawProceedsModal
+        isOpen={isWithdrawProceedsOpen}
+        onClose={() => {
+          setIsWithdrawProceedsOpen(false);
+          refetchPendingWithdrawal();
+          fetchData(false);
+          refetchHoldings?.();
+          refetchPrimaryPoolHoldings?.();
+          refetchActionPreviewData();
+        }}
+      />
     </div>
   );
 };

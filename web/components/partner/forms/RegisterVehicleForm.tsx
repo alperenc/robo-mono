@@ -24,6 +24,89 @@ const STEP_TITLES = {
   3: "Offering Review",
 };
 
+const MILE_REGIONS = new Set(["US", "GB", "UK", "LR", "MM"]);
+const MILE_TIMEZONES = new Set([
+  "Europe/London",
+  "Africa/Monrovia",
+  "Asia/Yangon",
+  "Asia/Rangoon",
+  "America/New_York",
+  "America/Detroit",
+  "America/Kentucky/Louisville",
+  "America/Kentucky/Monticello",
+  "America/Indiana/Indianapolis",
+  "America/Indiana/Vincennes",
+  "America/Indiana/Winamac",
+  "America/Indiana/Marengo",
+  "America/Indiana/Petersburg",
+  "America/Indiana/Vevay",
+  "America/Chicago",
+  "America/Menominee",
+  "America/North_Dakota/Center",
+  "America/North_Dakota/New_Salem",
+  "America/North_Dakota/Beulah",
+  "America/Denver",
+  "America/Boise",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "America/Juneau",
+  "America/Sitka",
+  "America/Metlakatla",
+  "America/Yakutat",
+  "America/Nome",
+  "America/Adak",
+  "Pacific/Honolulu",
+]);
+
+const getRegionFromLocale = (locale: string): string | null => {
+  if (!locale) return null;
+
+  try {
+    if (typeof Intl !== "undefined" && "Locale" in Intl) {
+      const region = new Intl.Locale(locale).region;
+      if (region) return region.toUpperCase();
+    }
+  } catch {
+    // Fall through to simple parsing.
+  }
+
+  const match = locale.match(/[-_](\w{2})\b/);
+  return match?.[1]?.toUpperCase() ?? null;
+};
+
+const getRegionFromTimeZone = (timeZone: string): string | null => {
+  if (!timeZone) return null;
+
+  if (MILE_TIMEZONES.has(timeZone)) {
+    if (timeZone === "Europe/London") return "GB";
+    if (timeZone === "Africa/Monrovia") return "LR";
+    if (timeZone === "Asia/Yangon" || timeZone === "Asia/Rangoon") return "MM";
+    return "US";
+  }
+
+  return null;
+};
+
+const getDefaultOdometerUnit = (): "mi" | "km" => {
+  if (typeof navigator === "undefined") return "km";
+
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const regionFromTimeZone = getRegionFromTimeZone(timeZone);
+  if (regionFromTimeZone) {
+    return MILE_REGIONS.has(regionFromTimeZone) ? "mi" : "km";
+  }
+
+  const locales = [...(navigator.languages ?? []), navigator.language].filter(Boolean);
+  for (const locale of locales) {
+    const region = getRegionFromLocale(locale);
+    if (!region) continue;
+    return MILE_REGIONS.has(region) ? "mi" : "km";
+  }
+
+  return "km";
+};
+
 export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: RegisterVehicleFormProps) => {
   const { address: connectedAddress } = useAccount();
   const { symbol, decimals } = usePaymentToken();
@@ -31,6 +114,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAwaitingSignature, setIsAwaitingSignature] = useState(false);
+  const [busyAction, setBusyAction] = useState<"registerOnly" | "continue" | "primary" | null>(null);
   const [processedData, setProcessedData] = useState<{ encodedVehicleData: `0x${string}` } | null>(null);
   const [processedFingerprint, setProcessedFingerprint] = useState<string | null>(null);
   const [allowMintList, setAllowMintList] = useState(false);
@@ -48,7 +132,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
     manufacturerId: "1",
     optionCodes: "",
     odometer: "",
-    odometerUnit: "mi",
+    odometerUnit: getDefaultOdometerUnit(),
     // Step 2: Financial Terms
     maturityMonths: "36",
     tokenPrice: "",
@@ -281,6 +365,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
 
   // Step 1 action: Register only
   const handleRegisterOnly = async () => {
+    setBusyAction("registerOnly");
     setIsProcessing(true);
     setIsAwaitingSignature(true);
     try {
@@ -300,6 +385,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
     } finally {
       setIsAwaitingSignature(false);
       setIsProcessing(false);
+      setBusyAction(null);
     }
   };
 
@@ -359,6 +445,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
 
   // Step 3 action: Register and create the primary pool.
   const handleRegisterAndCreatePrimaryPool = async () => {
+    setBusyAction("primary");
     setIsProcessing(true);
     setIsAwaitingSignature(true);
     try {
@@ -392,6 +479,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
     } finally {
       setIsAwaitingSignature(false);
       setIsProcessing(false);
+      setBusyAction(null);
     }
   };
 
@@ -402,6 +490,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
     }
     if (currentStep === 1 && !processedData) {
       try {
+        setBusyAction("continue");
         setIsProcessing(true);
         await processVehicleData();
       } catch (e) {
@@ -409,6 +498,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
         return; // Don't proceed if IPFS upload failed
       } finally {
         setIsProcessing(false);
+        setBusyAction(null);
       }
     }
     setCurrentStep(prev => Math.min(prev + 1, 3));
@@ -425,6 +515,9 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
   const isRegisterOnly = maxStep === 1 && !allowMintList;
   const isTxPending = isWritingVehicleRegistry || isVehicleWritePending;
   const isBusy = isProcessing || isTxPending || isAwaitingSignature;
+  const isRegisterOnlyBusy = busyAction === "registerOnly" && isBusy;
+  const isContinueBusy = busyAction === "continue" && isBusy;
+  const isPrimaryBusy = busyAction === "primary" && isBusy;
   const isLastStep = currentStep === 3;
   const primaryLabel = isRegisterOnly ? "Register" : isLastStep ? "Create Offering" : "Continue →";
   const primaryAction = isRegisterOnly
@@ -436,7 +529,14 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
     const value = formData[field];
     return (showValidation || touchedFields[field as string]) && typeof value === "string" && !value.trim();
   };
-  const inputClass = (base: string, field: keyof typeof formData) => `${base} ${isMissing(field) ? "input-error" : ""}`;
+  const pillInputClass =
+    "input input-bordered w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70 placeholder:text-accent/70";
+  const pillSelectClass =
+    "select select-bordered w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70";
+  const requiredPillInputClass = (field: keyof typeof formData) =>
+    `${pillInputClass} ${isMissing(field) ? "!border-error" : ""}`;
+  const requiredPillSelectClass = (field: keyof typeof formData) =>
+    `${pillSelectClass} ${isMissing(field) ? "!border-error select-error" : ""}`;
   const markRequiredForStep = () => {
     const requiredFields =
       currentStep === 1
@@ -474,6 +574,20 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
     }
     return true;
   })();
+
+  const runIfStepValid = (callback: () => void | Promise<void>) => {
+    if (!isStepValid) {
+      markRequiredForStep();
+      notification.error("Please complete the required fields before continuing.");
+      return;
+    }
+
+    void callback();
+  };
+  const footerButtonDisabledClass =
+    "disabled:!bg-base-300 disabled:!text-base-content/40 disabled:!border-base-300 disabled:!shadow-none disabled:opacity-100";
+  const footerGhostDisabledClass =
+    "disabled:!bg-transparent disabled:!text-base-content/40 disabled:!border-transparent disabled:!shadow-none disabled:opacity-100";
 
   useLayoutEffect(() => {
     const modalEl = contentRef.current?.closest(".modal-box") as HTMLDivElement | null;
@@ -521,6 +635,18 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
 
       {/* Scrollable content */}
       <div key={currentStep} ref={contentRef} className="flex-1 overflow-y-auto p-5">
+        {!isStepValid && (
+          <div className="mb-3 flex items-center justify-between gap-3 text-xs text-base-content/60">
+            <span>Required fields are missing.</span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs h-auto min-h-0 rounded-full px-3 py-1 text-xs font-medium"
+              onClick={markRequiredForStep}
+            >
+              Review
+            </button>
+          </div>
+        )}
         {showDraftPrompt && (
           <div className="mb-4 rounded-xl border border-base-300 bg-base-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-sm">
@@ -588,11 +714,15 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                     <span className="label-text font-medium">Asset Value ({symbol})</span>
                     {isMissing("assetValue") && <span className="label-text-alt text-error">Required</span>}
                   </label>
-                  <div className="join w-full">
+                  <div
+                    className={`flex w-full rounded-full border-2 bg-base-100 text-accent ${
+                      isMissing("assetValue") ? "border-error" : "border-base-300"
+                    }`}
+                  >
                     <input
                       type="number"
                       name="assetValue"
-                      className={inputClass("input input-bordered join-item w-full", "assetValue")}
+                      className="input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70"
                       value={formData.assetValue}
                       onChange={handleInputChange}
                       onBlur={handleFieldBlur}
@@ -600,7 +730,9 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                       step="0.01"
                       required
                     />
-                    <span className="join-item flex items-center px-3 bg-base-300 font-medium">{symbol}</span>
+                    <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                      {symbol}
+                    </span>
                   </div>
                 </div>
                 <div className="form-control">
@@ -611,7 +743,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="text"
                     name="vin"
-                    className={inputClass("input input-bordered w-full", "vin")}
+                    className={requiredPillInputClass("vin")}
                     value={formData.vin}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -634,7 +766,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="text"
                     name="make"
-                    className={inputClass("input input-bordered w-full", "make")}
+                    className={requiredPillInputClass("make")}
                     value={formData.make}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -650,7 +782,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="text"
                     name="model"
-                    className={inputClass("input input-bordered w-full", "model")}
+                    className={requiredPillInputClass("model")}
                     value={formData.model}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -668,7 +800,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="number"
                     name="year"
-                    className={inputClass("input input-bordered w-full", "year")}
+                    className={requiredPillInputClass("year")}
                     value={formData.year}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -684,14 +816,14 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                     <input
                       type="number"
                       name="odometer"
-                      className="input input-bordered join-item w-full"
+                      className="input input-bordered join-item w-full rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70 placeholder:text-accent/70"
                       value={formData.odometer}
                       onChange={handleInputChange}
                       placeholder="Current mileage"
                     />
                     <select
                       name="odometerUnit"
-                      className="select select-bordered join-item"
+                      className="select select-bordered join-item rounded-full border-2 border-base-300 bg-base-100 font-medium text-base-content/70"
                       value={formData.odometerUnit}
                       onChange={handleInputChange}
                     >
@@ -710,7 +842,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="number"
                     name="manufacturerId"
-                    className="input input-bordered w-full"
+                    className={pillInputClass}
                     value={formData.manufacturerId}
                     onChange={handleInputChange}
                     placeholder="e.g. 1"
@@ -724,7 +856,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="text"
                     name="optionCodes"
-                    className="input input-bordered w-full"
+                    className={pillInputClass}
                     value={formData.optionCodes}
                     onChange={handleInputChange}
                     placeholder="e.g. AD15,PMNG"
@@ -747,11 +879,15 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                     <span className="label-text font-medium">Token Price ({symbol})</span>
                     {isMissing("tokenPrice") && <span className="label-text-alt text-error">Required</span>}
                   </label>
-                  <div className="join w-full">
+                  <div
+                    className={`flex w-full rounded-full border-2 bg-base-100 text-accent ${
+                      isMissing("tokenPrice") ? "border-error" : "border-base-300"
+                    }`}
+                  >
                     <input
                       type="number"
                       name="tokenPrice"
-                      className={inputClass("input input-bordered join-item w-full", "tokenPrice")}
+                      className="input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70"
                       value={formData.tokenPrice}
                       onChange={handleInputChange}
                       onBlur={handleFieldBlur}
@@ -759,7 +895,9 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                       step="0.01"
                       required
                     />
-                    <span className="join-item flex items-center px-3 bg-base-300 font-medium">{symbol}</span>
+                    <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                      {symbol}
+                    </span>
                   </div>
                 </div>
                 <div className="bg-primary/10 dark:bg-white/10 border border-base-300 rounded-lg p-2 text-center w-full self-end min-h-[88px] flex flex-col items-center justify-center">
@@ -776,7 +914,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="number"
                     name="revenueShareBP"
-                    className={inputClass("input input-bordered w-full", "revenueShareBP")}
+                    className={requiredPillInputClass("revenueShareBP")}
                     value={formData.revenueShareBP}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -792,7 +930,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   <input
                     type="number"
                     name="targetYieldBP"
-                    className={inputClass("input input-bordered w-full", "targetYieldBP")}
+                    className={requiredPillInputClass("targetYieldBP")}
                     value={formData.targetYieldBP}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -807,7 +945,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
                   </label>
                   <select
                     name="maturityMonths"
-                    className={`select select-bordered w-full ${isMissing("maturityMonths") ? "select-error" : ""}`}
+                    className={requiredPillSelectClass("maturityMonths")}
                     value={formData.maturityMonths}
                     onChange={handleInputChange}
                     onBlur={handleFieldBlur}
@@ -966,92 +1104,79 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
       </div>
 
       {/* Sticky Footer */}
-      <div className="shrink-0 border-t border-base-200 bg-base-100 p-4 space-y-2">
-        <div
-          onClick={() => {
-            if (!isStepValid && !isBusy) {
-              markRequiredForStep();
-              notification.error("Please complete the required fields before continuing.");
-            }
-          }}
-        >
+      <div className="shrink-0 border-t border-base-200 bg-base-100/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-base-100/85">
+        {maxStep === 1 && currentStep === 1 && isRegisterOnly ? (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              className={`btn btn-ghost min-h-11 rounded-full ${footerGhostDisabledClass}`}
+              onClick={() =>
+                runIfStepValid(async () => {
+                  await handleRegisterOnly();
+                })
+              }
+              disabled={isBusy || !isStepValid}
+            >
+              {isRegisterOnlyBusy ? <span className="loading loading-spinner loading-xs"></span> : null}
+              {isRegisterOnlyBusy ? "Processing..." : "Register Only"}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-primary min-h-11 rounded-full ${footerButtonDisabledClass}`}
+              onClick={() =>
+                runIfStepValid(async () => {
+                  setAllowMintList(true);
+                  await handleNext();
+                })
+              }
+              disabled={isBusy || !isStepValid}
+            >
+              {isContinueBusy ? <span className="loading loading-spinner loading-xs"></span> : null}
+              {isContinueBusy ? "Processing..." : "Continue"}
+            </button>
+          </div>
+        ) : !isRegisterOnly && currentStep === 1 ? (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              className={`btn btn-ghost min-h-11 rounded-full ${footerGhostDisabledClass}`}
+              onClick={() =>
+                runIfStepValid(async () => {
+                  await handleRegisterOnly();
+                })
+              }
+              disabled={isBusy || !isStepValid}
+            >
+              {isRegisterOnlyBusy ? <span className="loading loading-spinner loading-xs"></span> : null}
+              {isRegisterOnlyBusy ? "Processing..." : "Register Only"}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-primary min-h-11 rounded-full ${footerButtonDisabledClass}`}
+              onClick={() =>
+                runIfStepValid(async () => {
+                  await primaryAction();
+                })
+              }
+              disabled={isBusy || !isStepValid}
+            >
+              {isContinueBusy ? <span className="loading loading-spinner loading-xs"></span> : null}
+              {isContinueBusy ? "Processing..." : "Continue"}
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            className="btn btn-primary w-full"
-            onClick={() => {
-              if (!isStepValid) {
-                markRequiredForStep();
-                notification.error("Please complete the required fields before continuing.");
-                return;
-              }
-              primaryAction();
-            }}
+            className={`btn btn-primary w-full min-h-11 rounded-full ${footerButtonDisabledClass}`}
+            onClick={() =>
+              runIfStepValid(async () => {
+                await primaryAction();
+              })
+            }
             disabled={isBusy || !isStepValid}
           >
-            {isBusy ? <span className="loading loading-spinner loading-xs"></span> : null}
-            {isBusy ? "Processing..." : primaryLabel}
-          </button>
-        </div>
-        {maxStep === 1 && currentStep === 1 && isRegisterOnly && (
-          <div
-            onClick={() => {
-              if (!isStepValid && !isBusy) {
-                markRequiredForStep();
-                notification.error("Please complete the required fields before continuing.");
-              }
-            }}
-          >
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm w-full shadow-sm"
-              onClick={() => {
-                if (!isStepValid) {
-                  markRequiredForStep();
-                  notification.error("Please complete the required fields before continuing.");
-                  return;
-                }
-                setAllowMintList(true);
-                handleNext();
-              }}
-              disabled={isBusy || !isStepValid}
-            >
-              Continue to Create Pool
-            </button>
-          </div>
-        )}
-        {!isRegisterOnly && currentStep === 1 && (
-          <div
-            onClick={() => {
-              if (!isStepValid && !isBusy) {
-                markRequiredForStep();
-                notification.error("Please complete the required fields before continuing.");
-              }
-            }}
-          >
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm w-full shadow-sm"
-              onClick={() => {
-                if (!isStepValid) {
-                  markRequiredForStep();
-                  notification.error("Please complete the required fields before continuing.");
-                  return;
-                }
-                handleRegisterOnly();
-              }}
-              disabled={isBusy || !isStepValid}
-            >
-              Register Only
-            </button>
-          </div>
-        )}
-        {!isStepValid && (
-          <button
-            type="button"
-            className="btn btn-link btn-xs w-full shadow-none !shadow-none bg-transparent border-0 hover:bg-transparent"
-            onClick={markRequiredForStep}
-          >
-            Review required fields
+            {isPrimaryBusy ? <span className="loading loading-spinner loading-xs"></span> : null}
+            {isPrimaryBusy ? "Processing..." : primaryLabel}
           </button>
         )}
       </div>
