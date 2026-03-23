@@ -40,6 +40,7 @@ export const DistributeEarningsModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const supportsAutoRelease = !immediateProceeds;
   const [autoRelease, setAutoRelease] = useState(supportsAutoRelease);
+  const earningsManagerAddress = getDeployedContract(chainId, "EarningsManager")?.address;
 
   useEffect(() => {
     setAutoRelease(supportsAutoRelease);
@@ -47,12 +48,8 @@ export const DistributeEarningsModal = ({
 
   useEscClose(isOpen, onClose);
 
-  const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
+  const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
   const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
-
-  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
-  const marketplaceAddress = getDeployedContract(chainId, "Marketplace")?.address;
-
   // Get revenue token ID (assetId + 1)
   const revenueTokenId = BigInt(assetId) + 1n;
 
@@ -72,19 +69,11 @@ export const DistributeEarningsModal = ({
     watch: true,
   });
 
-  // Get escrowed revenue tokens held by Marketplace
-  const { data: escrowedTokens } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "balanceOf",
-    args: [marketplaceAddress, revenueTokenId],
-    watch: true,
-  });
-
   // Check payment token allowance
   const { data: paymentTokenAllowance, refetch: refetchPaymentTokenAllowance } = useScaffoldReadContract({
     contractName: "MockUSDC",
     functionName: "allowance",
-    args: [connectedAddress, treasuryAddress],
+    args: [connectedAddress, earningsManagerAddress],
     watch: true,
   });
 
@@ -111,11 +100,9 @@ export const DistributeEarningsModal = ({
     }
 
     const partnerTokens = (partnerBalance as bigint | undefined) ?? 0n;
-    const escrowTokens = (escrowedTokens as bigint | undefined) ?? 0n;
     const investorTokens = currentCirculatingSupply > partnerTokens ? currentCirculatingSupply - partnerTokens : 0n;
     const investorPercentage = Number((investorTokens * 10000n) / maxSupply) / 100;
     const partnerPercentage = Number((partnerTokens * 10000n) / maxSupply) / 100;
-    const escrowPercentage = Number((escrowTokens * 10000n) / maxSupply) / 100;
     const circulatingPercentage = Number((currentCirculatingSupply * 10000n) / maxSupply) / 100;
 
     return {
@@ -123,13 +110,11 @@ export const DistributeEarningsModal = ({
       circulatingSupply: currentCirculatingSupply,
       partnerTokens,
       investorTokens,
-      escrowTokens,
       partnerPercentage,
       investorPercentage,
-      escrowPercentage,
       circulatingPercentage,
     };
-  }, [circulatingSupply, maxSupply, partnerBalance, escrowedTokens]);
+  }, [circulatingSupply, maxSupply, partnerBalance]);
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {
@@ -167,7 +152,7 @@ export const DistributeEarningsModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!treasuryAddress || !revenueBreakdown) return;
+    if (!earningsManagerAddress || !revenueBreakdown) return;
 
     setIsSubmitting(true);
     try {
@@ -178,13 +163,13 @@ export const DistributeEarningsModal = ({
       if (!paymentTokenAllowance || paymentTokenAllowance < amountToApprove) {
         await writePaymentToken({
           functionName: "approve",
-          args: [treasuryAddress, amountToApprove],
+          args: [earningsManagerAddress, amountToApprove],
         });
         await refetchPaymentTokenAllowance();
       }
 
       // Distribute earnings (totalRevenue only; investor amount is computed on-chain)
-      await writeTreasury({
+      await writeEarningsManager({
         functionName: "distributeEarnings",
         args: [BigInt(assetId), revenueBreakdown.totalRevenue, supportsAutoRelease && autoRelease],
       });
@@ -202,8 +187,6 @@ export const DistributeEarningsModal = ({
   if (!isOpen) return null;
 
   const hasExternalHolders = tokenOwnership && tokenOwnership.investorTokens > 0n;
-  const hasEscrowedInvestorTokens = tokenOwnership && tokenOwnership.escrowTokens > 0n;
-
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
@@ -244,16 +227,7 @@ export const DistributeEarningsModal = ({
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs opacity-50">Unclaimed Claim Units</div>
-                    <div className="font-bold">
-                      {tokenOwnership?.escrowTokens.toLocaleString() || "0"}
-                      <span className="text-xs opacity-50 ml-1">
-                        ({tokenOwnership?.escrowPercentage.toFixed(1) || 0}%)
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs opacity-50">Holder Claim Units</div>
+                    <div className="text-xs opacity-50">External Holder Claim Units</div>
                     <div className="font-bold">
                       {tokenOwnership?.investorTokens.toLocaleString() || "0"}
                       <span className="text-xs opacity-50 ml-1">
@@ -281,16 +255,6 @@ export const DistributeEarningsModal = ({
                 </div>
               )}
 
-              {hasEscrowedInvestorTokens && (
-                <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg text-xs">
-                  <p className="text-warning font-bold">Warning: Unclaimed Holder Units Detected</p>
-                  <p className="opacity-80 mt-1">
-                    Some claim units are still unclaimed in marketplace escrow. Sending payouts now may lead to
-                    confusing claim behavior until those units are claimed.
-                  </p>
-                </div>
-              )}
-
               {/* Revenue Input */}
               <div className="divider text-xs opacity-50 my-0">Payout Details</div>
 
@@ -300,19 +264,21 @@ export const DistributeEarningsModal = ({
                     Total Amount to Distribute ({symbol})
                   </span>
                 </label>
-                <div className="join w-full">
+                <div className="flex w-full rounded-full border-2 border-base-300 bg-base-100 text-accent">
                   <input
                     type="number"
                     step="0.000001"
                     min="0"
-                    className="input input-bordered input-sm join-item w-full"
+                    className="input input-ghost input-sm h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70"
                     value={totalRevenue}
                     onChange={e => setTotalRevenue(e.target.value)}
                     placeholder="e.g. 1000.00"
                     required
                     disabled={!hasExternalHolders}
                   />
-                  <span className="join-item flex items-center px-3 bg-base-300 text-xs font-medium">{symbol}</span>
+                  <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                    {symbol}
+                  </span>
                 </div>
                 <p className="text-xs opacity-50 mt-1">
                   Enter the total amount to distribute. Payouts are split based on current holdings.

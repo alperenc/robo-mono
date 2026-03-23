@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -18,22 +18,32 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
   const { address } = useAccount();
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
+  const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
+  const [submittedClaimAmount, setSubmittedClaimAmount] = useState<bigint | null>(null);
   const { data: previewClaimAmount } = useScaffoldReadContract({
-    contractName: "Treasury",
+    contractName: "EarningsManager",
     functionName: "previewClaimEarnings",
     args: [BigInt(assetId), address],
     query: { enabled: isOpen && !!address },
   });
   const claimableAmount = previewClaimAmount || 0n;
+  const displayedClaimAmount = submittedClaimAmount ?? claimableAmount;
   const claimableDisplay = useMemo(() => {
-    const formatted = formatUnits(claimableAmount, paymentDecimals);
+    const formatted = formatUnits(displayedClaimAmount, paymentDecimals);
     return Number(formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }, [claimableAmount, paymentDecimals]);
+  }, [displayedClaimAmount, paymentDecimals]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSubmittedClaimAmount(null);
+    }
+  }, [isOpen]);
 
   const handleClaim = async () => {
     if (claimableAmount === 0n) return;
     try {
-      await writeTreasury({
+      setSubmittedClaimAmount(claimableAmount);
+      await writeEarningsManager({
         functionName: "claimEarnings",
         args: [BigInt(assetId)],
       });
@@ -43,6 +53,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
       onClose();
     } catch (e) {
       console.error("Error claiming earnings:", e);
+      setSubmittedClaimAmount(null);
     }
   };
 
@@ -81,7 +92,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
           <button
             className="btn btn-primary btn-block"
             onClick={handleClaim}
-            disabled={isPending || claimableAmount === 0n}
+            disabled={isPending || displayedClaimAmount === 0n}
           >
             {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Payout"}
           </button>
