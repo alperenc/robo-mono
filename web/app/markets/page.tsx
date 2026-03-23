@@ -1398,14 +1398,13 @@ const MarketsPage: NextPage = () => {
               </div>
               <p className="text-sm opacity-70 mt-1">Claimable proceeds are ready to move back to your wallet.</p>
             </div>
-              <button
-                className="btn btn-success text-white w-full sm:w-auto px-6 shadow-md shadow-success/20 hover:shadow-lg hover:shadow-success/30 transition-all rounded-xl"
-                onClick={() => setIsWithdrawProceedsOpen(true)}
-              >
-                Withdraw Now
-              </button>
-            </div>
           </div>
+          <button
+            className="btn btn-success text-white w-full sm:w-auto px-6 shadow-md shadow-success/20 hover:shadow-lg hover:shadow-success/30 transition-all rounded-xl"
+            onClick={() => setIsWithdrawProceedsOpen(true)}
+          >
+            Withdraw Now
+          </button>
         </div>
       )}
 
@@ -1417,7 +1416,9 @@ const MarketsPage: NextPage = () => {
             </div>
             <div>
               <div className="text-sm font-medium opacity-60">Claimable Payouts</div>
-              <div className="text-lg font-semibold">{claimablePayoutAssetIds.length} holdings have payouts ready to claim.</div>
+              <div className="text-lg font-semibold">
+                {claimablePayoutAssetIds.length} holdings have payouts ready to claim.
+              </div>
               <p className="text-sm opacity-70 mt-1">This claims each payout, then withdraws the funds once.</p>
             </div>
           </div>
