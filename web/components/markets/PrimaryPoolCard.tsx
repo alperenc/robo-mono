@@ -125,9 +125,12 @@ export function PrimaryPoolCard({
   const hasSecondaryActions = secondaryActions.some(action => Boolean(action.onClick));
   const isCardPressable = Boolean(primaryActionOnClick) && !primaryActionDisabled;
   const hasAvailableActions = isCardPressable || hasSecondaryActions;
-  const enabledPrimaryButtonClass = "btn btn-primary bg-primary/15 border-0 text-primary hover:bg-primary/25";
-  const enabledSuccessButtonClass = "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25";
-  const enabledErrorButtonClass = "btn btn-error bg-error/15 border-0 text-error hover:bg-error/25";
+  const enabledPrimaryButtonClass =
+    "btn btn-primary border-0 bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 dark:text-primary-content dark:hover:bg-primary/35";
+  const enabledSuccessButtonClass =
+    "btn btn-success border-0 bg-success/15 text-success hover:bg-success/25 dark:bg-success/25 dark:text-success-content dark:hover:bg-success/35";
+  const enabledErrorButtonClass =
+    "btn btn-error border-0 bg-error/15 text-error hover:bg-error/25 dark:bg-error/25 dark:text-error-content dark:hover:bg-error/35";
   const disabledPrimaryButtonClass =
     "btn btn-ghost border border-base-300 bg-base-200 text-base-content/45 hover:border-base-300 hover:bg-base-200 dark:border-base-300 dark:bg-base-200 dark:text-base-content/45";
   const isSuccessPrimary = primaryActionLabel === "Claim Payout" || primaryActionLabel === "Claim Final Payout";
@@ -162,6 +165,12 @@ export function PrimaryPoolCard({
   };
 
   useEffect(() => {
+    if (secondaryActions.length === 0) {
+      setIsActionMenuOpen(false);
+    }
+  }, [secondaryActions.length]);
+
+  useEffect(() => {
     if (!isActionMenuOpen) return;
 
     const closeIfOutside = (event: MouseEvent | globalThis.MouseEvent | TouchEvent) => {
@@ -185,6 +194,11 @@ export function PrimaryPoolCard({
     };
   }, [isActionMenuOpen]);
 
+  const stopActionEvent = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const renderActionButton = (menuPlacement: "top" | "bottom") => {
     if (!hasSecondaryActions) {
       return (
@@ -199,14 +213,15 @@ export function PrimaryPoolCard({
     }
 
     return (
-      <div ref={actionDropdownRef} className="dropdown dropdown-end w-full">
+      <div ref={actionDropdownRef} className="relative w-full">
         <div className="flex w-full">
           <button
             type="button"
             className={`${
               primaryActionDisabled ? disabledPrimaryButtonClass : activePrimaryButtonClass
             } rounded-r-none flex-1 shadow-none`}
-            onClick={() => {
+            onClick={event => {
+              stopActionEvent(event);
               setIsActionMenuOpen(false);
               primaryActionOnClick?.();
             }}
@@ -219,7 +234,10 @@ export function PrimaryPoolCard({
             className={`${activePrimaryButtonClass} rounded-l-none px-2 border-l border-current/15 shadow-none`}
             aria-expanded={isActionMenuOpen}
             aria-haspopup="menu"
-            onClick={() => setIsActionMenuOpen(prev => !prev)}
+            onClick={event => {
+              stopActionEvent(event);
+              setIsActionMenuOpen(prev => !prev);
+            }}
             disabled={primaryActionDisabled && !hasSecondaryActions}
           >
             <svg
@@ -237,15 +255,17 @@ export function PrimaryPoolCard({
         </div>
         {isActionMenuOpen && (
           <ul
-            className={`dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52 ${
-              menuPlacement === "top" ? "mb-2 bottom-full" : "mt-2"
+            className={`absolute right-0 z-[60] menu rounded-box bg-base-100 p-2 shadow-lg border border-base-300 w-52 ${
+              menuPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
             }`}
+            onClick={event => stopActionEvent(event)}
           >
             {secondaryActions.map(action => (
               <li key={action.label}>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={event => {
+                    stopActionEvent(event);
                     setIsActionMenuOpen(false);
                     action.onClick?.();
                   }}
@@ -362,7 +382,7 @@ export function PrimaryPoolCard({
 
   return (
     <article
-      className={`relative rounded-2xl border border-base-300 bg-base-100 shadow-lg transition-all duration-300 overflow-hidden flex flex-col group ${
+      className={`relative rounded-2xl border border-base-300 bg-base-100 shadow-lg transition-all duration-300 overflow-visible flex flex-col group ${
         hasAvailableActions ? "hover:shadow-xl" : "opacity-70 saturate-50"
       } ${isCardPressable ? "cursor-pointer hover:-translate-y-1 active:translate-y-0 active:scale-[0.995]" : ""}`}
       onClick={handleCardClick}
@@ -371,7 +391,7 @@ export function PrimaryPoolCard({
       tabIndex={isCardPressable ? 0 : undefined}
       aria-label={isCardPressable ? primaryActionLabel : undefined}
     >
-      <div className="relative aspect-[16/10] bg-base-200 overflow-hidden group">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-base-200 group">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -386,7 +406,7 @@ export function PrimaryPoolCard({
           </div>
         )}
         {showNewPoolBadge && (
-          <div className="absolute inset-x-0 top-0 z-10 bg-success py-2 text-center text-sm font-bold tracking-wide text-success-content">
+          <div className="absolute inset-x-0 top-0 z-10 rounded-t-2xl bg-success py-2 text-center text-sm font-bold tracking-wide text-success-content">
             ✨ New Offering
           </div>
         )}
