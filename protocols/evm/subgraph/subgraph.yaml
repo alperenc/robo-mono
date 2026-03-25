@@ -139,7 +139,7 @@ dataSources:
     network: localhost
     source:
       abi: EarningsManager
-      address: "0x13Bd9422D1aE8356644C4B134F7D672B5dFF6C2D"
+      address: "0x2a264F26859166C5BF3868A54593eE716AeBC848"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
