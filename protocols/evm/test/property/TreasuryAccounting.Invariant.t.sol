@@ -66,7 +66,7 @@ contract TreasuryAccountingHandler is Test {
     }
 
     function enableProceeds() external {
-        (, uint256 baseCollateral,,,,,,,,,,,) = treasury.assetCollateral(assetId);
+        (, uint256 baseCollateral,,,,,,,,,) = treasury.assetCollateral(assetId);
         if (baseCollateral == 0) return;
 
         _advanceStepTime();
@@ -114,7 +114,7 @@ contract TreasuryAccountingHandler is Test {
     }
 
     function releasePartialCollateral() external {
-        if (treasury.previewCollateralRelease(assetId, false) == 0) return;
+        if (treasury.previewCollateralRelease(assetId, 0) == 0) return;
 
         _advanceStepTime();
         vm.prank(partner);
@@ -150,7 +150,7 @@ contract TreasuryAccountingInvariantTest is PropertyBase {
     function invariantCollateralShapeRemainsConsistent() public view {
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertEq(
-            info.totalCollateral,
+            _getCollateralTotal(info),
             info.baseCollateral + info.earningsBuffer + info.protocolBuffer,
             "collateral total != component sum"
         );
@@ -158,7 +158,7 @@ contract TreasuryAccountingInvariantTest is PropertyBase {
 
     function invariantTotalCollateralTracksSingleAsset() public view {
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
-        assertEq(treasury.totalCollateralDeposited(), info.totalCollateral, "treasury total collateral drifted");
+        assertEq(treasury.totalCollateralDeposited(), _getCollateralTotal(info), "treasury total collateral drifted");
     }
 
     function invariantPendingWithdrawalsCoveredByTreasuryBalance() public view {

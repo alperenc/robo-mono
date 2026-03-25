@@ -1,7 +1,7 @@
 [
   {
     "file": "contracts/EarningsManager.sol",
-    "line": 323,
+    "line": 396,
     "sourceIncludes": "if (isSettled) {",
     "classification": "via_ir_artifact",
     "reason": "Settled earnings claim flow is exercised by integration tests, but the settled-branch anchor is not attributed reliably under --ir-minimum."
@@ -34,9 +34,10 @@
   },
   {
     "file": "contracts/Libraries.sol",
-    "line": 852,
-    "classification": "helper_only",
-    "reason": "Direct library branch on injected collateral math state; not a protocol-flow target."
+    "line": 856,
+    "sourceIncludes": "if (info.earningsBuffer >= shortfallAmount) {",
+    "classification": "via_ir_artifact",
+    "reason": "Covered-shortfall buffer path is exercised by direct library tests, but the branch anchor is not attributed reliably under --ir-minimum."
   },
   {
     "file": "contracts/Libraries.sol",
@@ -72,126 +73,91 @@
     "reason": "buyFromSecondaryListing handles expired listings via early cleanup/return before secondary validation, so this guard is not reached in valid flow."
   },
   {
-    "file": "contracts/Marketplace.sol",
-    "line": 721,
-    "classification": "unreachable_valid_flow",
-    "reason": "All external purchase paths validate non-zero amounts before payment collection, so zero-amount transfer-from is unreachable."
-  },
-  {
-    "file": "contracts/Marketplace.sol",
-    "line": 726,
-    "classification": "unreachable_valid_flow",
-    "reason": "Callers gate transfer amounts with positive seller net/fees, so direct zero-amount safeTransfer is unreachable in valid flow."
-  },
-  {
-    "file": "contracts/Marketplace.sol",
-    "line": 731,
-    "classification": "unreachable_valid_flow",
-    "reason": "Protocol fee routing only runs with positive protocol fee or penalty totals; zero-amount route is not reachable from valid external inputs."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 853,
-    "sourceIncludes": "if (partnerRefund > 0) {",
-    "classification": "via_ir_artifact",
-    "reason": "Mature voluntary settlement refund path is exercised in tests but not mapped reliably under --ir-minimum."
-  },
-  {
     "file": "contracts/Libraries.sol",
-    "line": 1029,
-    "sourceIncludes": "if (calc.grossRelease > calc.collateral.totalCollateral) {",
+    "line": 1174,
+    "sourceIncludes": "if (calc.grossRelease > totalCollateral) {",
     "classification": "unreachable_valid_flow",
     "reason": "Release clamp branch requires malformed collateral state under valid protocol semantics."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 186,
+    "line": 288,
     "classification": "via_ir_artifact",
-    "reason": "Invalid collateral amount via enableProceeds(assetId) is exercised in tests, but the defensive duplicate check inside _fundCurrentBuffers is not mapped reliably under --ir-minimum."
+    "reason": "Invalid collateral amount via enableProceeds(assetId) is exercised in tests, but the defensive duplicate check inside _fundCurrentBuffersFor is not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 194,
+    "line": 313,
     "sourceIncludes": "if (!CollateralLib.isInitialized(collateralInfo)) {",
     "classification": "via_ir_artifact",
     "reason": "First-time enableProceeds initialization path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 218,
+    "line": 319,
+    "sourceIncludes": "if (collateralInfo.lockedAt == 0) {",
     "classification": "unreachable_valid_flow",
-    "reason": "Initialized collateral inside _fundCurrentBuffers cannot have lockedAt == 0 through normal flows."
+    "reason": "Initialized collateral inside _fundCurrentBuffersFor cannot have lockedAt == 0 through normal flows."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 392,
-    "classification": "unreachable_valid_flow",
-    "reason": "Primary redemption payout is bounded by current investor liquidity and current redemption supply under valid protocol state, so the zero-or-overflow guard is only defensive."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 374,
+    "line": 209,
+    "sourceIncludes": "if (burnAmount == 0) {",
     "classification": "via_ir_artifact",
     "reason": "Zero-amount primary redemption is exercised by integration tests, but the early guard is not attributed reliably under --ir-minimum coverage mapping."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 296,
+    "line": 227,
+    "sourceIncludes": "if (payout == 0 || payout > investorLiquidity) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Current-epoch redemption supply rolls forward once backed principal is depleted, so valid flows do not leave a redeemable tranche with zero payout; the guard is defensive against inconsistent accounting state."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 1061,
     "sourceIncludes": "if (totalCollateralDeposited >= totalReleased) {",
     "classification": "unreachable_valid_flow",
     "reason": "Collateral deposit clamp requires inconsistent accounting state and is not reachable via valid flows."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 368,
-    "sourceIncludes": "if (immediateProceeds) {",
-    "classification": "unreachable_valid_flow",
-    "reason": "enableProceeds(assetId) only sizes buffers against current base liquidity, so the post-purchase sufficiency check cannot be satisfied through a valid external flow before this branch executes."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 441,
-    "classification": "via_ir_artifact",
-    "reason": "Settled snapshot-earnings claim path is exercised in tests but not mapped reliably under --ir-minimum."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 772,
+    "line": 346,
     "sourceIncludes": "if (releasedAmount == 0) {",
     "classification": "unreachable_valid_flow",
     "reason": "Immediate-proceeds release only runs after coverage is established or on malformed state; valid external flows do not reach a zero-release call site."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 712,
-    "sourceIncludes": "if (allowSkip) {",
-    "classification": "via_ir_artifact",
-    "reason": "allowSkip branch accounting is not reported reliably under --ir-minimum."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 681,
-    "sourceIncludes": "if (coverableBaseCollateral > collateralInfo.baseCollateral) {",
-    "classification": "unreachable_valid_flow",
-    "reason": "Covered-base recomputation is already bounded by protected exposure and outstanding immediate-proceeds offsets; exceeding baseCollateral is only a defensive clamp under malformed state."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 969,
-    "sourceIncludes": "if (earningsInfo.lastEventTimestamp == 0) {",
-    "classification": "via_ir_artifact",
-    "reason": "No-prior-earnings liquidation helper path is exercised in tests but not mapped reliably under --ir-minimum."
-  },
-  {
-    "file": "contracts/Treasury.sol",
-    "line": 973,
+    "line": 878,
     "sourceIncludes": "if (elapsed == 0) {",
     "classification": "via_ir_artifact",
     "reason": "Zero-elapsed helper branch is not reported reliably under --ir-minimum."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 1059,
+    "line": 1027,
+    "sourceIncludes": "if (simulatedCurrentPeriod <= earningsSummary.lastProcessedPeriod) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "A valid earnings summary cannot have lastProcessedPeriod ahead of the simulated next period; this early return only defends against inconsistent accounting state."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 1037,
+    "sourceIncludes": "if (earningsSummary.currentPeriod > earningsSummary.lastProcessedPeriod) {",
+    "classification": "via_ir_artifact",
+    "reason": "Pending-release preview tests exercise both the processed and unprocessed recorded-period paths, but this helper branch is not attributed reliably under --ir-minimum."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 1052,
+    "sourceIncludes": "if (!hasUnprocessedPeriods) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "All call sites invoke the recomputation helper only when there are unprocessed periods; the false-path return is a defensive helper guard."
+  },
+  {
+    "file": "contracts/Treasury.sol",
+    "line": 889,
     "sourceIncludes": "if (benchmarkPrincipal == 0) {",
     "classification": "via_ir_artifact",
     "reason": "Unprotected liquidation explicitly exercises the zero-benchmark shortfall path, but the early-return branch is not attributed reliably under --ir-minimum."
@@ -205,17 +171,17 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 1138,
-    "sourceIncludes": "if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {",
-    "classification": "via_ir_artifact",
-    "reason": "Recomputed covered-base clamp is exercised by replenishment preview tests but not mapped reliably under --ir-minimum."
+    "line": 764,
+    "sourceIncludes": "if (calc.grossRelease > totalCollateral) {",
+    "classification": "unreachable_valid_flow",
+    "reason": "Release recomputation is bounded by base collateral, so exceeding total collateral requires malformed state."
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 1141,
-    "sourceIncludes": "if (calc.grossRelease > calc.collateral.totalCollateral) {",
-    "classification": "unreachable_valid_flow",
-    "reason": "Release recomputation is bounded by base collateral, so exceeding total collateral requires malformed state."
+    "line": 941,
+    "sourceIncludes": "if (partnerRefund > 0) {",
+    "classification": "via_ir_artifact",
+    "reason": "Mature voluntary settlement refund path is exercised in tests but not mapped reliably under --ir-minimum."
   },
   {
     "file": "contracts/RoboshareTokens.sol",

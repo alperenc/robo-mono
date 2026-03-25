@@ -624,19 +624,17 @@ library CollateralLib {
      * @dev Collateral information for vehicles with time-based calculations
      */
     struct CollateralInfo {
-        uint256 initialBaseCollateral; // Initial escrowed base (for linear depreciation)
+        uint256 unredeemedBasePrincipal; // Undepreciated principal represented by currently outstanding tokens
         uint256 baseCollateral; // Escrowed base amount in USDC
         uint256 earningsBuffer; // Current earnings buffer amount
         uint256 protocolBuffer; // Current protocol buffer amount
-        uint256 totalCollateral; // Total required collateral in USDC
         bool isLocked; // Whether collateral is currently locked
         uint256 lockedAt; // Timestamp when collateral was locked
         uint256 lastEventTimestamp; // Last collateral event timestamp
         uint256 reservedForLiquidation; // Tracks shortfalls reserved for liquidation
-        uint256 liquidationThreshold; // Threshold for liquidation
         uint256 createdAt; // When collateral info was initialized
-        uint256 coveredBaseCollateral; // Portion of base currently backed by funded buffers
-        uint256 outstandingImmediateProceedsBase; // Released immediate-proceeds principal still backed by buffers
+        uint256 releasedProtectedBase; // Protected exposure already released as immediate proceeds
+        uint256 releasedBaseCollateral; // Base unlocked to partner through depreciation-based release paths
     }
 
     /**
@@ -667,6 +665,14 @@ library CollateralLib {
         uint256 partnerRelease;
     }
 
+    function getTotalCollateral(uint256 baseCollateral, uint256 earningsBuffer, uint256 protocolBuffer)
+        internal
+        pure
+        returns (uint256 totalCollateral)
+    {
+        return baseCollateral + earningsBuffer + protocolBuffer;
+    }
+
     /**
      * @dev Initialize collateral info for an asset with explicit base/buffer amounts.
      * @param info Collateral info storage reference
@@ -680,26 +686,24 @@ library CollateralLib {
         uint256 earningsBuffer,
         uint256 protocolBuffer
     ) internal {
-        if (info.totalCollateral > 0) {
+        if (isInitialized(info)) {
             revert CollateralAlreadyInitialized();
         }
         if (baseAmount == 0 && earningsBuffer == 0 && protocolBuffer == 0) {
             revert InvalidCollateralAmount();
         }
 
-        info.initialBaseCollateral = baseAmount;
+        info.unredeemedBasePrincipal = baseAmount;
         info.baseCollateral = baseAmount;
         info.earningsBuffer = earningsBuffer;
         info.protocolBuffer = protocolBuffer;
-        info.totalCollateral = baseAmount + earningsBuffer + protocolBuffer;
-        info.isLocked = info.totalCollateral > 0;
+        info.isLocked = true;
         info.lockedAt = info.isLocked ? block.timestamp : 0;
         info.lastEventTimestamp = block.timestamp;
         info.reservedForLiquidation = 0;
-        info.liquidationThreshold = earningsBuffer; // Set initial liquidation threshold to earnings buffer
         info.createdAt = block.timestamp;
-        info.coveredBaseCollateral = 0;
-        info.outstandingImmediateProceedsBase = 0;
+        info.releasedProtectedBase = 0;
+        info.releasedBaseCollateral = 0;
     }
 
     /**
@@ -732,7 +736,7 @@ library CollateralLib {
      * @return True if initialized
      */
     function isInitialized(CollateralInfo storage info) internal view returns (bool) {
-        return info.totalCollateral > 0;
+        return info.baseCollateral > 0 || info.earningsBuffer > 0 || info.protocolBuffer > 0;
     }
 
     /**
@@ -770,14 +774,15 @@ library CollateralLib {
     }
 
     /**
-     * @dev Calculate linear base collateral release amount based on initial base and elapsed time.
+     * @dev Calculate linear base collateral release amount based on undepreciated outstanding principal and elapsed time.
      *      Depreciation is linear at 12% per year, prorated by time, and does not compound.
      *      Buffers are not considered here; caller is responsible for gating and buffer processing.
      */
     function calculateCollateralRelease(CollateralInfo memory info) internal view returns (uint256 releaseAmount) {
         return _calculateCollateralRelease(
-            info.initialBaseCollateral,
+            info.unredeemedBasePrincipal,
             info.baseCollateral,
+            info.releasedBaseCollateral,
             info.earningsBuffer,
             info.reservedForLiquidation,
             info.lockedAt
@@ -785,29 +790,28 @@ library CollateralLib {
     }
 
     function _calculateCollateralRelease(
-        uint256 initialBaseCollateral,
+        uint256 unredeemedBasePrincipal,
         uint256 baseCollateral,
+        uint256 releasedBaseCollateral,
         uint256 earningsBuffer,
         uint256 reservedForLiquidation,
         uint256 lockedAt
     ) private view returns (uint256 releaseAmount) {
         // Performance gate: Don't release base collateral if the protection buffer is empty
-        // and there is an outstanding deficit reserved for liquidation.
+        // AND there is an outstanding deficit reserved for liquidation.
         if (earningsBuffer == 0 && reservedForLiquidation > 0) {
             return 0;
         }
 
-        // Cumulative allowed release from initial base
+        // Cumulative allowed release from outstanding undepreciated principal.
         uint256 elapsedSinceLock = block.timestamp - lockedAt;
-        uint256 cumulativeAllowed = calculateDepreciation(initialBaseCollateral, elapsedSinceLock);
+        uint256 cumulativeAllowed = calculateDepreciation(unredeemedBasePrincipal, elapsedSinceLock);
 
-        // Already released from base
-        uint256 releasedSoFar = initialBaseCollateral - baseCollateral;
-        if (cumulativeAllowed <= releasedSoFar) {
+        if (cumulativeAllowed <= releasedBaseCollateral) {
             return 0;
         }
 
-        releaseAmount = cumulativeAllowed - releasedSoFar;
+        releaseAmount = cumulativeAllowed - releasedBaseCollateral;
         if (releaseAmount > baseCollateral) {
             releaseAmount = baseCollateral;
         }
@@ -836,7 +840,7 @@ library CollateralLib {
         internal
         returns (int256 earningsResult, uint256 replenishmentAmount)
     {
-        return processEarningsForBuffers(info, netEarnings, baseEarnings, info.initialBaseCollateral);
+        return processEarningsForBuffers(info, netEarnings, baseEarnings, info.unredeemedBasePrincipal);
     }
 
     function processEarningsForBuffers(
@@ -858,9 +862,6 @@ library CollateralLib {
                 info.reservedForLiquidation += info.earningsBuffer;
                 info.earningsBuffer = 0;
             }
-            // Update total collateral to reflect the shortfall impact (covers both cases above)
-            info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
-
             // Return negative value to indicate shortfall
             return (-shortfallAmount.toInt256(), 0);
         }
@@ -887,9 +888,6 @@ library CollateralLib {
                     info.reservedForLiquidation -= toReplenish;
                     excessEarnings -= toReplenish;
                     replenished = toReplenish;
-
-                    // Update total collateral
-                    info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
                 }
             }
 
@@ -915,7 +913,7 @@ library CollateralLib {
         pure
         returns (int256 earningsResult, uint256 replenishmentAmount)
     {
-        return processEarningsForBuffersInMemory(info, netEarnings, baseEarnings, info.initialBaseCollateral);
+        return processEarningsForBuffersInMemory(info, netEarnings, baseEarnings, info.unredeemedBasePrincipal);
     }
 
     function processEarningsForBuffersInMemory(
@@ -936,7 +934,6 @@ library CollateralLib {
                 info.earningsBuffer = 0;
             }
 
-            info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
             return (-shortfallAmount.toInt256(), 0);
         } else if (netEarnings > baseEarnings) {
             uint256 excessEarnings = netEarnings - baseEarnings;
@@ -958,7 +955,6 @@ library CollateralLib {
                     info.reservedForLiquidation -= toReplenish;
                     excessEarnings -= toReplenish;
                     replenished = toReplenish;
-                    info.totalCollateral = info.baseCollateral + info.earningsBuffer + info.protocolBuffer;
                 }
             }
 
@@ -1000,7 +996,7 @@ library CollateralLib {
         )
     {
         return applyRealizedVsBenchmarkToCollateral(
-            info, realizedEarnings, benchmarkEarnings, info.initialBaseCollateral
+            info, realizedEarnings, benchmarkEarnings, info.unredeemedBasePrincipal
         );
     }
 
@@ -1032,7 +1028,6 @@ library CollateralLib {
                 updated.earningsBuffer = 0;
             }
 
-            updated.totalCollateral = updated.baseCollateral + updated.earningsBuffer + updated.protocolBuffer;
             return (updated, shortfallAmount, 0, 0);
         }
 
@@ -1052,7 +1047,6 @@ library CollateralLib {
                 if (toReplenish > 0) {
                     updated.earningsBuffer += toReplenish;
                     updated.reservedForLiquidation -= toReplenish;
-                    updated.totalCollateral = updated.baseCollateral + updated.earningsBuffer + updated.protocolBuffer;
                     replenishmentAmount = toReplenish;
                     excessEarnings -= toReplenish;
                 }
@@ -1066,7 +1060,7 @@ library CollateralLib {
         uint256 benchmarkEarnings
     ) internal returns (uint256 shortfallAmount, uint256 replenishmentAmount, uint256 excessEarnings) {
         return applyRealizedVsBenchmarkToCollateralInStorage(
-            info, realizedEarnings, benchmarkEarnings, info.initialBaseCollateral
+            info, realizedEarnings, benchmarkEarnings, info.unredeemedBasePrincipal
         );
     }
 
@@ -1082,8 +1076,6 @@ library CollateralLib {
         info.earningsBuffer = updated.earningsBuffer;
         info.protocolBuffer = updated.protocolBuffer;
         info.reservedForLiquidation = updated.reservedForLiquidation;
-        info.totalCollateral = updated.totalCollateral;
-
         return (shortfall, replenishment, excess);
     }
 
@@ -1094,7 +1086,8 @@ library CollateralLib {
         uint256 currentPeriod,
         uint256 lastProcessedPeriod,
         uint256 realizedEarnings,
-        uint256 benchmarkEarnings
+        uint256 benchmarkEarnings,
+        uint256 coveredBaseCollateral
     ) internal view returns (ReleaseCalculation memory calc) {
         return calculateReleasePreview(
             collateralInfo,
@@ -1104,7 +1097,8 @@ library CollateralLib {
             lastProcessedPeriod,
             realizedEarnings,
             benchmarkEarnings,
-            collateralInfo.initialBaseCollateral
+            collateralInfo.unredeemedBasePrincipal,
+            coveredBaseCollateral
         );
     }
 
@@ -1116,7 +1110,8 @@ library CollateralLib {
         uint256 lastProcessedPeriod,
         uint256 realizedEarnings,
         uint256 benchmarkEarnings,
-        uint256 benchmarkPrincipal
+        uint256 benchmarkPrincipal,
+        uint256 coveredBaseCollateral
     ) internal view returns (ReleaseCalculation memory calc) {
         if (!collateralInfo.isLocked) {
             calc.status = ReleaseEligibility.NoCollateralLocked;
@@ -1134,8 +1129,8 @@ library CollateralLib {
             calc.status = ReleaseEligibility.Eligible;
             calc.newLastProcessedPeriod = currentPeriod + 1;
             calc.grossRelease = calculateCollateralRelease(calc.collateral);
-            if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
-                calc.grossRelease = calc.collateral.coveredBaseCollateral;
+            if (calc.grossRelease > coveredBaseCollateral) {
+                calc.grossRelease = coveredBaseCollateral;
             }
             if (calc.grossRelease > 0) {
                 (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
@@ -1152,8 +1147,8 @@ library CollateralLib {
             calc.status = ReleaseEligibility.Eligible;
             calc.newLastProcessedPeriod = currentPeriod + 1;
             calc.grossRelease = calculateCollateralRelease(calc.collateral);
-            if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
-                calc.grossRelease = calc.collateral.coveredBaseCollateral;
+            if (calc.grossRelease > coveredBaseCollateral) {
+                calc.grossRelease = coveredBaseCollateral;
             }
             if (calc.grossRelease > 0) {
                 (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
@@ -1170,11 +1165,14 @@ library CollateralLib {
             );
 
         calc.grossRelease = calculateCollateralRelease(calc.collateral);
-        if (calc.grossRelease > calc.collateral.coveredBaseCollateral) {
-            calc.grossRelease = calc.collateral.coveredBaseCollateral;
+        if (calc.grossRelease > coveredBaseCollateral) {
+            calc.grossRelease = coveredBaseCollateral;
         }
-        if (calc.grossRelease > calc.collateral.totalCollateral) {
-            calc.grossRelease = calc.collateral.totalCollateral;
+        uint256 totalCollateral = getTotalCollateral(
+            calc.collateral.baseCollateral, calc.collateral.earningsBuffer, calc.collateral.protocolBuffer
+        );
+        if (calc.grossRelease > totalCollateral) {
+            calc.grossRelease = totalCollateral;
         }
         if (calc.grossRelease > 0) {
             (calc.partnerRelease, calc.protocolFee) = calculateReleaseFees(calc.grossRelease);
@@ -1195,10 +1193,10 @@ library CollateralLib {
         }
 
         if (immediateProceeds) {
-            if (coverableExposure <= collateralInfo.outstandingImmediateProceedsBase) {
+            if (coverableExposure <= collateralInfo.releasedProtectedBase) {
                 return 0;
             }
-            coverableBaseCollateral = coverableExposure - collateralInfo.outstandingImmediateProceedsBase;
+            coverableBaseCollateral = coverableExposure - collateralInfo.releasedProtectedBase;
         } else {
             coverableBaseCollateral = coverableExposure;
         }
@@ -1216,7 +1214,7 @@ library CollateralLib {
     ) internal pure returns (uint256 coverableExposure) {
         uint256 protectedExposure = collateralInfo.baseCollateral;
         if (immediateProceeds) {
-            protectedExposure += collateralInfo.outstandingImmediateProceedsBase;
+            protectedExposure += collateralInfo.releasedProtectedBase;
         }
         if (protectedExposure == 0) {
             return 0;
@@ -1254,7 +1252,7 @@ library CollateralLib {
 
         uint256 protectedExposure = collateralInfo.baseCollateral;
         if (immediateProceeds) {
-            protectedExposure += collateralInfo.outstandingImmediateProceedsBase;
+            protectedExposure += collateralInfo.releasedProtectedBase;
         }
         if (protectedExposure == 0) {
             return 0;

@@ -159,8 +159,8 @@ abstract contract DeployCore is ScaffoldETHDeploy {
         contracts.roboshareTokens
             .grantRole(contracts.roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));
 
-        // Grant AUTHORIZED_CONTRACT_ROLE to Marketplace on Treasury (for recording pending withdrawals on purchases)
-        contracts.treasury.grantRole(contracts.treasury.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));
+        // Grant AUTHORIZED_MARKETPLACE_ROLE to Marketplace on Treasury for purchase/redemption settlement flows
+        contracts.treasury.grantRole(contracts.treasury.AUTHORIZED_MARKETPLACE_ROLE(), address(contracts.marketplace));
 
         // Grant AUTHORIZED_CONTRACT_ROLE to Router on Marketplace (for createPrimaryPoolFor via registries)
         contracts.marketplace.grantRole(contracts.marketplace.AUTHORIZED_CONTRACT_ROLE(), address(contracts.router));

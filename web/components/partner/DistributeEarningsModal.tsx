@@ -84,22 +84,27 @@ export const DistributeEarningsModal = ({
     watch: true,
   });
 
-  const { data: previewRelease } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "previewCollateralRelease",
-    args: [BigInt(assetId), true],
-    query: { enabled: supportsAutoRelease && autoRelease },
-  });
+  const parsedTotalRevenue = useMemo(() => {
+    if (!totalRevenue) {
+      return null;
+    }
+
+    try {
+      return parseUnits(totalRevenue, decimals);
+    } catch {
+      return null;
+    }
+  }, [decimals, totalRevenue]);
 
   // Calculate token ownership breakdown (independent of revenue)
   const tokenOwnership = useMemo(() => {
-    const currentCirculatingSupply = (circulatingSupply as bigint | undefined) ?? 0n;
+    const currentCirculatingSupply = typeof circulatingSupply === "bigint" ? circulatingSupply : 0n;
 
     if (currentCirculatingSupply === 0n || maxSupply === 0n) {
       return null;
     }
 
-    const partnerTokens = (partnerBalance as bigint | undefined) ?? 0n;
+    const partnerTokens = typeof partnerBalance === "bigint" ? partnerBalance : 0n;
     const investorTokens = currentCirculatingSupply > partnerTokens ? currentCirculatingSupply - partnerTokens : 0n;
     const investorPercentage = Number((investorTokens * 10000n) / maxSupply) / 100;
     const partnerPercentage = Number((partnerTokens * 10000n) / maxSupply) / 100;
@@ -118,18 +123,15 @@ export const DistributeEarningsModal = ({
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {
-    if (!tokenOwnership || !totalRevenue) {
+    if (!tokenOwnership || parsedTotalRevenue === null) {
       return null;
     }
 
-    // Parse total revenue
-    const totalRevenueWei = parseUnits(totalRevenue || "0", decimals);
-
     // Calculate investor portion (what partner should distribute)
-    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? BP_PRECISION)) / BP_PRECISION;
-    const soldShare = (totalRevenueWei * tokenOwnership.investorTokens) / tokenOwnership.maxSupply;
+    const revenueShareCap = (parsedTotalRevenue * (revenueShareBP ?? BP_PRECISION)) / BP_PRECISION;
+    const soldShare = (parsedTotalRevenue * tokenOwnership.investorTokens) / tokenOwnership.maxSupply;
     const investorPortion = revenueShareCap < soldShare ? revenueShareCap : soldShare;
-    const partnerPortion = totalRevenueWei - investorPortion;
+    const partnerPortion = parsedTotalRevenue - investorPortion;
 
     // Calculate protocol fee with minimum enforcement
     const calculatedFee = (investorPortion * PROTOCOL_FEE_BP) / BP_PRECISION;
@@ -137,13 +139,23 @@ export const DistributeEarningsModal = ({
     const netToInvestors = investorPortion - protocolFee;
 
     return {
-      totalRevenue: totalRevenueWei,
+      totalRevenue: parsedTotalRevenue,
       investorPortion,
       partnerPortion,
       protocolFee,
       netToInvestors,
     };
-  }, [tokenOwnership, totalRevenue, revenueShareBP, decimals]);
+  }, [tokenOwnership, parsedTotalRevenue, revenueShareBP]);
+
+  const pendingNetEarnings =
+    revenueBreakdown && revenueBreakdown.netToInvestors > 0n ? revenueBreakdown.netToInvestors : 0n;
+
+  const { data: previewRelease } = useScaffoldReadContract({
+    contractName: "Treasury",
+    functionName: "previewCollateralRelease",
+    args: [BigInt(assetId), supportsAutoRelease && autoRelease ? pendingNetEarnings : 0n],
+    query: { enabled: supportsAutoRelease && autoRelease },
+  });
 
   const estimatedRelease = useMemo(() => {
     if (!autoRelease) return 0n;

@@ -38,6 +38,12 @@ contract TreasuryWrongDecimalsToken {
     }
 }
 
+contract TreasuryInternalHarness is Treasury {
+    function exposeTryReleaseCollateral(uint256 assetId, address partner, bool allowSkip) external returns (uint256) {
+        return _tryReleaseCollateral(assetId, partner, allowSkip);
+    }
+}
+
 contract TreasuryTest is TreasuryFlowBaseTest {
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
@@ -63,9 +69,9 @@ contract TreasuryTest is TreasuryFlowBaseTest {
         assertEq(treasury.UPGRADER_ROLE(), keccak256("UPGRADER_ROLE"), "Invalid UPGRADER_ROLE hash");
         assertEq(treasury.TREASURER_ROLE(), keccak256("TREASURER_ROLE"), "Invalid TREASURER_ROLE hash");
         assertEq(
-            treasury.AUTHORIZED_CONTRACT_ROLE(),
-            keccak256("AUTHORIZED_CONTRACT_ROLE"),
-            "Invalid AUTHORIZED_CONTRACT_ROLE hash"
+            treasury.AUTHORIZED_MARKETPLACE_ROLE(),
+            keccak256("AUTHORIZED_MARKETPLACE_ROLE"),
+            "Invalid AUTHORIZED_MARKETPLACE_ROLE hash"
         );
         assertEq(
             treasury.AUTHORIZED_ROUTER_ROLE(),
@@ -76,7 +82,7 @@ contract TreasuryTest is TreasuryFlowBaseTest {
         // Verify hierarchy (all managed by default admin)
         assertEq(treasury.getRoleAdmin(treasury.UPGRADER_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
         assertEq(treasury.getRoleAdmin(treasury.TREASURER_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
-        assertEq(treasury.getRoleAdmin(treasury.AUTHORIZED_CONTRACT_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
+        assertEq(treasury.getRoleAdmin(treasury.AUTHORIZED_MARKETPLACE_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
         assertEq(treasury.getRoleAdmin(treasury.AUTHORIZED_ROUTER_ROLE()), treasury.DEFAULT_ADMIN_ROLE());
     }
 
@@ -454,7 +460,7 @@ contract TreasuryTest is TreasuryFlowBaseTest {
         deal(address(usdc), address(treasury), amount);
 
         vm.prank(address(marketplace));
-        treasury.recordPendingWithdrawal(partner1, amount);
+        treasury.recordPendingWithdrawalFor(partner1, amount);
 
         uint256 before = usdc.balanceOf(partner1);
         vm.prank(partner1);
@@ -462,6 +468,31 @@ contract TreasuryTest is TreasuryFlowBaseTest {
 
         assertEq(usdc.balanceOf(partner1), before + amount);
         assertEq(treasury.pendingWithdrawals(partner1), 0);
+    }
+
+    function testTryReleaseCollateralAllowSkipReturnsZero() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        TreasuryInternalHarness impl = new TreasuryInternalHarness();
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), "");
+        TreasuryInternalHarness harness = TreasuryInternalHarness(address(proxy));
+
+        harness.initialize(
+            admin,
+            address(roboshareTokens),
+            address(partnerManager),
+            address(router),
+            address(usdc),
+            config.treasuryFeeRecipient
+        );
+
+        vm.prank(admin);
+        harness.setEarningsManager(address(earningsManager));
+
+        uint256 released = harness.exposeTryReleaseCollateral(scenario.assetId, partner1, true);
+
+        assertEq(released, 0);
+        assertEq(harness.pendingWithdrawals(partner1), 0);
     }
 
     function testUpgradeUnauthorizedCaller() public {

@@ -19,42 +19,6 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.InitialAccountsSetup);
     }
 
-    function _setupProtectedPoolWithPurchaseAndBuffers() internal returns (uint256 assetId, uint256 revenueTokenId) {
-        string memory vin = _generateVin(999);
-        vm.prank(partner1);
-        assetId = assetRegistry.registerAsset(
-            abi.encode(
-                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
-
-        uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
-        uint256 maturityDate = block.timestamp + 365 days;
-
-        vm.prank(partner1);
-        (revenueTokenId,) = assetRegistry.createRevenueTokenPool(
-            assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, true
-        );
-
-        uint256 grossPrincipal = PRIMARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
-
-        vm.startPrank(buyer);
-        usdc.approve(address(marketplace), grossPrincipal + protocolFee);
-        marketplace.buyFromPrimaryPool(revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
-        vm.stopPrank();
-
-        uint256 baseAmount = _getCollateralInfo(assetId).baseCollateral;
-        uint256 yieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, true);
-
-        vm.prank(partner1);
-        usdc.approve(address(treasury), requiredCollateral);
-        vm.prank(partner1);
-        treasury.enableProceeds(assetId);
-    }
-
     function _getProtectedBenchmarkPrincipal(uint256 assetId, uint256 revenueTokenId)
         internal
         view
@@ -68,7 +32,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         uint256 protectedExposure = info.baseCollateral;
         if (roboshareTokens.getRevenueTokenImmediateProceedsEnabled(revenueTokenId)) {
-            protectedExposure += info.outstandingImmediateProceedsBase;
+            protectedExposure += info.releasedProtectedBase;
         }
         if (protectedExposure == 0) {
             return 0;
@@ -126,17 +90,20 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
             0 // Buyer token change
         );
 
-        CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         _assertCollateralState(scenario.assetId, baseAmount, baseAmount + requiredCollateral, true);
-        assertEq(info.coveredBaseCollateral, baseAmount);
+        assertEq(_getCoveredBaseCollateral(scenario.assetId), baseAmount);
         assertEq(treasury.totalCollateralDeposited(), baseAmount + requiredCollateral);
     }
 
     function testEnableProceedsInitializesTimestampsOnFirstFunding() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
+        CollateralLib.CollateralInfo memory preFundingInfo = _getCollateralInfo(scenario.assetId);
         uint256 baseAmount = _getCollateralInfo(scenario.assetId).baseCollateral;
         uint256 yieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
         uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, false);
+
+        assertGt(preFundingInfo.createdAt, 0);
+        assertEq(preFundingInfo.lockedAt, 0);
 
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredCollateral);
@@ -148,6 +115,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         (,,,, uint256 earningsLastEventTimestamp,,,,) = earningsManager.assetEarnings(scenario.assetId);
 
         assertTrue(collateralInfo.isLocked);
+        assertEq(collateralInfo.createdAt, preFundingInfo.createdAt);
         assertEq(collateralInfo.lockedAt, block.timestamp);
         assertEq(collateralInfo.lastEventTimestamp, block.timestamp);
         assertEq(earningsLastEventTimestamp, block.timestamp);
@@ -170,7 +138,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertTrue(info.isLocked);
-        assertGt(info.totalCollateral, 0);
+        assertGt(_getCollateralTotal(info), 0);
     }
 
     function testEnableProceedsUnauthorizedPartner() public {
@@ -219,8 +187,8 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         treasury.enableProceeds(scenario.assetId);
 
         uint256 totalAfterFirstFunding = treasury.totalCollateralDeposited();
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, ASSET_VALUE);
+        uint256 additionalPurchaseAmount = _purchaseRemainingPrimarySupply(buyer, scenario.revenueTokenId);
+        uint256 additionalBaseAmount = additionalPurchaseAmount * roboshareTokens.getTokenPrice(scenario.revenueTokenId);
 
         uint256 expandedBaseAmount = _getCollateralInfo(scenario.assetId).baseCollateral;
         uint256 requiredCollateralSecond = _getTotalBufferRequirement(expandedBaseAmount, yieldBP, false);
@@ -234,7 +202,9 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         assertTrue(_getCollateralInfo(scenario.assetId).isLocked);
         assertEq(totalAfterFirstFunding, initialTotal + requiredCollateral);
-        assertEq(treasury.totalCollateralDeposited(), totalAfterFirstFunding + ASSET_VALUE + dueCollateralSecond);
+        assertEq(
+            treasury.totalCollateralDeposited(), totalAfterFirstFunding + additionalBaseAmount + dueCollateralSecond
+        );
     }
 
     function testEnableProceedsNoApproval() public {
@@ -260,34 +230,6 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         treasury.enableProceeds(scenario.assetId);
     }
 
-    function testCreditBaseLiquidity() public {
-        _ensureState(SetupState.PrimaryPoolCreated);
-        uint256 amount = ASSET_VALUE;
-
-        vm.expectEmit(true, false, false, true, address(treasury));
-        emit ITreasury.BaseLiquidityCredited(scenario.assetId, amount);
-
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, amount);
-
-        CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
-        assertEq(info.baseCollateral, amount);
-    }
-
-    function testCreditBaseLiquidityZeroAmount() public {
-        _ensureState(SetupState.PrimaryPoolCreated);
-
-        CollateralLib.CollateralInfo memory beforeInfo = _getCollateralInfo(scenario.assetId);
-
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, 0);
-
-        CollateralLib.CollateralInfo memory afterInfo = _getCollateralInfo(scenario.assetId);
-        assertEq(afterInfo.baseCollateral, beforeInfo.baseCollateral);
-        assertEq(afterInfo.totalCollateral, beforeInfo.totalCollateral);
-        assertEq(afterInfo.lockedAt, beforeInfo.lockedAt);
-    }
-
     // Primary Pool Processing Tests
 
     function testProcessPrimaryPoolPurchaseForUnauthorizedPartner() public {
@@ -295,9 +237,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
-        treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, 1, unauthorized, REVENUE_TOKEN_PRICE, 0, false
-        );
+        treasury.processPrimaryPoolPurchaseFor(buyer, scenario.revenueTokenId, 1, unauthorized, REVENUE_TOKEN_PRICE, 0);
     }
 
     function testProcessPrimaryPoolPurchaseForAssetNotFound() public {
@@ -305,7 +245,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(ITreasury.AssetNotFound.selector);
-        treasury.processPrimaryPoolPurchaseFor(buyer, 1000, 1, partner1, REVENUE_TOKEN_PRICE, 0, false);
+        treasury.processPrimaryPoolPurchaseFor(buyer, 1000, 1, partner1, REVENUE_TOKEN_PRICE, 0);
     }
 
     function testProcessPrimaryPoolPurchaseForNotAssetOwner() public {
@@ -313,22 +253,19 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(ITreasury.NotAssetOwner.selector);
-        treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, 1, partner2, REVENUE_TOKEN_PRICE, 0, false
-        );
+        treasury.processPrimaryPoolPurchaseFor(buyer, scenario.revenueTokenId, 1, partner2, REVENUE_TOKEN_PRICE, 0);
     }
 
     function testProcessPrimaryPoolPurchaseFor() public {
         _ensureState(SetupState.PrimaryPoolCreated);
 
         uint256 amount = 1;
-        uint256 grossPrincipal = REVENUE_TOKEN_PRICE;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
+        uint256 principal = REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(principal);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
-        uint256 requiredBuffer = _getTotalBufferRequirement(grossPrincipal, targetYieldBP, false);
+        uint256 requiredBuffer = _getTotalBufferRequirement(principal, targetYieldBP, false);
 
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, grossPrincipal);
+        _purchasePrimaryPoolTokens(buyer, scenario.revenueTokenId, amount);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredBuffer);
         vm.prank(partner1);
@@ -336,13 +273,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         uint256 pendingBefore = treasury.pendingWithdrawals(partner1);
         vm.prank(address(marketplace));
-        treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, amount, partner1, grossPrincipal, protocolFee, false
-        );
+        treasury.processPrimaryPoolPurchaseFor(buyer, scenario.revenueTokenId, amount, partner1, principal, protocolFee);
 
-        CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertEq(treasury.pendingWithdrawals(partner1), pendingBefore);
-        assertEq(info.coveredBaseCollateral, grossPrincipal);
+        assertEq(_getCoveredBaseCollateral(scenario.assetId, scenario.revenueTokenId), principal);
         assertEq(uint8(router.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Earning));
     }
 
@@ -350,13 +284,12 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.PrimaryPoolCreated);
 
         uint256 amount = 1;
-        uint256 grossPrincipal = REVENUE_TOKEN_PRICE;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
+        uint256 principal = REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(principal);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
-        uint256 requiredBuffer = _getTotalBufferRequirement(grossPrincipal * 2, targetYieldBP, false);
+        uint256 requiredBuffer = _getTotalBufferRequirement(principal * 2, targetYieldBP, false);
 
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, grossPrincipal);
+        _purchasePrimaryPoolTokens(buyer, scenario.revenueTokenId, amount);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredBuffer);
         vm.prank(partner1);
@@ -364,14 +297,12 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         uint256 pendingBefore = treasury.pendingWithdrawals(partner1);
         vm.prank(address(marketplace));
-        treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, amount, partner1, grossPrincipal, protocolFee, false
-        );
+        treasury.processPrimaryPoolPurchaseFor(buyer, scenario.revenueTokenId, amount, partner1, principal, protocolFee);
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertEq(treasury.pendingWithdrawals(partner1), pendingBefore);
-        assertEq(info.baseCollateral, grossPrincipal * 2);
-        assertEq(info.coveredBaseCollateral, grossPrincipal);
+        assertEq(info.baseCollateral, principal * 2);
+        assertEq(_getCoveredBaseCollateral(scenario.assetId, scenario.revenueTokenId), principal);
         assertEq(uint8(router.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Earning));
     }
 
@@ -392,34 +323,32 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
             scenario.assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, supply, true, false
         );
 
-        uint256 grossPrincipal = REVENUE_TOKEN_PRICE;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
+        uint256 principal = REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(principal);
 
         vm.prank(address(marketplace));
-        treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, 1, partner1, grossPrincipal, protocolFee, false
-        );
+        treasury.processPrimaryPoolPurchaseFor(buyer, scenario.revenueTokenId, 1, partner1, principal, protocolFee);
 
         CollateralLib.CollateralInfo memory beforeInfo = _getCollateralInfo(scenario.assetId);
-        assertEq(beforeInfo.baseCollateral, grossPrincipal);
-        assertEq(beforeInfo.coveredBaseCollateral, 0);
+        assertEq(beforeInfo.baseCollateral, principal);
+        assertEq(_getCoveredBaseCollateral(scenario.assetId, scenario.revenueTokenId), 0);
         assertEq(treasury.pendingWithdrawals(partner1), 0);
 
-        uint256 requiredBuffer = _getTotalBufferRequirement(grossPrincipal, 1_000, false);
+        uint256 requiredBuffer = _getTotalBufferRequirement(principal, 1_000, false);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredBuffer);
 
         vm.expectEmit(true, true, false, true);
-        emit ITreasury.ImmediateProceedsReleased(scenario.assetId, partner1, grossPrincipal);
+        emit ITreasury.ImmediateProceedsReleased(scenario.assetId, partner1, principal);
 
         vm.prank(partner1);
         treasury.enableProceeds(scenario.assetId);
 
         CollateralLib.CollateralInfo memory afterInfo = _getCollateralInfo(scenario.assetId);
         assertEq(afterInfo.baseCollateral, 0);
-        assertEq(afterInfo.coveredBaseCollateral, 0);
-        assertEq(afterInfo.outstandingImmediateProceedsBase, grossPrincipal);
-        assertEq(treasury.pendingWithdrawals(partner1), grossPrincipal);
+        assertEq(_getCoveredBaseCollateral(scenario.assetId, scenario.revenueTokenId), 0);
+        assertEq(afterInfo.releasedProtectedBase, principal);
+        assertEq(treasury.pendingWithdrawals(partner1), principal);
     }
 
     function testEnableProceedsHigherUpsideRequiresAdditionalBuffersForNewBuy() public {
@@ -444,7 +373,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, 10, partner1, initialPrincipal, initialFee, false
+            buyer, scenario.revenueTokenId, 10, partner1, initialPrincipal, initialFee
         );
 
         uint256 requiredBuffer = _getTotalBufferRequirement(initialPrincipal, 1_000, false);
@@ -460,9 +389,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         uint256 pendingBefore = treasury.pendingWithdrawals(partner1);
 
         vm.prank(address(marketplace));
-        treasury.processPrimaryPoolPurchaseFor(
-            buyer, scenario.revenueTokenId, 1, partner1, secondPrincipal, secondFee, false
-        );
+        treasury.processPrimaryPoolPurchaseFor(buyer, scenario.revenueTokenId, 1, partner1, secondPrincipal, secondFee);
 
         uint256 cumulativeExposure = initialPrincipal + secondPrincipal;
         uint256 requiredBufferAfterSecondBuy = _getTotalBufferRequirement(cumulativeExposure, 1_000, false);
@@ -477,7 +404,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertEq(info.baseCollateral, 0);
-        assertEq(info.outstandingImmediateProceedsBase, cumulativeExposure);
+        assertEq(info.releasedProtectedBase, cumulativeExposure);
         assertEq(info.protocolBuffer, requiredBufferAfterSecondBuy);
         assertEq(treasury.pendingWithdrawals(partner1), pendingBefore + secondPrincipal);
     }
@@ -489,15 +416,21 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         (uint256 preview,,,) = marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
         assertGt(preview, 0);
 
+        CollateralLib.CollateralInfo memory beforeInfo = _getCollateralInfo(scenario.assetId);
         uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
         uint256 buyerTokensBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
         vm.prank(address(marketplace));
-        uint256 payout = treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, burnAmount, preview);
+        uint256 payout = treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, burnAmount, preview);
 
+        CollateralLib.CollateralInfo memory afterInfo = _getCollateralInfo(scenario.assetId);
         assertEq(payout, preview);
         assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + payout);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokensBefore - burnAmount);
+        assertEq(
+            afterInfo.unredeemedBasePrincipal,
+            beforeInfo.unredeemedBasePrincipal - (burnAmount * roboshareTokens.getTokenPrice(scenario.revenueTokenId))
+        );
     }
 
     function testProcessPrimaryRedemptionForMultipleBurnsPreservesSnapshottedEarnings() public {
@@ -510,13 +443,13 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         (uint256 firstPayoutPreview,,,) =
             marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, firstBurnAmount);
         vm.prank(address(marketplace));
-        treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, firstBurnAmount, firstPayoutPreview);
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, firstBurnAmount, firstPayoutPreview);
 
         uint256 secondBurnAmount = PRIMARY_PURCHASE_AMOUNT / 3;
         (uint256 secondPayoutPreview,,,) =
             marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, secondBurnAmount);
         vm.prank(address(marketplace));
-        treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, secondBurnAmount, secondPayoutPreview);
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, secondBurnAmount, secondPayoutPreview);
 
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
@@ -584,7 +517,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(ITreasury.AssetNotFound.selector);
-        treasury.processPrimaryRedemptionFor(buyer, 999, 1, 0);
+        treasury.processPrimaryRedemptionFor(buyer, 1000, 1, 0);
     }
 
     function testProcessPrimaryRedemptionForAssetNotOperational() public {
@@ -598,7 +531,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
                 ITreasury.AssetNotOperational.selector, scenario.assetId, AssetLib.AssetStatus.Suspended
             )
         );
-        treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, 1, 0);
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, 1, 0);
     }
 
     function testProcessPrimaryRedemptionForInsufficientPrimaryLiquidityZeroAmount() public {
@@ -606,7 +539,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(ITreasury.InsufficientPrimaryLiquidity.selector);
-        treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, 0, 0);
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, 0, 0);
     }
 
     function testProcessPrimaryRedemptionForInsufficientTokenBalance() public {
@@ -614,7 +547,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(ITreasury.InsufficientTokenBalance.selector);
-        treasury.processPrimaryRedemptionFor(unauthorized, scenario.assetId, 1, 0);
+        treasury.processPrimaryRedemptionFor(unauthorized, scenario.revenueTokenId, 1, 0);
     }
 
     function testProcessPrimaryRedemptionForSlippageExceeded() public {
@@ -624,10 +557,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.prank(address(marketplace));
         vm.expectRevert(ITreasury.SlippageExceeded.selector);
-        treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, burnAmount, preview + 1);
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, burnAmount, preview + 1);
     }
 
-    function testProcessPrimaryRedemptionForInsufficientPrimaryLiquidityWithoutEligibleTranche() public {
+    function testProcessPrimaryRedemptionForNoRedeemablePrimarySupplyWithoutEligibleTranche() public {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
@@ -664,8 +597,8 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         treasury.enableProceeds(scenario.assetId);
 
         vm.prank(address(marketplace));
-        vm.expectRevert(ITreasury.InsufficientPrimaryLiquidity.selector);
-        treasury.processPrimaryRedemptionFor(buyer, scenario.assetId, 1, 0);
+        vm.expectRevert(ITreasury.NoRedeemablePrimarySupply.selector);
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, 1, 0);
     }
 
     // Collateral Releasing Tests
@@ -760,10 +693,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         treasury.releasePartialCollateral(scenario.assetId);
     }
 
-    function testPreviewCollateralReleaseReturnsZeroWithoutEarnings() public {
+    function testPreviewCollateralReleaseNoEarnings() public {
         _ensureState(SetupState.BuffersFunded);
 
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, false);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, 0);
         assertEq(preview, 0, "Preview should be zero without earnings");
     }
 
@@ -773,7 +706,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.warp(block.timestamp + ProtocolLib.YEARLY_INTERVAL);
 
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, false);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, 0);
         uint256 beforeRelease = treasury.pendingWithdrawals(partner1);
 
         vm.prank(partner1);
@@ -882,7 +815,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testGetAssetCollateralInfoUninitialized() public view {
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         assertEq(info.baseCollateral, 0);
-        assertEq(info.totalCollateral, 0);
+        assertEq(_getCollateralTotal(info), 0);
         assertEq(info.isLocked, false);
     }
 
@@ -892,8 +825,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.PrimaryPoolCreated); // First vehicle for partner1
         uint256 vehicleId1 = scenario.assetId;
         uint256 yieldBP1 = roboshareTokens.getTargetYieldBP(scenario.revenueTokenId);
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(vehicleId1, ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
         uint256 requiredCollateral1 = _getTotalBufferRequirement(ASSET_VALUE, yieldBP1, false);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredCollateral1);
@@ -904,8 +836,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         (uint256 vehicleId2, uint256 revenueTokenId2,) = _setupAdditionalAssetAndPrimaryPool(partner1, vin);
 
         uint256 yieldBP2 = roboshareTokens.getTargetYieldBP(revenueTokenId2);
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(vehicleId2, ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, revenueTokenId2, ASSET_VALUE);
         uint256 requiredCollateral2 = _getTotalBufferRequirement(ASSET_VALUE, yieldBP2, false);
         vm.prank(partner1);
         usdc.approve(address(treasury), requiredCollateral2);
@@ -1267,7 +1198,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
             // Ensure investor portion meets benchmark to keep buffers full.
             uint256 benchmark = EarningsLib.calculateEarnings(
-                info.initialBaseCollateral, 365 days, roboshareTokens.getTargetYieldBP(revenueTokenId)
+                info.unredeemedBasePrincipal, 365 days, roboshareTokens.getTargetYieldBP(revenueTokenId)
             );
             uint256 topUp = (benchmark * maxSupply) / investorTokens;
             vm.startPrank(partner1);
@@ -1283,11 +1214,11 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         CollateralLib.CollateralInfo memory infoAfter = _getCollateralInfo(assetId);
         assertEq(infoAfter.baseCollateral, 0, "Base collateral should be zero after 9 years");
         assertEq(
-            infoAfter.totalCollateral,
+            _getCollateralTotal(infoAfter),
             infoAfter.earningsBuffer + infoAfter.protocolBuffer,
             "Only funded buffers should remain once base collateral is fully depleted"
         );
-        assertGt(infoAfter.totalCollateral, 0, "Buffer collateral should remain after base depletion");
+        assertGt(_getCollateralTotal(infoAfter), 0, "Buffer collateral should remain after base depletion");
         assertLe(infoAfter.earningsBuffer, earningsBuffer, "Earnings buffer should not grow beyond funded level");
         assertLe(infoAfter.protocolBuffer, protocolBuffer, "Protocol buffer should not grow beyond funded level");
 
@@ -1347,7 +1278,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testExecuteLiquidation() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchaseRemainingPrimarySupply(buyer, scenario.revenueTokenId);
 
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
         vm.warp(maturityDate + 1);
@@ -1366,7 +1297,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
     function testPreviewLiquidationEligibilityNotEligible() public {
         _ensureState(SetupState.PrimaryPoolCreated);
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
 
         (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
         assertFalse(eligible);
@@ -1381,7 +1312,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
     function testPreviewLiquidationEligibilityByMaturity() public {
         _ensureState(SetupState.PrimaryPoolCreated);
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
 
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
         vm.warp(maturityDate + 1);
@@ -1393,7 +1324,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
     function testPreviewLiquidationEligibilityNoPriorEarningsInitialized() public {
         _ensureState(SetupState.PrimaryPoolCreated);
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
 
         (,,,, uint256 lastEventTimestamp,,,,) = earningsManager.assetEarnings(scenario.assetId);
         assertEq(lastEventTimestamp, 0, "No earnings should be initialized for this branch");
@@ -1405,7 +1336,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
     function testExecuteLiquidationWithNoPriorEarningsRemainsIneligible() public {
         _ensureState(SetupState.PrimaryPoolCreated);
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
 
         (,,,, uint256 lastEventTimestamp,,,,) = earningsManager.assetEarnings(scenario.assetId);
         assertEq(lastEventTimestamp, 0, "No earnings should be initialized in normal flow");
@@ -1543,9 +1474,11 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         CollateralLib.CollateralInfo memory infoAfterEnable = _getCollateralInfo(assetId);
         assertEq(infoAfterEnable.baseCollateral, 0, "Immediate proceeds should release the initial covered base");
-        assertEq(infoAfterEnable.coveredBaseCollateral, 0, "No in-pool base should remain covered after release");
         assertEq(
-            infoAfterEnable.outstandingImmediateProceedsBase,
+            _getCoveredBaseCollateral(assetId, revenueTokenId), 0, "No in-pool base should remain covered after release"
+        );
+        assertEq(
+            infoAfterEnable.releasedProtectedBase,
             firstPrincipal,
             "Released immediate proceeds exposure should stay tracked"
         );
@@ -1565,7 +1498,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         CollateralLib.CollateralInfo memory infoAfterTopUp = _getCollateralInfo(assetId);
         assertEq(infoAfterTopUp.baseCollateral, secondPrincipal, "New buyer principal should sit in base liquidity");
         assertEq(
-            infoAfterTopUp.coveredBaseCollateral,
+            _getCoveredBaseCollateral(assetId, revenueTokenId),
             0,
             "Unfunded top-up principal should not become covered while earlier immediate proceeds remain outstanding"
         );
@@ -1591,7 +1524,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testSettlementProtocolBufferSeparation() public {
         _ensureState(SetupState.PrimaryPoolCreated);
 
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
 
         uint256 maturityDate = roboshareTokens.getTokenMaturityDate(scenario.revenueTokenId);
         vm.warp(maturityDate + 1);
@@ -1881,18 +1814,41 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     }
 
     function testAutoReleaseProtocolFeeClamped() public {
-        _ensureState(SetupState.BuffersFunded);
+        _ensureState(SetupState.InitialAccountsSetup);
 
-        uint256 baseAmount = 1 * 10 ** 6;
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, baseAmount);
+        string memory vin = _generateVin(4242);
+        uint256 assetValue = 4_400 * 10 ** 6;
         vm.prank(partner1);
-        usdc.approve(address(treasury), type(uint256).max);
-        vm.prank(partner1);
-        treasury.enableProceeds(scenario.assetId);
+        uint256 assetId = assetRegistry.registerAsset(
+            abi.encode(
+                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
+            ),
+            assetValue
+        );
 
-        uint256 soldAmount = _getInvestorSupply(scenario.revenueTokenId, partner1);
-        uint256 maxSupply = roboshareTokens.getRevenueTokenMaxSupply(scenario.revenueTokenId);
+        vm.prank(partner1);
+        (uint256 revenueTokenId,) = assetRegistry.createRevenueTokenPool(
+            assetId,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            assetValue / REVENUE_TOKEN_PRICE,
+            false,
+            false
+        );
+
+        _purchasePrimaryForBaseAmount(buyer, revenueTokenId, assetValue);
+
+        uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
+        uint256 requiredBuffer = _getTotalBufferRequirement(assetValue, targetYieldBP, false);
+        vm.prank(partner1);
+        usdc.approve(address(treasury), requiredBuffer);
+        vm.prank(partner1);
+        treasury.enableProceeds(assetId);
+
+        uint256 soldAmount = _getInvestorSupply(revenueTokenId, partner1);
+        uint256 maxSupply = roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId);
 
         vm.warp(block.timestamp + 7 days);
 
@@ -1902,7 +1858,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         vm.startPrank(partner1);
         usdc.approve(address(treasury), type(uint256).max);
         usdc.approve(address(earningsManager), investorAmount);
-        uint256 released = earningsManager.distributeEarnings(scenario.assetId, EARNINGS_AMOUNT, true);
+        uint256 released = earningsManager.distributeEarnings(assetId, EARNINGS_AMOUNT, true);
         vm.stopPrank();
 
         assertGt(released, 0);
@@ -1938,34 +1894,50 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         vm.stopPrank();
     }
 
-    function testPreviewCollateralReleaseAssumeNewPeriodNoEarnings() public {
+    function testPreviewCollateralReleasePendingNetEarningsNoEarnings() public {
         _ensureState(SetupState.BuffersFunded);
 
         vm.warp(block.timestamp + 1 days);
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, true);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, LARGE_EARNINGS_AMOUNT);
         assertGt(preview, 0);
     }
 
-    function testPreviewCollateralReleaseAssumeNewPeriodCapsToCoveredBase() public {
+    function testPreviewDistributeEarningsMatchesFirstAutoRelease() public {
+        _ensureState(SetupState.BuffersFunded);
+
+        uint256 earningsAmount = LARGE_EARNINGS_AMOUNT;
+        vm.warp(block.timestamp + 7 days);
+
+        (,,, uint256 previewRelease) =
+            earningsManager.previewDistributeEarnings(partner1, scenario.assetId, earningsAmount, true);
+
+        vm.startPrank(partner1);
+        usdc.approve(address(earningsManager), earningsAmount);
+        uint256 released = earningsManager.distributeEarnings(scenario.assetId, earningsAmount, true);
+        vm.stopPrank();
+
+        assertEq(released, previewRelease, "Distribution preview should match first auto-release");
+    }
+
+    function testPreviewCollateralReleasePendingNetEarningsCapsToCoveredBase() public {
         _ensureState(SetupState.BuffersFunded);
 
         uint256 initialBase = _getCollateralInfo(scenario.assetId).baseCollateral;
 
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(scenario.assetId, initialBase);
+        _purchaseRemainingPrimarySupply(buyer, scenario.revenueTokenId);
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
-        assertEq(info.coveredBaseCollateral, initialBase);
+        assertEq(_getCoveredBaseCollateral(scenario.assetId, scenario.revenueTokenId), initialBase);
         assertEq(info.baseCollateral, initialBase * 2);
 
         vm.warp(info.lockedAt + (5 * 365 days));
 
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, true);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, LARGE_EARNINGS_AMOUNT);
         assertLe(preview, initialBase);
         assertGt(preview, 0);
     }
 
-    function testPreviewCollateralReleaseAssumeNewPeriodNoNewPeriods() public {
+    function testPreviewCollateralReleasePendingNetEarningsNoNewPeriods() public {
         _ensureState(SetupState.EarningsDistributed);
 
         uint256 extraRevenue = 10_000_000_000; // large revenue to avoid shortfall
@@ -1981,17 +1953,17 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         vm.stopPrank();
 
         vm.warp(firstWarp + 30 days);
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, true);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, LARGE_EARNINGS_AMOUNT);
         assertGt(preview, 0);
     }
 
-    function testPreviewCollateralReleaseAssumeNewPeriodFeeClamp() public {
+    function testPreviewCollateralReleasePendingNetEarningsFeeClamp() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         vm.warp(info.lockedAt + 1);
 
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, true);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, LARGE_EARNINGS_AMOUNT);
         assertEq(preview, 0);
     }
 
@@ -2001,7 +1973,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         vm.warp(info.lockedAt == 0 ? block.timestamp : info.lockedAt);
 
-        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, false);
+        uint256 preview = treasury.previewCollateralRelease(scenario.assetId, 0);
         assertEq(preview, 0);
     }
 
@@ -2026,7 +1998,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.warp(block.timestamp + 120 days);
 
-        uint256 preview = treasury.previewCollateralRelease(assetId, false);
+        uint256 preview = treasury.previewCollateralRelease(assetId, 0);
         assertGt(preview, 0, "Preview should become positive after replenishment recomputes coverage");
     }
 
@@ -2035,9 +2007,9 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(assetId);
         uint256 initialBase = _getCollateralInfo(assetId).baseCollateral;
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
 
-        vm.prank(address(marketplace));
-        treasury.creditBaseLiquidity(assetId, initialBase);
+        _purchaseRemainingPrimarySupply(buyer, revenueTokenId);
 
         vm.warp(info.lockedAt + (3 * 365 days));
 
@@ -2056,7 +2028,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
 
         vm.warp(block.timestamp + 120 days);
 
-        uint256 preview = treasury.previewCollateralRelease(assetId, false);
+        uint256 preview = treasury.previewCollateralRelease(assetId, 0);
         assertGt(preview, 0, "Preview should be positive after replenishment");
         assertLe(preview, initialBase, "Preview should clamp to recomputed covered base");
     }

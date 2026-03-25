@@ -8,6 +8,10 @@ import { AssetLib } from "../../contracts/Libraries.sol";
 import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
 
 contract RegistryRouterTest is AssetMetadataBaseTest {
+    function _setupBuffersFunded() internal override { }
+
+    function _setupEarningsDistributed(uint256) internal override { }
+
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
     }

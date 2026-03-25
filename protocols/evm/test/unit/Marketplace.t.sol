@@ -37,7 +37,35 @@ contract MarketplaceWrongDecimalsToken {
     }
 }
 
+contract MarketplaceInternalHarness is Marketplace {
+    function exposeTransferUSDCFromBuyer(address buyer, address recipient, uint256 amount) external {
+        _transferUSDCFromBuyer(buyer, recipient, amount);
+    }
+
+    function exposeTransferUSDC(address recipient, uint256 amount) external {
+        _transferUSDC(recipient, amount);
+    }
+
+    function exposeRouteProtocolFee(uint256 amount) external {
+        _routeProtocolFee(amount);
+    }
+}
+
 contract MarketplaceTest is BaseTest {
+    function _setupAssetRegistered() internal view override returns (uint256) {
+        return scenario.assetId;
+    }
+
+    function _setupPrimaryPoolCreated() internal view override returns (uint256) {
+        return scenario.revenueTokenId;
+    }
+
+    function _setupPurchasedFromPrimaryPool() internal override { }
+
+    function _setupBuffersFunded() internal override { }
+
+    function _setupEarningsDistributed(uint256) internal override { }
+
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }
@@ -353,5 +381,36 @@ contract MarketplaceTest is BaseTest {
         );
         vm.prank(unauthorized);
         marketplace.upgradeToAndCall(address(newImpl), "");
+    }
+
+    function testTransferUSDCFromBuyerZeroAmountNoOp() public {
+        MarketplaceInternalHarness harness = new MarketplaceInternalHarness();
+        uint256 buyerBalanceBefore = usdc.balanceOf(buyer);
+        uint256 recipientBalanceBefore = usdc.balanceOf(partner1);
+
+        harness.exposeTransferUSDCFromBuyer(buyer, partner1, 0);
+
+        assertEq(usdc.balanceOf(buyer), buyerBalanceBefore);
+        assertEq(usdc.balanceOf(partner1), recipientBalanceBefore);
+    }
+
+    function testTransferUSDCZeroAmountNoOp() public {
+        MarketplaceInternalHarness harness = new MarketplaceInternalHarness();
+        uint256 recipientBalanceBefore = usdc.balanceOf(partner1);
+
+        harness.exposeTransferUSDC(partner1, 0);
+
+        assertEq(usdc.balanceOf(partner1), recipientBalanceBefore);
+    }
+
+    function testRouteProtocolFeeZeroAmountNoOp() public {
+        MarketplaceInternalHarness harness = new MarketplaceInternalHarness();
+        uint256 treasuryBalanceBefore = usdc.balanceOf(address(treasury));
+        uint256 feeRecipientPendingBefore = treasury.pendingWithdrawals(config.treasuryFeeRecipient);
+
+        harness.exposeRouteProtocolFee(0);
+
+        assertEq(usdc.balanceOf(address(treasury)), treasuryBalanceBefore);
+        assertEq(treasury.pendingWithdrawals(config.treasuryFeeRecipient), feeRecipientPendingBefore);
     }
 }

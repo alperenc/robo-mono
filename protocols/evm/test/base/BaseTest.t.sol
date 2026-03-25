@@ -122,20 +122,6 @@ abstract contract BaseTest is Test {
         _fundAddressWithUsdc(buyer, 1000000 * 10 ** 6);
     }
 
-    function _setupAssetRegistered() internal virtual returns (uint256) {
-        return scenario.assetId;
-    }
-
-    function _setupPrimaryPoolCreated() internal virtual returns (uint256) {
-        return scenario.revenueTokenId;
-    }
-
-    function _setupPurchasedFromPrimaryPool() internal virtual { }
-
-    function _setupBuffersFunded() internal virtual { }
-
-    function _setupEarningsDistributed(uint256) internal virtual { }
-
     function _setupMultiplePartners(uint256 count) internal returns (address[] memory partners) {
         partners = new address[](count);
 
@@ -153,4 +139,14 @@ abstract contract BaseTest is Test {
     function _fundAddressWithUsdc(address account, uint256 amount) internal {
         deal(address(usdc), account, amount);
     }
+
+    function _setupAssetRegistered() internal virtual returns (uint256);
+
+    function _setupPrimaryPoolCreated() internal virtual returns (uint256);
+
+    function _setupPurchasedFromPrimaryPool() internal virtual;
+
+    function _setupBuffersFunded() internal virtual;
+
+    function _setupEarningsDistributed(uint256) internal virtual;
 }

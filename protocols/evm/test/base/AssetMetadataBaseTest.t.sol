@@ -33,11 +33,22 @@ abstract contract AssetMetadataBaseTest is BaseTest {
     }
 
     function _setupPurchasedFromPrimaryPool() internal virtual override {
-        (uint256 expectedPayment,,) =
-            marketplace.previewPrimaryPurchase(scenario.revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
-        vm.startPrank(buyer);
+        _purchasePrimaryPoolTokens(buyer, scenario.revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
+    }
+
+    function _purchasePrimaryPoolTokens(address purchaser, uint256 revenueTokenId, uint256 amount) internal {
+        if (amount == 0) {
+            return;
+        }
+
+        (uint256 expectedPayment,,) = marketplace.previewPrimaryPurchase(revenueTokenId, amount);
+        if (usdc.balanceOf(purchaser) < expectedPayment) {
+            deal(address(usdc), purchaser, expectedPayment);
+        }
+
+        vm.startPrank(purchaser);
         usdc.approve(address(marketplace), expectedPayment);
-        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
+        marketplace.buyFromPrimaryPool(revenueTokenId, amount);
         vm.stopPrank();
     }
 
