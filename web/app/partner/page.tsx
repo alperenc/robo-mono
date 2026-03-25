@@ -484,21 +484,21 @@ const PartnerDashboard: NextPage = () => {
           const collateral = collateralInfo?.[index]?.result as
             | {
                 baseCollateral?: bigint;
-                outstandingImmediateProceedsBase?: bigint;
+                releasedProtectedBase?: bigint;
               }
             | readonly unknown[]
             | undefined;
           const collateralObject = !Array.isArray(collateral)
-            ? (collateral as { baseCollateral?: bigint; outstandingImmediateProceedsBase?: bigint } | undefined)
+            ? (collateral as { baseCollateral?: bigint; releasedProtectedBase?: bigint } | undefined)
             : undefined;
           const currentBaseLiquidity = Array.isArray(collateral)
             ? ((collateral[1] as bigint | undefined) ?? 0n)
             : (collateralObject?.baseCollateral ?? 0n);
-          const outstandingImmediateProceedsBase = Array.isArray(collateral)
-            ? ((collateral[12] as bigint | undefined) ?? 0n)
-            : (collateralObject?.outstandingImmediateProceedsBase ?? 0n);
+          const releasedProtectedBase = Array.isArray(collateral)
+            ? ((collateral[9] as bigint | undefined) ?? 0n)
+            : (collateralObject?.releasedProtectedBase ?? 0n);
           const immediateProceeds = (immediateProceedsFlags?.[index]?.result as boolean | undefined) ?? false;
-          return immediateProceeds ? currentBaseLiquidity + outstandingImmediateProceedsBase : currentBaseLiquidity;
+          return immediateProceeds ? currentBaseLiquidity + releasedProtectedBase : currentBaseLiquidity;
         })(),
       ],
     })),
@@ -626,7 +626,7 @@ const PartnerDashboard: NextPage = () => {
             baseCollateral?: bigint;
             earningsBuffer?: bigint;
             protocolBuffer?: bigint;
-            outstandingImmediateProceedsBase?: bigint;
+            releasedProtectedBase?: bigint;
           }
         | readonly unknown[]
         | undefined;
@@ -639,7 +639,7 @@ const PartnerDashboard: NextPage = () => {
                 baseCollateral?: bigint;
                 earningsBuffer?: bigint;
                 protocolBuffer?: bigint;
-                outstandingImmediateProceedsBase?: bigint;
+                releasedProtectedBase?: bigint;
               }
             | undefined)
         : undefined;
