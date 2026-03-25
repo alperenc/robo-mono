@@ -147,7 +147,8 @@ export const DistributeEarningsModal = ({
     };
   }, [tokenOwnership, parsedTotalRevenue, revenueShareBP]);
 
-  const pendingNetEarnings = revenueBreakdown?.netToInvestors ?? 0n;
+  const pendingNetEarnings =
+    revenueBreakdown && revenueBreakdown.netToInvestors > 0n ? revenueBreakdown.netToInvestors : 0n;
 
   const { data: previewRelease } = useScaffoldReadContract({
     contractName: "Treasury",
