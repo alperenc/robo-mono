@@ -46,6 +46,54 @@ interface AcquirePositionModalProps {
 }
 
 const PERCENTAGE_OPTIONS = [25, 50, 75, 100];
+const BP_PRECISION = 10000n;
+const PROTOCOL_FEE_BP = 250n;
+const MIN_PROTOCOL_FEE = 1_000_000n;
+
+const calculateProtocolFee = (amount: bigint) => {
+  if (amount === 0n) return 0n;
+  const fee = (amount * PROTOCOL_FEE_BP) / BP_PRECISION;
+  return fee < MIN_PROTOCOL_FEE ? MIN_PROTOCOL_FEE : fee;
+};
+
+const calculateTotalPayment = (principal: bigint, buyerPaysFee: boolean) => {
+  if (!buyerPaysFee || principal === 0n) {
+    return principal;
+  }
+  return principal + calculateProtocolFee(principal);
+};
+
+const getMaxAffordableTokenAmount = ({
+  availableAmount,
+  buyerPaysFee,
+  paymentTokenBalance,
+  unitPriceRaw,
+}: {
+  availableAmount: bigint;
+  buyerPaysFee: boolean;
+  paymentTokenBalance: bigint;
+  unitPriceRaw: bigint;
+}) => {
+  if (availableAmount === 0n || paymentTokenBalance === 0n || unitPriceRaw === 0n) {
+    return 0n;
+  }
+
+  let low = 0n;
+  let high = availableAmount;
+
+  while (low < high) {
+    const mid = (low + high + 1n) / 2n;
+    const principal = mid * unitPriceRaw;
+    const totalPayment = calculateTotalPayment(principal, buyerPaysFee);
+    if (totalPayment > paymentTokenBalance) {
+      high = mid - 1n;
+    } else {
+      low = mid;
+    }
+  }
+
+  return low;
+};
 
 export function AcquirePositionModal({
   isOpen,
@@ -112,13 +160,19 @@ export function AcquirePositionModal({
     watch: true,
   });
 
+  const secondaryInputAmount = useMemo(() => {
+    if (!inputAmount || !/^\d+$/.test(inputAmount)) return 0n;
+    try {
+      return BigInt(inputAmount);
+    } catch {
+      return 0n;
+    }
+  }, [inputAmount]);
+
   const secondaryPurchasePreview = useScaffoldReadContract({
     contractName: "Marketplace",
     functionName: "previewSecondaryPurchase",
-    args:
-      purchaseTarget.kind === "secondary"
-        ? [BigInt(purchaseTarget.listing.id), inputAmount ? BigInt(inputAmount) : 0n]
-        : [0n, 0n],
+    args: purchaseTarget.kind === "secondary" ? [BigInt(purchaseTarget.listing.id), secondaryInputAmount] : [0n, 0n],
     query: { enabled: purchaseTarget.kind === "secondary" },
   });
 
@@ -130,21 +184,20 @@ export function AcquirePositionModal({
     contractName: "Marketplace",
   });
 
-  const maxAffordableTokens = useMemo(() => {
-    if (!paymentTokenBalance) return 0n;
-
-    const pricePerToken = BigInt(unitPrice);
-    if (pricePerToken === 0n) return 0n;
-
-    const feeMultiplier = buyerPaysFee ? 103n : 100n;
-    const effectivePricePerToken = (pricePerToken * feeMultiplier) / 100n;
-
-    return paymentTokenBalance / effectivePricePerToken;
-  }, [paymentTokenBalance, unitPrice, buyerPaysFee]);
-
   const maxTokens = useMemo(() => {
-    return maxAffordableTokens < availableAmount ? maxAffordableTokens : availableAmount;
-  }, [maxAffordableTokens, availableAmount]);
+    if (!paymentTokenBalance) return 0n;
+    return getMaxAffordableTokenAmount({
+      availableAmount,
+      buyerPaysFee,
+      paymentTokenBalance,
+      unitPriceRaw,
+    });
+  }, [availableAmount, buyerPaysFee, paymentTokenBalance, unitPriceRaw]);
+
+  const maxPrimaryContributionRaw = useMemo(() => {
+    if (!isPrimaryPurchase) return 0n;
+    return maxTokens * unitPriceRaw;
+  }, [isPrimaryPurchase, maxTokens, unitPriceRaw]);
 
   const primaryContributionRaw = useMemo(() => {
     if (!isPrimaryPurchase || !inputAmount) return 0n;
@@ -157,10 +210,10 @@ export function AcquirePositionModal({
 
   const purchaseAmount = useMemo(() => {
     if (!inputAmount) return 0n;
-    if (!isPrimaryPurchase) return BigInt(inputAmount);
+    if (!isPrimaryPurchase) return secondaryInputAmount;
     if (unitPriceRaw === 0n) return 0n;
     return primaryContributionRaw / unitPriceRaw;
-  }, [inputAmount, isPrimaryPurchase, primaryContributionRaw, unitPriceRaw]);
+  }, [inputAmount, isPrimaryPurchase, primaryContributionRaw, secondaryInputAmount, unitPriceRaw]);
 
   const primaryPurchasePreview = useScaffoldReadContract({
     contractName: "Marketplace",
@@ -189,7 +242,7 @@ export function AcquirePositionModal({
   const formattedTotal = formatUnits(expectedPayment, decimals);
   const pricePerTokenDisplay = formatUnits(BigInt(unitPrice), decimals);
   const formattedContribution = formatUnits(primaryContributionRaw, decimals);
-  const maxContributionRaw = maxTokens * unitPriceRaw;
+  const maxContributionRaw = isPrimaryPurchase ? maxPrimaryContributionRaw : maxTokens * unitPriceRaw;
   const maxContributionDisplay = formatUnits(maxContributionRaw, decimals);
   const paymentTokenPillClass =
     "inline-flex items-center rounded-full border border-base-300 bg-base-100 px-2 py-0.5 text-[11px] font-semibold text-base-content/75";
@@ -228,8 +281,8 @@ export function AcquirePositionModal({
       return Number((primaryContributionRaw * 100n) / maxContributionRaw);
     }
     if (maxTokens === 0n) return 0;
-    return Number((BigInt(inputAmount) * 100n) / maxTokens);
-  }, [inputAmount, isPrimaryPurchase, maxContributionRaw, maxTokens, primaryContributionRaw]);
+    return Number((secondaryInputAmount * 100n) / maxTokens);
+  }, [inputAmount, isPrimaryPurchase, maxContributionRaw, maxTokens, primaryContributionRaw, secondaryInputAmount]);
 
   const handleBuy = async () => {
     if (!inputAmount || purchaseAmount === 0n) return;
