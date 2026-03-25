@@ -146,6 +146,46 @@ contract EarningsManager is
         return EarningsLib.sumRealizedEarnings(_assetEarnings[assetId], fromPeriodExclusive, toPeriodInclusive);
     }
 
+    function previewDistributeEarnings(address partner, uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
+        external
+        view
+        returns (uint256 investorAmount, uint256 protocolFee, uint256 netEarnings, uint256 collateralReleased)
+    {
+        _requireAssetExists(assetId);
+        _requireAuthorizedAssetOwner(partner, assetId);
+
+        if (totalRevenue == 0) {
+            return (0, 0, 0, 0);
+        }
+
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        if (status != AssetLib.AssetStatus.Earning) {
+            return (0, 0, 0, 0);
+        }
+
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+        uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+        uint256 partnerTokenBalance = roboshareTokens.balanceOf(partner, revenueTokenId);
+        if (partnerTokenBalance >= tokenTotalSupply) {
+            return (0, 0, 0, 0);
+        }
+
+        uint256 investorSupply;
+        unchecked {
+            investorSupply = tokenTotalSupply - partnerTokenBalance;
+        }
+
+        (investorAmount, protocolFee, netEarnings) =
+            _getDistributionAmounts(revenueTokenId, investorSupply, totalRevenue);
+        if (investorAmount < ProtocolLib.MIN_PROTOCOL_FEE) {
+            return (investorAmount, 0, 0, 0);
+        }
+
+        if (tryAutoRelease) {
+            collateralReleased = treasury.previewCollateralRelease(assetId, netEarnings);
+        }
+    }
+
     function initializeLastEventTimestampIfUnset(uint256 assetId) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
         EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
         if (earningsInfo.lastEventTimestamp == 0) {
@@ -182,32 +222,68 @@ contract EarningsManager is
             revert ITreasury.AssetNotActive(assetId, status);
         }
 
-        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 partnerTokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
-        if (partnerTokenBalance >= tokenTotalSupply) {
-            revert ITreasury.NoInvestors();
-        }
-
         uint256 investorSupply;
-        unchecked {
-            investorSupply = tokenTotalSupply - partnerTokenBalance;
-        }
+        uint256 investorAmount;
+        uint256 protocolFee;
+        uint256 netEarnings;
+        {
+            uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
+            uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
+            uint256 partnerTokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
+            if (partnerTokenBalance >= tokenTotalSupply) {
+                revert ITreasury.NoInvestors();
+            }
 
-        uint256 cap = (totalRevenue * roboshareTokens.getRevenueShareBP(revenueTokenId)) / ProtocolLib.BP_PRECISION;
-        uint256 investorAmount =
-            (totalRevenue * investorSupply) / roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId);
-        investorAmount = investorAmount > cap ? cap : investorAmount;
+            unchecked {
+                investorSupply = tokenTotalSupply - partnerTokenBalance;
+            }
+
+            (investorAmount, protocolFee, netEarnings) =
+                _getDistributionAmounts(revenueTokenId, investorSupply, totalRevenue);
+        }
 
         if (investorAmount < ProtocolLib.MIN_PROTOCOL_FEE) {
             revert ITreasury.EarningsLessThanMinimumFee();
         }
 
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(investorAmount);
-        uint256 netEarnings = investorAmount - protocolFee;
-
         usdc.safeTransferFrom(msg.sender, address(treasury), investorAmount);
+        _recordDistribution(assetId, totalRevenue, netEarnings, investorSupply);
 
+        collateralReleased = treasury.processEarningsDistributionEffects(
+            msg.sender, assetId, investorAmount, protocolFee, tryAutoRelease
+        );
+    }
+
+    function _getDistributionAmounts(uint256 revenueTokenId, uint256 investorSupply, uint256 totalRevenue)
+        internal
+        view
+        returns (uint256 investorAmount, uint256 protocolFee, uint256 netEarnings)
+    {
+        investorAmount = _calculateInvestorAmount(revenueTokenId, investorSupply, totalRevenue);
+        if (investorAmount < ProtocolLib.MIN_PROTOCOL_FEE) {
+            return (investorAmount, 0, 0);
+        }
+
+        protocolFee = ProtocolLib.calculateProtocolFee(investorAmount);
+        netEarnings = investorAmount - protocolFee;
+    }
+
+    function _calculateInvestorAmount(uint256 revenueTokenId, uint256 investorSupply, uint256 totalRevenue)
+        internal
+        view
+        returns (uint256 investorAmount)
+    {
+        uint256 cap =
+            (totalRevenue * roboshareTokens.getRevenueShareBP(revenueTokenId)) / ProtocolLib.BP_PRECISION;
+        investorAmount = (totalRevenue * investorSupply) / roboshareTokens.getRevenueTokenMaxSupply(revenueTokenId);
+        if (investorAmount > cap) {
+            investorAmount = cap;
+        }
+    }
+
+    function _recordDistribution(uint256 assetId, uint256 totalRevenue, uint256 netEarnings, uint256 investorSupply)
+        internal
+    {
         EarningsLib.EarningsInfo storage earningsInfo = _assetEarnings[assetId];
         if (!earningsInfo.isInitialized) {
             EarningsLib.initializeEarningsInfo(earningsInfo);
@@ -221,16 +297,13 @@ contract EarningsManager is
             earningsInfo.currentPeriod++;
         }
 
-        earningsInfo.periods[earningsInfo.currentPeriod] = EarningsLib.EarningsPeriod({
+        uint256 currentPeriod = earningsInfo.currentPeriod;
+        earningsInfo.periods[currentPeriod] = EarningsLib.EarningsPeriod({
             earningsPerToken: earningsPerToken, timestamp: block.timestamp, totalEarnings: netEarnings
         });
         earningsInfo.lastEventTimestamp = block.timestamp;
 
-        emit EarningsDistributed(assetId, msg.sender, totalRevenue, netEarnings, earningsInfo.currentPeriod);
-
-        collateralReleased = treasury.processEarningsDistributionEffects(
-            msg.sender, assetId, investorAmount, protocolFee, tryAutoRelease
-        );
+        emit EarningsDistributed(assetId, msg.sender, totalRevenue, netEarnings, currentPeriod);
     }
 
     function claimEarnings(uint256 assetId) external nonReentrant {

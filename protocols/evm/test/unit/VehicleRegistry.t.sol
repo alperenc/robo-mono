@@ -9,6 +9,10 @@ import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
 import { VehicleRegistry } from "../../contracts/VehicleRegistry.sol";
 
 contract VehicleRegistryTest is VehicleRegistryBaseTest {
+    function _setupBuffersFunded() internal override { }
+
+    function _setupEarningsDistributed(uint256) internal override { }
+
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
     }

@@ -197,9 +197,6 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         // 2. Grant MINTER_ROLE to MockRegistry on RoboshareTokens
         roboshareTokens.grantRole(roboshareTokens.MINTER_ROLE(), address(mockRegistry));
 
-        // 3. Grant AUTHORIZED_CONTRACT_ROLE to MockRegistry on Treasury
-        treasury.grantRole(treasury.AUTHORIZED_CONTRACT_ROLE(), address(mockRegistry));
-
         vm.stopPrank();
     }
 
@@ -634,7 +631,7 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
 
     function testPreviewLiquidationEligibility() public {
         _ensureState(SetupState.PrimaryPoolCreated);
-        _creditBaseLiquidity(ASSET_VALUE);
+        _purchasePrimaryForBaseAmount(buyer, scenario.revenueTokenId, ASSET_VALUE);
 
         (bool eligible, uint8 reason) = router.previewLiquidationEligibility(scenario.assetId);
         assertFalse(eligible);

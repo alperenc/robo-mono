@@ -50,7 +50,7 @@ contract VehicleRegistryIntegrationHelper is Test {
         market.buyFromPrimaryPool(revenueTokenId, purchaseAmount);
         vm.stopPrank();
 
-        (, uint256 baseAmount,,,,,,,,,,,) = treasuryContract.assetCollateral(assetId);
+        (, uint256 baseAmount,,,,,,,,,) = treasuryContract.assetCollateral(assetId);
         uint256 yieldBP = tokens.getTargetYieldBP(revenueTokenId);
         (, uint256 earningsBuffer, uint256 protocolBuffer,) =
             CollateralLib.calculateCollateralRequirements(baseAmount, ProtocolLib.QUARTERLY_INTERVAL, yieldBP);
@@ -70,16 +70,16 @@ contract VehicleRegistryIntegrationHelper is Test {
         uint256 revenueTokenId
     ) external view returns (uint256) {
         (
-            uint256 initialBaseCollateral,
+            uint256 unredeemedBasePrincipal,
             uint256 baseCollateral,
-            uint256 earningsBuffer,,,,,,
-            uint256 reservedForLiquidation,,,,
+            uint256 earningsBuffer,,,,,
+            uint256 reservedForLiquidation,,,
         ) = treasuryContract.assetCollateral(assetId);
 
         (,,,, uint256 lastEventTimestamp,,,,) = earningsManagerContract.assetEarnings(assetId);
         uint256 elapsed = block.timestamp - lastEventTimestamp;
         uint256 targetYieldBP = tokens.getTargetYieldBP(revenueTokenId);
-        uint256 baseEarnings = EarningsLib.calculateEarnings(initialBaseCollateral, elapsed, targetYieldBP);
+        uint256 baseEarnings = EarningsLib.calculateEarnings(unredeemedBasePrincipal, elapsed, targetYieldBP);
         uint256 reservedIncrease = baseEarnings < earningsBuffer ? baseEarnings : earningsBuffer;
         return baseCollateral + reservedForLiquidation + reservedIncrease;
     }
@@ -113,7 +113,11 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         super._setupEarningsDistributed(totalEarningsAmount);
     }
 
-    function _setupProtectedPoolWithPurchaseAndBuffers() internal returns (uint256 assetId, uint256 revenueTokenId) {
+    function _setupProtectedPoolWithPurchaseAndBuffers()
+        internal
+        override(TreasuryFlowBaseTest)
+        returns (uint256 assetId, uint256 revenueTokenId)
+    {
         string memory vin = _generateVin(999);
         return helper.setupProtectedPoolWithPurchaseAndBuffers(
             assetRegistry,
@@ -540,7 +544,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         // Verify initial state (seller still holds listed tokens under lock-based listings)
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), SECONDARY_LISTING_AMOUNT);
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
-        uint256 expectedCollateral = info.totalCollateral;
+        uint256 expectedCollateral = _getCollateralTotal(info);
         _assertCollateralState(scenario.assetId, info.baseCollateral, expectedCollateral, true);
 
         // Acquire all tokens from buyers to allow retirement
@@ -576,7 +580,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), totalSupply);
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
-        uint256 expectedCollateral = info.totalCollateral;
+        uint256 expectedCollateral = _getCollateralTotal(info);
         _assertCollateralState(scenario.assetId, info.baseCollateral, expectedCollateral, false);
 
         vm.startPrank(partner1);
@@ -822,7 +826,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         CollateralLib.CollateralInfo memory infoBefore = _getCollateralInfo(assetId);
         uint256 targetYieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
         uint256 elapsedToDeplete = (infoBefore.earningsBuffer * ProtocolLib.YEARLY_INTERVAL * ProtocolLib.BP_PRECISION)
-            / (infoBefore.initialBaseCollateral * targetYieldBP);
+            / (infoBefore.unredeemedBasePrincipal * targetYieldBP);
         uint256 warpTo = lastEventTimestamp + elapsedToDeplete + 1;
         require(warpTo < maturityDate, "Test assumes delinquency before maturity");
         vm.warp(warpTo);

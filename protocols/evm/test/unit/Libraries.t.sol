@@ -124,14 +124,19 @@ contract CollateralTokenEarningsHelper {
         view
         returns (uint256 baseCollateral, uint256 earningsBuffer, uint256 protocolBuffer, uint256 totalCollateral)
     {
-        return (c.baseCollateral, c.earningsBuffer, c.protocolBuffer, c.totalCollateral);
+        return (
+            c.baseCollateral,
+            c.earningsBuffer,
+            c.protocolBuffer,
+            CollateralLib.getTotalCollateral(c.baseCollateral, c.earningsBuffer, c.protocolBuffer)
+        );
     }
 
     function collateralDebugView()
         external
         view
         returns (
-            uint256 initialBaseCollateral,
+            uint256 unredeemedBasePrincipal,
             uint256 baseCollateral,
             uint256 earningsBuffer,
             uint256 protocolBuffer,
@@ -140,55 +145,49 @@ contract CollateralTokenEarningsHelper {
             uint256 lockedAt,
             uint256 lastEventTimestamp,
             uint256 reservedForLiquidation,
-            uint256 liquidationThreshold,
             uint256 createdAt,
-            uint256 coveredBaseCollateral,
-            uint256 outstandingImmediateProceedsBase
+            uint256 releasedProtectedBase,
+            uint256 releasedBaseCollateral
         )
     {
         return (
-            c.initialBaseCollateral,
+            c.unredeemedBasePrincipal,
             c.baseCollateral,
             c.earningsBuffer,
             c.protocolBuffer,
-            c.totalCollateral,
+            CollateralLib.getTotalCollateral(c.baseCollateral, c.earningsBuffer, c.protocolBuffer),
             c.isLocked,
             c.lockedAt,
             c.lastEventTimestamp,
             c.reservedForLiquidation,
-            c.liquidationThreshold,
             c.createdAt,
-            c.coveredBaseCollateral,
-            c.outstandingImmediateProceedsBase
+            c.releasedProtectedBase,
+            c.releasedBaseCollateral
         );
     }
 
     function setCollateralRaw(
-        uint256 initialBaseCollateral,
+        uint256 unredeemedBasePrincipal,
         uint256 baseCollateral,
         uint256 earningsBuffer,
         uint256 protocolBuffer,
-        uint256 totalCollateral,
         bool isLocked,
         uint256 lockedAt,
         uint256 lastEventTimestamp,
         uint256 reservedForLiquidation,
-        uint256 liquidationThreshold,
         uint256 createdAt,
-        uint256 coveredBaseCollateral
+        uint256 releasedBaseCollateral
     ) external {
-        c.initialBaseCollateral = initialBaseCollateral;
+        c.unredeemedBasePrincipal = unredeemedBasePrincipal;
         c.baseCollateral = baseCollateral;
         c.earningsBuffer = earningsBuffer;
         c.protocolBuffer = protocolBuffer;
-        c.totalCollateral = totalCollateral;
         c.isLocked = isLocked;
         c.lockedAt = lockedAt;
         c.lastEventTimestamp = lastEventTimestamp;
         c.reservedForLiquidation = reservedForLiquidation;
-        c.liquidationThreshold = liquidationThreshold;
         c.createdAt = createdAt;
-        c.coveredBaseCollateral = coveredBaseCollateral;
+        c.releasedBaseCollateral = releasedBaseCollateral;
     }
 
     function isCollateralInitialized() external view returns (bool) {
@@ -228,7 +227,13 @@ contract CollateralTokenEarningsHelper {
     {
         CollateralLib.CollateralInfo memory info = c;
         (earningsResult, replenished) = CollateralLib.processEarningsForBuffersInMemory(info, net, base);
-        return (earningsResult, replenished, info.earningsBuffer, info.reservedForLiquidation, info.totalCollateral);
+        return (
+            earningsResult,
+            replenished,
+            info.earningsBuffer,
+            info.reservedForLiquidation,
+            CollateralLib.getTotalCollateral(info.baseCollateral, info.earningsBuffer, info.protocolBuffer)
+        );
     }
 
     function salesPenalty(address holder, uint256 amt) external view returns (uint256) {
@@ -299,7 +304,8 @@ contract CollateralTokenEarningsHelper {
         uint256 currentPeriod,
         uint256 lastProcessedPeriod,
         uint256 realizedEarnings,
-        uint256 benchmarkEarnings
+        uint256 benchmarkEarnings,
+        uint256 coveredBaseCollateral
     )
         external
         view
@@ -318,7 +324,8 @@ contract CollateralTokenEarningsHelper {
             currentPeriod,
             lastProcessedPeriod,
             realizedEarnings,
-            benchmarkEarnings
+            benchmarkEarnings,
+            coveredBaseCollateral
         );
         return
             (uint8(calc.status), calc.newLastProcessedPeriod, calc.grossRelease, calc.protocolFee, calc.partnerRelease);
@@ -343,7 +350,7 @@ contract CollateralTokenEarningsHelper {
         return (
             updated.earningsBuffer,
             updated.protocolBuffer,
-            updated.totalCollateral,
+            CollateralLib.getTotalCollateral(updated.baseCollateral, updated.earningsBuffer, updated.protocolBuffer),
             updated.reservedForLiquidation,
             shortfall,
             replenishment,
@@ -539,11 +546,11 @@ contract LibrariesTest is Test {
     function testCollateralShortfallCoveredByExistingBuffer() public {
         cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
 
-        (,, uint256 startingBuffer,,,,,, uint256 startingReserved,,,,) = cteh.collateralDebugView();
+        (,, uint256 startingBuffer,,,,,, uint256 startingReserved,,,) = cteh.collateralDebugView();
         uint256 shortfallAmount = startingBuffer / 2;
 
         (int256 result, uint256 replenished) = cteh.process(0, shortfallAmount);
-        (,, uint256 endingBuffer,,,,,, uint256 endingReserved,,,,) = cteh.collateralDebugView();
+        (,, uint256 endingBuffer,,,,,, uint256 endingReserved,,,) = cteh.collateralDebugView();
 
         // Casting to int256 is safe because shortfallAmount is derived from the current uint256 buffer.
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -556,7 +563,7 @@ contract LibrariesTest is Test {
     function testApplyRealizedVsBenchmarkDefaultWrapperShortfall() public {
         cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
 
-        (, uint256 baseCollateral, uint256 startingBuffer, uint256 protocolBuffer,,,,,,,,,) = cteh.collateralDebugView();
+        (, uint256 baseCollateral, uint256 startingBuffer, uint256 protocolBuffer,,,,,,,,) = cteh.collateralDebugView();
         uint256 shortfallAmount = startingBuffer / 2;
 
         (
@@ -579,12 +586,12 @@ contract LibrariesTest is Test {
     function testApplyRealizedVsBenchmarkInStorageDefaultWrapperShortfall() public {
         cteh.initCollateral(100000e6, ProtocolLib.QUARTERLY_INTERVAL);
 
-        (, uint256 baseCollateral, uint256 startingBuffer, uint256 protocolBuffer,,,,,,,,,) = cteh.collateralDebugView();
+        (, uint256 baseCollateral, uint256 startingBuffer, uint256 protocolBuffer,,,,,,,,) = cteh.collateralDebugView();
         uint256 shortfallAmount = startingBuffer / 2;
 
         (uint256 shortfall, uint256 replenishment, uint256 excess) =
             cteh.applyRealizedInStorageDefault(0, shortfallAmount);
-        (,, uint256 endingBuffer,, uint256 totalCollateral,,,, uint256 endingReserved,,,,) = cteh.collateralDebugView();
+        (,, uint256 endingBuffer,, uint256 totalCollateral,,,, uint256 endingReserved,,,) = cteh.collateralDebugView();
 
         assertEq(shortfall, shortfallAmount);
         assertEq(replenishment, 0);
@@ -595,12 +602,10 @@ contract LibrariesTest is Test {
     }
 
     function testCalculateReleasePreviewReturnsNoCollateralLocked() public {
-        cteh.setCollateralRaw(
-            100e6, 100e6, 10e6, 5e6, 115e6, false, block.timestamp, block.timestamp, 0, 0, block.timestamp, 0
-        );
+        cteh.setCollateralRaw(100e6, 100e6, 10e6, 5e6, false, block.timestamp, block.timestamp, 0, block.timestamp, 0);
 
         (uint8 status, uint256 newLastProcessedPeriod, uint256 grossRelease,,) =
-            cteh.previewRelease(false, false, 0, 0, 0, 0);
+            cteh.previewRelease(false, false, 0, 0, 0, 0, 0);
 
         assertEq(status, uint8(CollateralLib.ReleaseEligibility.NoCollateralLocked));
         assertEq(newLastProcessedPeriod, 0);
@@ -610,9 +615,7 @@ contract LibrariesTest is Test {
     function testCalculateReleasePreviewAssumeNewPeriodCapsToCoveredBaseWithoutEarnings() public {
         vm.warp(ProtocolLib.YEARLY_INTERVAL + 1 days);
         uint256 lockedAt = block.timestamp - ProtocolLib.YEARLY_INTERVAL;
-        cteh.setCollateralRaw(
-            100e6, 100e6, 10e6, 5e6, 115e6, true, lockedAt, block.timestamp, 0, 0, block.timestamp, 1e6
-        );
+        cteh.setCollateralRaw(100e6, 100e6, 10e6, 5e6, true, lockedAt, block.timestamp, 0, block.timestamp, 0);
 
         (
             uint8 status,
@@ -620,7 +623,7 @@ contract LibrariesTest is Test {
             uint256 grossRelease,
             uint256 protocolFee,
             uint256 partnerRelease
-        ) = cteh.previewRelease(true, false, 0, 0, 0, 0);
+        ) = cteh.previewRelease(true, false, 0, 0, 0, 0, 1e6);
 
         assertEq(status, uint8(CollateralLib.ReleaseEligibility.Eligible));
         assertEq(newLastProcessedPeriod, 1);
@@ -632,9 +635,7 @@ contract LibrariesTest is Test {
     function testCalculateReleasePreviewAssumeNewPeriodCapsToCoveredBaseWithoutNewPeriods() public {
         vm.warp(ProtocolLib.YEARLY_INTERVAL + 1 days);
         uint256 lockedAt = block.timestamp - ProtocolLib.YEARLY_INTERVAL;
-        cteh.setCollateralRaw(
-            100e6, 100e6, 10e6, 5e6, 115e6, true, lockedAt, block.timestamp, 0, 0, block.timestamp, 1e6
-        );
+        cteh.setCollateralRaw(100e6, 100e6, 10e6, 5e6, true, lockedAt, block.timestamp, 0, block.timestamp, 0);
 
         (
             uint8 status,
@@ -642,7 +643,7 @@ contract LibrariesTest is Test {
             uint256 grossRelease,
             uint256 protocolFee,
             uint256 partnerRelease
-        ) = cteh.previewRelease(true, true, 1, 1, 0, 0);
+        ) = cteh.previewRelease(true, true, 1, 1, 0, 0, 1e6);
 
         assertEq(status, uint8(CollateralLib.ReleaseEligibility.Eligible));
         assertEq(newLastProcessedPeriod, 2);

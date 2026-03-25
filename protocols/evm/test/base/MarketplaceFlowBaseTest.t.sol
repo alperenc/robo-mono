@@ -20,11 +20,9 @@ abstract contract MarketplaceFlowBaseTest is TreasuryFlowBaseTest {
     function _setupSecondaryListingScenario() internal returns (uint256 listingId) {
         _ensureState(SetupState.PrimaryPoolCreated);
 
-        (uint256 primaryCost,,) = marketplace.previewPrimaryPurchase(scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
+        _purchasePrimaryPoolTokens(partner1, scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
 
         vm.startPrank(partner1);
-        usdc.approve(address(marketplace), primaryCost);
-        marketplace.buyFromPrimaryPool(scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
         listingId = marketplace.createListing(
             scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true

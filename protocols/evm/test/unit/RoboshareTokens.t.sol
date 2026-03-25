@@ -13,6 +13,10 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
+    function _setupBuffersFunded() internal override { }
+
+    function _setupEarningsDistributed(uint256) internal override { }
+
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
         minter = admin; // Admin has minter role by default

@@ -12,42 +12,6 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         _ensureState(SetupState.InitialAccountsSetup);
     }
 
-    function _setupProtectedPoolWithPurchaseAndBuffers() internal returns (uint256 assetId, uint256 revenueTokenId) {
-        string memory vin = _generateVin(999);
-        vm.prank(partner1);
-        assetId = assetRegistry.registerAsset(
-            abi.encode(
-                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
-
-        uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
-        uint256 maturityDate = block.timestamp + 365 days;
-
-        vm.prank(partner1);
-        (revenueTokenId,) = assetRegistry.createRevenueTokenPool(
-            assetId, REVENUE_TOKEN_PRICE, maturityDate, 10_000, 1_000, supply, false, true
-        );
-
-        uint256 grossPrincipal = PRIMARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
-        uint256 protocolFee = ProtocolLib.calculateProtocolFee(grossPrincipal);
-
-        vm.startPrank(buyer);
-        usdc.approve(address(marketplace), grossPrincipal + protocolFee);
-        marketplace.buyFromPrimaryPool(revenueTokenId, PRIMARY_PURCHASE_AMOUNT);
-        vm.stopPrank();
-
-        uint256 baseAmount = _getCollateralInfo(assetId).baseCollateral;
-        uint256 yieldBP = roboshareTokens.getTargetYieldBP(revenueTokenId);
-        uint256 requiredCollateral = _getTotalBufferRequirement(baseAmount, yieldBP, true);
-
-        vm.prank(partner1);
-        usdc.approve(address(treasury), requiredCollateral);
-        vm.prank(partner1);
-        treasury.enableProceeds(assetId);
-    }
-
     function testDistributeEarnings() public {
         _ensureState(SetupState.BuffersFunded);
         uint256 earningsAmount = EARNINGS_AMOUNT;

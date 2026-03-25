@@ -16,6 +16,20 @@ contract PartnerManagerTest is BaseTest {
     event PartnerRevoked(address indexed partner);
     event PartnerNameUpdated(address indexed partner, string newName);
 
+    function _setupAssetRegistered() internal view override returns (uint256) {
+        return scenario.assetId;
+    }
+
+    function _setupPrimaryPoolCreated() internal view override returns (uint256) {
+        return scenario.revenueTokenId;
+    }
+
+    function _setupPurchasedFromPrimaryPool() internal override { }
+
+    function _setupBuffersFunded() internal override { }
+
+    function _setupEarningsDistributed(uint256) internal override { }
+
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.startPrank(admin);

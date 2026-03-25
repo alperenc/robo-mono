@@ -317,7 +317,7 @@ contract Marketplace is
 
         redemptionSupply = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
-        (, investorLiquidity,,,,,,,,,,,) = treasury.assetCollateral(assetId);
+        (, investorLiquidity,,,,,,,,,) = treasury.assetCollateral(assetId);
         if (amount > holderEligibleBalance || redemptionSupply == 0 || investorLiquidity == 0) {
             return (0, investorLiquidity, redemptionSupply, holderEligibleBalance);
         }
@@ -339,9 +339,9 @@ contract Marketplace is
         uint256 assetId = TokenLib.getAssetIdFromTokenId(tokenId);
         if (!isAssetMarketOperational(assetId)) revert AssetNotActive();
 
-        payout = treasury.processPrimaryRedemptionFor(msg.sender, assetId, amount, minPayout);
+        payout = treasury.processPrimaryRedemptionFor(msg.sender, tokenId, amount, minPayout);
 
-        (, uint256 investorLiquidityAfter,,,,,,,,,,,) = treasury.assetCollateral(assetId);
+        (, uint256 investorLiquidityAfter,,,,,,,,,) = treasury.assetCollateral(assetId);
         emit PrimaryPoolRedeemed(tokenId, msg.sender, amount, payout, investorLiquidityAfter);
     }
 
@@ -666,13 +666,7 @@ contract Marketplace is
         PrimaryPurchaseQuote memory quote
     ) internal {
         treasury.processPrimaryPoolPurchaseFor(
-            buyer,
-            tokenId,
-            amount,
-            pool.partner,
-            quote.grossPrincipal,
-            quote.protocolFee,
-            roboshareTokens.getRevenueTokenProtectionEnabled(tokenId)
+            buyer, tokenId, amount, pool.partner, quote.grossPrincipal, quote.protocolFee
         );
 
         emit PrimaryPoolPurchased(tokenId, buyer, amount, quote.totalCost, quote.protocolFee, 0);
@@ -730,7 +724,7 @@ contract Marketplace is
     function _routeProtocolFee(uint256 amount) internal {
         if (amount == 0) return;
         _transferUSDC(address(treasury), amount);
-        treasury.recordPendingWithdrawal(treasury.treasuryFeeRecipient(), amount);
+        treasury.recordPendingWithdrawalFor(treasury.treasuryFeeRecipient(), amount);
     }
 
     function _isAssetMarketOperational(uint256 assetId) internal view returns (bool) {

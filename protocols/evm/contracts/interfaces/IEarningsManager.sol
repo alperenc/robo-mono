@@ -44,6 +44,11 @@ interface IEarningsManager {
         external
         returns (uint256 collateralReleased);
 
+    function previewDistributeEarnings(address partner, uint256 assetId, uint256 totalRevenue, bool tryAutoRelease)
+        external
+        view
+        returns (uint256 investorAmount, uint256 protocolFee, uint256 netEarnings, uint256 collateralReleased);
+
     function claimEarnings(uint256 assetId) external;
 
     function previewClaimEarnings(uint256 assetId, address holder) external view returns (uint256);

@@ -6301,7 +6301,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "AUTHORIZED_CONTRACT_ROLE",
+          name: "AUTHORIZED_EARNINGS_MANAGER_ROLE",
           inputs: [],
           outputs: [
             {
@@ -6314,7 +6314,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "AUTHORIZED_EARNINGS_MANAGER_ROLE",
+          name: "AUTHORIZED_MARKETPLACE_ROLE",
           inputs: [],
           outputs: [
             {
@@ -6402,7 +6402,7 @@ const deployedContracts = {
           ],
           outputs: [
             {
-              name: "initialBaseCollateral",
+              name: "unredeemedBasePrincipal",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6418,11 +6418,6 @@ const deployedContracts = {
             },
             {
               name: "protocolBuffer",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "totalCollateral",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6447,22 +6442,17 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "liquidationThreshold",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
               name: "createdAt",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "coveredBaseCollateral",
+              name: "releasedProtectedBase",
               type: "uint256",
               internalType: "uint256",
             },
             {
-              name: "outstandingImmediateProceedsBase",
+              name: "releasedBaseCollateral",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6497,24 +6487,6 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "creditBaseLiquidity",
-          inputs: [
-            {
-              name: "assetId",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -6778,9 +6750,9 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "assumeNewPeriod",
-              type: "bool",
-              internalType: "bool",
+              name: "pendingNetEarnings",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           outputs: [
@@ -6904,7 +6876,7 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "grossPrincipal",
+              name: "principal",
               type: "uint256",
               internalType: "uint256",
             },
@@ -6912,11 +6884,6 @@ const deployedContracts = {
               name: "protocolFee",
               type: "uint256",
               internalType: "uint256",
-            },
-            {
-              name: "protectionEnabled",
-              type: "bool",
-              internalType: "bool",
             },
           ],
           outputs: [],
@@ -6932,7 +6899,7 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "assetId",
+              name: "tokenId",
               type: "uint256",
               internalType: "uint256",
             },
@@ -7007,7 +6974,7 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "recordPendingWithdrawal",
+          name: "recordPendingWithdrawalFor",
           inputs: [
             {
               name: "recipient",
@@ -7137,6 +7104,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "setEarningsManager",
+          inputs: [
+            {
+              name: "_earningsManager",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "supportsInterface",
           inputs: [
             {
@@ -7192,19 +7172,6 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "updateEarningsManager",
-          inputs: [
-            {
-              name: "_earningsManager",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -7922,6 +7889,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "EarningsManagerNotSet",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "FailedCall",
           inputs: [],
         },
@@ -8009,6 +7981,11 @@ const deployedContracts = {
         {
           type: "error",
           name: "NoPriorEarningsDistribution",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoRedeemablePrimarySupply",
           inputs: [],
         },
         {
@@ -8465,6 +8442,55 @@ const deployedContracts = {
           outputs: [
             {
               name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "previewDistributeEarnings",
+          inputs: [
+            {
+              name: "partner",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "assetId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "totalRevenue",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "tryAutoRelease",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          outputs: [
+            {
+              name: "investorAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "protocolFee",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "netEarnings",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "collateralReleased",
               type: "uint256",
               internalType: "uint256",
             },
