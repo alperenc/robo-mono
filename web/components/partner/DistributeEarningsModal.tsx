@@ -87,19 +87,19 @@ export const DistributeEarningsModal = ({
   const { data: previewRelease } = useScaffoldReadContract({
     contractName: "Treasury",
     functionName: "previewCollateralRelease",
-    args: [BigInt(assetId), true],
+    args: [BigInt(assetId), supportsAutoRelease && autoRelease ? 1n : 0n],
     query: { enabled: supportsAutoRelease && autoRelease },
   });
 
   // Calculate token ownership breakdown (independent of revenue)
   const tokenOwnership = useMemo(() => {
-    const currentCirculatingSupply = (circulatingSupply as bigint | undefined) ?? 0n;
+    const currentCirculatingSupply = typeof circulatingSupply === "bigint" ? circulatingSupply : 0n;
 
     if (currentCirculatingSupply === 0n || maxSupply === 0n) {
       return null;
     }
 
-    const partnerTokens = (partnerBalance as bigint | undefined) ?? 0n;
+    const partnerTokens = typeof partnerBalance === "bigint" ? partnerBalance : 0n;
     const investorTokens = currentCirculatingSupply > partnerTokens ? currentCirculatingSupply - partnerTokens : 0n;
     const investorPercentage = Number((investorTokens * 10000n) / maxSupply) / 100;
     const partnerPercentage = Number((partnerTokens * 10000n) / maxSupply) / 100;
