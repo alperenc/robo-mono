@@ -185,10 +185,7 @@ export const DistributeEarningsModal = ({
 
   const hasExternalHolders = tokenOwnership && tokenOwnership.investorTokens > 0n;
   const isEligibleDistribution =
-    !!revenueBreakdown &&
-    revenueBreakdown.investorPortion > 0n &&
-    revenueBreakdown.protocolFee > 0n &&
-    revenueBreakdown.netToInvestors > 0n;
+    !!revenueBreakdown && revenueBreakdown.investorPortion > 0n && !revenueBreakdown.belowMinimumFee;
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
