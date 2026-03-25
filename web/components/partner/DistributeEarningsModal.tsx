@@ -10,10 +10,6 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { getDeployedContract } from "~~/utils/contracts";
 import { formatTokenAmount } from "~~/utils/formatters";
 
-const BP_PRECISION = 10000n;
-const PROTOCOL_FEE_BP = 250n;
-const MIN_PROTOCOL_FEE = 1_000_000n;
-
 interface DistributeEarningsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,19 +73,17 @@ export const DistributeEarningsModal = ({
     watch: true,
   });
 
-  const { data: revenueShareBP } = useScaffoldReadContract({
-    contractName: "RoboshareTokens",
-    functionName: "getRevenueShareBP",
-    args: [revenueTokenId],
-    watch: true,
-  });
+  const parsedTotalRevenue = useMemo(() => {
+    if (!totalRevenue) {
+      return null;
+    }
 
-  const { data: previewRelease } = useScaffoldReadContract({
-    contractName: "Treasury",
-    functionName: "previewCollateralRelease",
-    args: [BigInt(assetId), supportsAutoRelease && autoRelease ? 1n : 0n],
-    query: { enabled: supportsAutoRelease && autoRelease },
-  });
+    try {
+      return parseUnits(totalRevenue, decimals);
+    } catch {
+      return null;
+    }
+  }, [decimals, totalRevenue]);
 
   // Calculate token ownership breakdown (independent of revenue)
   const tokenOwnership = useMemo(() => {
@@ -116,39 +110,42 @@ export const DistributeEarningsModal = ({
     };
   }, [circulatingSupply, maxSupply, partnerBalance]);
 
+  const { data: previewDistribution } = useScaffoldReadContract({
+    contractName: "EarningsManager",
+    functionName: "previewDistributeEarnings",
+    args: [connectedAddress, BigInt(assetId), parsedTotalRevenue ?? 0n, supportsAutoRelease && autoRelease],
+    watch: true,
+    query: { enabled: !!connectedAddress && parsedTotalRevenue !== null && parsedTotalRevenue > 0n },
+  });
+
   // Calculate revenue distribution breakdown (only when revenue is entered)
   const revenueBreakdown = useMemo(() => {
-    if (!tokenOwnership || !totalRevenue) {
+    if (!tokenOwnership || parsedTotalRevenue === null) {
       return null;
     }
 
-    // Parse total revenue
-    const totalRevenueWei = parseUnits(totalRevenue || "0", decimals);
-
-    // Calculate investor portion (what partner should distribute)
-    const revenueShareCap = (totalRevenueWei * (revenueShareBP ?? BP_PRECISION)) / BP_PRECISION;
-    const soldShare = (totalRevenueWei * tokenOwnership.investorTokens) / tokenOwnership.maxSupply;
-    const investorPortion = revenueShareCap < soldShare ? revenueShareCap : soldShare;
-    const partnerPortion = totalRevenueWei - investorPortion;
-
-    // Calculate protocol fee with minimum enforcement
-    const calculatedFee = (investorPortion * PROTOCOL_FEE_BP) / BP_PRECISION;
-    const protocolFee = calculatedFee > MIN_PROTOCOL_FEE ? calculatedFee : MIN_PROTOCOL_FEE;
-    const netToInvestors = investorPortion - protocolFee;
+    const previewTuple = previewDistribution as readonly [bigint, bigint, bigint, bigint] | undefined;
+    const investorPortion = previewTuple?.[0] ?? 0n;
+    const protocolFee = previewTuple?.[1] ?? 0n;
+    const netToInvestors = previewTuple?.[2] ?? 0n;
+    const collateralReleased = previewTuple?.[3] ?? 0n;
+    const partnerPortion = parsedTotalRevenue > investorPortion ? parsedTotalRevenue - investorPortion : 0n;
 
     return {
-      totalRevenue: totalRevenueWei,
+      totalRevenue: parsedTotalRevenue,
       investorPortion,
       partnerPortion,
       protocolFee,
       netToInvestors,
+      collateralReleased,
+      belowMinimumFee: investorPortion > 0n && protocolFee === 0n && netToInvestors === 0n,
     };
-  }, [tokenOwnership, totalRevenue, revenueShareBP, decimals]);
+  }, [parsedTotalRevenue, previewDistribution, tokenOwnership]);
 
   const estimatedRelease = useMemo(() => {
     if (!autoRelease) return 0n;
-    return (previewRelease as bigint | undefined) ?? 0n;
-  }, [autoRelease, previewRelease]);
+    return revenueBreakdown?.collateralReleased ?? 0n;
+  }, [autoRelease, revenueBreakdown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,6 +184,11 @@ export const DistributeEarningsModal = ({
   if (!isOpen) return null;
 
   const hasExternalHolders = tokenOwnership && tokenOwnership.investorTokens > 0n;
+  const isEligibleDistribution =
+    !!revenueBreakdown &&
+    revenueBreakdown.investorPortion > 0n &&
+    revenueBreakdown.protocolFee > 0n &&
+    revenueBreakdown.netToInvestors > 0n;
   return (
     <div className="modal modal-open">
       <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
@@ -321,6 +323,16 @@ export const DistributeEarningsModal = ({
                 </div>
               )}
 
+              {revenueBreakdown?.belowMinimumFee && (
+                <div className="bg-warning/10 p-3 rounded-lg text-xs">
+                  <p className="text-warning font-bold">Distribution amount too small</p>
+                  <p className="opacity-80 mt-1">
+                    The investor portion is below the minimum 1 {symbol} protocol fee. Increase the payout amount to
+                    submit this distribution.
+                  </p>
+                </div>
+              )}
+
               {/* Auto-release Proceeds Toggle (gradual release only) */}
               {supportsAutoRelease && revenueBreakdown && hasExternalHolders && totalRevenue && (
                 <div className="form-control w-full">
@@ -365,7 +377,7 @@ export const DistributeEarningsModal = ({
               <button
                 type="submit"
                 className="btn btn-success"
-                disabled={isSubmitting || !totalRevenue || !hasExternalHolders}
+                disabled={isSubmitting || !totalRevenue || !hasExternalHolders || !isEligibleDistribution}
               >
                 {isSubmitting ? (
                   <>

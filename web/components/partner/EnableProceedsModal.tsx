@@ -53,25 +53,23 @@ export const EnableProceedsModal = ({
     const currentCollateral = collateralInfo as
       | {
           baseCollateral?: bigint;
-          outstandingImmediateProceedsBase?: bigint;
+          releasedProtectedBase?: bigint;
         }
       | readonly unknown[]
       | undefined;
     const currentCollateralObject =
       currentCollateral && !Array.isArray(currentCollateral)
-        ? (currentCollateral as { baseCollateral?: bigint; outstandingImmediateProceedsBase?: bigint })
+        ? (currentCollateral as { baseCollateral?: bigint; releasedProtectedBase?: bigint })
         : undefined;
     const currentCollateralArray = Array.isArray(currentCollateral)
       ? (currentCollateral as readonly unknown[])
       : undefined;
     const currentBaseLiquidity =
       currentCollateralObject?.baseCollateral ?? (currentCollateralArray?.[1] as bigint | undefined) ?? 0n;
-    const outstandingImmediateProceedsBase =
-      currentCollateralObject?.outstandingImmediateProceedsBase ??
-      (currentCollateralArray?.[12] as bigint | undefined) ??
-      0n;
+    const releasedProtectedBase =
+      currentCollateralObject?.releasedProtectedBase ?? (currentCollateralArray?.[9] as bigint | undefined) ?? 0n;
 
-    return immediateProceeds ? currentBaseLiquidity + outstandingImmediateProceedsBase : currentBaseLiquidity;
+    return immediateProceeds ? currentBaseLiquidity + releasedProtectedBase : currentBaseLiquidity;
   }, [collateralInfo, immediateProceeds]);
 
   const { data: bufferPreview } = useScaffoldReadContract({
@@ -95,7 +93,7 @@ export const EnableProceedsModal = ({
           baseCollateral?: bigint;
           earningsBuffer?: bigint;
           protocolBuffer?: bigint;
-          outstandingImmediateProceedsBase?: bigint;
+          releasedProtectedBase?: bigint;
         }
       | readonly unknown[]
       | undefined;
@@ -105,7 +103,7 @@ export const EnableProceedsModal = ({
             baseCollateral?: bigint;
             earningsBuffer?: bigint;
             protocolBuffer?: bigint;
-            outstandingImmediateProceedsBase?: bigint;
+            releasedProtectedBase?: bigint;
           })
         : undefined;
     const currentCollateralArray = Array.isArray(currentCollateral)
