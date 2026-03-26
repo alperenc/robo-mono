@@ -81,7 +81,7 @@
   },
   {
     "file": "contracts/Treasury.sol",
-    "line": 288,
+    "line": 296,
     "classification": "via_ir_artifact",
     "reason": "Invalid collateral amount via enableProceeds(assetId) is exercised in tests, but the defensive duplicate check inside _fundCurrentBuffersFor is not mapped reliably under --ir-minimum."
   },

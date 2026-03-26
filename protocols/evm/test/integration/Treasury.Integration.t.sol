@@ -467,6 +467,68 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         assertEq(pendingAfter - pendingBefore, initialEarningsPreview);
     }
 
+    function testProcessPrimaryRedemptionRebasesReleasedCollateralForFutureUnlocks() public {
+        _ensureState(SetupState.BuffersFunded);
+
+        CollateralLib.CollateralInfo memory infoInitial = _getCollateralInfo(scenario.assetId);
+        assertTrue(infoInitial.isLocked);
+
+        vm.warp(infoInitial.lockedAt + 182 days);
+        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+
+        vm.prank(partner1);
+        treasury.releasePartialCollateral(scenario.assetId);
+
+        CollateralLib.CollateralInfo memory infoAfterFirstRelease = _getCollateralInfo(scenario.assetId);
+        assertGt(infoAfterFirstRelease.releasedBaseCollateral, 0);
+
+        uint256 burnAmount = PRIMARY_PURCHASE_AMOUNT / 2;
+        (uint256 redemptionPreview,,,) =
+            marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
+        assertGt(redemptionPreview, 0);
+
+        vm.prank(address(marketplace));
+        treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, burnAmount, redemptionPreview);
+
+        CollateralLib.CollateralInfo memory infoAfterRedemption = _getCollateralInfo(scenario.assetId);
+        uint256 expectedReleasedBaseCollateral = infoAfterRedemption.unredeemedBasePrincipal
+            > infoAfterRedemption.baseCollateral + infoAfterRedemption.releasedProtectedBase
+            ? infoAfterRedemption.unredeemedBasePrincipal - infoAfterRedemption.baseCollateral
+                - infoAfterRedemption.releasedProtectedBase
+            : 0;
+
+        assertEq(
+            infoAfterRedemption.releasedBaseCollateral,
+            expectedReleasedBaseCollateral,
+            "Released base collateral should be rebased to the remaining outstanding principal"
+        );
+
+        vm.warp(infoInitial.lockedAt + 365 days);
+        _setupEarningsDistributed(LARGE_EARNINGS_AMOUNT);
+
+        uint256 expectedGrossRelease = CollateralLib.calculateDepreciation(
+            infoAfterRedemption.unredeemedBasePrincipal, block.timestamp - infoInitial.lockedAt
+        );
+        expectedGrossRelease = expectedGrossRelease > expectedReleasedBaseCollateral
+            ? expectedGrossRelease - expectedReleasedBaseCollateral
+            : 0;
+        if (expectedGrossRelease > infoAfterRedemption.baseCollateral) {
+            expectedGrossRelease = infoAfterRedemption.baseCollateral;
+        }
+
+        uint256 expectedProtocolFee = ProtocolLib.calculateProtocolFee(expectedGrossRelease);
+        if (expectedProtocolFee > expectedGrossRelease) {
+            expectedProtocolFee = expectedGrossRelease;
+        }
+        uint256 expectedPartnerRelease = expectedGrossRelease - expectedProtocolFee;
+
+        assertEq(
+            treasury.previewCollateralRelease(scenario.assetId, 0),
+            expectedPartnerRelease,
+            "Future release preview should stay anchored to the remaining tranche after redemption"
+        );
+    }
+
     function testPreviewPrimaryRedemptionPayout() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
