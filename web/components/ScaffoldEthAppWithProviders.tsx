@@ -11,7 +11,7 @@ import { Footer } from "~~/components/Footer";
 import { Header } from "~~/components/Header";
 import { BlockieAvatar } from "~~/components/scaffold-eth";
 import { useInitializeNativeCurrencyPrice } from "~~/hooks/scaffold-eth";
-import { wagmiConfig } from "~~/services/web3/wagmiConfig";
+import { getWagmiConfig } from "~~/services/web3/wagmiConfig";
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
   useInitializeNativeCurrencyPrice();
@@ -40,12 +40,14 @@ export const ScaffoldEthAppWithProviders = ({ children }: { children: React.Reac
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
   const [mounted, setMounted] = useState(false);
+  const [wagmiConfig, setWagmiConfig] = useState<ReturnType<typeof getWagmiConfig> | null>(null);
 
   useEffect(() => {
+    setWagmiConfig(getWagmiConfig());
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  if (!mounted || !wagmiConfig) {
     return null;
   }
 

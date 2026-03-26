@@ -174,6 +174,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         collateralInfo.lastEventTimestamp = block.timestamp;
     }
 
+    function _reconcileReleasedBaseCollateral(CollateralLib.CollateralInfo storage collateralInfo) internal {
+        uint256 remainingTrackedPrincipal = collateralInfo.baseCollateral + collateralInfo.releasedProtectedBase;
+        collateralInfo.releasedBaseCollateral = collateralInfo.unredeemedBasePrincipal > remainingTrackedPrincipal
+            ? collateralInfo.unredeemedBasePrincipal - remainingTrackedPrincipal
+            : 0;
+    }
+
     function _maybePromoteToEarning(uint256 assetId, uint256 tokenId) internal returns (bool hasSufficientBuffers) {
         hasSufficientBuffers = _hasSufficientBuffers(assetId, tokenId);
         if (router.getAssetStatus(assetId) == AssetLib.AssetStatus.Active && hasSufficientBuffers) {
@@ -240,6 +247,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         collateralInfo.unredeemedBasePrincipal = redeemedPrincipal >= collateralInfo.unredeemedBasePrincipal
             ? 0
             : collateralInfo.unredeemedBasePrincipal - redeemedPrincipal;
+        _reconcileReleasedBaseCollateral(collateralInfo);
         totalCollateralDeposited = totalCollateralDeposited >= payout ? totalCollateralDeposited - payout : 0;
         usdc.safeTransfer(holder, payout);
     }

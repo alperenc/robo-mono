@@ -20,13 +20,15 @@ export const getWagmiConfig = () => {
     return wagmiConfigSingleton;
   }
 
+  const connectors = typeof window === "undefined" ? [] : getWagmiConnectors();
+
   const runtimeEnabledChains = enabledChains.map(chain =>
     chain.id === foundry.id ? getRuntimeLocalChain() : chain,
   ) as [Chain, ...Chain[]];
 
   wagmiConfigSingleton = createConfig({
     chains: runtimeEnabledChains,
-    connectors: getWagmiConnectors(),
+    connectors,
     ssr: true,
     client({ chain }) {
       let rpcFallbacks = [http()];
@@ -57,5 +59,3 @@ export const getWagmiConfig = () => {
 
   return wagmiConfigSingleton;
 };
-
-export const wagmiConfig = getWagmiConfig();
