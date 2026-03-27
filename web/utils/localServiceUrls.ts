@@ -25,9 +25,17 @@ const buildWsUrl = (base: string | undefined, port: number, path = "") => {
   return `${normalized}:${port}${path}`;
 };
 
+const normalizePublicBaseHost = (value: string) => {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  if (/^https?:\/\//.test(trimmed)) return trimmed;
+  if (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed)) return `http://${trimmed}`;
+  return `https://${trimmed}`;
+};
+
 const normalizeIpfsGateway = (value: string | undefined) => {
   if (!value) return undefined;
-  const normalized = normalizeBaseHost(value);
+  const normalized = normalizePublicBaseHost(value);
   if (!normalized) return undefined;
   return normalized.endsWith("/ipfs") || normalized.endsWith("/ipfs/")
     ? `${normalized.replace(/\/+$/, "")}/`
