@@ -10,6 +10,7 @@ import { BoltIcon } from "@heroicons/react/24/outline";
 import { FaucetButton, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-eth";
 import { useIsAdmin } from "~~/hooks/useIsAdmin";
+import { usePaymentToken } from "~~/hooks/usePaymentToken";
 
 type HeaderMenuLink = {
   label: string;
@@ -83,6 +84,8 @@ export const HeaderMenuLinks = () => {
 export const Header = () => {
   const { targetNetwork } = useTargetNetwork();
   const isLocalNetwork = targetNetwork.id === hardhat.id;
+  const { address: paymentTokenAddress } = usePaymentToken();
+  const showFaucet = isLocalNetwork || !!paymentTokenAddress;
 
   const burgerMenuRef = useRef<HTMLDetailsElement>(null);
   useOutsideClick(burgerMenuRef, () => {
@@ -120,7 +123,7 @@ export const Header = () => {
       </div>
       <div className="navbar-end grow mr-4">
         <RainbowKitCustomConnectButton />
-        {isLocalNetwork && <FaucetButton />}
+        {showFaucet && <FaucetButton />}
       </div>
     </div>
   );
