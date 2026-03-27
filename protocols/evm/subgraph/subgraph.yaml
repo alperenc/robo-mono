@@ -6,10 +6,11 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: MockUSDC
-    network: localhost
+    network: {{network}}
     source:
       abi: MockUSDC
-      address: "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35"
+      address: "{{MockUSDC.address}}"
+      startBlock: {{MockUSDC.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -26,10 +27,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: RoboshareTokens
-    network: localhost
+    network: {{network}}
     source:
       abi: RoboshareTokens
-      address: "0xe1Aa25618fA0c7A1CFDab5d6B456af611873b629"
+      address: "{{RoboshareTokens.address}}"
+      startBlock: {{RoboshareTokens.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -51,10 +53,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: PartnerManager
-    network: localhost
+    network: {{network}}
     source:
       abi: PartnerManager
-      address: "0x0C8E79F3534B00D9a3D4a856B665Bf4eBC22f2ba"
+      address: "{{PartnerManager.address}}"
+      startBlock: {{PartnerManager.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -71,10 +74,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: RegistryRouter
-    network: localhost
+    network: {{network}}
     source:
       abi: RegistryRouter
-      address: "0xf7Cd8fa9b94DB2Aa972023b379c7f72c65E4De9D"
+      address: "{{RegistryRouter.address}}"
+      startBlock: {{RegistryRouter.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -93,10 +97,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: VehicleRegistry
-    network: localhost
+    network: {{network}}
     source:
       abi: VehicleRegistry
-      address: "0x82Dc47734901ee7d4f4232f398752cB9Dd5dACcC"
+      address: "{{VehicleRegistry.address}}"
+      startBlock: {{VehicleRegistry.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -116,10 +121,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Treasury
-    network: localhost
+    network: {{network}}
     source:
       abi: Treasury
-      address: "0x82C6D3ed4cD33d8EC1E51d0B5Cc1d822Eaa0c3dC"
+      address: "{{Treasury.address}}"
+      startBlock: {{Treasury.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -136,10 +142,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: EarningsManager
-    network: localhost
+    network: {{network}}
     source:
       abi: EarningsManager
-      address: "0x2a264F26859166C5BF3868A54593eE716AeBC848"
+      address: "{{EarningsManager.address}}"
+      startBlock: {{EarningsManager.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -157,10 +164,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Marketplace
-    network: localhost
+    network: {{network}}
     source:
       abi: Marketplace
-      address: "0xc6B8FBF96CF7bbE45576417EC2163AcecFA88ECC"
+      address: "{{Marketplace.address}}"
+      startBlock: {{Marketplace.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6

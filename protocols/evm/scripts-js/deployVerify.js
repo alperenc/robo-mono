@@ -8,8 +8,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: join(__dirname, "..", ".env") });
 
 const args = process.argv.slice(2);
-const { network, fileName, contractName, help } =
-  parseScriptSelectionArgs(args);
+const { network, fileName, contractName, help } = parseScriptSelectionArgs(
+  args,
+  {
+    extraValueFlags: ["--args", "--keystore"],
+  }
+);
 
 if (help) {
   console.log(`
@@ -32,7 +36,10 @@ Examples:
 const deployResult = spawnSync("node", ["scripts-js/parseArgs.js", ...args], {
   stdio: "inherit",
   shell: true,
-  env: process.env,
+  env: {
+    ...process.env,
+    ROBO_SCRIPT_COMMAND: "deploy",
+  },
 });
 
 if (deployResult.status !== 0) {

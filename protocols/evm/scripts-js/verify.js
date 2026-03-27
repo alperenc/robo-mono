@@ -29,5 +29,5 @@ Examples:
 
 runMakeTarget("verify", {
   RPC_URL: network,
-  VERIFY_TARGET_SCRIPT: `script/${fileName}`,
+  VERIFY_TARGET_SCRIPT: fileName,
 });

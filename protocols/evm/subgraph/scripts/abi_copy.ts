@@ -19,6 +19,7 @@ const parseAndCorrectJSON = (input: string): any => {
 type Contract = {
   address: string;
   abi: any[];
+  startBlock?: number;
 };
 
 const DEFAULT_CHAIN_ID = 31337;
@@ -29,6 +30,8 @@ const DEFAULT_NETWORKS_BY_CHAIN_ID: Record<number, string> = {
 const EXCLUDED_CONTRACTS = new Set(["ERC1967Proxy"]);
 
 const GRAPH_DIR = "./";
+const BROADCAST_FILE_BY_CHAIN_ID = (chainId: number) =>
+  `../broadcast/Deploy.s.sol/${chainId}/run-latest.json`;
 
 function publishContract(
   contractName: string,
@@ -55,6 +58,10 @@ function publishContract(
     }
     graphConfigObject[networkName][contractName].address =
       contractObject.address;
+    graphConfigObject[networkName][contractName].startBlock =
+      contractObject.startBlock ??
+      graphConfigObject[networkName][contractName].startBlock ??
+      0;
 
     fs.writeFileSync(
       graphConfigPath,
@@ -75,6 +82,55 @@ function publishContract(
 }
 
 const DEPLOYED_CONTRACTS_FILE = "../../../web/contracts/deployedContracts.ts";
+
+function loadStartBlocks(chainId: number): Record<string, number> {
+  const broadcastFile = BROADCAST_FILE_BY_CHAIN_ID(chainId);
+
+  if (!fs.existsSync(broadcastFile)) {
+    return {};
+  }
+
+  const broadcast = JSON.parse(fs.readFileSync(broadcastFile, "utf8")) as {
+    receipts?: Array<{ transactionHash?: string; blockNumber?: string }>;
+    transactions?: Array<{
+      hash?: string;
+      transactionType?: string;
+      contractAddress?: string;
+    }>;
+  };
+
+  const receiptBlockByHash = new Map<string, number>();
+  for (const receipt of broadcast.receipts ?? []) {
+    if (!receipt.transactionHash || !receipt.blockNumber) {
+      continue;
+    }
+
+    receiptBlockByHash.set(
+      receipt.transactionHash.toLowerCase(),
+      Number.parseInt(receipt.blockNumber, 16)
+    );
+  }
+
+  const startBlockByAddress: Record<string, number> = {};
+  for (const transaction of broadcast.transactions ?? []) {
+    if (
+      transaction.transactionType !== "CREATE" ||
+      !transaction.contractAddress ||
+      !transaction.hash
+    ) {
+      continue;
+    }
+
+    const blockNumber = receiptBlockByHash.get(transaction.hash.toLowerCase());
+    if (!blockNumber) {
+      continue;
+    }
+
+    startBlockByAddress[transaction.contractAddress.toLowerCase()] = blockNumber;
+  }
+
+  return startBlockByAddress;
+}
 
 function parseCliArgs() {
   const args = process.argv.slice(2);
@@ -119,6 +175,7 @@ function parseCliArgs() {
 
 async function main() {
   const { chainId, networkName } = parseCliArgs();
+  const startBlockByAddress = loadStartBlocks(chainId);
   const fileContent = fs.readFileSync(DEPLOYED_CONTRACTS_FILE, "utf8");
 
   const pattern = /const deployedContracts = ({[^;]+}) as const;/s;
@@ -156,7 +213,14 @@ async function main() {
       );
       continue;
     }
-    publishContract(contractName, contractObject, networkName);
+    publishContract(
+      contractName,
+      {
+        ...contractObject,
+        startBlock: startBlockByAddress[contractObject.address.toLowerCase()],
+      },
+      networkName
+    );
   }
 
   console.log(`✅  Published contracts for chain ${chainId} to the subgraph package as ${networkName}.`);

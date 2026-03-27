@@ -67,8 +67,9 @@ Build and publish flow:
 - [ ] Run `yarn subgraph:abi-copy`
 - [ ] Run `yarn subgraph:codegen`
 - [ ] Run `yarn subgraph:build`
-- [ ] Authenticate Graph CLI with `yarn graph auth --studio <DEPLOY_KEY>`
-- [ ] Deploy with `yarn subgraph:deploy`
+- [ ] Authenticate Graph CLI with `yarn subgraph:auth`
+- [ ] Create the target Studio subgraph first and set `GRAPH_SUBGRAPH_SLUG` to the exact Studio slug
+- [ ] Deploy with `yarn subgraph:deploy --network sepolia --version-label <label>`
 - [ ] Capture the resulting Studio endpoint
 - [ ] Wire the endpoint into the frontend's chain-aware configuration
 - [ ] Confirm the deployed endpoint reflects fresh writes from the contracts

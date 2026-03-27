@@ -62,7 +62,7 @@ contract DeployRegistryRouter is ScaffoldETHDeploy {
     function run() external pure returns (address) {
         revert(
             "RegistryRouter deployment requires dependency addresses. "
-            "Use: yarn deploy --contract RegistryRouter --network <network> --args <roboshareTokensAddress>"
+            "Use: yarn deploy --contract RegistryRouter --network <network> --args <roboshareTokensAddress>,<partnerManagerAddress>"
         );
     }
 }

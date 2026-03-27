@@ -32,7 +32,7 @@ contract VerifyAll is Script {
         // forge-lint: disable-next-line(unsafe-cheatcode)
         string memory content = vm.readFile(path);
 
-        while (this.nextTransaction(content)) {
+        while (vm.keyExistsJson(content, searchStr(currTransactionIdx, "hash"))) {
             _verifyIfContractDeployment(content);
             currTransactionIdx++;
         }
@@ -51,24 +51,29 @@ contract VerifyAll is Script {
             abi.decode(vm.parseJson(content, searchStr(currTransactionIdx, "contractName")), (string));
         address contractAddr =
             abi.decode(vm.parseJson(content, searchStr(currTransactionIdx, "contractAddress")), (address));
+        string memory compiledArtifact = _getCompiledArtifact(contractName);
         bytes memory deployedBytecode =
             abi.decode(vm.parseJson(content, searchStr(currTransactionIdx, "transaction.input")), (bytes));
-        bytes memory compiledBytecode =
-            abi.decode(vm.parseJson(_getCompiledBytecode(contractName), ".bytecode.object"), (bytes));
+        bytes memory compiledBytecode = abi.decode(vm.parseJson(compiledArtifact, ".bytecode.object"), (bytes));
         bytes memory constructorArgs = BytesLib.slice(
             deployedBytecode, compiledBytecode.length, deployedBytecode.length - compiledBytecode.length
         );
 
-        string[] memory inputs = new string[](9);
+        bool hasConstructorArgs = _hasBroadcastConstructorArgs(content);
+        string[] memory inputs = new string[](hasConstructorArgs ? 9 : 7);
         inputs[0] = "forge";
         inputs[1] = "verify-contract";
         inputs[2] = vm.toString(contractAddr);
-        inputs[3] = contractName;
+        inputs[3] = _getContractIdentifier(compiledArtifact, contractName);
         inputs[4] = "--chain";
         inputs[5] = vm.toString(block.chainid);
-        inputs[6] = "--constructor-args";
-        inputs[7] = vm.toString(constructorArgs);
-        inputs[8] = "--watch";
+        if (hasConstructorArgs) {
+            inputs[6] = "--constructor-args";
+            inputs[7] = vm.toString(constructorArgs);
+            inputs[8] = "--watch";
+        } else {
+            inputs[6] = "--watch";
+        }
 
         FfiResult memory f = tempVm(address(vm)).tryFfi(inputs);
 
@@ -81,23 +86,28 @@ contract VerifyAll is Script {
         return;
     }
 
-    function nextTransaction(string memory content) external view returns (bool) {
-        try this.getTransactionFromRaw(content, currTransactionIdx) {
-            return true;
-        } catch {
-            return false;
-        }
+    function _hasBroadcastConstructorArgs(string memory content) internal view returns (bool) {
+        return vm.keyExistsJson(content, searchStr(currTransactionIdx, "arguments[0]"));
     }
 
-    function _getCompiledBytecode(string memory contractName) internal view returns (string memory compiledBytecode) {
+    function _getCompiledArtifact(string memory contractName) internal view returns (string memory compiledArtifact) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/out/", contractName, ".sol/", contractName, ".json");
         // forge-lint: disable-next-line(unsafe-cheatcode)
-        compiledBytecode = vm.readFile(path);
+        compiledArtifact = vm.readFile(path);
     }
 
-    function getTransactionFromRaw(string memory content, uint96 idx) external pure {
-        abi.decode(vm.parseJson(content, searchStr(idx, "hash")), (bytes32));
+    function _getContractIdentifier(string memory compiledArtifact, string memory contractName)
+        internal
+        pure
+        returns (string memory)
+    {
+        string[] memory compilationTargets = vm.parseJsonKeys(compiledArtifact, ".metadata.settings.compilationTarget");
+        if (compilationTargets.length == 0) {
+            return contractName;
+        }
+
+        return string.concat(compilationTargets[0], ":", contractName);
     }
 
     function searchStr(uint96 idx, string memory searchKey) internal pure returns (string memory) {
@@ -106,9 +116,34 @@ contract VerifyAll is Script {
 
     function _getBroadcastScript() internal view returns (string memory) {
         try vm.envString("BROADCAST_SCRIPT") returns (string memory broadcastScript) {
-            return broadcastScript;
+            return _normalizeBroadcastScript(broadcastScript);
         } catch {
-            return "script/Deploy.s.sol";
+            return "Deploy.s.sol";
         }
+    }
+
+    function _normalizeBroadcastScript(string memory broadcastScript) internal pure returns (string memory) {
+        bytes memory value = bytes(broadcastScript);
+        bytes memory prefix = bytes("script/");
+
+        if (value.length >= prefix.length) {
+            bool hasPrefix = true;
+            for (uint256 i = 0; i < prefix.length; i++) {
+                if (value[i] != prefix[i]) {
+                    hasPrefix = false;
+                    break;
+                }
+            }
+
+            if (hasPrefix) {
+                bytes memory stripped = new bytes(value.length - prefix.length);
+                for (uint256 i = prefix.length; i < value.length; i++) {
+                    stripped[i - prefix.length] = value[i];
+                }
+                return string(stripped);
+            }
+        }
+
+        return broadcastScript;
     }
 }

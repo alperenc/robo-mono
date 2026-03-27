@@ -14,10 +14,10 @@ const CONTRACT_SIGNATURES = {
   // No dependencies - default run()
   PartnerManager: { sig: null, params: [] },
   RoboshareTokens: { sig: null, params: [] },
-  // 1 dependency
+  // 2 dependencies
   RegistryRouter: {
-    sig: "run(address)",
-    params: ["roboshareTokens"],
+    sig: "run(address,address)",
+    params: ["roboshareTokens", "partnerManager"],
   },
   // 3 dependencies
   VehicleRegistry: {
@@ -33,13 +33,20 @@ const CONTRACT_SIGNATURES = {
     sig: "run(address,address,address,address)",
     params: ["roboshareTokens", "partnerManager", "router", "treasury"],
   },
+  EarningsManager: {
+    sig: "run(address,address,address,address)",
+    params: ["roboshareTokens", "partnerManager", "router", "treasury"],
+  },
 };
 
 // Get all arguments after the script name
 const args = process.argv.slice(2);
 
-// Detect command type from package.json script name
-const command = process.env.npm_lifecycle_event || "deploy";
+// Allow wrapper scripts to force deploy/upgrade semantics without depending on npm lifecycle names.
+const command =
+  process.env.ROBO_SCRIPT_COMMAND ||
+  process.env.npm_lifecycle_event ||
+  "deploy";
 
 let fileName = "Deploy.s.sol";
 let network = "localhost";
@@ -77,15 +84,18 @@ Options:
 Contracts and their dependencies:
   PartnerManager     - No dependencies
   RoboshareTokens    - No dependencies
-  RegistryRouter     - 1 dependency:   roboshareTokens
+  RegistryRouter     - 2 dependencies: roboshareTokens,partnerManager
   VehicleRegistry    - 3 dependencies: roboshareTokens,partnerManager,router
   Treasury           - 3 dependencies: roboshareTokens,partnerManager,router
   Marketplace        - 4 dependencies: roboshareTokens,partnerManager,router,treasury
+  EarningsManager    - 4 dependencies: roboshareTokens,partnerManager,router,treasury
 
 Examples:
   yarn deploy --contract PartnerManager --network sepolia
+  yarn deploy --contract RegistryRouter --network sepolia --args 0xTokens,0xPartner
   yarn deploy --contract Treasury --network sepolia --args 0xTokens,0xPartner,0xRouter
   yarn deploy --contract Marketplace --network sepolia --args 0xTokens,0xPartner,0xRouter,0xTreasury
+  yarn deploy --contract EarningsManager --network sepolia --args 0xTokens,0xPartner,0xRouter,0xTreasury
     `);
   }
   process.exit(0);

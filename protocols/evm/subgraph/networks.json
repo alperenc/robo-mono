@@ -1,28 +1,70 @@
 {
   "localhost": {
     "MockUSDC": {
-      "address": "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35"
+      "address": "0x700b6A60ce7EaaEA56F065753d8dcB9653dbAD35",
+      "startBlock": 0
     },
     "RoboshareTokens": {
-      "address": "0xe1Aa25618fA0c7A1CFDab5d6B456af611873b629"
+      "address": "0xe1Aa25618fA0c7A1CFDab5d6B456af611873b629",
+      "startBlock": 0
     },
     "PartnerManager": {
-      "address": "0x0C8E79F3534B00D9a3D4a856B665Bf4eBC22f2ba"
+      "address": "0x0C8E79F3534B00D9a3D4a856B665Bf4eBC22f2ba",
+      "startBlock": 0
     },
     "RegistryRouter": {
-      "address": "0xf7Cd8fa9b94DB2Aa972023b379c7f72c65E4De9D"
+      "address": "0xf7Cd8fa9b94DB2Aa972023b379c7f72c65E4De9D",
+      "startBlock": 0
     },
     "VehicleRegistry": {
-      "address": "0x82Dc47734901ee7d4f4232f398752cB9Dd5dACcC"
+      "address": "0x82Dc47734901ee7d4f4232f398752cB9Dd5dACcC",
+      "startBlock": 0
     },
     "Treasury": {
-      "address": "0x82C6D3ed4cD33d8EC1E51d0B5Cc1d822Eaa0c3dC"
+      "address": "0x82C6D3ed4cD33d8EC1E51d0B5Cc1d822Eaa0c3dC",
+      "startBlock": 0
     },
     "EarningsManager": {
-      "address": "0x2a264F26859166C5BF3868A54593eE716AeBC848"
+      "address": "0x2a264F26859166C5BF3868A54593eE716AeBC848",
+      "startBlock": 0
     },
     "Marketplace": {
-      "address": "0xc6B8FBF96CF7bbE45576417EC2163AcecFA88ECC"
+      "address": "0xc6B8FBF96CF7bbE45576417EC2163AcecFA88ECC",
+      "startBlock": 0
+    }
+  },
+  "sepolia": {
+    "MockUSDC": {
+      "address": "0x44E46A2ab9f70c31C0B1A59A93a47dC1228542c3",
+      "startBlock": 10531676
+    },
+    "RoboshareTokens": {
+      "address": "0xadb21069c84137A222F0cd19F055EAF2664e6A09",
+      "startBlock": 10531676
+    },
+    "PartnerManager": {
+      "address": "0x476eDD9b72a265BAeC48D8dc52520FC25e67CDB0",
+      "startBlock": 10531676
+    },
+    "RegistryRouter": {
+      "address": "0x253036b8EeBce9a4291e8803b8dbbE0d84FFa71f",
+      "startBlock": 10531676
+    },
+    "VehicleRegistry": {
+      "address": "0xD354d2AFBe2392082DE611503F333Bb2b2C41430",
+      "startBlock": 10531676
+    },
+    "Treasury": {
+      "address": "0xd0873Ee52DAecD392f97980E9FB934e487995e16",
+      "startBlock": 10531676
+    },
+    "EarningsManager": {
+      "address": "0x6e03547Dc90E060b20f5c9F689D76fcC475C2ab7",
+      "startBlock": 10531677
+    },
+    "Marketplace": {
+      "address": "0xD3Dc47372BB360822212F7E7159D0DB5fdCA8A85",
+      "startBlock": 10531676
     }
   }
 }

@@ -21,14 +21,20 @@
       "type": "address"
     },
     {
-      "label": "marketplace",
+      "label": "earningsManager",
       "slot": "3",
       "offset": 0,
       "type": "address"
     },
     {
-      "label": "idToRegistry",
+      "label": "marketplace",
       "slot": "4",
+      "offset": 0,
+      "type": "address"
+    },
+    {
+      "label": "idToRegistry",
+      "slot": "5",
       "offset": 0,
       "type": "mapping(uint256 => address)"
     }
