@@ -21,28 +21,28 @@
       "type": "contract RegistryRouter"
     },
     {
-      "label": "usdc",
+      "label": "earningsManager",
       "slot": "3",
+      "offset": 0,
+      "type": "contract IEarningsManager"
+    },
+    {
+      "label": "usdc",
+      "slot": "4",
       "offset": 0,
       "type": "contract IERC20"
     },
     {
       "label": "treasuryFeeRecipient",
-      "slot": "4",
+      "slot": "5",
       "offset": 0,
       "type": "address"
     },
     {
       "label": "assetCollateral",
-      "slot": "5",
-      "offset": 0,
-      "type": "mapping(uint256 => struct CollateralLib.CollateralInfo)"
-    },
-    {
-      "label": "assetEarnings",
       "slot": "6",
       "offset": 0,
-      "type": "mapping(uint256 => struct EarningsLib.EarningsInfo)"
+      "type": "mapping(uint256 => struct CollateralLib.CollateralInfo)"
     },
     {
       "label": "assetSettlements",
@@ -76,6 +76,11 @@
       "numberOfBytes": "20"
     },
     {
+      "label": "contract IEarningsManager",
+      "encoding": "inplace",
+      "numberOfBytes": "20"
+    },
+    {
       "label": "contract IERC20",
       "encoding": "inplace",
       "numberOfBytes": "20"
@@ -96,6 +101,13 @@
       "numberOfBytes": "20"
     },
     {
+      "label": "mapping(address => uint256)",
+      "encoding": "mapping",
+      "numberOfBytes": "32",
+      "key": "address",
+      "value": "uint256"
+    },
+    {
       "label": "mapping(uint256 => struct CollateralLib.CollateralInfo)",
       "encoding": "mapping",
       "numberOfBytes": "32",
@@ -108,13 +120,6 @@
       "numberOfBytes": "32",
       "key": "uint256",
       "value": "struct CollateralLib.SettlementInfo"
-    },
-    {
-      "label": "mapping(uint256 => struct EarningsLib.EarningsInfo)",
-      "encoding": "mapping",
-      "numberOfBytes": "32",
-      "key": "uint256",
-      "value": "struct EarningsLib.EarningsInfo"
     }
   ]
 }

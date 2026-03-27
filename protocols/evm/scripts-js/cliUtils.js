@@ -45,6 +45,7 @@ export function parseScriptSelectionArgs(args, defaults = {}) {
     defaultNetwork = "localhost",
     defaultFileName = "Deploy.s.sol",
     allowRpcUrl = false,
+    extraValueFlags = [],
   } = defaults;
 
   let network = defaultNetwork;
@@ -64,6 +65,8 @@ export function parseScriptSelectionArgs(args, defaults = {}) {
       i++;
     } else if (arg === "--contract" && args[i + 1]) {
       contractName = args[i + 1];
+      i++;
+    } else if (extraValueFlags.includes(arg) && args[i + 1]) {
       i++;
     } else if (arg === "--help" || arg === "-h") {
       help = true;

@@ -2,7 +2,7 @@
 
 DEPLOY_SCRIPT ?= script/Deploy.s.sol
 VERIFY_RUNNER ?= script/VerifyAll.s.sol
-VERIFY_TARGET_SCRIPT ?= script/Deploy.s.sol
+VERIFY_TARGET_SCRIPT ?= Deploy.s.sol
 
 # setup wallet for anvil
 setup-anvil-wallet:
@@ -74,4 +74,5 @@ test:
 
 # Verify contracts
 verify:
+	forge build
 	BROADCAST_SCRIPT=$(VERIFY_TARGET_SCRIPT) forge script $(VERIFY_RUNNER) --ffi --rpc-url $(RPC_URL)
