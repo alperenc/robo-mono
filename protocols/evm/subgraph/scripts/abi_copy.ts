@@ -217,8 +217,7 @@ async function main() {
       contractName,
       {
         ...contractObject,
-        startBlock:
-          startBlockByAddress[contractObject.address.toLowerCase()] ?? 0,
+        startBlock: startBlockByAddress[contractObject.address.toLowerCase()],
       },
       networkName
     );

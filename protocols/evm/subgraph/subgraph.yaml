@@ -6,11 +6,11 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: MockUSDC
-    network: sepolia
+    network: {{network}}
     source:
       abi: MockUSDC
-      address: "0x44E46A2ab9f70c31C0B1A59A93a47dC1228542c3"
-      startBlock: 10531676
+      address: "{{MockUSDC.address}}"
+      startBlock: {{MockUSDC.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -27,11 +27,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: RoboshareTokens
-    network: sepolia
+    network: {{network}}
     source:
       abi: RoboshareTokens
-      address: "0xadb21069c84137A222F0cd19F055EAF2664e6A09"
-      startBlock: 10531676
+      address: "{{RoboshareTokens.address}}"
+      startBlock: {{RoboshareTokens.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -53,11 +53,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: PartnerManager
-    network: sepolia
+    network: {{network}}
     source:
       abi: PartnerManager
-      address: "0x476eDD9b72a265BAeC48D8dc52520FC25e67CDB0"
-      startBlock: 10531676
+      address: "{{PartnerManager.address}}"
+      startBlock: {{PartnerManager.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -74,11 +74,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: RegistryRouter
-    network: sepolia
+    network: {{network}}
     source:
       abi: RegistryRouter
-      address: "0x253036b8EeBce9a4291e8803b8dbbE0d84FFa71f"
-      startBlock: 10531676
+      address: "{{RegistryRouter.address}}"
+      startBlock: {{RegistryRouter.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -97,11 +97,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: VehicleRegistry
-    network: sepolia
+    network: {{network}}
     source:
       abi: VehicleRegistry
-      address: "0xD354d2AFBe2392082DE611503F333Bb2b2C41430"
-      startBlock: 10531676
+      address: "{{VehicleRegistry.address}}"
+      startBlock: {{VehicleRegistry.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -121,11 +121,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Treasury
-    network: sepolia
+    network: {{network}}
     source:
       abi: Treasury
-      address: "0xd0873Ee52DAecD392f97980E9FB934e487995e16"
-      startBlock: 10531676
+      address: "{{Treasury.address}}"
+      startBlock: {{Treasury.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -142,11 +142,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: EarningsManager
-    network: sepolia
+    network: {{network}}
     source:
       abi: EarningsManager
-      address: "0x6e03547Dc90E060b20f5c9F689D76fcC475C2ab7"
-      startBlock: 10531677
+      address: "{{EarningsManager.address}}"
+      startBlock: {{EarningsManager.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -164,11 +164,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Marketplace
-    network: sepolia
+    network: {{network}}
     source:
       abi: Marketplace
-      address: "0xD3Dc47372BB360822212F7E7159D0DB5fdCA8A85"
-      startBlock: 10531676
+      address: "{{Marketplace.address}}"
+      startBlock: {{Marketplace.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
