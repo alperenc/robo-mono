@@ -25,6 +25,15 @@ const buildWsUrl = (base: string | undefined, port: number, path = "") => {
   return `${normalized}:${port}${path}`;
 };
 
+const normalizeIpfsGateway = (value: string | undefined) => {
+  if (!value) return undefined;
+  const normalized = normalizeBaseHost(value);
+  if (!normalized) return undefined;
+  return normalized.endsWith("/ipfs") || normalized.endsWith("/ipfs/")
+    ? `${normalized.replace(/\/+$/, "")}/`
+    : `${normalized}/ipfs/`;
+};
+
 const getRuntimeLocalDevHost = () => {
   if (typeof window !== "undefined" && window.location.hostname) {
     return window.location.hostname;
@@ -42,7 +51,7 @@ export const getLocalSubgraphUrl = () =>
   buildUrl(getRuntimeLocalDevHost(), 8000, "/subgraphs/name/roboshare/protocol");
 
 export const getLocalIpfsGatewayUrl = () =>
-  process.env.NEXT_PUBLIC_IPFS_GATEWAY || buildUrl(getRuntimeLocalDevHost(), 8080, "/ipfs/");
+  normalizeIpfsGateway(process.env.NEXT_PUBLIC_IPFS_GATEWAY) || buildUrl(getRuntimeLocalDevHost(), 8080, "/ipfs/");
 
 export const getRuntimeLocalChain = (): Chain => {
   const localRpcUrl = getLocalRpcUrl();
