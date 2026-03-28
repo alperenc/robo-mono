@@ -367,6 +367,7 @@ export function AcquirePositionModal({
   const hasValidAmount = purchaseAmount > 0n && purchaseAmount <= availableAmount;
   const hasInsufficientBalance = expectedPayment > (paymentTokenBalance ?? 0n);
   const successOwnershipBase = totalSupply ? BigInt(totalSupply) : 0n;
+  const isBusy = step === "approving" || step === "purchasing" || isApproving || isPurchasing;
 
   return (
     <div className="modal modal-open">
@@ -375,7 +376,7 @@ export function AcquirePositionModal({
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
           onClick={onClose}
-          disabled={isApproving || isPurchasing}
+          disabled={isBusy}
         >
           <XMarkIcon className="w-5 h-5" />
         </button>
@@ -518,7 +519,7 @@ export function AcquirePositionModal({
                       max={maxContributionDisplay}
                       min="0"
                       step="0.01"
-                      disabled={isApproving || isPurchasing}
+                      disabled={isBusy}
                     />
                     <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
                       {symbol}
@@ -534,7 +535,7 @@ export function AcquirePositionModal({
                     max={maxTokens.toString()}
                     min="0"
                     step="1"
-                    disabled={isApproving || isPurchasing}
+                    disabled={isBusy}
                   />
                 )}
               </div>
@@ -552,7 +553,7 @@ export function AcquirePositionModal({
                     key={pct}
                     className={`btn btn-sm flex-1 ${currentPercentage === pct ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handlePercentageSelect(pct)}
-                    disabled={isApproving || isPurchasing || maxTokens === 0n}
+                    disabled={isBusy || maxTokens === 0n}
                   >
                     {pct}%
                   </button>
@@ -567,7 +568,7 @@ export function AcquirePositionModal({
                   value={currentPercentage}
                   onChange={handleSliderChange}
                   className="range range-primary range-sm w-full"
-                  disabled={isApproving || isPurchasing || maxTokens === 0n}
+                  disabled={isBusy || maxTokens === 0n}
                 />
                 <div className="flex justify-between text-xs opacity-50 mt-1">
                   <span>0%</span>
@@ -625,13 +626,13 @@ export function AcquirePositionModal({
               </button>
             ) : (
               <>
-                <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isApproving || isPurchasing}>
+                <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isBusy}>
                   Cancel
                 </button>
                 <button
                   className="btn btn-primary flex-1"
                   onClick={handleBuy}
-                  disabled={Boolean(isApproving || isPurchasing || !hasValidAmount || hasInsufficientBalance)}
+                  disabled={Boolean(isBusy || !hasValidAmount || hasInsufficientBalance)}
                 >
                   {isApproving ? (
                     <>
