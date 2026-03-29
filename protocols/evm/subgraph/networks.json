@@ -100,5 +100,39 @@
       "address": "0xDE6FB62710B21EEf2d7a7a208F99D1C294e34867",
       "startBlock": 35828813
     }
+  },
+  "arbitrum-sepolia": {
+    "MockUSDC": {
+      "address": "0x0bFAD385790a919B430dDE171b8b205fF462177B",
+      "startBlock": 254765990
+    },
+    "RoboshareTokens": {
+      "address": "0x7F53aa8860c254909467FBC7b29AeD125d78c94c",
+      "startBlock": 254766000
+    },
+    "PartnerManager": {
+      "address": "0x2B81c5792F48DD23c6Dd405FC94f164Db73E0CDC",
+      "startBlock": 254766005
+    },
+    "RegistryRouter": {
+      "address": "0xDE6FB62710B21EEf2d7a7a208F99D1C294e34867",
+      "startBlock": 254766012
+    },
+    "VehicleRegistry": {
+      "address": "0x65E61fE214B9DCecB799029ce98EE39fA58d093E",
+      "startBlock": 254766017
+    },
+    "Treasury": {
+      "address": "0x462B87524b3C1eCE703eA2B6731D0D9747803e97",
+      "startBlock": 254766023
+    },
+    "EarningsManager": {
+      "address": "0x2c5B1281290578539A79C9d60D701eE0cFc86B76",
+      "startBlock": 254766031
+    },
+    "Marketplace": {
+      "address": "0xd4d376947D8915595a1dCe24A24484B42b6bf58B",
+      "startBlock": 254766037
+    }
   }
 }
