@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { formatUnits } from "viem";
 import { useAccount, useChainId, useReadContract } from "wagmi";
@@ -17,10 +18,12 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
   const { address } = useAccount();
   const chainId = useChainId();
   const { symbol, decimals } = usePaymentToken();
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
   const treasuryContract = getDeployedContract(chainId, "Treasury");
+  const isBusy = isWithdrawing || isPending;
 
-  useEscClose(isOpen, onClose);
+  useEscClose(isOpen && !isBusy, onClose);
 
   // Fetch pending withdrawal amount
   const { data: pendingAmount, isLoading: isLoadingPending } = useReadContract({
@@ -39,12 +42,16 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
   const hasProceeds = pendingAmount && (pendingAmount as bigint) > 0n;
 
   const handleWithdraw = async () => {
+    if (isBusy || !hasProceeds) return;
+
     try {
+      setIsWithdrawing(true);
       await writeTreasury({
         functionName: "processWithdrawal",
       });
       onClose();
     } catch (e) {
+      setIsWithdrawing(false);
       console.error("Error withdrawing proceeds:", e);
     }
   };
@@ -53,13 +60,16 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isBusy ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
           onClick={onClose}
-          disabled={isPending}
+          disabled={isBusy}
         >
           <XMarkIcon className="h-5 w-5" />
         </button>
@@ -114,11 +124,11 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
         {/* Footer */}
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
           <div className="flex gap-3 justify-end">
-            <button className="btn btn-ghost" onClick={onClose} disabled={isPending}>
+            <button className="btn btn-ghost" onClick={onClose} disabled={isBusy}>
               Cancel
             </button>
-            <button className="btn btn-success" onClick={handleWithdraw} disabled={isPending || !hasProceeds}>
-              {isPending ? (
+            <button className="btn btn-success" onClick={handleWithdraw} disabled={isBusy || !hasProceeds}>
+              {isBusy ? (
                 <>
                   <span className="loading loading-spinner loading-sm" />
                   Withdrawing...

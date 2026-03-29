@@ -110,6 +110,8 @@ export function RedeemLiquidityModal({
     }
   }, [isOpen]);
 
+  const isBusy = step === "redeeming" || isPending;
+
   const handlePercentageSelect = (percentage: number) => {
     if (maxFunds === 0n) return;
     const amount = (maxFunds * BigInt(percentage)) / 100n;
@@ -153,12 +155,15 @@ export function RedeemLiquidityModal({
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isBusy ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
           onClick={onClose}
-          disabled={isPending}
+          disabled={isBusy}
         >
           <XMarkIcon className="w-5 h-5" />
         </button>
@@ -244,7 +249,7 @@ export function RedeemLiquidityModal({
                   max={formattedFullPositionPayout}
                   min="0"
                   step="any"
-                  disabled={isPending}
+                  disabled={isBusy}
                 />
               </div>
 
@@ -261,7 +266,7 @@ export function RedeemLiquidityModal({
                     key={pct}
                     className={`btn btn-sm flex-1 ${currentPercentage === pct ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handlePercentageSelect(pct)}
-                    disabled={isPending || maxFunds === 0n}
+                    disabled={isBusy || maxFunds === 0n}
                   >
                     {pct}%
                   </button>
@@ -276,7 +281,7 @@ export function RedeemLiquidityModal({
                   value={currentPercentage}
                   onChange={handleSliderChange}
                   className="range range-primary range-sm w-full"
-                  disabled={isPending || maxFunds === 0n}
+                  disabled={isBusy || maxFunds === 0n}
                 />
                 <div className="flex justify-between text-xs opacity-50 mt-1">
                   <span>0%</span>
@@ -302,15 +307,15 @@ export function RedeemLiquidityModal({
               </button>
             ) : (
               <>
-                <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isPending}>
+                <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isBusy}>
                   Cancel
                 </button>
                 <button
                   className="btn btn-primary flex-1"
                   onClick={handleRedeem}
-                  disabled={Boolean(isPending || !hasValidAmount || payout === 0n)}
+                  disabled={Boolean(isBusy || !hasValidAmount || payout === 0n)}
                 >
-                  {isPending ? (
+                  {isBusy ? (
                     <>
                       <span className="loading loading-spinner loading-sm"></span>Withdrawing...
                     </>

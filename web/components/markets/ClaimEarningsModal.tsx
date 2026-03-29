@@ -17,9 +17,11 @@ interface ClaimEarningsModalProps {
 export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: ClaimEarningsModalProps) => {
   const { address } = useAccount();
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
+  const [isClaiming, setIsClaiming] = useState(false);
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
   const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
   const [submittedClaimAmount, setSubmittedClaimAmount] = useState<bigint | null>(null);
+  const isBusy = isClaiming || isPending;
   const { data: previewClaimAmount } = useScaffoldReadContract({
     contractName: "EarningsManager",
     functionName: "previewClaimEarnings",
@@ -40,8 +42,9 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
   }, [isOpen]);
 
   const handleClaim = async () => {
-    if (claimableAmount === 0n) return;
+    if (claimableAmount === 0n || isBusy) return;
     try {
+      setIsClaiming(true);
       setSubmittedClaimAmount(claimableAmount);
       await writeEarningsManager({
         functionName: "claimEarnings",
@@ -53,6 +56,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
       onClose();
     } catch (e) {
       console.error("Error claiming earnings:", e);
+      setIsClaiming(false);
       setSubmittedClaimAmount(null);
     }
   };
@@ -61,12 +65,15 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isBusy ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
           onClick={onClose}
-          disabled={isPending}
+          disabled={isBusy}
         >
           <XMarkIcon className="h-5 w-5" />
         </button>
@@ -92,9 +99,9 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
           <button
             className="btn btn-primary btn-block"
             onClick={handleClaim}
-            disabled={isPending || displayedClaimAmount === 0n}
+            disabled={isBusy || displayedClaimAmount === 0n}
           >
-            {isPending ? <span className="loading loading-spinner loading-sm" /> : "Claim Payout"}
+            {isBusy ? <span className="loading loading-spinner loading-sm" /> : "Claim Payout"}
           </button>
         </div>
       </div>
