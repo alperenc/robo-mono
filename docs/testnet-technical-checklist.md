@@ -5,11 +5,12 @@
 This document is the non-sensitive operator checklist for Roboshare's first public testnet release.
 It focuses on deploy, verify, indexing, frontend wiring, seeded data, and smoke-test readiness for the supported launch networks.
 
-Supported launch networks:
+Current rollout phase:
 
-- `Sepolia` (default)
-- `Polygon Amoy`
-- `Arbitrum Sepolia`
+- active quiet-beta chain: `Sepolia` (default)
+- planned follow-on deployments in this release line:
+  - `Polygon Amoy`
+  - `Arbitrum Sepolia`
 
 Deferred:
 
@@ -34,18 +35,27 @@ Deferred:
 ## Contracts And Deployment Checklist
 
 - [ ] Deploy contracts to `Sepolia`
+- [ ] Preserve `Sepolia` deploy artifacts
+- [ ] Regenerate frontend contract metadata after the `Sepolia` deploy
+- [ ] Confirm the generated frontend contract map contains the currently active rollout chain(s)
+
+Follow-on chain expansion:
+
 - [ ] Deploy contracts to `Polygon Amoy`
 - [ ] Deploy contracts to `Arbitrum Sepolia`
-- [ ] Preserve deploy artifacts for each chain
-- [ ] Regenerate frontend contract metadata after each deploy
-- [ ] Confirm the generated frontend contract map contains every supported launch chain
+- [ ] Preserve deploy artifacts for each added chain
+- [ ] Regenerate frontend contract metadata after each added-chain deploy
+- [ ] Confirm the generated frontend contract map contains every activated chain in the release line
 
 Verification:
 
 - [ ] Verify `Sepolia` contracts where explorer access is available
+- [ ] Record any verification exception explicitly in the release notes
+
+Follow-on chain expansion:
+
 - [ ] Verify `Polygon Amoy` contracts where explorer access is available
 - [ ] Verify `Arbitrum Sepolia` contracts where explorer access is available
-- [ ] Record any verification exception explicitly in the release notes
 
 Upgrade hardening:
 
@@ -55,7 +65,7 @@ Upgrade hardening:
 
 ## Managed Subgraph Deployment Checklist
 
-For each supported launch chain, record:
+For each activated launch chain, record:
 
 - [ ] Graph network name
 - [ ] deployed contract address
@@ -74,6 +84,11 @@ Build and publish flow:
 - [ ] Wire the endpoint into the frontend's chain-aware configuration
 - [ ] Confirm the deployed endpoint reflects fresh writes from the contracts
 
+Follow-on chain expansion:
+
+- [ ] Repeat the same subgraph publish flow for `Polygon Amoy`
+- [ ] Repeat the same subgraph publish flow for `Arbitrum Sepolia`
+
 Local graph-node is for development only and should not be treated as the public testnet release path.
 
 ## Frontend Checklist
@@ -86,16 +101,21 @@ Local graph-node is for development only and should not be treated as the public
 
 ## Demo Data Checklist
 
-For each supported launch chain:
+For the active quiet-beta chain:
 
 - [ ] authorize at least one partner
 - [ ] register at least one asset
 - [ ] create at least one primary pool
 - [ ] create at least one listing
 
+Follow-on chain expansion:
+
+- [ ] repeat the same seeded-demo-state baseline on `Polygon Amoy`
+- [ ] repeat the same seeded-demo-state baseline on `Arbitrum Sepolia`
+
 ## Smoke Tests
 
-Per supported launch chain:
+Per activated launch chain:
 
 - [ ] wallet connects successfully
 - [ ] chain switching works
@@ -108,7 +128,7 @@ Per supported launch chain:
 
 Cross-chain:
 
-- [ ] switching chains updates addresses, reads, and indexed data without stale cache bleed
+- [ ] switching chains updates addresses, reads, and indexed data without stale cache bleed once more than one release chain is active
 
 ## Quiet Beta Readiness
 
@@ -123,12 +143,12 @@ Cross-chain:
 - [ ] tag `v0.1.0-testnet.1`
 - [ ] publish the GitHub release from that tag
 - [ ] confirm the public app deploy maps to the tagged commit
-- [ ] confirm the public docs match the actual supported launch scope
+- [ ] confirm the public docs match the actual activated launch scope
 - [ ] confirm support instructions are ready
 
 ## Per-Chain Release Record Template
 
-Record one entry per supported launch chain in the release notes:
+Record one entry per activated launch chain in the release notes:
 
 - chain
 - chain id

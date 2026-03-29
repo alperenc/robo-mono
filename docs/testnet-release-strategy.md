@@ -8,7 +8,8 @@ It covers phase ordering, release gates, branching, versioning, and launch messa
 Current release defaults:
 
 - Default chain: `Sepolia`
-- Additional supported testnets: `Polygon Amoy`, `Arbitrum Sepolia`
+- Current active quiet-beta chain: `Sepolia`
+- Planned follow-on deployments in this release line: `Polygon Amoy`, `Arbitrum Sepolia`
 - Deferred to a later release line: `Base Sepolia`
 - Repo posture: public, `MIT`
 - Launch sequence: `internal hardening -> quiet beta -> public testnet launch`
@@ -40,11 +41,12 @@ Current release defaults:
 
 ### Phase 2: Technical Readiness
 
-- Complete deploy and verify flow for `Sepolia`, `Polygon Amoy`, and `Arbitrum Sepolia`.
+- Complete deploy and verify flow for `Sepolia`.
+- Prepare `Polygon Amoy` and `Arbitrum Sepolia` as follow-on deployments once `Sepolia` quiet beta is stable.
 - Make `Sepolia` the default chain in the product and docs.
 - Replace public-facing localhost assumptions with chain-aware configuration.
-- Publish managed The Graph deployments for the supported launch networks.
-- Seed realistic demo state on each supported launch chain.
+- Publish the managed The Graph deployment for the currently active quiet-beta chain.
+- Seed realistic demo state on `Sepolia`.
 - Finish the public-facing README and CONTRIBUTING cleanup before beta.
 
 ### Phase 3: Quiet Beta
@@ -53,7 +55,8 @@ Current release defaults:
 - Tag the first beta build as `v0.1.0-beta.1`.
 - Deploy quiet beta only from the tagged release branch.
 - Start with partners and trusted users through direct outreach.
-- Treat `Sepolia` as the primary beta path and the other supported testnets as secondary validation targets.
+- Treat `Sepolia` as the only active beta path until quiet-beta exit criteria are met.
+- Treat `Polygon Amoy` and `Arbitrum Sepolia` as expansion targets after `Sepolia` stabilizes.
 - Fix launch blockers on the release branch and merge them back into `main`.
 
 ### Phase 4: Public Testnet Launch
@@ -129,7 +132,7 @@ Primary framing:
 
 - Roboshare public testnet is live
 - `Sepolia` is the default chain
-- the first public release supports `Sepolia`, `Polygon Amoy`, and `Arbitrum Sepolia`
+- the first public release line rolls out `Sepolia` first, with additional testnets enabled in follow-on phases
 - feedback is wanted on real usage, not on speculative hype
 
 Required assets:
