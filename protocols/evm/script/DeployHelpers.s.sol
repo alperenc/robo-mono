@@ -79,7 +79,9 @@ contract ScaffoldETHDeploy is Script {
         MockUSDC mockUsdc = new MockUSDC();
         address usdcAddress = address(mockUsdc);
         mockUsdc.mint(recipient, INITIAL_USDC_SUPPLY);
-        mockUsdc.mint(LOCAL_FAUCET, INITIAL_USDC_SUPPLY);
+        if (LOCAL_FAUCET.code.length == 0) {
+            mockUsdc.mint(LOCAL_FAUCET, INITIAL_USDC_SUPPLY);
+        }
 
         config.usdcToken = usdcAddress;
         activeNetworkConfig = config;
