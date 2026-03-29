@@ -26,6 +26,7 @@ const DEFAULT_CHAIN_ID = 31337;
 const DEFAULT_NETWORKS_BY_CHAIN_ID: Record<number, string> = {
   31337: "localhost",
   11155111: "sepolia",
+  80002: "polygon-amoy",
 };
 const EXCLUDED_CONTRACTS = new Set(["ERC1967Proxy"]);
 

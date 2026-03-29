@@ -86,6 +86,7 @@ Build and publish flow:
 
 Follow-on chain expansion:
 
+- [ ] Confirm official managed-subgraph support for each added chain before planning the Studio publish step
 - [ ] Repeat the same subgraph publish flow for `Polygon Amoy`
 - [ ] Repeat the same subgraph publish flow for `Arbitrum Sepolia`
 
