@@ -3,26 +3,27 @@
 - Chain: `Polygon Amoy`
 - Chain ID: `80002`
 - Deploy script: `Deploy.s.sol`
-- Deploy source commit: `d7c3838`
-- Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/80002/run-1774785212039.json`
-- First deployment block: `35828813`
+- Deploy source commit: `71ec3e9`
+- Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/80002/run-1774898211481.json`
+- First deployment block: `35884945`
 - Graph network: `polygon-amoy`
 - Managed subgraph endpoint: `https://api.studio.thegraph.com/query/1745285/roboshare-protocol/v0.1.0-amoy.1`
 
 ## Deployed Addresses
 
-- `MockUSDC`: `0xA1353ccD55F09Af47de80828E06F7669998f811C`
-- `RoboshareTokens`: `0xb86D8392b96C1F6DdFa79bc8c3e90cC81C248FD1`
-- `PartnerManager`: `0x9f0b752c8170bb329DDb27F3381DDB662D5d532b`
-- `RegistryRouter`: `0xdc76F725D9319758DdF9bFC7FC155399Ec957F63`
-- `VehicleRegistry`: `0xB6B045d7Eb6Fe5b63715C9f9BA385B11ED9a2a9E`
-- `Treasury`: `0x7F53aa8860c254909467FBC7b29AeD125d78c94c`
-- `EarningsManager`: `0x2B81c5792F48DD23c6Dd405FC94f164Db73E0CDC`
-- `Marketplace`: `0xDE6FB62710B21EEf2d7a7a208F99D1C294e34867`
+- `MockUSDC`: `0x9cbb0f294084dC1D2c88eBE88926c6339d5DaeaB`
+- `RoboshareTokens`: `0xa9347dB6B85eA6c079Dc42A001921b480eebcBe0`
+- `PartnerManager`: `0x9a38Df0Ef0C0BaAA418Be25363970bd71372dbC6`
+- `RegistryRouter`: `0xCEB1Cb04B914fF2aB9d3DaA543536A6b662d265f`
+- `VehicleRegistry`: `0x20896fD729BCA167df95d6a352a934E729486E74`
+- `Treasury`: `0x73C84698f265c23E93fa23c338c9cc2db632b2a9`
+- `EarningsManager`: `0x62E125007BBa8223951D41bcf13940c848F52d7B`
+- `Marketplace`: `0x6C909F0C98126d4CD9b875cAaB472a31018F441c`
 
 ## Verification Status
 
 - `MockUSDC`: verified
+- `RoboshareTokens`: verified
 - `PartnerManager`: verified
 - `RegistryRouter`: verified
 - `VehicleRegistry`: verified
@@ -30,10 +31,9 @@
 - `EarningsManager`: verified
 - `Marketplace`: verified
 - Proxy contracts: verified
-- `RoboshareTokens` implementation at `0x96f62C9d0716E9B94a49232a2895d090CA9CF379`: verification exception
+- Treasury fee recipient set from env at deploy time: `0xc16ce1da7d33d10a80842d1b501e135b21e84b92`
 
-## Known Limitations
+## Notes
 
-- `RoboshareTokens` implementation verification on Polygon Amoy Polygonscan failed with a bytecode mismatch after deployment. Treat this as the same explorer/tooling exception class already seen on Sepolia unless a later manual verification succeeds.
-- `TREASURY_FEE_RECIPIENT` still defaulted to the deployer on Amoy because the current public-testnet deploy helpers fall back to the deployer outside the future redeploy fix.
+- `RoboshareTokens` implementation verification now succeeds under `solc 0.8.28` with `optimizer_runs = 200`, `via_ir = true`, and `evm_version = cancun`.
 - Managed subgraph deployment should use the Graph network identifier `polygon-amoy`.
