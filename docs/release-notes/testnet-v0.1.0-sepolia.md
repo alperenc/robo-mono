@@ -6,6 +6,8 @@
 - Deploy source commit: `1f6c624`
 - Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/11155111/run-1774897033665.json`
 - First deployment block: `10555421`
+- Graph network: `sepolia`
+- Managed subgraph endpoint: `https://api.studio.thegraph.com/query/1745285/roboshare-protocol/v0.1.0-sepolia.2`
 
 ## Deployed Addresses
 
@@ -34,3 +36,4 @@
 ## Notes
 
 - `RoboshareTokens` implementation verification now succeeds under `solc 0.8.28` with `optimizer_runs = 200`, `via_ir = true`, and `evm_version = cancun`.
+- Managed subgraph deployment uses the shared Studio slug `roboshare-protocol`; later publishes for other chains may archive older Studio versions until they are unarchived again.

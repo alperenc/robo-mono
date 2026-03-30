@@ -7,7 +7,7 @@
 - Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/80002/run-1774898211481.json`
 - First deployment block: `35884945`
 - Graph network: `polygon-amoy`
-- Managed subgraph endpoint: `https://api.studio.thegraph.com/query/1745285/roboshare-protocol/v0.1.0-amoy.1`
+- Managed subgraph endpoint: `https://api.studio.thegraph.com/query/1745285/roboshare-protocol/v0.1.0-amoy.2`
 
 ## Deployed Addresses
 
@@ -37,3 +37,4 @@
 
 - `RoboshareTokens` implementation verification now succeeds under `solc 0.8.28` with `optimizer_runs = 200`, `via_ir = true`, and `evm_version = cancun`.
 - Managed subgraph deployment should use the Graph network identifier `polygon-amoy`.
+- Managed subgraph deployment uses the shared Studio slug `roboshare-protocol`; later publishes for other chains may archive older Studio versions until they are unarchived again.

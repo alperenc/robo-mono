@@ -7,7 +7,7 @@
 - Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/421614/run-1774901495742.json`
 - First deployment block: `255124696`
 - Graph network: `arbitrum-sepolia`
-- Managed subgraph endpoint: `pending redeploy after contract refresh`
+- Managed subgraph endpoint: `https://api.studio.thegraph.com/query/1745285/roboshare-protocol/v0.1.0-arbitrum-sepolia.2`
 
 ## Deployed Addresses
 
@@ -36,4 +36,4 @@
 ## Notes
 
 - `RoboshareTokens` implementation verification now succeeds under `solc 0.8.28` with `optimizer_runs = 200`, `via_ir = true`, and `evm_version = cancun`.
-- The previous managed subgraph version must be republished against this refreshed deployment before the release line is ready.
+- Managed subgraph deployment uses the shared Studio slug `roboshare-protocol`; later publishes for other chains may archive older Studio versions until they are unarchived again.
