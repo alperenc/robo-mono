@@ -33169,7 +33169,7 @@ const deployedContracts = {
   },
   11155111: {
     MockUSDC: {
-      address: "0x44E46A2ab9f70c31C0B1A59A93a47dC1228542c3",
+      address: "0x0488828713720Cb7d4DF39B739eC0a92F774c7b8",
       abi: [
         {
           type: "constructor",
@@ -33522,11 +33522,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     RoboshareTokens: {
-      address: "0xadb21069c84137A222F0cd19F055EAF2664e6A09",
+      address: "0xd739AfD4C1280c49e7CBa5265308eB604969D776",
       abi: [
         {
           type: "constructor",
@@ -35343,11 +35343,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     PartnerManager: {
-      address: "0x476eDD9b72a265BAeC48D8dc52520FC25e67CDB0",
+      address: "0x2220d39463bF1c1cbC5DF665f368609E7A71a573",
       abi: [
         {
           type: "constructor",
@@ -35993,11 +35993,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     RegistryRouter: {
-      address: "0x253036b8EeBce9a4291e8803b8dbbE0d84FFa71f",
+      address: "0xC6ABDc71072B7797351B34Cb44BD663702A2eFD8",
       abi: [
         {
           type: "constructor",
@@ -37824,11 +37824,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     VehicleRegistry: {
-      address: "0xD354d2AFBe2392082DE611503F333Bb2b2C41430",
+      address: "0x6e9Ec5D4eB71dcB5e53B12C3E4cC93C4Da48b631",
       abi: [
         {
           type: "constructor",
@@ -39450,11 +39450,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     Treasury: {
-      address: "0xd0873Ee52DAecD392f97980E9FB934e487995e16",
+      address: "0xde824AeeaC6C980d7018CF5D38d33CA92631Ebe8",
       abi: [
         {
           type: "constructor",
@@ -41246,11 +41246,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     EarningsManager: {
-      address: "0x6e03547Dc90E060b20f5c9F689D76fcC475C2ab7",
+      address: "0x0C26eeC91728C865988F2F56b6DFBC2D075D8882",
       abi: [
         {
           type: "constructor",
@@ -42377,11 +42377,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
     Marketplace: {
-      address: "0xD3Dc47372BB360822212F7E7159D0DB5fdCA8A85",
+      address: "0xEc456f8d3ABBbaF5195355b85aebCb16817e8391",
       abi: [
         {
           type: "constructor",
@@ -44217,7 +44217,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deploymentFile: "run-1774602745127.json",
+      deploymentFile: "run-1774897033665.json",
       deploymentScript: "Deploy.s.sol",
     },
   },

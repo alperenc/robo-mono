@@ -3,24 +3,25 @@
 - Chain: `Sepolia`
 - Chain ID: `11155111`
 - Deploy script: `Deploy.s.sol`
-- Deploy source commit: `0092f3a`
-- Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/11155111/run-1774602745127.json`
-- First deployment block: `10531676`
+- Deploy source commit: `1f6c624`
+- Broadcast file: `protocols/evm/broadcast/Deploy.s.sol/11155111/run-1774897033665.json`
+- First deployment block: `10555421`
 
 ## Deployed Addresses
 
-- `MockUSDC`: `0x44E46A2ab9f70c31C0B1A59A93a47dC1228542c3`
-- `RoboshareTokens`: `0xadb21069c84137A222F0cd19F055EAF2664e6A09`
-- `PartnerManager`: `0x476eDD9b72a265BAeC48D8dc52520FC25e67CDB0`
-- `RegistryRouter`: `0x253036b8EeBce9a4291e8803b8dbbE0d84FFa71f`
-- `VehicleRegistry`: `0xD354d2AFBe2392082DE611503F333Bb2b2C41430`
-- `Treasury`: `0xd0873Ee52DAecD392f97980E9FB934e487995e16`
-- `EarningsManager`: `0x6e03547Dc90E060b20f5c9F689D76fcC475C2ab7`
-- `Marketplace`: `0xD3Dc47372BB360822212F7E7159D0DB5fdCA8A85`
+- `MockUSDC`: `0x0488828713720Cb7d4DF39B739eC0a92F774c7b8`
+- `RoboshareTokens`: `0xd739AfD4C1280c49e7CBa5265308eB604969D776`
+- `PartnerManager`: `0x2220d39463bF1c1cbC5DF665f368609E7A71a573`
+- `RegistryRouter`: `0xC6ABDc71072B7797351B34Cb44BD663702A2eFD8`
+- `VehicleRegistry`: `0x6e9Ec5D4eB71dcB5e53B12C3E4cC93C4Da48b631`
+- `Treasury`: `0xde824AeeaC6C980d7018CF5D38d33CA92631Ebe8`
+- `EarningsManager`: `0x0C26eeC91728C865988F2F56b6DFBC2D075D8882`
+- `Marketplace`: `0xEc456f8d3ABBbaF5195355b85aebCb16817e8391`
 
 ## Verification Status
 
 - `MockUSDC`: verified
+- `RoboshareTokens`: verified
 - `PartnerManager`: verified
 - `RegistryRouter`: verified
 - `VehicleRegistry`: verified
@@ -28,8 +29,8 @@
 - `EarningsManager`: verified
 - `Marketplace`: verified
 - Proxy contracts: verified
-- `RoboshareTokens` implementation at `0x0C883Ea9EcD2228677BbbEe1C52D76c3cE6865cA`: verification exception
+- Treasury fee recipient set from env at deploy time: `0xc16ce1da7d33d10a80842d1b501e135b21e84b92`
 
-## Known Limitation
+## Notes
 
-- `RoboshareTokens` implementation verification on Sepolia Etherscan failed with a bytecode mismatch despite a clean local rebuild matching the deployed initcode byte-for-byte. Treat this as an explorer/tooling exception for this release line unless a later manual verification succeeds.
+- `RoboshareTokens` implementation verification now succeeds under `solc 0.8.28` with `optimizer_runs = 200`, `via_ir = true`, and `evm_version = cancun`.
