@@ -3,6 +3,7 @@
 DEPLOY_SCRIPT ?= script/Deploy.s.sol
 VERIFY_RUNNER ?= script/VerifyAll.s.sol
 VERIFY_TARGET_SCRIPT ?= Deploy.s.sol
+LIVE_BROADCAST_FLAGS ?= --slow --batch-size 1
 
 # setup wallet for anvil
 setup-anvil-wallet:
@@ -34,7 +35,7 @@ deploy:
 			forge script $(DEPLOY_SCRIPT) $(SCRIPT_SIG_ARGS) --rpc-url localhost --broadcast --legacy --ffi; \
 		fi \
 	else \
-		forge script $(DEPLOY_SCRIPT) $(SCRIPT_SIG_ARGS) --rpc-url $(RPC_URL) --broadcast --legacy --ffi; \
+		forge script $(DEPLOY_SCRIPT) $(SCRIPT_SIG_ARGS) --rpc-url $(RPC_URL) --broadcast --legacy --ffi $(LIVE_BROADCAST_FLAGS); \
 	fi
 
 # Deploy and generate ABIs
