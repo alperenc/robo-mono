@@ -29,6 +29,12 @@ const formatTokenInput = (amount: bigint, decimals: number) => {
 
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
 
+const paymentTokenPillClass =
+  "inline-flex items-center rounded-full border border-base-300 bg-base-100 px-2 py-0.5 text-[11px] font-semibold text-base-content/75";
+const paymentTokenInputShellClass = "flex w-full rounded-full border-2 border-base-300 bg-base-100 text-accent";
+const paymentTokenInputClass =
+  "input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70";
+
 export function RedeemLiquidityModal({
   isOpen,
   onClose,
@@ -184,15 +190,17 @@ export function RedeemLiquidityModal({
               <p className="text-base-content/80 mb-4">
                 You redeemed <span className="font-bold">{successRedeemAmount.toLocaleString()}</span> units from this
                 position for{" "}
-                <span className="font-bold">
-                  {Number(formattedSuccessPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                <span className="inline-flex items-center gap-2 font-bold">
+                  {Number(formattedSuccessPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className={paymentTokenPillClass}>{symbol}</span>
                 </span>
                 .
               </p>
               <div className="bg-success/20 dark:bg-success/15 border border-success/30 rounded-lg p-4 text-base-content">
                 <div className="text-sm text-base-content/70 mb-1">Funds Received</div>
-                <div className="text-2xl font-bold text-success">
-                  {Number(formattedSuccessPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })} {symbol}
+                <div className="flex items-center justify-center gap-2 text-2xl font-bold text-success">
+                  {Number(formattedSuccessPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className={paymentTokenPillClass}>{symbol}</span>
                 </div>
               </div>
             </div>
@@ -201,16 +209,16 @@ export function RedeemLiquidityModal({
               <div className="bg-base-200 rounded-lg p-3">
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Your Position Value</span>
-                  <span>
-                    {Number(formattedTotalPositionValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}{" "}
-                    {symbol}
+                  <span className="flex items-center gap-2 font-medium">
+                    {Number(formattedTotalPositionValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <span className={paymentTokenPillClass}>{symbol}</span>
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Funds You Can Receive Now</span>
-                  <span>
-                    {Number(formattedFullPositionPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}{" "}
-                    {symbol}
+                  <span className="flex items-center gap-2 font-medium">
+                    {Number(formattedFullPositionPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <span className={paymentTokenPillClass}>{symbol}</span>
                   </span>
                 </div>
               </div>
@@ -228,7 +236,8 @@ export function RedeemLiquidityModal({
                 <p className="text-xs opacity-60 px-1">
                   Pool status:{" "}
                   {Number(formattedAvailableLiquidityNow).toLocaleString(undefined, { minimumFractionDigits: 2 })}{" "}
-                  {symbol} backing {withdrawableSupplyNow.toLocaleString()} currently withdrawable units.
+                  <span className={paymentTokenPillClass}>{symbol}</span> backing{" "}
+                  {withdrawableSupplyNow.toLocaleString()} currently withdrawable units.
                 </p>
               )}
 
@@ -236,21 +245,25 @@ export function RedeemLiquidityModal({
                 <label className="label py-1">
                   <span className="label-text text-xs font-bold uppercase opacity-60">Funds to Receive</span>
                   <span className="label-text-alt">
-                    Max: {Number(formattedFullPositionPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}{" "}
-                    {symbol}
+                    Max: {Number(formattedFullPositionPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered w-full"
-                  placeholder="0"
-                  value={fundsInput}
-                  onChange={e => setFundsInput(e.target.value)}
-                  max={formattedFullPositionPayout}
-                  min="0"
-                  step="any"
-                  disabled={isBusy}
-                />
+                <div className={paymentTokenInputShellClass}>
+                  <input
+                    type="number"
+                    className={paymentTokenInputClass}
+                    placeholder="0"
+                    value={fundsInput}
+                    onChange={e => setFundsInput(e.target.value)}
+                    max={formattedFullPositionPayout}
+                    min="0"
+                    step="any"
+                    disabled={isBusy}
+                  />
+                  <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
+                    {symbol}
+                  </span>
+                </div>
               </div>
 
               {hasValidAmount && (
