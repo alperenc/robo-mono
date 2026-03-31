@@ -8,13 +8,16 @@ const titleTemplate = "%s | Roboshare";
 export const getMetadata = ({
   title,
   description,
-  imageRelativePath = "/thumbnail.jpg",
+  imageRelativePath = "/opengraph-image",
+  twitterImageRelativePath = "/twitter-image",
 }: {
   title: string;
   description: string;
   imageRelativePath?: string;
+  twitterImageRelativePath?: string;
 }): Metadata => {
   const imageUrl = `${baseUrl}${imageRelativePath}`;
+  const twitterImageUrl = `${baseUrl}${twitterImageRelativePath}`;
 
   return {
     metadataBase: new URL(baseUrl),
@@ -36,12 +39,13 @@ export const getMetadata = ({
       ],
     },
     twitter: {
+      card: "summary_large_image",
       title: {
         default: title,
         template: titleTemplate,
       },
       description: description,
-      images: [imageUrl],
+      images: [twitterImageUrl],
     },
     icons: {
       icon: [

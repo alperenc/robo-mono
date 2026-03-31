@@ -26,8 +26,12 @@ contract DeployTreasury is ScaffoldETHDeploy {
             console.log("Mock USDC deployed at:", config.usdcToken);
         }
 
-        // Use deployer as treasuryFeeRecipient fallback for local testing
+        // Only localhost may fall back to the deployer. Public testnets/mainnets
+        // must provide TREASURY_FEE_RECIPIENT through the environment.
         if (config.treasuryFeeRecipient == address(0)) {
+            if (!isLocalNetwork()) {
+                revert MissingTreasuryFeeRecipient(getNetworkName());
+            }
             config.treasuryFeeRecipient = deployer;
             console.log("Using deployer as treasuryFeeRecipient:", deployer);
         }

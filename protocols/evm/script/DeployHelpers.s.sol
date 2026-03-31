@@ -8,6 +8,7 @@ contract ScaffoldETHDeploy is Script {
     error InvalidChain();
     error DeployerHasNoBalance();
     error InvalidPrivateKey(string);
+    error MissingTreasuryFeeRecipient(string networkName);
 
     event AnvilSetBalance(address account, uint256 amount);
     event FailedAnvilRequest();
@@ -79,7 +80,9 @@ contract ScaffoldETHDeploy is Script {
         MockUSDC mockUsdc = new MockUSDC();
         address usdcAddress = address(mockUsdc);
         mockUsdc.mint(recipient, INITIAL_USDC_SUPPLY);
-        mockUsdc.mint(LOCAL_FAUCET, INITIAL_USDC_SUPPLY);
+        if (LOCAL_FAUCET.code.length == 0) {
+            mockUsdc.mint(LOCAL_FAUCET, INITIAL_USDC_SUPPLY);
+        }
 
         config.usdcToken = usdcAddress;
         activeNetworkConfig = config;
@@ -217,15 +220,22 @@ contract ScaffoldETHDeploy is Script {
 
     /// @notice Config for localhost and testnets - uses MockUSDC
     function getLocalOrTestNetworkConfig() public view returns (NetworkConfig memory) {
-        // For testnets and localhost, use address(0) as placeholder
-        // Deploy scripts will deploy MockUSDC and use deployer as fallback for treasuryFeeRecipient
         address usdc = address(0);
         try vm.envAddress("USDC_ADDRESS") returns (address _usdc) {
             usdc = _usdc;
         } catch { }
+
+        address treasuryRecipient = address(0);
+        if (!isLocalNetwork()) {
+            treasuryRecipient = _getTreasuryFeeRecipientFromEnv();
+            if (treasuryRecipient == address(0)) {
+                revert MissingTreasuryFeeRecipient(getNetworkName());
+            }
+        }
+
         NetworkConfig memory testConfig = NetworkConfig({
             usdcToken: usdc, // Will deploy MockUSDC if not set
-            treasuryFeeRecipient: address(0) // Will use deployer as fallback
+            treasuryFeeRecipient: treasuryRecipient
         });
         return testConfig;
     }

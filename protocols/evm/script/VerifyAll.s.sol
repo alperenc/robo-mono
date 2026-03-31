@@ -52,6 +52,7 @@ contract VerifyAll is Script {
         address contractAddr =
             abi.decode(vm.parseJson(content, searchStr(currTransactionIdx, "contractAddress")), (address));
         string memory compiledArtifact = _getCompiledArtifact(contractName);
+        string memory contractIdentifier = _getContractIdentifier(compiledArtifact, contractName);
         bytes memory deployedBytecode =
             abi.decode(vm.parseJson(content, searchStr(currTransactionIdx, "transaction.input")), (bytes));
         bytes memory compiledBytecode = abi.decode(vm.parseJson(compiledArtifact, ".bytecode.object"), (bytes));
@@ -64,7 +65,7 @@ contract VerifyAll is Script {
         inputs[0] = "forge";
         inputs[1] = "verify-contract";
         inputs[2] = vm.toString(contractAddr);
-        inputs[3] = _getContractIdentifier(compiledArtifact, contractName);
+        inputs[3] = contractIdentifier;
         inputs[4] = "--chain";
         inputs[5] = vm.toString(block.chainid);
         if (hasConstructorArgs) {
@@ -74,6 +75,13 @@ contract VerifyAll is Script {
         } else {
             inputs[6] = "--watch";
         }
+
+        console.logString(
+            string.concat(
+                "Verifying [", vm.toString(currTransactionIdx), "] ", contractName, " at ", vm.toString(contractAddr)
+            )
+        );
+        console.logString(string.concat("Using identifier: ", contractIdentifier));
 
         FfiResult memory f = tempVm(address(vm)).tryFfi(inputs);
 

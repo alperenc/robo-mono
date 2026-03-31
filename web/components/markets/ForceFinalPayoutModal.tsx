@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
@@ -22,6 +22,7 @@ export const ForceFinalPayoutModal = ({
   liquidationReason,
 }: ForceFinalPayoutModalProps) => {
   const assetIdBigInt = BigInt(assetId);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: liquidationPreview } = useScaffoldReadContract({
     contractName: "RegistryRouter",
     functionName: "previewLiquidationEligibility",
@@ -31,6 +32,7 @@ export const ForceFinalPayoutModal = ({
   const { writeContractAsync: writeRouter, isPending } = useScaffoldWriteContract({
     contractName: "RegistryRouter",
   });
+  const isBusy = isSubmitting || isPending;
 
   const liquidationEligible = liquidationPreview ? liquidationPreview[0] : false;
   const resolvedLiquidationReason = liquidationReason ?? (liquidationPreview ? Number(liquidationPreview[1]) : 3);
@@ -43,9 +45,10 @@ export const ForceFinalPayoutModal = ({
   }, [resolvedLiquidationReason]);
 
   const handleForceFinalPayout = async () => {
-    if (!liquidationEligible) return;
+    if (!liquidationEligible || isBusy) return;
 
     try {
+      setIsSubmitting(true);
       await writeRouter({
         functionName: "liquidateAsset",
         args: [assetIdBigInt],
@@ -54,6 +57,7 @@ export const ForceFinalPayoutModal = ({
       onClose();
     } catch (error) {
       console.error("Error forcing final payout:", error);
+      setIsSubmitting(false);
     }
   };
 
@@ -61,9 +65,16 @@ export const ForceFinalPayoutModal = ({
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isBusy ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
-        <button className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10" onClick={onClose}>
+        <button
+          className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
+          onClick={onClose}
+          disabled={isBusy}
+        >
           <XMarkIcon className="h-5 w-5" />
         </button>
 
@@ -107,15 +118,15 @@ export const ForceFinalPayoutModal = ({
 
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
           <div className="flex gap-3 justify-end">
-            <button className="btn btn-ghost" onClick={onClose} disabled={isPending}>
+            <button className="btn btn-ghost" onClick={onClose} disabled={isBusy}>
               Cancel
             </button>
             <button
               className={isInsolvencyFlow ? "btn btn-error" : "btn btn-primary"}
               onClick={handleForceFinalPayout}
-              disabled={isPending || !liquidationEligible}
+              disabled={isBusy || !liquidationEligible}
             >
-              {isPending ? (
+              {isBusy ? (
                 <>
                   <span className="loading loading-spinner loading-sm" />
                   Processing...

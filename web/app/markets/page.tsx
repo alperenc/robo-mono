@@ -1865,6 +1865,7 @@ const MarketsPage: NextPage = () => {
             return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
           })()}
           prefillAmount={prefillListAmount}
+          listingFlow="secondary"
         />
       )}
 
