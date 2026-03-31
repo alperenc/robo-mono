@@ -50,8 +50,9 @@ export const EndSecondaryListingModal = ({
       onSuccess?.();
       onClose();
     } catch (e) {
-      setIsEnding(false);
       setErrorMessage(getParsedError(e));
+    } finally {
+      setIsEnding(false);
     }
   };
 

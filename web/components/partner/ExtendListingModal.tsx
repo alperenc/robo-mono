@@ -37,6 +37,7 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
       onClose();
     } catch (e) {
       console.error("Error extending listing:", e);
+    } finally {
       setIsExtending(false);
     }
   };

@@ -51,8 +51,9 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
       });
       onClose();
     } catch (e) {
-      setIsWithdrawing(false);
       console.error("Error withdrawing proceeds:", e);
+    } finally {
+      setIsWithdrawing(false);
     }
   };
 
