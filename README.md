@@ -57,15 +57,16 @@ At a high level, a new registry implementation should:
 3. use the router and core contracts instead of bypassing protocol orchestration
 4. be granted `AUTHORIZED_REGISTRY_ROLE` so the router can recognize it as an approved registry
 
-## Official Release Networks
+## Release-Network Plan
 
-For the first public release line, Roboshare is officially supported on:
+For the `v0.1.0` testnet release line, Roboshare is rolling out in phases:
 
-- `Sepolia` (default)
-- `Polygon Amoy`
-- `Arbitrum Sepolia`
+- current active quiet-beta deployment: `Sepolia` (default)
+- planned follow-on deployments in the same release line:
+  - `Polygon Amoy`
+  - `Arbitrum Sepolia`
 
-Planned for a later release line:
+Deferred to a later release line:
 
 - `Base Sepolia`
 

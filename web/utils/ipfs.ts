@@ -16,11 +16,18 @@ export const uploadToIpfs = async (data: File | object): Promise<string> => {
     });
 
     if (!response.ok) {
-      throw new Error(`IPFS upload failed: ${response.statusText}`);
+      const errorBody = await response.json().catch(() => null);
+      const message =
+        typeof errorBody?.error === "string" ? errorBody.error : `IPFS upload failed: ${response.statusText}`;
+      throw new Error(message);
     }
 
     const result = await response.json();
-    return `ipfs://${result.Hash}`;
+    const cid = result?.data?.cid ?? result?.Hash;
+    if (!cid) {
+      throw new Error("IPFS upload failed: missing CID in response");
+    }
+    return `ipfs://${cid}`;
   } catch (error) {
     console.error("Error uploading to IPFS:", error);
     throw error;

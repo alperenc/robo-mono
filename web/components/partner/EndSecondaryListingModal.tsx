@@ -20,8 +20,10 @@ export const EndSecondaryListingModal = ({
   listingId,
   tokenAmount,
 }: EndSecondaryListingModalProps) => {
+  const [isEnding, setIsEnding] = useState(false);
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isBusy = isEnding || isPending;
 
   const formattedTokenAmount = Number(tokenAmount).toLocaleString();
 
@@ -30,13 +32,17 @@ export const EndSecondaryListingModal = ({
   }, [isOpen]);
 
   const handleConfirm = async () => {
+    if (isBusy) return;
+
     try {
       setErrorMessage(null);
+      setIsEnding(true);
       const txHash = await writeMarketplace({
         functionName: "endListing",
         args: [BigInt(listingId)],
       });
       if (!txHash) {
+        setIsEnding(false);
         setErrorMessage("Transaction was not submitted. Please try again.");
         return;
       }
@@ -45,6 +51,8 @@ export const EndSecondaryListingModal = ({
       onClose();
     } catch (e) {
       setErrorMessage(getParsedError(e));
+    } finally {
+      setIsEnding(false);
     }
   };
 
@@ -52,13 +60,16 @@ export const EndSecondaryListingModal = ({
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isBusy ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         {/* Close Button */}
         <button
           className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
           onClick={onClose}
-          disabled={isPending}
+          disabled={isBusy}
         >
           <XMarkIcon className="h-5 w-5" />
         </button>
@@ -101,11 +112,11 @@ export const EndSecondaryListingModal = ({
         {/* Sticky Footer */}
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
           <div className="flex gap-3 justify-end">
-            <button className="btn btn-ghost" onClick={onClose} disabled={isPending}>
+            <button className="btn btn-ghost" onClick={onClose} disabled={isBusy}>
               Keep Listing
             </button>
-            <button className="btn btn-primary" onClick={handleConfirm} disabled={isPending}>
-              {isPending ? (
+            <button className="btn btn-primary" onClick={handleConfirm} disabled={isBusy}>
+              {isBusy ? (
                 <>
                   <span className="loading loading-spinner loading-sm"></span>
                   Ending...

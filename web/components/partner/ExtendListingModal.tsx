@@ -14,15 +14,19 @@ interface ExtendListingModalProps {
 
 export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresAt }: ExtendListingModalProps) => {
   const [durationDays, setDurationDays] = useState("7");
+  const [isExtending, setIsExtending] = useState(false);
 
   const { writeContractAsync: writeMarketplace, isPending } = useScaffoldWriteContract({ contractName: "Marketplace" });
+  const isBusy = isExtending || isPending;
 
-  useEscClose(isOpen, onClose);
+  useEscClose(isOpen && !isBusy, onClose);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBusy) return;
 
     try {
+      setIsExtending(true);
       const additionalDuration = BigInt(parseInt(durationDays) * 24 * 60 * 60);
 
       await writeMarketplace({
@@ -33,6 +37,8 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
       onClose();
     } catch (e) {
       console.error("Error extending listing:", e);
+    } finally {
+      setIsExtending(false);
     }
   };
 
@@ -58,7 +64,10 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isBusy ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
@@ -66,7 +75,7 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
             type="button"
             className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
             onClick={onClose}
-            disabled={isPending}
+            disabled={isBusy}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -105,6 +114,7 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
                       type="button"
                       className={`btn btn-sm ${durationDays === days ? "btn-primary" : "btn-ghost bg-base-200"}`}
                       onClick={() => setDurationDays(days)}
+                      disabled={isBusy}
                     >
                       {days}d
                     </button>
@@ -131,11 +141,11 @@ export const ExtendListingModal = ({ isOpen, onClose, listingId, currentExpiresA
           {/* Sticky Footer */}
           <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
             <div className="flex gap-3 justify-end">
-              <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isPending}>
+              <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isBusy}>
                 Cancel
               </button>
-              <button type="submit" className="btn btn-success" disabled={isPending}>
-                {isPending ? (
+              <button type="submit" className="btn btn-success" disabled={isBusy}>
+                {isBusy ? (
                   <>
                     <span className="loading loading-spinner loading-sm"></span>
                     Extending...
