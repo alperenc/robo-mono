@@ -222,6 +222,11 @@ const MarketsPage: NextPage = () => {
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
   const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
 
+  const getVehicleImageKey = useCallback(
+    (vehicle: Pick<SubgraphVehicle, "id" | "metadataURI">) => `${chainId}:${vehicle.id}:${vehicle.metadataURI || ""}`,
+    [chainId],
+  );
+
   const { data: pendingWithdrawal, refetch: refetchPendingWithdrawal } = useReadContract({
     address: treasuryContract?.address,
     abi: treasuryContract?.abi,
@@ -664,7 +669,7 @@ const MarketsPage: NextPage = () => {
   // Fetch IPFS images
   useEffect(() => {
     const fetchImages = async () => {
-      const vehiclesWithMetadata = vehicles.filter(v => v.metadataURI && !imageUrls[v.id]);
+      const vehiclesWithMetadata = vehicles.filter(v => v.metadataURI && !imageUrls[getVehicleImageKey(v)]);
       if (vehiclesWithMetadata.length === 0) return;
 
       const newImageUrls: Record<string, string> = { ...imageUrls };
@@ -675,7 +680,7 @@ const MarketsPage: NextPage = () => {
           try {
             const metadata = await fetchIpfsMetadata(vehicle.metadataURI);
             if (metadata?.image) {
-              newImageUrls[vehicle.id] = ipfsToHttp(metadata.image) || "";
+              newImageUrls[getVehicleImageKey(vehicle)] = ipfsToHttp(metadata.image) || "";
             }
           } catch (err) {
             console.error(`Error fetching metadata for vehicle ${vehicle.id}:`, err);
@@ -687,7 +692,7 @@ const MarketsPage: NextPage = () => {
     };
 
     fetchImages();
-  }, [vehicles, imageUrls]);
+  }, [getVehicleImageKey, imageUrls, vehicles]);
 
   const tokenSoldTotals = useMemo(() => {
     const totals = new Map<string, bigint>();
@@ -1485,7 +1490,7 @@ const MarketsPage: NextPage = () => {
                     }
                     earnings={assetEarnings.find(e => e.assetId === pool.assetId)}
                     partner={partner}
-                    imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
+                    imageUrl={vehicle ? imageUrls[getVehicleImageKey(vehicle)] : undefined}
                     viewMode={viewMode}
                     showNewPoolBadge={shouldShowNewPoolBadge(pool)}
                     primaryActionLabel={poolUserActionStateByTokenId.get(pool.tokenId)?.primaryLabel || "Deposit"}
@@ -1617,7 +1622,7 @@ const MarketsPage: NextPage = () => {
                   token={token}
                   earnings={earning}
                   partner={partner}
-                  imageUrl={vehicle?.id ? imageUrls[vehicle.id] : undefined}
+                  imageUrl={vehicle ? imageUrls[getVehicleImageKey(vehicle)] : undefined}
                   assetType={AssetType.VEHICLE}
                   priority={index < 4}
                   viewMode={viewMode}
