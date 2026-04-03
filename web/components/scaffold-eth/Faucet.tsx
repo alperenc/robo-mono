@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { User, usePrivy } from "@privy-io/react-auth";
 import { createPortal } from "react-dom";
 import {
   Address as AddressType,
@@ -23,12 +23,17 @@ import { useWatchBalance } from "~~/hooks/scaffold-eth/useWatchBalance";
 import { useWatchTokenBalance } from "~~/hooks/scaffold-eth/useWatchTokenBalance";
 import { useMockTokenFaucetMint } from "~~/hooks/useMockTokenFaucetMint";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { isPrivyEnabled } from "~~/services/web3/privyConfig";
 import { getPrivyIdentityLabel } from "~~/services/web3/privyIdentity";
 import { getLocalRpcUrl, getRuntimeLocalChain } from "~~/utils/localServiceUrls";
 import { getBlockExplorerTxLink, notification } from "~~/utils/scaffold-eth";
 
 const FAUCET_ADDRESS = "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f" as AddressType;
 const shortenAddress = (address: AddressType) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+const usePrivyUserEnabled = () => usePrivy().user;
+const usePrivyUserDisabled = () => undefined;
+const useOptionalPrivyUser = isPrivyEnabled() ? usePrivyUserEnabled : usePrivyUserDisabled;
 
 /**
  * Faucet modal which lets you send ETH to any address.
@@ -43,7 +48,7 @@ export const Faucet = () => {
   const [sendTokenValue, setSendTokenValue] = useState("");
 
   const { address: connectedAddress, chain: ConnectedChain } = useAccount();
-  const { user } = usePrivy();
+  const user = useOptionalPrivyUser() as User | undefined;
   const isLocalChain = ConnectedChain?.id === hardhat.id;
   const {
     address: paymentTokenAddress,

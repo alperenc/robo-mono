@@ -5,6 +5,7 @@ import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { type WaitForCallsStatusReturnType, waitForCallsStatus, waitForTransactionReceipt } from "@wagmi/core";
 import { Address, Hex } from "viem";
 import { useAccount, useCapabilities, useConfig, useSendCalls } from "wagmi";
+import { isPrivyEnabled } from "~~/services/web3/privyConfig";
 
 export type AtomicCall = {
   data?: Hex;
@@ -17,10 +18,26 @@ type SendAtomicCallsParameters = {
   timeout?: number;
 };
 
-export const useAtomicCalls = () => {
+type AtomicCallsState = {
+  capabilities: unknown;
+  isPending: boolean;
+  reset: () => void;
+  sendAtomicCalls: (params: SendAtomicCallsParameters) => Promise<WaitForCallsStatusReturnType>;
+  supportsAtomicBatch: boolean;
+  supportsPaymasterService: boolean;
+  transactingAddress?: Address;
+};
+
+type SmartWalletAtomicClient = {
+  account?: { address?: Address };
+  chain?: { id: number };
+  paymaster?: unknown;
+  sendTransaction: (params: { calls: readonly AtomicCall[] }) => Promise<Hex>;
+};
+
+const useAtomicCallsBase = (smartWalletClient?: SmartWalletAtomicClient) => {
   const config = useConfig();
   const { address, chainId, connector } = useAccount();
-  const { client: smartWalletClient } = useSmartWallets();
   const [isSmartWalletPending, setIsSmartWalletPending] = useState(false);
   const { data: capabilities } = useCapabilities({
     account: address,
@@ -48,6 +65,12 @@ export const useAtomicCalls = () => {
   const sendAtomicCalls = useCallback(
     async ({ calls, timeout = 120_000 }: SendAtomicCallsParameters) => {
       if (smartWalletClient) {
+        const smartWalletChainId = smartWalletClient.chain?.id;
+
+        if (!smartWalletChainId) {
+          throw new Error("Smart wallet is not configured on the active network");
+        }
+
         setIsSmartWalletPending(true);
 
         try {
@@ -60,14 +83,14 @@ export const useAtomicCalls = () => {
           });
 
           const receipt = await waitForTransactionReceipt(config, {
-            chainId: smartWalletClient.chain.id,
+            chainId: smartWalletChainId,
             hash,
             timeout,
           });
 
           return {
             atomic: true,
-            chainId: smartWalletClient.chain.id,
+            chainId: smartWalletChainId,
             id: hash,
             receipts: [receipt],
             status: receipt.status === "success" ? "success" : "failure",
@@ -126,3 +149,14 @@ export const useAtomicCalls = () => {
     ],
   );
 };
+
+const useAtomicCallsWithPrivy = () => {
+  const { client } = useSmartWallets();
+  return useAtomicCallsBase(client as SmartWalletAtomicClient | undefined);
+};
+
+const useAtomicCallsWithoutPrivy = () => useAtomicCallsBase();
+
+const useAtomicCallsImpl = isPrivyEnabled() ? useAtomicCallsWithPrivy : useAtomicCallsWithoutPrivy;
+
+export const useAtomicCalls = (): AtomicCallsState => useAtomicCallsImpl();

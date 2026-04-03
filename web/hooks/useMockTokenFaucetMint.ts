@@ -1,7 +1,7 @@
 "use client";
 
 import { Abi, Address, Hex, encodeFunctionData } from "viem";
-import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { useAtomicCalls } from "~~/hooks/useAtomicCalls";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { getDeployedContract } from "~~/utils/contracts";
@@ -22,6 +22,9 @@ export const useMockTokenFaucetMint = () => {
   const { address: paymentTokenAddress, isMockToken } = usePaymentToken();
   const { isPending, sendAtomicCalls, supportsAtomicBatch, supportsPaymasterService, transactingAddress } =
     useAtomicCalls();
+  const { writeContractAsync: writeMockToken, isPending: isDirectMintPending } = useScaffoldWriteContract({
+    contractName: "MockUSDC",
+  });
   const mockTokenContract = getDeployedContract(selectedNetwork.id, "MockUSDC");
 
   const mintMockToken = async ({
@@ -40,14 +43,15 @@ export const useMockTokenFaucetMint = () => {
       return;
     }
 
-    if (!supportsAtomicBatch) {
-      notification.error("Log in with the embedded smart wallet to use the sponsored faucet on this network.");
-      return;
-    }
+    if (!supportsAtomicBatch || !supportsPaymasterService) {
+      await writeMockToken({
+        functionName: "mint",
+        args: [targetRecipient, amount],
+      });
 
-    if (!supportsPaymasterService) {
-      notification.error("Gas sponsorship is not available for the connected smart wallet on this network.");
-      return;
+      return {
+        recipient: targetRecipient,
+      };
     }
 
     const batchStatus = await sendAtomicCalls({
@@ -76,7 +80,7 @@ export const useMockTokenFaucetMint = () => {
   };
 
   return {
-    isPending,
+    isPending: isPending || isDirectMintPending,
     mintMockToken,
     transactingAddress,
   };
