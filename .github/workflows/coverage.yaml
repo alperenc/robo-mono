@@ -2,11 +2,15 @@ name: Contracts Coverage
 
 on:
   pull_request:
+    branches:
+      - main
+      - dev
     paths:
       - "protocols/evm/**"
   push:
     branches:
       - main
+      - dev
     paths:
       - "protocols/evm/**"
 
