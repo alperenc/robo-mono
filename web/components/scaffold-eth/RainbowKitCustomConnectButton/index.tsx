@@ -5,11 +5,16 @@ import { Balance } from "../Balance";
 import { AddressInfoDropdown } from "./AddressInfoDropdown";
 import { AddressQRCodeModal } from "./AddressQRCodeModal";
 import { WrongNetworkDropdown } from "./WrongNetworkDropdown";
+import { useLogout, usePrivy } from "@privy-io/react-auth";
+import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Address, formatUnits } from "viem";
+import { useAccount, useDisconnect } from "wagmi";
 import { useNetworkColor, useWatchTokenBalance } from "~~/hooks/scaffold-eth";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { isPrivyEnabled } from "~~/services/web3/privyConfig";
+import { getPrivyIdentityLabel } from "~~/services/web3/privyIdentity";
 import { getBlockExplorerAddressLink } from "~~/utils/scaffold-eth";
 
 const ConnectedWalletSummary = ({ address, chainName }: { address: Address; chainName?: string }) => {
@@ -49,19 +54,51 @@ const ConnectedWalletSummary = ({ address, chainName }: { address: Address; chai
   );
 };
 
-/**
- * Custom Wagmi Connect Button (watch balance + custom design)
- */
-export const RainbowKitCustomConnectButton = () => {
+type ConnectedWalletContentProps = {
+  address: Address;
+  chainName?: string;
+  displayName: string;
+  ensAvatar?: string;
+  onDisconnect?: () => void | Promise<void>;
+};
+
+const ConnectedWalletContent = ({
+  address,
+  chainName,
+  displayName,
+  ensAvatar,
+  onDisconnect,
+}: ConnectedWalletContentProps) => {
+  const { targetNetwork } = useTargetNetwork();
+  const blockExplorerAddressLink = getBlockExplorerAddressLink(targetNetwork, address);
+
+  return (
+    <>
+      <div className="flex flex-col items-end">
+        <div className="flex items-center">
+          <ConnectedWalletSummary address={address} chainName={chainName} />
+          <AddressInfoDropdown
+            address={address}
+            displayName={displayName}
+            ensAvatar={ensAvatar}
+            blockExplorerAddressLink={blockExplorerAddressLink}
+            chainName={chainName}
+            onDisconnect={onDisconnect}
+          />
+        </div>
+      </div>
+      <AddressQRCodeModal address={address} modalId="qrcode-modal" />
+    </>
+  );
+};
+
+const LegacyRainbowKitConnectButton = () => {
   const { targetNetwork } = useTargetNetwork();
 
   return (
     <ConnectButton.Custom>
       {({ account, chain, openConnectModal, mounted }) => {
         const connected = mounted && account && chain;
-        const blockExplorerAddressLink = account
-          ? getBlockExplorerAddressLink(targetNetwork, account.address)
-          : undefined;
 
         return (
           <>
@@ -79,21 +116,12 @@ export const RainbowKitCustomConnectButton = () => {
               }
 
               return (
-                <>
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center">
-                      <ConnectedWalletSummary address={account.address as Address} chainName={chain.name} />
-                      <AddressInfoDropdown
-                        address={account.address as Address}
-                        displayName={account.displayName}
-                        ensAvatar={account.ensAvatar}
-                        blockExplorerAddressLink={blockExplorerAddressLink}
-                        chainName={chain.name}
-                      />
-                    </div>
-                  </div>
-                  <AddressQRCodeModal address={account.address as Address} modalId="qrcode-modal" />
-                </>
+                <ConnectedWalletContent
+                  address={account.address as Address}
+                  chainName={chain.name}
+                  displayName={account.displayName}
+                  ensAvatar={account.ensAvatar}
+                />
               );
             })()}
           </>
@@ -101,4 +129,75 @@ export const RainbowKitCustomConnectButton = () => {
       }}
     </ConnectButton.Custom>
   );
+};
+
+const PrivyConnectButton = () => {
+  const { targetNetwork } = useTargetNetwork();
+  const { address, chain, connector } = useAccount();
+  const { client: smartWalletClient } = useSmartWallets();
+  const { disconnect } = useDisconnect();
+  const { ready, authenticated, login, connectOrCreateWallet, user } = usePrivy();
+  const { logout } = useLogout();
+  const transactingAddress = (smartWalletClient?.account?.address as Address | undefined) ?? address;
+  const transactingChainName = smartWalletClient?.chain?.name ?? chain?.name;
+
+  const handleDisconnect = async () => {
+    const isPrivyConnector = connector?.id.startsWith("io.privy");
+
+    if (authenticated || isPrivyConnector) {
+      try {
+        await logout();
+      } finally {
+        // External wallets connected through Privy can remain attached at the wagmi layer
+        // after logout, so explicitly disconnect the connector as well.
+        disconnect();
+      }
+      return;
+    }
+
+    disconnect();
+  };
+
+  if (!ready) {
+    return (
+      <button className="btn btn-primary btn-sm" disabled type="button">
+        Loading...
+      </button>
+    );
+  }
+
+  if (!transactingAddress || !chain) {
+    return (
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={() => (authenticated ? connectOrCreateWallet() : login())}
+        type="button"
+      >
+        {authenticated ? "Open Wallet" : "Log In"}
+      </button>
+    );
+  }
+
+  if (chain.id !== targetNetwork.id) {
+    return <WrongNetworkDropdown onDisconnect={handleDisconnect} />;
+  }
+
+  return (
+    <ConnectedWalletContent
+      address={transactingAddress}
+      chainName={transactingChainName}
+      displayName={
+        getPrivyIdentityLabel({ address: transactingAddress, connectorName: connector?.name, user }) ||
+        `${transactingAddress.slice(0, 6)}...${transactingAddress.slice(-4)}`
+      }
+      onDisconnect={handleDisconnect}
+    />
+  );
+};
+
+/**
+ * Custom Wagmi Connect Button (watch balance + custom design)
+ */
+export const RainbowKitCustomConnectButton = () => {
+  return isPrivyEnabled() ? <PrivyConnectButton /> : <LegacyRainbowKitConnectButton />;
 };

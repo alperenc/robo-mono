@@ -84,8 +84,8 @@ export const HeaderMenuLinks = () => {
 export const Header = () => {
   const { targetNetwork } = useTargetNetwork();
   const isLocalNetwork = targetNetwork.id === hardhat.id;
-  const { address: paymentTokenAddress } = usePaymentToken();
-  const showFaucet = isLocalNetwork || !!paymentTokenAddress;
+  const { isMockToken } = usePaymentToken();
+  const showFaucet = isLocalNetwork || isMockToken;
 
   const burgerMenuRef = useRef<HTMLDetailsElement>(null);
   useOutsideClick(burgerMenuRef, () => {
