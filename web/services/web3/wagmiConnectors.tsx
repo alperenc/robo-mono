@@ -14,6 +14,10 @@ import scaffoldConfig from "~~/scaffold.config";
 
 const { onlyLocalBurnerWallet, targetNetworks } = scaffoldConfig;
 const LOCAL_CHAIN_ID = chains.foundry.id;
+const burnerWallets =
+  !targetNetworks.some(network => network.id !== LOCAL_CHAIN_ID) || !onlyLocalBurnerWallet
+    ? ([rainbowkitBurnerWallet] as unknown as (typeof metaMaskWallet)[])
+    : [];
 
 const wallets = [
   metaMaskWallet,
@@ -23,9 +27,7 @@ const wallets = [
   rabbyWallet,
   rainbowWallet,
   safeWallet,
-  ...(!targetNetworks.some(network => network.id !== LOCAL_CHAIN_ID) || !onlyLocalBurnerWallet
-    ? [rainbowkitBurnerWallet]
-    : []),
+  ...burnerWallets,
 ];
 
 /**

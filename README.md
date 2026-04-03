@@ -130,6 +130,7 @@ Key paths:
 - web app: `web`
 
 Launch sequencing and release-management policy are tracked in [docs/testnet-release-strategy.md](docs/testnet-release-strategy.md).
+Embedded-wallet setup notes are tracked in [docs/privy-wallet-setup.md](docs/privy-wallet-setup.md).
 
 ## Indexing and Subgraph Development
 
