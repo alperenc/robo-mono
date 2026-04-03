@@ -1,21 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useChainId } from "wagmi";
 import { Address } from "~~/components/scaffold-eth";
+import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
+type VehicleRow = {
+  id: string;
+  partner: `0x${string}`;
+  vin?: string;
+  make?: string;
+  model?: string;
+  year?: string;
+  blockNumber: string;
+};
+
+type VehiclesQueryResult = {
+  vehicles: VehicleRow[];
+};
+
 const VehiclesTable = () => {
-  const chainId = useChainId();
-  const subgraphUrl = getSubgraphQueryUrl(chainId);
-  const [vehiclesData, setVehiclesData] = useState<any>(null);
-  const [error, setError] = useState<any>(null);
+  const selectedNetwork = useSelectedNetwork();
+  const subgraphUrl = getSubgraphQueryUrl(selectedNetwork.id);
+  const [vehiclesData, setVehiclesData] = useState<VehiclesQueryResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (!subgraphUrl) {
-          throw new Error(`No subgraph endpoint configured for chain ${chainId}.`);
+          throw new Error(`No subgraph endpoint configured for ${selectedNetwork.name}.`);
         }
 
         const response = await fetch(subgraphUrl, {
@@ -46,27 +60,28 @@ const VehiclesTable = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const result = await response.json();
-        setVehiclesData(result.data);
+        const result = (await response.json()) as { data?: VehiclesQueryResult };
+        setVehiclesData(result.data ?? { vehicles: [] });
+        setError(null);
       } catch (err) {
         console.error("Subgraph fetch error:", err);
-        setError(err);
+        setError(err instanceof Error ? err.message : "Failed to fetch indexed vehicles.");
       }
     };
 
     fetchData();
-  }, [chainId, subgraphUrl]);
+  }, [selectedNetwork.name, subgraphUrl]);
 
   if (error) {
-    return <div className="text-center text-error">Error fetching data: {error.message}</div>;
+    return <div className="mt-6 text-center text-error">Error fetching data: {error}</div>;
   }
 
   if (!vehiclesData) {
-    return <div className="text-center">Loading...</div>;
+    return <div className="mt-6 text-center">Loading indexed vehicles...</div>;
   }
 
   return (
-    <div className="flex justify-center items-center mt-10">
+    <div className="mt-10 flex justify-center items-center">
       <div className="overflow-x-auto shadow-2xl rounded-xl">
         <table className="table bg-base-100 table-zebra">
           <thead>
@@ -81,7 +96,7 @@ const VehiclesTable = () => {
             </tr>
           </thead>
           <tbody>
-            {vehiclesData?.vehicles?.map((vehicle: any) => (
+            {vehiclesData.vehicles.map(vehicle => (
               <tr key={vehicle.id}>
                 <th>{vehicle.id}</th>
                 <td>{vehicle.year?.toString() || "-"}</td>
