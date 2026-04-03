@@ -1,11 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits, parseEventLogs, parseUnits } from "viem";
-import { useAccount, useChainId, usePublicClient } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
+import { Address, encodeFunctionData, erc20Abi, formatUnits, parseEventLogs, parseUnits } from "viem";
+import { usePublicClient, useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { AccountIdentityCard } from "~~/components/scaffold-eth";
+import { ModalAuthActionButton } from "~~/components/scaffold-eth/ModalAuthActionButton";
+import { useScaffoldReadContract, useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
+import { useAtomicCalls } from "~~/hooks/useAtomicCalls";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { usePaymentTokenWriteContract } from "~~/hooks/usePaymentTokenWriteContract";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
+import { isPrivyEnabled } from "~~/services/web3/privyConfig";
+import { getPrivyIdentityLabel } from "~~/services/web3/privyIdentity";
 import { getDeployedContract } from "~~/utils/contracts";
 
 interface SecondaryPurchaseTarget {
@@ -63,6 +71,94 @@ const calculateTotalPayment = (principal: bigint, buyerPaysFee: boolean) => {
   return principal + calculateProtocolFee(principal);
 };
 
+const shortenAddress = (address: Address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+const PrivyAvailableBalanceCard = ({
+  address,
+  formattedBalance,
+  paymentTokenPillClass,
+  symbol,
+}: {
+  address: Address;
+  formattedBalance: string;
+  paymentTokenPillClass: string;
+  symbol: string;
+}) => {
+  const { user } = usePrivy();
+  const shortAddress = shortenAddress(address);
+  const accountLabel = getPrivyIdentityLabel({ address, user }) || shortAddress;
+
+  return (
+    <div className="space-y-1">
+      <span className="text-sm opacity-70">Your Available Balance</span>
+      <AccountIdentityCard
+        address={address}
+        primaryLabel={accountLabel}
+        secondaryLabel={accountLabel !== shortAddress ? shortAddress : undefined}
+        aside={
+          <div className="flex items-center gap-2 font-mono">
+            {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <span className={paymentTokenPillClass}>{symbol}</span>
+          </div>
+        }
+      />
+    </div>
+  );
+};
+
+const AvailableBalanceCard = ({
+  address,
+  formattedBalance,
+  paymentTokenPillClass,
+  symbol,
+}: {
+  address?: Address;
+  formattedBalance: string;
+  paymentTokenPillClass: string;
+  symbol: string;
+}) => {
+  if (!address) {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-base-300 bg-base-100 px-4 py-3">
+        <span className="text-sm opacity-70">Your Available Balance</span>
+        <span className="flex items-center gap-2 font-mono">
+          {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <span className={paymentTokenPillClass}>{symbol}</span>
+        </span>
+      </div>
+    );
+  }
+
+  if (isPrivyEnabled()) {
+    return (
+      <PrivyAvailableBalanceCard
+        address={address}
+        formattedBalance={formattedBalance}
+        paymentTokenPillClass={paymentTokenPillClass}
+        symbol={symbol}
+      />
+    );
+  }
+
+  const shortAddress = shortenAddress(address);
+
+  return (
+    <div className="space-y-1">
+      <span className="text-sm opacity-70">Your Available Balance</span>
+      <AccountIdentityCard
+        address={address}
+        primaryLabel={shortAddress}
+        aside={
+          <div className="flex items-center gap-2 font-mono">
+            {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <span className={paymentTokenPillClass}>{symbol}</span>
+          </div>
+        }
+      />
+    </div>
+  );
+};
+
 const getMaxAffordableTokenAmount = ({
   availableAmount,
   buyerPaysFee,
@@ -105,9 +201,10 @@ export function AcquirePositionModal({
   partnerName,
   listedTokens,
 }: AcquirePositionModalProps) {
-  const { address } = useAccount();
-  const chainId = useChainId();
-  const { symbol, decimals } = usePaymentToken();
+  const { address: connectedAddress } = useTransactingAccount();
+  const selectedNetwork = useSelectedNetwork();
+  const chainId = selectedNetwork.id;
+  const { address: paymentTokenAddress, symbol, decimals } = usePaymentToken();
   const [inputAmount, setInputAmount] = useState("");
   const [step, setStep] = useState<"input" | "approving" | "purchasing" | "success" | "expired" | "error">("input");
   const [error, setError] = useState<string | null>(null);
@@ -131,17 +228,23 @@ export function AcquirePositionModal({
           return maxSupply > currentSupply ? maxSupply - currentSupply : 0n;
         })();
   const buyerPaysFee = purchaseTarget.kind === "secondary" ? (purchaseTarget.listing.buyerPaysFee ?? true) : true;
+  const { isPending: isBatchPurchasing, sendAtomicCalls, supportsAtomicBatch, transactingAddress } = useAtomicCalls();
+  const accountAddress = transactingAddress ?? connectedAddress;
 
-  const { data: paymentTokenBalance } = useScaffoldReadContract({
-    contractName: "MockUSDC",
+  const { data: paymentTokenBalance } = useReadContract({
+    chainId,
+    address: paymentTokenAddress,
+    abi: erc20Abi,
     functionName: "balanceOf",
-    args: [address],
+    args: accountAddress ? [accountAddress] : undefined,
+    query: { enabled: !!paymentTokenAddress && !!accountAddress },
   });
 
   const { data: userTokenBalance, refetch: refetchTokenBalance } = useScaffoldReadContract({
     contractName: "RoboshareTokens",
     functionName: "balanceOf",
-    args: [address, BigInt(tokenId)],
+    args: [accountAddress, BigInt(tokenId)],
+    query: { enabled: !!accountAddress },
   });
 
   const totalUserTokens = userTokenBalance || 0n;
@@ -153,11 +256,13 @@ export function AcquirePositionModal({
     }
   }, [listedTokens]);
 
-  const { data: paymentTokenAllowance, refetch: refetchAllowance } = useScaffoldReadContract({
-    contractName: "MockUSDC",
+  const { data: paymentTokenAllowance, refetch: refetchAllowance } = useReadContract({
+    chainId,
+    address: paymentTokenAddress,
+    abi: erc20Abi,
     functionName: "allowance",
-    args: [address, marketplaceAddress],
-    watch: true,
+    args: accountAddress && marketplaceAddress ? [accountAddress, marketplaceAddress] : undefined,
+    query: { enabled: !!paymentTokenAddress && !!accountAddress && !!marketplaceAddress },
   });
 
   const secondaryInputAmount = useMemo(() => {
@@ -176,9 +281,7 @@ export function AcquirePositionModal({
     query: { enabled: purchaseTarget.kind === "secondary" },
   });
 
-  const { writeContractAsync: approvePaymentToken, isPending: isApproving } = useScaffoldWriteContract({
-    contractName: "MockUSDC",
-  });
+  const { writeContractAsync: approvePaymentToken, isPending: isApproving } = usePaymentTokenWriteContract();
 
   const { writeContractAsync: submitPurchase, isPending: isPurchasing } = useScaffoldWriteContract({
     contractName: "Marketplace",
@@ -294,54 +397,126 @@ export function AcquirePositionModal({
       setError("Calculating payment amount...");
       return;
     }
+    if (!paymentTokenAddress) {
+      setError("Payment token not configured");
+      return;
+    }
+    if (!marketplaceAbi) {
+      setError("Marketplace ABI not found");
+      return;
+    }
 
     setError(null);
 
     try {
-      if (needsApproval) {
-        setStep("approving");
-        await approvePaymentToken({ functionName: "approve", args: [marketplaceAddress, expectedPayment] });
-        await refetchAllowance();
-      }
+      const purchaseFunctionName =
+        purchaseTarget.kind === "secondary" ? "buyFromSecondaryListing" : "buyFromPrimaryPool";
+      const purchaseArgs =
+        purchaseTarget.kind === "secondary"
+          ? ([BigInt(purchaseTarget.listing.id), purchaseAmount] as const)
+          : ([BigInt(purchaseTarget.pool.tokenId), purchaseAmount] as const);
 
-      setStep("purchasing");
-      if (purchaseTarget.kind === "secondary") {
-        const txHash = await submitPurchase({
-          functionName: "buyFromSecondaryListing",
-          args: [BigInt(purchaseTarget.listing.id), purchaseAmount],
-        });
-        if (!txHash || !publicClient || !marketplaceAbi) {
-          throw new Error("Could not verify purchase result");
+      if (supportsAtomicBatch) {
+        setStep("purchasing");
+        const batchedCalls = [
+          ...(needsApproval
+            ? [
+                {
+                  data: encodeFunctionData({
+                    abi: erc20Abi,
+                    functionName: "approve",
+                    args: [marketplaceAddress, expectedPayment],
+                  }),
+                  to: paymentTokenAddress,
+                },
+              ]
+            : []),
+          {
+            data: encodeFunctionData({
+              abi: marketplaceAbi,
+              functionName: purchaseFunctionName,
+              args: purchaseArgs,
+            }),
+            to: marketplaceAddress,
+          },
+        ] as const;
+
+        const batchStatus = await sendAtomicCalls({ calls: batchedCalls });
+        if (batchStatus.status !== "success") {
+          throw new Error("Atomic purchase bundle failed");
         }
 
-        const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
-        const tradeLogs = parseEventLogs({
-          abi: marketplaceAbi,
-          logs: receipt.logs,
-          eventName: "RevenueTokensTraded",
-          strict: false,
-        });
-
-        if (tradeLogs.length === 0) {
-          const endedLogs = parseEventLogs({
+        if (purchaseTarget.kind === "secondary") {
+          const logs = batchStatus.receipts?.flatMap(receipt => receipt.logs) ?? [];
+          const tradeLogs = parseEventLogs({
             abi: marketplaceAbi,
-            logs: receipt.logs,
-            eventName: "ListingEnded",
+            logs: logs as never,
+            eventName: "RevenueTokensTraded",
             strict: false,
           });
 
-          if (endedLogs.length > 0) {
-            setStep("expired");
-            await refetchTokenBalance();
-            onPurchaseComplete?.("");
-            return;
+          if (tradeLogs.length === 0) {
+            const endedLogs = parseEventLogs({
+              abi: marketplaceAbi,
+              logs: logs as never,
+              eventName: "ListingEnded",
+              strict: false,
+            });
+
+            if (endedLogs.length > 0) {
+              setStep("expired");
+              await refetchTokenBalance();
+              onPurchaseComplete?.("");
+              return;
+            }
           }
         }
       } else {
-        await submitPurchase({
-          functionName: "buyFromPrimaryPool",
-          args: [BigInt(purchaseTarget.pool.tokenId), purchaseAmount],
-        });
+        if (needsApproval) {
+          setStep("approving");
+          await approvePaymentToken({ functionName: "approve", args: [marketplaceAddress, expectedPayment] });
+          await refetchAllowance();
+        }
+
+        setStep("purchasing");
+        if (purchaseTarget.kind === "secondary") {
+          const txHash = await submitPurchase({
+            functionName: "buyFromSecondaryListing",
+            args: [BigInt(purchaseTarget.listing.id), purchaseAmount],
+          });
+          if (!txHash || !publicClient) {
+            throw new Error("Could not verify purchase result");
+          }
+
+          const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+          const tradeLogs = parseEventLogs({
+            abi: marketplaceAbi,
+            logs: receipt.logs,
+            eventName: "RevenueTokensTraded",
+            strict: false,
+          });
+
+          if (tradeLogs.length === 0) {
+            const endedLogs = parseEventLogs({
+              abi: marketplaceAbi,
+              logs: receipt.logs,
+              eventName: "ListingEnded",
+              strict: false,
+            });
+
+            if (endedLogs.length > 0) {
+              setStep("expired");
+              await refetchTokenBalance();
+              onPurchaseComplete?.("");
+              return;
+            }
+          }
+        } else {
+          await submitPurchase({
+            functionName: "buyFromPrimaryPool",
+            args: [BigInt(purchaseTarget.pool.tokenId), purchaseAmount],
+          });
+        }
       }
 
       setStep("success");
@@ -367,7 +542,9 @@ export function AcquirePositionModal({
   const hasValidAmount = purchaseAmount > 0n && purchaseAmount <= availableAmount;
   const hasInsufficientBalance = expectedPayment > (paymentTokenBalance ?? 0n);
   const successOwnershipBase = totalSupply ? BigInt(totalSupply) : 0n;
-  const isBusy = step === "approving" || step === "purchasing" || isApproving || isPurchasing;
+  const isBusy = step === "approving" || step === "purchasing" || isApproving || isPurchasing || isBatchPurchasing;
+  const isSponsoredProcessing = supportsAtomicBatch && step === "purchasing";
+  const requiresAuth = !accountAddress;
 
   return (
     <div className="modal modal-open">
@@ -468,6 +645,15 @@ export function AcquirePositionModal({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
+              {requiresAuth && (
+                <div className="alert border border-base-300 bg-base-200/70 text-base-content">
+                  <span className="text-sm">
+                    Log in to load your wallet balance and continue with this
+                    {isPrimaryPurchase ? " deposit" : " purchase"} without leaving the modal.
+                  </span>
+                </div>
+              )}
+
               <div className="rounded-xl border border-base-300 bg-base-200 p-4">
                 <div className="flex justify-between text-sm">
                   <span className="opacity-70">Price per Claim Unit:</span>
@@ -488,13 +674,12 @@ export function AcquirePositionModal({
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-base-300 bg-base-100 px-4 py-3">
-                <span className="text-sm opacity-70">Your Available Balance</span>
-                <span className="flex items-center gap-2 font-mono">
-                  {Number(formattedBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  <span className={paymentTokenPillClass}>{symbol}</span>
-                </span>
-              </div>
+              <AvailableBalanceCard
+                address={accountAddress as Address | undefined}
+                formattedBalance={formattedBalance}
+                paymentTokenPillClass={paymentTokenPillClass}
+                symbol={symbol}
+              />
 
               <div className="form-control">
                 <label className="label py-1">
@@ -629,31 +814,39 @@ export function AcquirePositionModal({
                 <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isBusy}>
                   Cancel
                 </button>
-                <button
-                  className="btn btn-primary flex-1"
-                  onClick={handleBuy}
-                  disabled={Boolean(isBusy || !hasValidAmount || hasInsufficientBalance)}
-                >
-                  {isApproving ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm"></span>Approving...
-                    </>
-                  ) : isPurchasing ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm"></span>Completing...
-                    </>
-                  ) : needsApproval ? (
-                    isPrimaryPurchase ? (
-                      "Approve & Deposit"
+                {requiresAuth ? (
+                  <ModalAuthActionButton className="btn btn-primary flex-1" />
+                ) : (
+                  <button
+                    className="btn btn-primary flex-1"
+                    onClick={handleBuy}
+                    disabled={Boolean(isBusy || !hasValidAmount || hasInsufficientBalance)}
+                  >
+                    {isApproving ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>Approving...
+                      </>
+                    ) : isSponsoredProcessing ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>Processing...
+                      </>
+                    ) : isPurchasing ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>Completing...
+                      </>
+                    ) : needsApproval ? (
+                      isPrimaryPurchase ? (
+                        "Approve & Deposit"
+                      ) : (
+                        "Approve & Buy"
+                      )
+                    ) : purchaseTarget.kind === "primary" ? (
+                      "Deposit"
                     ) : (
-                      "Approve & Buy"
-                    )
-                  ) : purchaseTarget.kind === "primary" ? (
-                    "Deposit"
-                  ) : (
-                    "Buy Claim Units"
-                  )}
-                </button>
+                      "Buy Claim Units"
+                    )}
+                  </button>
+                )}
               </>
             )}
           </div>

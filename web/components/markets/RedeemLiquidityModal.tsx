@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatUnits, parseUnits } from "viem";
-import { useAccount, useChainId, useReadContract } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
+import { Address, formatUnits, parseUnits } from "viem";
+import { useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { AccountIdentityCard } from "~~/components/scaffold-eth";
+import { ModalAuthActionButton } from "~~/components/scaffold-eth/ModalAuthActionButton";
+import { useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
+import { isPrivyEnabled } from "~~/services/web3/privyConfig";
+import { getPrivyIdentityLabel } from "~~/services/web3/privyIdentity";
 import { getDeployedContract } from "~~/utils/contracts";
 
 interface RedeemLiquidityModalProps {
@@ -34,6 +40,131 @@ const paymentTokenPillClass =
 const paymentTokenInputShellClass = "flex w-full rounded-full border-2 border-base-300 bg-base-100 text-accent";
 const paymentTokenInputClass =
   "input input-ghost h-[2.2rem] min-h-[2.2rem] w-full border-0 px-4 font-medium text-base-content/70 placeholder:text-accent/70 focus:bg-transparent focus:outline-hidden focus-within:border-transparent focus:text-base-content/70";
+const shortenAddress = (address: Address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+const WithdrawAccountSummaryAside = ({
+  formattedAvailableNow,
+  formattedPositionValue,
+  symbol,
+}: {
+  formattedAvailableNow: string;
+  formattedPositionValue: string;
+  symbol: string;
+}) => (
+  <div className="min-w-[12rem] space-y-1 text-right">
+    <div className="flex items-center justify-end gap-2 text-sm">
+      <span className="text-base-content/60">Available now</span>
+      <span className="font-semibold">
+        {Number(formattedAvailableNow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      </span>
+      <span className={paymentTokenPillClass}>{symbol}</span>
+    </div>
+    <div className="flex items-center justify-end gap-2 text-xs text-base-content/60">
+      <span>Position value</span>
+      <span className="font-medium text-base-content/80">
+        {Number(formattedPositionValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      </span>
+      <span className={paymentTokenPillClass}>{symbol}</span>
+    </div>
+  </div>
+);
+
+const PrivyWithdrawAccountSummaryCard = ({
+  address,
+  formattedAvailableNow,
+  formattedPositionValue,
+  symbol,
+}: {
+  address: Address;
+  formattedAvailableNow: string;
+  formattedPositionValue: string;
+  symbol: string;
+}) => {
+  const { user } = usePrivy();
+  const shortAddress = shortenAddress(address);
+  const accountLabel = getPrivyIdentityLabel({ address, user }) || shortAddress;
+
+  return (
+    <div className="space-y-1">
+      <span className="text-sm opacity-70">Your Account</span>
+      <AccountIdentityCard
+        address={address}
+        primaryLabel={accountLabel}
+        secondaryLabel={accountLabel !== shortAddress ? shortAddress : undefined}
+        aside={
+          <WithdrawAccountSummaryAside
+            formattedAvailableNow={formattedAvailableNow}
+            formattedPositionValue={formattedPositionValue}
+            symbol={symbol}
+          />
+        }
+      />
+    </div>
+  );
+};
+
+const WithdrawAccountSummaryCard = ({
+  address,
+  formattedAvailableNow,
+  formattedPositionValue,
+  symbol,
+}: {
+  address?: Address;
+  formattedAvailableNow: string;
+  formattedPositionValue: string;
+  symbol: string;
+}) => {
+  if (!address) {
+    return (
+      <div className="rounded-xl border border-base-300 bg-base-200 p-3">
+        <div className="flex justify-between text-sm">
+          <span className="opacity-70">Your Position Value</span>
+          <span className="flex items-center gap-2 font-medium">
+            {Number(formattedPositionValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <span className={paymentTokenPillClass}>{symbol}</span>
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="opacity-70">Funds You Can Receive Now</span>
+          <span className="flex items-center gap-2 font-medium">
+            {Number(formattedAvailableNow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <span className={paymentTokenPillClass}>{symbol}</span>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPrivyEnabled()) {
+    return (
+      <PrivyWithdrawAccountSummaryCard
+        address={address}
+        formattedAvailableNow={formattedAvailableNow}
+        formattedPositionValue={formattedPositionValue}
+        symbol={symbol}
+      />
+    );
+  }
+
+  const shortAddress = shortenAddress(address);
+
+  return (
+    <div className="space-y-1">
+      <span className="text-sm opacity-70">Your Account</span>
+      <AccountIdentityCard
+        address={address}
+        primaryLabel={shortAddress}
+        aside={
+          <WithdrawAccountSummaryAside
+            formattedAvailableNow={formattedAvailableNow}
+            formattedPositionValue={formattedPositionValue}
+            symbol={symbol}
+          />
+        }
+      />
+    </div>
+  );
+};
 
 export function RedeemLiquidityModal({
   isOpen,
@@ -45,8 +176,8 @@ export function RedeemLiquidityModal({
   maxRedeemableAmount,
   pricePerToken,
 }: RedeemLiquidityModalProps) {
-  const { address } = useAccount();
-  const chainId = useChainId();
+  const { address } = useTransactingAccount();
+  const selectedNetwork = useSelectedNetwork();
   const { symbol, decimals } = usePaymentToken();
   const [fundsInput, setFundsInput] = useState("");
   const [step, setStep] = useState<"input" | "redeeming" | "success" | "error">("input");
@@ -56,7 +187,7 @@ export function RedeemLiquidityModal({
   const maxAmount = BigInt(maxRedeemableAmount || "0");
   const pricePerUnit = BigInt(pricePerToken || "0");
 
-  const marketplaceContract = getDeployedContract(chainId, "Marketplace");
+  const marketplaceContract = getDeployedContract(selectedNetwork.id, "Marketplace");
   const { data: fullPositionRedemptionPreview } = useReadContract({
     address: marketplaceContract?.address,
     abi: marketplaceContract?.abi,
@@ -158,6 +289,7 @@ export function RedeemLiquidityModal({
   const successRedeemAmount = successSnapshot?.redeemAmount ?? 0n;
   const successPayout = successSnapshot?.payout ?? 0n;
   const formattedSuccessPayout = formatUnits(successPayout, decimals);
+  const requiresAuth = !address;
 
   return (
     <div className="modal modal-open">
@@ -206,22 +338,20 @@ export function RedeemLiquidityModal({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <div className="bg-base-200 rounded-lg p-3">
-                <div className="flex justify-between text-sm">
-                  <span className="opacity-70">Your Position Value</span>
-                  <span className="flex items-center gap-2 font-medium">
-                    {Number(formattedTotalPositionValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    <span className={paymentTokenPillClass}>{symbol}</span>
+              {requiresAuth && (
+                <div className="alert border border-base-300 bg-base-200/70 text-base-content">
+                  <span className="text-sm">
+                    Log in to preview your withdrawable balance and continue with this withdrawal from the same modal.
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="opacity-70">Funds You Can Receive Now</span>
-                  <span className="flex items-center gap-2 font-medium">
-                    {Number(formattedFullPositionPayout).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    <span className={paymentTokenPillClass}>{symbol}</span>
-                  </span>
-                </div>
-              </div>
+              )}
+
+              <WithdrawAccountSummaryCard
+                address={address as Address | undefined}
+                formattedAvailableNow={formattedFullPositionPayout}
+                formattedPositionValue={formattedTotalPositionValue}
+                symbol={symbol}
+              />
 
               {hasRestrictedWithdrawalWindow && (
                 <div className="alert text-sm bg-base-200/70 text-base-content border border-base-300">
@@ -323,19 +453,23 @@ export function RedeemLiquidityModal({
                 <button className="btn btn-ghost flex-1" onClick={onClose} disabled={isBusy}>
                   Cancel
                 </button>
-                <button
-                  className="btn btn-primary flex-1"
-                  onClick={handleRedeem}
-                  disabled={Boolean(isBusy || !hasValidAmount || payout === 0n)}
-                >
-                  {isBusy ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm"></span>Withdrawing...
-                    </>
-                  ) : (
-                    "Withdraw"
-                  )}
-                </button>
+                {requiresAuth ? (
+                  <ModalAuthActionButton className="btn btn-primary flex-1" />
+                ) : (
+                  <button
+                    className="btn btn-primary flex-1"
+                    onClick={handleRedeem}
+                    disabled={Boolean(isBusy || !hasValidAmount || payout === 0n)}
+                  >
+                    {isBusy ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>Withdrawing...
+                      </>
+                    ) : (
+                      "Withdraw"
+                    )}
+                  </button>
+                )}
               </>
             )}
           </div>

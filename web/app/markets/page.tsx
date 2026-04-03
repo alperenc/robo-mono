@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NextPage } from "next";
 import { formatUnits } from "viem";
-import { useAccount, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
+import { useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import {
   AdjustmentsHorizontalIcon,
   ArrowsUpDownIcon,
@@ -23,8 +23,9 @@ import { CreateSecondaryListingModal } from "~~/components/partner/CreateSeconda
 import { EndSecondaryListingModal } from "~~/components/partner/EndSecondaryListingModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
 import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
@@ -110,7 +111,7 @@ const MARKETS_PAGE_BATCH_SIZE = 12;
 const MARKETS_PAGE_PREFS_KEY = "roboshare:markets-page-prefs";
 
 const MarketsPage: NextPage = () => {
-  const { address } = useAccount();
+  const { address } = useTransactingAccount();
   // State
   const [listings, setListings] = useState<SubgraphListing[]>([]);
   const [primaryPools, setPrimaryPools] = useState<SubgraphPrimaryPool[]>([]);
@@ -206,10 +207,12 @@ const MarketsPage: NextPage = () => {
   const [prefillListAmount, setPrefillListAmount] = useState<string | undefined>(undefined);
 
   // Network info
-  const chainId = useChainId();
+  const walletChainId = useChainId();
+  const selectedNetwork = useSelectedNetwork(walletChainId);
+  const chainId = selectedNetwork.id;
   const chains = useChains();
   const currentChain = chains.find(c => c.id === chainId);
-  const networkName = currentChain?.name || "Localhost";
+  const networkName = currentChain?.name || selectedNetwork.name || "Localhost";
   const { switchChain } = useSwitchChain();
   const targetNetworks = getTargetNetworks();
   const subgraphUrl = getSubgraphQueryUrl(chainId);

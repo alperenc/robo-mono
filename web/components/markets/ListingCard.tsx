@@ -3,10 +3,10 @@
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 
 const BP_PRECISION = 10000n;
 const BENCHMARK_YIELD_BP = 1000n;
@@ -84,7 +84,7 @@ export function ListingCard({
   onListTokensClick,
   onEndListingClick,
 }: ListingCardProps) {
-  const { address } = useAccount();
+  const { address } = useTransactingAccount();
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const actionDropdownRef = useRef<HTMLDivElement>(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -288,7 +288,10 @@ export function ListingCard({
     const sellerManagementActions: CandidateAction[] = [];
     const actionCandidates: CandidateAction[] = [];
 
-    const successGhostClass = "btn-success bg-success/15 border-0 text-success hover:bg-success/25";
+    const successGhostClass =
+      "btn bg-success/15 border-0 text-success hover:bg-success/25 dark:bg-success/35 dark:!text-base-content dark:hover:bg-success/45";
+    const payoutGhostClass =
+      "btn btn-primary border-0 bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 dark:text-primary-content dark:hover:bg-primary/35";
     const primaryGhostClass = "btn-primary bg-primary/15 border-0 text-primary hover:bg-primary/25";
 
     const pushAction = (action: CandidateAction) => {
@@ -298,7 +301,8 @@ export function ListingCard({
 
     const resolvePrimaryClass = (action: CandidateAction): string => {
       if (action.label === "Claim Final Payout") return successGhostClass;
-      if (action.label === "Send Payout" || action.label === "Claim Payout" || action.label === "Claim Tokens") {
+      if (action.label === "Send Payout") return payoutGhostClass;
+      if (action.label === "Claim Payout" || action.label === "Claim Tokens") {
         return successGhostClass;
       }
       if (
