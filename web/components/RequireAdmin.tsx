@@ -41,8 +41,8 @@ export function RequireAdmin({ children, redirectTo = "/" }: RequireAdminProps) 
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <h2 className="text-2xl font-bold">Connect Wallet</h2>
-        <p className="text-sm opacity-70">Please connect your wallet to access this page.</p>
+        <h2 className="text-2xl font-bold">Admin Access</h2>
+        <p className="text-sm opacity-70">Log in with an admin account to access this page.</p>
       </div>
     );
   }

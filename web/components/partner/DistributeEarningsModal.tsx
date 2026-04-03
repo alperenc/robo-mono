@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
-import { parseUnits } from "viem";
-import { useAccount, useChainId } from "wagmi";
+import { erc20Abi, parseUnits } from "viem";
+import { useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { usePaymentTokenWriteContract } from "~~/hooks/usePaymentTokenWriteContract";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 import { formatTokenAmount } from "~~/utils/formatters";
 
@@ -20,6 +22,16 @@ interface DistributeEarningsModalProps {
   immediateProceeds: boolean;
 }
 
+type RevenueBreakdown = {
+  totalRevenue: bigint;
+  investorPortion: bigint;
+  partnerPortion: bigint;
+  protocolFee: bigint;
+  netToInvestors: bigint;
+  collateralReleased: bigint;
+  belowMinimumFee: boolean;
+};
+
 export const DistributeEarningsModal = ({
   isOpen,
   onClose,
@@ -29,23 +41,33 @@ export const DistributeEarningsModal = ({
   maxSupply,
   immediateProceeds,
 }: DistributeEarningsModalProps) => {
-  const { address: connectedAddress } = useAccount();
-  const chainId = useChainId();
-  const { symbol, decimals } = usePaymentToken();
+  const { address: connectedAddress } = useTransactingAccount();
+  const selectedNetwork = useSelectedNetwork();
+  const chainId = selectedNetwork.id;
+  const { address: paymentTokenAddress, symbol, decimals } = usePaymentToken();
   const [totalRevenue, setTotalRevenue] = useState(""); // Total revenue earned
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState<"idle" | "approving" | "submitting">("idle");
+  const [submittedRevenueBreakdown, setSubmittedRevenueBreakdown] = useState<RevenueBreakdown | null>(null);
   const supportsAutoRelease = !immediateProceeds;
   const [autoRelease, setAutoRelease] = useState(supportsAutoRelease);
-  const earningsManagerAddress = getDeployedContract(chainId, "EarningsManager")?.address;
+  const earningsManagerAddress = getDeployedContract(selectedNetwork.id, "EarningsManager")?.address;
+  const isSubmitting = step !== "idle";
 
   useEffect(() => {
     setAutoRelease(supportsAutoRelease);
   }, [supportsAutoRelease]);
 
-  useEscClose(isOpen, onClose);
+  useEffect(() => {
+    if (!isOpen) {
+      setStep("idle");
+      setSubmittedRevenueBreakdown(null);
+    }
+  }, [isOpen]);
+
+  useEscClose(isOpen && !isSubmitting, onClose);
 
   const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
-  const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
+  const { writeContractAsync: writePaymentToken } = usePaymentTokenWriteContract();
   // Get revenue token ID (assetId + 1)
   const revenueTokenId = BigInt(assetId) + 1n;
 
@@ -66,11 +88,13 @@ export const DistributeEarningsModal = ({
   });
 
   // Check payment token allowance
-  const { data: paymentTokenAllowance, refetch: refetchPaymentTokenAllowance } = useScaffoldReadContract({
-    contractName: "MockUSDC",
+  const { data: paymentTokenAllowance, refetch: refetchPaymentTokenAllowance } = useReadContract({
+    chainId,
+    address: paymentTokenAddress,
+    abi: erc20Abi,
     functionName: "allowance",
-    args: [connectedAddress, earningsManagerAddress],
-    watch: true,
+    args: connectedAddress && earningsManagerAddress ? [connectedAddress, earningsManagerAddress] : undefined,
+    query: { enabled: !!paymentTokenAddress && !!connectedAddress && !!earningsManagerAddress },
   });
 
   const parsedTotalRevenue = useMemo(() => {
@@ -119,7 +143,7 @@ export const DistributeEarningsModal = ({
   });
 
   // Calculate revenue distribution breakdown (only when revenue is entered)
-  const revenueBreakdown = useMemo(() => {
+  const revenueBreakdown = useMemo<RevenueBreakdown | null>(() => {
     if (!tokenOwnership || parsedTotalRevenue === null) {
       return null;
     }
@@ -144,20 +168,22 @@ export const DistributeEarningsModal = ({
 
   const estimatedRelease = useMemo(() => {
     if (!autoRelease) return 0n;
-    return revenueBreakdown?.collateralReleased ?? 0n;
-  }, [autoRelease, revenueBreakdown]);
+    return (submittedRevenueBreakdown ?? revenueBreakdown)?.collateralReleased ?? 0n;
+  }, [autoRelease, revenueBreakdown, submittedRevenueBreakdown]);
+  const displayedRevenueBreakdown = submittedRevenueBreakdown ?? revenueBreakdown;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!earningsManagerAddress || !revenueBreakdown) return;
 
-    setIsSubmitting(true);
+    setSubmittedRevenueBreakdown(revenueBreakdown);
     try {
       // Approval safety: approve up to total revenue so tx won't fail if on-chain rounding/denominator differs.
       const amountToApprove = revenueBreakdown.totalRevenue;
 
       // Approve if needed
       if (!paymentTokenAllowance || paymentTokenAllowance < amountToApprove) {
+        setStep("approving");
         await writePaymentToken({
           functionName: "approve",
           args: [earningsManagerAddress, amountToApprove],
@@ -166,6 +192,7 @@ export const DistributeEarningsModal = ({
       }
 
       // Distribute earnings (totalRevenue only; investor amount is computed on-chain)
+      setStep("submitting");
       await writeEarningsManager({
         functionName: "distributeEarnings",
         args: [BigInt(assetId), revenueBreakdown.totalRevenue, supportsAutoRelease && autoRelease],
@@ -176,8 +203,12 @@ export const DistributeEarningsModal = ({
       onClose();
     } catch (e) {
       console.error("Error distributing earnings:", e);
+      setSubmittedRevenueBreakdown(null);
+      setStep("idle");
     } finally {
-      setIsSubmitting(false);
+      if (!isOpen) {
+        setStep("idle");
+      }
     }
   };
 
@@ -188,7 +219,10 @@ export const DistributeEarningsModal = ({
     !!revenueBreakdown && revenueBreakdown.investorPortion > 0n && !revenueBreakdown.belowMinimumFee;
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isSubmitting ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <form onSubmit={handleSubmit} className="flex flex-col h-full w-full">
           {/* Close Button */}
@@ -285,7 +319,7 @@ export const DistributeEarningsModal = ({
               </div>
 
               {/* Distribution Breakdown */}
-              {revenueBreakdown && hasExternalHolders && totalRevenue && (
+              {displayedRevenueBreakdown && hasExternalHolders && totalRevenue && (
                 <div className="bg-success/10 p-4 rounded-lg border border-success/30">
                   <div className="text-xs uppercase opacity-50 font-bold mb-3">Distribution Breakdown</div>
 
@@ -293,26 +327,26 @@ export const DistributeEarningsModal = ({
                     <div className="flex justify-between">
                       <span className="opacity-70">Your share (kept)</span>
                       <span className="font-semibold">
-                        {formatTokenAmount(revenueBreakdown.partnerPortion, decimals)} {symbol}
+                        {formatTokenAmount(displayedRevenueBreakdown.partnerPortion, decimals)} {symbol}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="opacity-70">Investor share</span>
                       <span className="font-semibold">
-                        {formatTokenAmount(revenueBreakdown.investorPortion, decimals)} {symbol}
+                        {formatTokenAmount(displayedRevenueBreakdown.investorPortion, decimals)} {symbol}
                       </span>
                     </div>
                     <div className="border-t border-success/30 pt-2 mt-2">
                       <div className="flex justify-between text-xs">
                         <span className="opacity-50">Protocol fee (2.5%)</span>
                         <span className="opacity-50">
-                          -{formatTokenAmount(revenueBreakdown.protocolFee, decimals)} {symbol}
+                          -{formatTokenAmount(displayedRevenueBreakdown.protocolFee, decimals)} {symbol}
                         </span>
                       </div>
                       <div className="flex justify-between font-bold text-success mt-1">
                         <span>Net to investors</span>
                         <span>
-                          {formatTokenAmount(revenueBreakdown.netToInvestors, decimals)} {symbol}
+                          {formatTokenAmount(displayedRevenueBreakdown.netToInvestors, decimals)} {symbol}
                         </span>
                       </div>
                     </div>
@@ -320,7 +354,7 @@ export const DistributeEarningsModal = ({
                 </div>
               )}
 
-              {revenueBreakdown?.belowMinimumFee && (
+              {displayedRevenueBreakdown?.belowMinimumFee && (
                 <div className="bg-warning/10 p-3 rounded-lg text-xs">
                   <p className="text-warning font-bold">Distribution amount too small</p>
                   <p className="opacity-80 mt-1">
@@ -331,7 +365,7 @@ export const DistributeEarningsModal = ({
               )}
 
               {/* Auto-release Proceeds Toggle (gradual release only) */}
-              {supportsAutoRelease && revenueBreakdown && hasExternalHolders && totalRevenue && (
+              {supportsAutoRelease && displayedRevenueBreakdown && hasExternalHolders && totalRevenue && (
                 <div className="form-control w-full">
                   <label className="label cursor-pointer flex justify-between w-full py-2">
                     <div>
@@ -350,6 +384,7 @@ export const DistributeEarningsModal = ({
                       className="toggle toggle-success"
                       checked={autoRelease}
                       onChange={e => setAutoRelease(e.target.checked)}
+                      disabled={isSubmitting}
                     />
                   </label>
                 </div>
@@ -376,13 +411,18 @@ export const DistributeEarningsModal = ({
                 className="btn btn-success"
                 disabled={isSubmitting || !totalRevenue || !hasExternalHolders || !isEligibleDistribution}
               >
-                {isSubmitting ? (
+                {step === "approving" ? (
                   <>
                     <span className="loading loading-spinner loading-sm"></span>
-                    Distributing...
+                    Approving...
+                  </>
+                ) : step === "submitting" ? (
+                  <>
+                    <span className="loading loading-spinner loading-sm"></span>
+                    Processing...
                   </>
                 ) : (
-                  `Distribute ${revenueBreakdown ? formatTokenAmount(revenueBreakdown.investorPortion, decimals) : "0"} ${symbol}`
+                  `Distribute ${displayedRevenueBreakdown ? formatTokenAmount(displayedRevenueBreakdown.investorPortion, decimals) : "0"} ${symbol}`
                 )}
               </button>
             </div>

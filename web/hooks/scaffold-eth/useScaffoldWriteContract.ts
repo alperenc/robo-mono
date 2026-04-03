@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { MutateOptions } from "@tanstack/react-query";
 import { Abi, ExtractAbiFunctionNames } from "abitype";
+import { encodeFunctionData } from "viem";
 import { Config, UseWriteContractParameters, useAccount, useConfig, useWriteContract } from "wagmi";
 import { WriteContractErrorType, WriteContractReturnType } from "wagmi/actions";
 import { WriteContractVariables } from "wagmi/query";
 import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { useDeployedContractInfo, useTransactor } from "~~/hooks/scaffold-eth";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { AllowedChainIds, notification } from "~~/utils/scaffold-eth";
 import {
   ContractAbi,
@@ -72,6 +74,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
   }, [configOrName]);
 
   const { chain: accountChain } = useAccount();
+  const { address: transactingAddress, chainId: transactingChainId, smartWalletClient } = useTransactingAccount();
   const writeTx = useTransactor();
   const [isMining, setIsMining] = useState(false);
 
@@ -100,7 +103,9 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
       return;
     }
 
-    if (accountChain?.id !== selectedNetwork.id) {
+    const activeChainId = transactingChainId ?? accountChain?.id;
+
+    if (activeChainId !== selectedNetwork.id) {
       notification.error(`Wallet is connected to the wrong network. Please switch to ${selectedNetwork.name}`);
       return;
     }
@@ -116,11 +121,33 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
       } as WriteContractVariables<Abi, string, any[], Config, number>;
 
       if (!finalConfig?.disableSimulate) {
-        await simulateContractWriteAndNotifyError({ wagmiConfig, writeContractParams: writeContractObject });
+        await simulateContractWriteAndNotifyError({
+          wagmiConfig,
+          writeContractParams: {
+            ...writeContractObject,
+            ...(transactingAddress ? { account: transactingAddress } : {}),
+          },
+        });
       }
 
-      const makeWriteWithParams = () =>
-        wagmiContractWrite.writeContractAsync(
+      const makeWriteWithParams = () => {
+        if (smartWalletClient) {
+          return smartWalletClient.sendTransaction({
+            calls: [
+              {
+                to: deployedContractData.address,
+                data: encodeFunctionData({
+                  abi: deployedContractData.abi as Abi,
+                  functionName: variables.functionName as string,
+                  args: variables.args as readonly unknown[] | undefined,
+                }),
+                value: variables.value,
+              },
+            ],
+          });
+        }
+
+        return wagmiContractWrite.writeContractAsync(
           writeContractObject,
           mutateOptions as
             | MutateOptions<
@@ -131,6 +158,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
               >
             | undefined,
         );
+      };
       const writeTxResult = await writeTx(makeWriteWithParams, { blockConfirmations, onBlockConfirmation });
 
       return writeTxResult;
@@ -142,7 +170,6 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
   };
 
   const sendContractWriteTx = <
-    TContractName extends ContractName,
     TFunctionName extends ExtractAbiFunctionNames<ContractAbi<TContractName>, "nonpayable" | "payable">,
   >(
     variables: ScaffoldWriteContractVariables<TContractName, TFunctionName>,
@@ -157,26 +184,14 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
       return;
     }
 
-    if (accountChain?.id !== selectedNetwork.id) {
+    const activeChainId = transactingChainId ?? accountChain?.id;
+
+    if (activeChainId !== selectedNetwork.id) {
       notification.error(`Wallet is connected to the wrong network. Please switch to ${selectedNetwork.name}`);
       return;
     }
 
-    wagmiContractWrite.writeContract(
-      {
-        abi: deployedContractData.abi as Abi,
-        address: deployedContractData.address,
-        ...variables,
-      } as WriteContractVariables<Abi, string, any[], Config, number>,
-      options as
-        | MutateOptions<
-            WriteContractReturnType,
-            WriteContractErrorType,
-            WriteContractVariables<Abi, string, any[], Config, number>,
-            unknown
-          >
-        | undefined,
-    );
+    void sendContractWriteAsyncTx(variables, options);
   };
 
   return {

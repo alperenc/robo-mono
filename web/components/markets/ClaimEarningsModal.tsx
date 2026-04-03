@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { ModalAuthActionButton } from "~~/components/scaffold-eth/ModalAuthActionButton";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 
 interface ClaimEarningsModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface ClaimEarningsModalProps {
 }
 
 export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: ClaimEarningsModalProps) => {
-  const { address } = useAccount();
+  const { address } = useTransactingAccount();
   const { symbol: paymentSymbol, decimals: paymentDecimals } = usePaymentToken();
   const [isClaiming, setIsClaiming] = useState(false);
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
@@ -30,6 +31,7 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
   });
   const claimableAmount = previewClaimAmount || 0n;
   const displayedClaimAmount = submittedClaimAmount ?? claimableAmount;
+  const requiresAuth = !address;
   const claimableDisplay = useMemo(() => {
     const formatted = formatUnits(displayedClaimAmount, paymentDecimals);
     return Number(formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -84,25 +86,37 @@ export const ClaimEarningsModal = ({ isOpen, onClose, assetId, vehicleName }: Cl
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="bg-success/10 rounded-xl p-4">
-            <p className="text-sm text-base-content/70 mb-2">Claimable Amount</p>
-            <p className="text-2xl font-bold text-success">
-              {claimableDisplay} <span className="text-base font-semibold opacity-80">{paymentSymbol}</span>
-            </p>
-            <p className="text-sm text-base-content/70 mt-3">
-              Claiming now submits the earnings claim and then processes the withdrawal to your wallet.
-            </p>
-          </div>
+          {requiresAuth ? (
+            <div className="alert border border-base-300 bg-base-200/70 text-base-content">
+              <span className="text-sm">
+                Log in to preview your claimable payout and process the withdrawal back to your wallet from this modal.
+              </span>
+            </div>
+          ) : (
+            <div className="bg-success/10 rounded-xl p-4">
+              <p className="text-sm text-base-content/70 mb-2">Claimable Amount</p>
+              <p className="text-2xl font-bold text-success">
+                {claimableDisplay} <span className="text-base font-semibold opacity-80">{paymentSymbol}</span>
+              </p>
+              <p className="text-sm text-base-content/70 mt-3">
+                Claiming now submits the earnings claim and then processes the withdrawal to your wallet.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
-          <button
-            className="btn btn-primary btn-block"
-            onClick={handleClaim}
-            disabled={isBusy || displayedClaimAmount === 0n}
-          >
-            {isBusy ? <span className="loading loading-spinner loading-sm" /> : "Claim Payout"}
-          </button>
+          {requiresAuth ? (
+            <ModalAuthActionButton className="btn btn-primary btn-block" />
+          ) : (
+            <button
+              className="btn btn-primary btn-block"
+              onClick={handleClaim}
+              disabled={isBusy || displayedClaimAmount === 0n}
+            >
+              {isBusy ? <span className="loading loading-spinner loading-sm" /> : "Claim Payout"}
+            </button>
+          )}
         </div>
       </div>
     </div>

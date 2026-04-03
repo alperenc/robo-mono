@@ -128,7 +128,7 @@ export function PrimaryPoolCard({
   const enabledPrimaryButtonClass =
     "btn btn-primary border-0 bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 dark:text-primary-content dark:hover:bg-primary/35";
   const enabledSuccessButtonClass =
-    "btn btn-success border-0 bg-success/15 text-success hover:bg-success/25 dark:bg-success/25 dark:text-success-content dark:hover:bg-success/35";
+    "btn bg-success/15 border-0 text-success hover:bg-success/25 dark:bg-success/35 dark:!text-base-content dark:hover:bg-success/45";
   const enabledErrorButtonClass =
     "btn btn-error border-0 bg-error/15 text-error hover:bg-error/25 dark:bg-error/25 dark:text-error-content dark:hover:bg-error/35";
   const disabledPrimaryButtonClass =

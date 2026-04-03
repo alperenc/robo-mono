@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { ModalAuthActionButton } from "~~/components/scaffold-eth/ModalAuthActionButton";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 
 interface ForceFinalPayoutModalProps {
   isOpen: boolean;
@@ -21,6 +23,7 @@ export const ForceFinalPayoutModal = ({
   vehicleName,
   liquidationReason,
 }: ForceFinalPayoutModalProps) => {
+  const { address } = useTransactingAccount();
   const assetIdBigInt = BigInt(assetId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: liquidationPreview } = useScaffoldReadContract({
@@ -37,6 +40,7 @@ export const ForceFinalPayoutModal = ({
   const liquidationEligible = liquidationPreview ? liquidationPreview[0] : false;
   const resolvedLiquidationReason = liquidationReason ?? (liquidationPreview ? Number(liquidationPreview[1]) : 3);
   const isInsolvencyFlow = resolvedLiquidationReason === 1;
+  const requiresAuth = !address;
   const reasonLabel = useMemo(() => {
     if (resolvedLiquidationReason === 1) return "This asset is eligible for forced final payout due to insolvency.";
     if (resolvedLiquidationReason === 0) return "This asset is eligible for final payout because it reached maturity.";
@@ -113,6 +117,14 @@ export const ForceFinalPayoutModal = ({
               <div className="text-sm font-medium">Eligibility</div>
               <div className="mt-2 text-sm opacity-75">{reasonLabel}</div>
             </div>
+
+            {requiresAuth && liquidationEligible && (
+              <div className="alert border border-base-300 bg-base-200/70 text-base-content">
+                <span className="text-sm">
+                  Log in to submit this finalization transaction without leaving the current modal.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -121,22 +133,26 @@ export const ForceFinalPayoutModal = ({
             <button className="btn btn-ghost" onClick={onClose} disabled={isBusy}>
               Cancel
             </button>
-            <button
-              className={isInsolvencyFlow ? "btn btn-error" : "btn btn-primary"}
-              onClick={handleForceFinalPayout}
-              disabled={isBusy || !liquidationEligible}
-            >
-              {isBusy ? (
-                <>
-                  <span className="loading loading-spinner loading-sm" />
-                  Processing...
-                </>
-              ) : isInsolvencyFlow ? (
-                "Force Final Payout"
-              ) : (
-                "Finalize at Maturity"
-              )}
-            </button>
+            {requiresAuth ? (
+              <ModalAuthActionButton className="btn btn-primary" />
+            ) : (
+              <button
+                className={isInsolvencyFlow ? "btn btn-error" : "btn btn-primary"}
+                onClick={handleForceFinalPayout}
+                disabled={isBusy || !liquidationEligible}
+              >
+                {isBusy ? (
+                  <>
+                    <span className="loading loading-spinner loading-sm" />
+                    Processing...
+                  </>
+                ) : isInsolvencyFlow ? (
+                  "Force Final Payout"
+                ) : (
+                  "Finalize at Maturity"
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

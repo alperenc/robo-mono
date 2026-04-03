@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
-import { useAccount, useChainId } from "wagmi";
+import { erc20Abi } from "viem";
+import { useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { usePaymentTokenWriteContract } from "~~/hooks/usePaymentTokenWriteContract";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 import { formatTokenAmount } from "~~/utils/formatters";
 
@@ -19,6 +22,14 @@ interface EnableProceedsModalProps {
   protectionEnabled: boolean;
 }
 
+type FundingBreakdown = {
+  protocolDue: bigint;
+  protectionDue: bigint;
+  totalDue: bigint;
+  baseLiquidity: bigint;
+  bufferTargetBase: bigint;
+};
+
 export const EnableProceedsModal = ({
   isOpen,
   onClose,
@@ -28,17 +39,21 @@ export const EnableProceedsModal = ({
   immediateProceeds,
   protectionEnabled,
 }: EnableProceedsModalProps) => {
-  const { address: connectedAddress } = useAccount();
-  const chainId = useChainId();
-  const { symbol, decimals } = usePaymentToken();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { address: connectedAddress } = useTransactingAccount();
+  const selectedNetwork = useSelectedNetwork();
+  const chainId = selectedNetwork.id;
+  const { address: paymentTokenAddress, symbol, decimals } = usePaymentToken();
+  const [step, setStep] = useState<"idle" | "approving" | "submitting">("idle");
+  const [submittedFundingBreakdown, setSubmittedFundingBreakdown] = useState<FundingBreakdown | null>(null);
 
-  useEscClose(isOpen, onClose);
+  const isSubmitting = step !== "idle";
+
+  useEscClose(isOpen && !isSubmitting, onClose);
 
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
-  const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
+  const { writeContractAsync: writePaymentToken } = usePaymentTokenWriteContract();
 
-  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
+  const treasuryAddress = getDeployedContract(selectedNetwork.id, "Treasury")?.address;
   const assetIdBigInt = BigInt(assetId);
   const tokenId = assetIdBigInt + 1n;
 
@@ -79,15 +94,16 @@ export const EnableProceedsModal = ({
     query: { enabled: isOpen && bufferTargetBase > 0n },
   });
 
-  const { data: allowance } = useScaffoldReadContract({
-    contractName: "MockUSDC",
+  const { data: allowance } = useReadContract({
+    chainId,
+    address: paymentTokenAddress,
+    abi: erc20Abi,
     functionName: "allowance",
-    args: [connectedAddress, treasuryAddress],
-    watch: true,
+    args: connectedAddress && treasuryAddress ? [connectedAddress, treasuryAddress] : undefined,
     query: { enabled: isOpen && !!connectedAddress && !!treasuryAddress },
   });
 
-  const fundingBreakdown = useMemo(() => {
+  const fundingBreakdown = useMemo<FundingBreakdown>(() => {
     const currentCollateral = collateralInfo as
       | {
           baseCollateral?: bigint;
@@ -144,7 +160,8 @@ export const EnableProceedsModal = ({
 
   useEffect(() => {
     if (!isOpen) {
-      setIsSubmitting(false);
+      setStep("idle");
+      setSubmittedFundingBreakdown(null);
     }
   }, [isOpen]);
 
@@ -154,26 +171,29 @@ export const EnableProceedsModal = ({
     ((allowance as bigint | undefined) ?? 0n) < fundingBreakdown.totalDue;
   const canSubmit =
     !!treasuryAddress && (fundingBreakdown.totalDue > 0n || (immediateProceeds && fundingBreakdown.baseLiquidity > 0n));
+  const displayedFundingBreakdown = submittedFundingBreakdown ?? fundingBreakdown;
 
   const proceedsProfileLabel = immediateProceeds ? "Earlier Proceeds Access" : "Gradual Proceeds Access";
   const proceedsAmountLabel = immediateProceeds ? "Available After Unlock" : "Available Over Time";
-  const proceedsAmount = fundingBreakdown.baseLiquidity;
+  const proceedsAmount = displayedFundingBreakdown.baseLiquidity;
   const proceedsOutcomeCopy = immediateProceeds
-    ? `Paying this amount enables release against up to ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} of proceeds on the current pool balance.`
-    : `Paying this amount enables proceeds against up to ${formatTokenAmount(fundingBreakdown.baseLiquidity, decimals)} ${symbol} of current pool balance as earnings are distributed.`;
+    ? `Paying this amount enables release against up to ${formatTokenAmount(displayedFundingBreakdown.baseLiquidity, decimals)} ${symbol} of proceeds on the current pool balance.`
+    : `Paying this amount enables proceeds against up to ${formatTokenAmount(displayedFundingBreakdown.baseLiquidity, decimals)} ${symbol} of current pool balance as earnings are distributed.`;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    setIsSubmitting(true);
+    setSubmittedFundingBreakdown(fundingBreakdown);
     try {
       if (requiresApproval) {
+        setStep("approving");
         await writePaymentToken({
           functionName: "approve",
           args: [treasuryAddress, fundingBreakdown.totalDue],
         });
       }
 
+      setStep("submitting");
       await writeTreasury({
         functionName: "enableProceeds",
         args: [assetIdBigInt],
@@ -183,8 +203,12 @@ export const EnableProceedsModal = ({
       onClose();
     } catch (error) {
       console.error("Error enabling proceeds:", error);
+      setSubmittedFundingBreakdown(null);
+      setStep("idle");
     } finally {
-      setIsSubmitting(false);
+      if (!isOpen) {
+        setStep("idle");
+      }
     }
   };
 
@@ -192,7 +216,10 @@ export const EnableProceedsModal = ({
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={isSubmitting ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <button
           type="button"
@@ -218,7 +245,7 @@ export const EnableProceedsModal = ({
                 <div>
                   <div className="opacity-60">Required Payment</div>
                   <div className="font-semibold">
-                    {formatTokenAmount(fundingBreakdown.totalDue, decimals)} {symbol}
+                    {formatTokenAmount(displayedFundingBreakdown.totalDue, decimals)} {symbol}
                   </div>
                 </div>
                 <div>
@@ -228,14 +255,14 @@ export const EnableProceedsModal = ({
                 <div>
                   <div className="opacity-60">Required Reserve Funding</div>
                   <div className="font-semibold">
-                    {formatTokenAmount(fundingBreakdown.protocolDue, decimals)} {symbol}
+                    {formatTokenAmount(displayedFundingBreakdown.protocolDue, decimals)} {symbol}
                   </div>
                 </div>
                 <div>
                   <div className="opacity-60">{protectionEnabled ? "Optional Protection Funding" : "Protection"}</div>
                   <div className="font-semibold">
                     {protectionEnabled
-                      ? `${formatTokenAmount(fundingBreakdown.protectionDue, decimals)} ${symbol}`
+                      ? `${formatTokenAmount(displayedFundingBreakdown.protectionDue, decimals)} ${symbol}`
                       : "Not enabled"}
                   </div>
                 </div>
@@ -273,7 +300,21 @@ export const EnableProceedsModal = ({
               onClick={handleSubmit}
               disabled={isSubmitting || !canSubmit}
             >
-              {requiresApproval ? "Approve & Unlock" : "Unlock Proceeds"}
+              {step === "approving" ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" />
+                  Approving...
+                </>
+              ) : step === "submitting" ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" />
+                  Processing...
+                </>
+              ) : requiresApproval ? (
+                "Approve & Unlock"
+              ) : (
+                "Unlock Proceeds"
+              )}
             </button>
           </div>
         </div>

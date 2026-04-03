@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { NextPage } from "next";
 import { formatUnits } from "viem";
-import { useAccount, useBlock, useChainId, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
+import { useBlock, useChains, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
 import { Bars4Icon, ChevronDownIcon, CurrencyDollarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { CreateRevenueTokenPoolModal } from "~~/components/partner/CreateRevenueTokenPoolModal";
 import { CreateSecondaryListingModal } from "~~/components/partner/CreateSecondaryListingModal";
@@ -16,8 +16,9 @@ import { RegisterAssetModal } from "~~/components/partner/RegisterAssetModal";
 import { SettleAssetModal } from "~~/components/partner/SettleAssetModal";
 import { WithdrawProceedsModal } from "~~/components/partner/WithdrawProceedsModal";
 import { ASSET_REGISTRIES, AssetType } from "~~/config/assetTypes";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
 import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
@@ -127,13 +128,17 @@ type AssetAction = {
   tone?: "default" | "danger";
 };
 
+const payoutGhostActionClass =
+  "btn btn-primary border-0 bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 dark:text-primary-content dark:hover:bg-primary/35";
+
 const PartnerDashboard: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
+  const { address: accountAddress, chainId: accountChainId } = useTransactingAccount();
   const { data: latestBlock } = useBlock({ watch: true });
-  const chainId = useChainId();
+  const selectedNetwork = useSelectedNetwork(accountChainId);
+  const chainId = selectedNetwork.id;
   const chains = useChains();
   const currentChain = chains.find(c => c.id === chainId);
-  const networkName = currentChain?.name || "Localhost";
+  const networkName = currentChain?.name || selectedNetwork.name || "Localhost";
   const { switchChain } = useSwitchChain();
   const { symbol, decimals } = usePaymentToken();
   const targetNetworks = getTargetNetworks();
@@ -152,8 +157,8 @@ const PartnerDashboard: NextPage = () => {
     address: partnerManagerContract?.address,
     abi: partnerManagerContract?.abi,
     functionName: "isAuthorizedPartner",
-    args: [connectedAddress as string],
-    query: { enabled: !!connectedAddress && !!partnerManagerContract },
+    args: [accountAddress as string],
+    query: { enabled: !!accountAddress && !!partnerManagerContract },
   });
 
   // Modal States
@@ -218,7 +223,7 @@ const PartnerDashboard: NextPage = () => {
   // Fetch assets and listings
   useEffect(() => {
     const fetchData = async () => {
-      if (!connectedAddress) return;
+      if (!accountAddress) return;
 
       const assets: DashboardAsset[] = [];
 
@@ -273,7 +278,7 @@ const PartnerDashboard: NextPage = () => {
 
           // Filter vehicles for this partner
           const myVehicles = (data?.vehicles || []).filter(
-            (v: any) => v.partner.toLowerCase() === connectedAddress?.toLowerCase(),
+            (v: any) => v.partner.toLowerCase() === accountAddress.toLowerCase(),
           );
 
           const normalizedVehicles: DashboardAsset[] = myVehicles.map((v: any) => ({
@@ -284,7 +289,7 @@ const PartnerDashboard: NextPage = () => {
 
           // Filter listings for this partner
           const myListings = (data?.listings || []).filter(
-            (l: any) => l.seller.toLowerCase() === connectedAddress?.toLowerCase(),
+            (l: any) => l.seller.toLowerCase() === accountAddress.toLowerCase(),
           );
           setListings(prev => (isSameListings(prev, myListings) ? prev : myListings));
         }
@@ -295,7 +300,7 @@ const PartnerDashboard: NextPage = () => {
       }
     };
     fetchData();
-  }, [chainId, connectedAddress, refreshCounter, subgraphUrl]);
+  }, [accountAddress, chainId, refreshCounter, subgraphUrl]);
 
   // Fetch image URLs from IPFS metadata
   useEffect(() => {
@@ -369,14 +374,14 @@ const PartnerDashboard: NextPage = () => {
   const maxSupplies = maxSuppliesData as ContractResult<bigint>[] | undefined;
 
   const { data: partnerTokenBalancesData, refetch: refetchPartnerTokenBalances } = useReadContracts({
-    contracts: connectedAddress
+    contracts: accountAddress
       ? allAssets.map(asset => ({
           ...contractConfig,
           functionName: "balanceOf",
-          args: [connectedAddress, BigInt(asset.id) + 1n],
+          args: [accountAddress, BigInt(asset.id) + 1n],
         }))
       : [],
-    query: { enabled: !!connectedAddress && !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!accountAddress && !!roboshareTokensContract && allAssets.length > 0 },
   });
   const partnerTokenBalances = partnerTokenBalancesData as ContractResult<bigint>[] | undefined;
 
@@ -569,8 +574,8 @@ const PartnerDashboard: NextPage = () => {
     address: treasuryContract?.address,
     abi: treasuryContract?.abi,
     functionName: "pendingWithdrawals",
-    args: connectedAddress ? [connectedAddress] : undefined,
-    query: { enabled: !!connectedAddress && !!treasuryContract },
+    args: accountAddress ? [accountAddress] : undefined,
+    query: { enabled: !!accountAddress && !!treasuryContract },
   });
   const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
   const pendingWithdrawalDisplay = pendingWithdrawal ? formatUnits(pendingWithdrawal as bigint, decimals) : "0";
@@ -749,10 +754,10 @@ const PartnerDashboard: NextPage = () => {
     }
   };
 
-  if (!connectedAddress) {
+  if (!accountAddress) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center py-20 text-xl opacity-70">Please connect your wallet to access the dashboard.</div>
+        <div className="text-center py-20 text-xl opacity-70">Please log in to access the dashboard.</div>
       </div>
     );
   }
@@ -1297,7 +1302,7 @@ const PartnerDashboard: NextPage = () => {
                       setSelectedCategorizedAsset(asset);
                       setDistributeEarningsModalOpen(true);
                     },
-                    className: "btn btn-success bg-success/15 border-0 text-success hover:bg-success/25",
+                    className: payoutGhostActionClass,
                   };
                   const enableProceedsAction = {
                     label: "Unlock Proceeds",
@@ -1416,6 +1421,7 @@ const PartnerDashboard: NextPage = () => {
                     setSelectedCategorizedAsset(asset);
                     setDistributeEarningsModalOpen(true);
                   },
+                  className: payoutGhostActionClass,
                 };
 
                 if (isSoldOut || isExpired) {

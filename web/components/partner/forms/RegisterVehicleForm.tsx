@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { encodeAbiParameters, parseAbiParameters, parseUnits } from "viem";
-import { useAccount } from "wagmi";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { formatTokenAmount } from "~~/utils/formatters";
 import { uploadToIpfs } from "~~/utils/ipfs";
 import { calculatePrimaryPoolBuffers } from "~~/utils/primaryPoolBuffers";
@@ -108,7 +108,7 @@ const getDefaultOdometerUnit = (): "mi" | "km" => {
 };
 
 export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: RegisterVehicleFormProps) => {
-  const { address: connectedAddress } = useAccount();
+  const { address: accountAddress } = useTransactingAccount();
   const { symbol, decimals } = usePaymentToken();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -216,8 +216,8 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
   };
 
   const draftKey = useMemo(
-    () => `roboshare:registerVehicleDraft:${connectedAddress?.toLowerCase() || "guest"}`,
-    [connectedAddress],
+    () => `roboshare:registerVehicleDraft:${accountAddress?.toLowerCase() || "guest"}`,
+    [accountAddress],
   );
 
   const createThumbnail = async (file: File, maxSize = 160): Promise<string> => {

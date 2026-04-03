@@ -2,100 +2,47 @@
 
 import Link from "next/link";
 import VehiclesTable from "./_components/VehiclesTable";
-import { useChainId } from "wagmi";
-import { MagnifyingGlassIcon, PlusIcon, PowerIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { RequireAdmin } from "~~/components/RequireAdmin";
+import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { getSubgraphGraphiqlUrl } from "~~/utils/subgraph";
 
 export default function Subgraph() {
-  const chainId = useChainId();
-  const graphiqlUrl = getSubgraphGraphiqlUrl(chainId);
+  const selectedNetwork = useSelectedNetwork();
+  const graphiqlUrl = getSubgraphGraphiqlUrl(selectedNetwork.id);
 
   return (
     <RequireAdmin>
-      <div>
-        <div className="flex items-center flex-col flex-grow pt-10">
-          <h1 className="text-center mb-8">
-            <span className="block text-2xl mb-2">Welcome to your</span>
-            <span className="block text-4xl font-bold">Subgraph</span>
-          </h1>
-          <p className="text-center text-lg">
-            Look at the subgraph manifest defined in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              protocols/evm/subgraph/subgraph.yaml
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Examine the entities in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              schema.graphql
-            </code>{" "}
-            located in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              protocols/evm/subgraph/src
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Data is processed using AssemblyScript Mappings in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              protocols/evm/subgraph/src/mapping.ts
-            </code>
-          </p>
-        </div>
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <PowerIcon className="h-8 w-8 fill-secondary" />
-              <p className="text-center text-lg">
-                Start your subgraph environment using{" "}
-                <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-                  yarn subgraph:run-node
-                </code>
+      <div className="container mx-auto my-10 px-4">
+        <div className="mx-auto max-w-5xl rounded-3xl border border-base-300 bg-base-100 p-8 shadow-lg">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="mb-2 text-4xl font-bold">Indexed Data</h1>
+              <p className="m-0 text-base-content/70">
+                Internal subgraph tooling for reviewing indexed Roboshare data on {selectedNetwork.name}.
               </p>
             </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <PlusIcon className="h-8 w-8 fill-secondary" />
-              <p className="text-center text-lg">
-                Create your subgraph on graph-node with{" "}
-                <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-                  yarn subgraph:create-local
-                </code>
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <RocketLaunchIcon className="h-8 w-8 fill-secondary" />
-              <p className="text-center text-lg">
-                Deploy your subgraph configuration with{" "}
-                <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-                  yarn subgraph:local-ship
-                </code>
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <PlusIcon className="h-8 w-8 fill-secondary" />
-              <p className="text-center text-lg">
-                Create Graph Client runtime artifact directory with{" "}
-                <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-                  yarn graphclient:build
-                </code>
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p className="mb-0">Explore data using the</p>
+            <div className="flex items-center gap-3">
+              <span className="badge badge-outline px-3 py-3 text-sm">{selectedNetwork.name}</span>
               {graphiqlUrl ? (
-                <Link href={graphiqlUrl} passHref className="link" target="_blank" rel="noopener noreferrer">
-                  GraphiQL tool.
+                <Link
+                  href={graphiqlUrl}
+                  passHref
+                  className="btn btn-primary gap-2"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MagnifyingGlassIcon className="h-4 w-4" />
+                  Open GraphiQL
                 </Link>
-              ) : (
-                <span className="opacity-70">configured Graph endpoint.</span>
-              )}{" "}
-              Clean up any stale data using{" "}
-              <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-                yarn subgraph:clean-node
-              </code>
+              ) : null}
             </div>
           </div>
+          {!graphiqlUrl ? (
+            <div className="alert mt-6 border border-base-300 bg-base-200/70 text-base-content">
+              <span>No subgraph endpoint is configured for {selectedNetwork.name}.</span>
+            </div>
+          ) : null}
         </div>
         <VehiclesTable />
       </div>
