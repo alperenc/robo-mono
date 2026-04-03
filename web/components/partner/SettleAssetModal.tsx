@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useEscClose } from "./useEscClose";
-import { parseUnits } from "viem";
-import { useAccount, useChainId } from "wagmi";
+import { erc20Abi, parseUnits } from "viem";
+import { useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { usePaymentTokenWriteContract } from "~~/hooks/usePaymentTokenWriteContract";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 
 interface SettleAssetModalProps {
@@ -17,20 +19,21 @@ interface SettleAssetModalProps {
 }
 
 export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: SettleAssetModalProps) => {
-  const { address: connectedAddress } = useAccount();
-  const chainId = useChainId();
-  const { symbol, decimals } = usePaymentToken();
+  const { address: connectedAddress } = useTransactingAccount();
+  const selectedNetwork = useSelectedNetwork();
+  const chainId = selectedNetwork.id;
+  const { address: paymentTokenAddress, symbol, decimals } = usePaymentToken();
   const [topUpAmount, setTopUpAmount] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"settle" | null>(null);
-
-  useEscClose(isOpen, onClose);
+  const [pendingAction, setPendingAction] = useState<"approve" | "settle" | null>(null);
 
   const { writeContractAsync: writeVehicleRegistry, isPending } = useScaffoldWriteContract({
     contractName: "VehicleRegistry",
   });
 
-  const treasuryAddress = getDeployedContract(chainId, "Treasury")?.address;
+  useEscClose(isOpen && !isPending && pendingAction === null, onClose);
+
+  const treasuryAddress = getDeployedContract(selectedNetwork.id, "Treasury")?.address;
 
   const assetIdBigInt = BigInt(assetId);
 
@@ -55,18 +58,19 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
   const hasSettleAction = isAssetOwner;
   const hasLiquidateAction = liquidationEligible;
   const showTopUpControls = hasSettleAction;
-  const isPaymentPending = pendingAction === "settle" && isPending;
+  const isSettlingPending = pendingAction === "settle" && isPending;
 
   // Check payment token allowance (settlement top-up path only)
-  const { data: paymentTokenAllowance } = useScaffoldReadContract({
-    contractName: "MockUSDC",
+  const { data: paymentTokenAllowance } = useReadContract({
+    chainId,
+    address: paymentTokenAddress,
+    abi: erc20Abi,
     functionName: "allowance",
-    args: [connectedAddress, treasuryAddress],
-    watch: true,
+    args: connectedAddress && treasuryAddress ? [connectedAddress, treasuryAddress] : undefined,
     query: { enabled: isOpen && !!connectedAddress && !!treasuryAddress && hasSettleAction },
   });
 
-  const { writeContractAsync: writePaymentToken } = useScaffoldWriteContract({ contractName: "MockUSDC" });
+  const { writeContractAsync: writePaymentToken } = usePaymentTokenWriteContract();
 
   useEffect(() => {
     if (!isOpen) {
@@ -81,11 +85,11 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
     if (!hasSettleAction || isAlreadySettled) return;
 
     try {
-      setPendingAction("settle");
       const topUpBigInt = topUpAmount ? parseUnits(topUpAmount, decimals) : 0n;
 
       // Approve if needed and top-up amount is provided
       if (topUpBigInt > 0n && (!paymentTokenAllowance || paymentTokenAllowance < topUpBigInt)) {
+        setPendingAction("approve");
         await writePaymentToken({
           functionName: "approve",
           args: [treasuryAddress, topUpBigInt],
@@ -93,6 +97,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
       }
 
       // Settle the asset via VehicleRegistry
+      setPendingAction("settle");
       await writeVehicleRegistry({
         functionName: "settleAsset",
         args: [assetIdBigInt, topUpBigInt],
@@ -115,13 +120,16 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
     return "Eligible";
   }, [hasLiquidateAction, liquidationReason]);
 
-  const disableSettle = !isConfirmed || isPending || !hasSettleAction || isAlreadySettled;
+  const disableSettle = !isConfirmed || isPending || pendingAction !== null || !hasSettleAction || isAlreadySettled;
 
   if (!isOpen) return null;
 
   return (
     <div className="modal modal-open">
-      <div className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block" onClick={onClose} />
+      <div
+        className="modal-backdrop bg-black/50 backdrop-blur-sm hidden sm:block"
+        onClick={pendingAction !== null || isPending ? undefined : onClose}
+      />
       <div className="modal-box relative w-full h-full max-h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl rounded-none flex flex-col p-0">
         <div className="flex flex-col h-full w-full">
           {/* Close Button */}
@@ -129,7 +137,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
             type="button"
             className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 z-10"
             onClick={onClose}
-            disabled={isPending}
+            disabled={pendingAction !== null || isPending}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -202,6 +210,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                       value={topUpAmount}
                       onChange={e => setTopUpAmount(e.target.value)}
                       placeholder="0.00"
+                      disabled={pendingAction !== null || isPending}
                     />
                     <span className="mr-1 flex items-center self-center rounded-full bg-base-300 px-3 py-1 text-xs font-medium text-base-content/80">
                       {symbol}
@@ -223,6 +232,7 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
                     checked={isConfirmed}
                     onChange={e => setIsConfirmed(e.target.checked)}
                     className="checkbox checkbox-error"
+                    disabled={pendingAction !== null || isPending}
                   />
                   <span className="label-text">I understand this action cannot be undone</span>
                 </label>
@@ -233,15 +243,25 @@ export const SettleAssetModal = ({ isOpen, onClose, assetId, assetName }: Settle
           {/* Sticky Footer */}
           <div className="shrink-0 border-t border-base-200 bg-base-100 p-4">
             <div className="flex gap-3 justify-end">
-              <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isPending}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={onClose}
+                disabled={pendingAction !== null || isPending}
+              >
                 Cancel
               </button>
               {hasSettleAction ? (
                 <button type="button" className="btn btn-error" onClick={handleSettle} disabled={disableSettle}>
-                  {pendingAction === "settle" && isPaymentPending ? (
+                  {pendingAction === "approve" ? (
                     <>
                       <span className="loading loading-spinner loading-sm"></span>
-                      Settling...
+                      Approving...
+                    </>
+                  ) : pendingAction === "settle" && isSettlingPending ? (
+                    <>
+                      <span className="loading loading-spinner loading-sm"></span>
+                      Processing...
                     </>
                   ) : (
                     "Begin Final Payout"

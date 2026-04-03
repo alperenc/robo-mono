@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEscClose } from "./useEscClose";
 import { formatUnits } from "viem";
-import { useAccount, useChainId, useReadContract } from "wagmi";
+import { useReadContract } from "wagmi";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useScaffoldWriteContract, useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { usePaymentToken } from "~~/hooks/usePaymentToken";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 
 interface WithdrawProceedsModalProps {
@@ -15,12 +16,13 @@ interface WithdrawProceedsModalProps {
 }
 
 export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModalProps) => {
-  const { address } = useAccount();
-  const chainId = useChainId();
+  const { address } = useTransactingAccount();
+  const selectedNetwork = useSelectedNetwork();
   const { symbol, decimals } = usePaymentToken();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [submittedAmount, setSubmittedAmount] = useState<bigint | null>(null);
   const { writeContractAsync: writeTreasury, isPending } = useScaffoldWriteContract({ contractName: "Treasury" });
-  const treasuryContract = getDeployedContract(chainId, "Treasury");
+  const treasuryContract = getDeployedContract(selectedNetwork.id, "Treasury");
   const isBusy = isWithdrawing || isPending;
 
   useEscClose(isOpen && !isBusy, onClose);
@@ -34,24 +36,34 @@ export const WithdrawProceedsModal = ({ isOpen, onClose }: WithdrawProceedsModal
     query: { enabled: !!address && isOpen && !!treasuryContract },
   });
 
-  const formattedAmount = pendingAmount ? formatUnits(pendingAmount as bigint, decimals) : "0";
+  const currentPendingAmount = (pendingAmount as bigint | undefined) ?? 0n;
+  const displayedAmount = submittedAmount ?? currentPendingAmount;
+  const formattedAmount = formatUnits(displayedAmount, decimals);
   const formattedAmountDisplay = Number(formattedAmount).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
   const hasProceeds = pendingAmount && (pendingAmount as bigint) > 0n;
 
+  useEffect(() => {
+    if (!isOpen) {
+      setSubmittedAmount(null);
+    }
+  }, [isOpen]);
+
   const handleWithdraw = async () => {
     if (isBusy || !hasProceeds) return;
 
     try {
       setIsWithdrawing(true);
+      setSubmittedAmount((pendingAmount as bigint | undefined) ?? 0n);
       await writeTreasury({
         functionName: "processWithdrawal",
       });
       onClose();
     } catch (e) {
       console.error("Error withdrawing proceeds:", e);
+      setSubmittedAmount(null);
     } finally {
       setIsWithdrawing(false);
     }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 
 // DEFAULT_ADMIN_ROLE is bytes32(0) in AccessControl
 const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
@@ -11,7 +11,8 @@ const DEFAULT_ADMIN_ROLE = "0x00000000000000000000000000000000000000000000000000
  * Returns { isAdmin: boolean, isLoading: boolean, isConnected: boolean }
  */
 export function useIsAdmin() {
-  const { address, isConnected } = useAccount();
+  const { address } = useTransactingAccount();
+  const isConnected = !!address;
 
   const {
     data: hasRole,
