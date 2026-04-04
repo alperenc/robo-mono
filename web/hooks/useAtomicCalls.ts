@@ -32,6 +32,7 @@ type SmartWalletAtomicClient = {
   account?: { address?: Address };
   chain?: { id: number };
   paymaster?: unknown;
+  switchChain?: (args: { id: number }) => Promise<void>;
   sendTransaction: (params: { calls: readonly AtomicCall[] }) => Promise<Hex>;
 };
 
@@ -65,10 +66,14 @@ const useAtomicCallsBase = (smartWalletClient?: SmartWalletAtomicClient) => {
   const sendAtomicCalls = useCallback(
     async ({ calls, timeout = 120_000 }: SendAtomicCallsParameters) => {
       if (smartWalletClient) {
-        const smartWalletChainId = smartWalletClient.chain?.id;
+        const desiredChainId = chainId ?? smartWalletClient.chain?.id;
 
-        if (!smartWalletChainId) {
+        if (!desiredChainId) {
           throw new Error("Smart wallet is not configured on the active network");
+        }
+
+        if (smartWalletClient.chain?.id !== desiredChainId) {
+          await smartWalletClient.switchChain?.({ id: desiredChainId });
         }
 
         setIsSmartWalletPending(true);
@@ -83,14 +88,14 @@ const useAtomicCallsBase = (smartWalletClient?: SmartWalletAtomicClient) => {
           });
 
           const receipt = await waitForTransactionReceipt(config, {
-            chainId: smartWalletChainId,
+            chainId: desiredChainId,
             hash,
             timeout,
           });
 
           return {
             atomic: true,
-            chainId: smartWalletChainId,
+            chainId: desiredChainId,
             id: hash,
             receipts: [receipt],
             status: receipt.status === "success" ? "success" : "failure",

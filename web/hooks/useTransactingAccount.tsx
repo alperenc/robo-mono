@@ -14,6 +14,7 @@ type SmartWalletCall = {
 type SmartWalletClient = {
   account?: { address?: Address };
   chain?: { id: number };
+  switchChain?: (args: { id: number }) => Promise<void>;
   sendTransaction: (params: { calls: readonly SmartWalletCall[] }) => Promise<Hash>;
 };
 
@@ -57,7 +58,7 @@ const PrivyTransactingAccountProvider = ({ children }: { children: ReactNode }) 
   const { address: connectedAddress, chainId: connectedChainId } = useAccount();
   const { client: smartWalletClient } = useSmartWallets();
   const address = (smartWalletClient?.account?.address as Address | undefined) ?? connectedAddress;
-  const chainId = smartWalletClient?.chain?.id ?? connectedChainId;
+  const chainId = connectedChainId ?? smartWalletClient?.chain?.id;
 
   return (
     <TransactingAccountContext.Provider
