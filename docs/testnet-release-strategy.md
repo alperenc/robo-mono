@@ -29,14 +29,14 @@ Current release defaults:
 
 ### Phase 1: Release Foundations
 
-- Keep day-to-day development on `main`.
-- Create short-lived feature or fix branches from `main`.
-- Prepare the first release branch:
-  - `release/testnet-v0.1.0`
-- Use pre-release tags for launch stages:
-  - `v0.1.0-internal.1`
-  - `v0.1.0-beta.1`
-  - `v0.1.0-testnet.1`
+- Keep day-to-day development on `dev`.
+- Create short-lived feature or fix branches from `dev`.
+- Prepare the active release branch:
+  - `release/testnet-v0.2.0`
+- Use pre-release tags for launch stages on that same release line:
+  - `v0.2.0-internal.1`
+  - `v0.2.0-beta.1`
+  - `v0.2.0-testnet.1`
 - Define the release-note format before beta begins.
 
 ### Phase 2: Technical Readiness
@@ -51,17 +51,17 @@ Current release defaults:
 
 ### Phase 3: Quiet Beta
 
-- Cut `release/testnet-v0.1.0` only from a green `main` commit.
-- Tag the first beta build as `v0.1.0-beta.1`.
+- Cut `release/testnet-v0.2.0` only from a green `dev` commit.
+- Tag the first beta build as `v0.2.0-beta.1`.
 - Deploy quiet beta only from the tagged release branch.
 - Start with partners and trusted users through direct outreach.
 - Treat `Sepolia` as the only active beta path until quiet-beta exit criteria are met.
 - Treat `Polygon Amoy` and `Arbitrum Sepolia` as expansion targets after `Sepolia` stabilizes.
-- Fix launch blockers on the release branch and merge them back into `main`.
+- Fix launch blockers on the release branch and merge them back into `dev`.
 
 ### Phase 4: Public Testnet Launch
 
-- Tag the public launch commit as `v0.1.0-testnet.1`.
+- Tag the public launch commit as `v0.2.0-testnet.1`.
 - Publish the matching GitHub release from that exact tag.
 - Announce only after quiet beta exit criteria are met.
 - Sequence launch channels:
@@ -89,19 +89,43 @@ Public launch is ready only when:
 
 ### Branching Model
 
-- `main` is the integration branch.
+- `dev` is the integration branch.
 - Feature work happens on short-lived feature and fix branches.
-- The active launch line is isolated on `release/testnet-v0.1.0`.
+- The active launch line is isolated on `release/testnet-v0.2.0`.
 - Launch blockers and hotfixes are fixed on the release branch first.
-- Every release-branch fix shipped externally must be merged back into `main`.
+- Every release-branch fix shipped externally must be merged back into `dev`.
+
+### Deployment Model
+
+- Vercel production stays pinned to the stable long-lived branch: `main`.
+- `dev` and `release/*` branches are used for preview and release-stabilization deployments, not as the long-term production branch setting.
+- The release branch is the place to stabilize a version line and verify internal and beta environments.
+- The final ship step is:
+  - merge the approved `release/*` branch into `main`
+  - let Vercel deploy `main` automatically as production
+  - tag the shipped commit on the release line with the appropriate channel tag
+- Avoid changing the Vercel production-branch setting for every release line.
+- Avoid relying on manual deployment promotion as the default release mechanism.
+
+### Deployment Model
+
+- Vercel production stays pinned to the stable long-lived branch: `main`.
+- `dev` and `release/*` branches are used for preview and release-stabilization deployments, not as the long-term production branch setting.
+- The release branch is the place to stabilize a version line and verify internal and beta environments.
+- The final ship step is:
+  - merge the approved `release/*` branch into `main`
+  - let Vercel deploy `main` automatically as production
+  - tag the shipped commit on the release line with the appropriate channel tag
+- Avoid changing the Vercel production-branch setting for every release line.
+- Avoid relying on manual deployment promotion as the default release mechanism.
 
 ### Versioning Model
 
 - Use pre-release SemVer tags for the testnet lifecycle.
-- Recommended first-cycle progression:
-  - `v0.1.0-internal.1`
-  - `v0.1.0-beta.1`
-  - `v0.1.0-testnet.1`
+- Promote the active release line through the launch stages:
+  - `v0.2.0-internal.1`
+  - `v0.2.0-beta.1`
+  - `v0.2.0-testnet.1`
 - Use patch bumps for launch fixes.
 - Use minor bumps for meaningful user-facing capability changes before mainnet.
 
@@ -117,6 +141,18 @@ Every public-facing release should be traceable through:
 - known limitations
 
 Do not treat monorepo `package.json` versions as the public release truth.
+
+In practice for hosted environments, this means:
+
+- release-candidate validation happens from `release/*` preview deployments
+- the externally served production deployment comes from `main`
+- the release tag identifies the exact approved code state for that release stage
+
+In practice for hosted environments, this means:
+
+- release-candidate validation happens from `release/*` preview deployments
+- the externally served production deployment comes from `main`
+- the release tag identifies the exact approved code state for that release stage
 
 ## Announcement Plan
 

@@ -57,22 +57,6 @@ At a high level, a new registry implementation should:
 3. use the router and core contracts instead of bypassing protocol orchestration
 4. be granted `AUTHORIZED_REGISTRY_ROLE` so the router can recognize it as an approved registry
 
-## Release-Network Plan
-
-For the `v0.1.0` testnet release line, Roboshare is rolling out in phases:
-
-- current active quiet-beta deployment: `Sepolia` (default)
-- planned follow-on deployments in the same release line:
-  - `Polygon Amoy`
-  - `Arbitrum Sepolia`
-
-Deferred to a later release line:
-
-- `Base Sepolia`
-
-This is different from protocol deployability.
-Experienced operators can adapt the contracts and deployment flow for other intended EVM testnets or networks, but those environments are outside the first supported public release scope.
-
 ## Requirements
 
 Before you begin, you need to install the following tools:
