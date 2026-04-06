@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { hardhat } from "viem/chains";
 import { Bars3Icon, BugAntIcon, HomeIcon } from "@heroicons/react/24/outline";
 import { BuildingStorefrontIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
-import { BoltIcon } from "@heroicons/react/24/outline";
 import { FaucetButton, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-eth";
 import { useIsAdmin } from "~~/hooks/useIsAdmin";
@@ -109,12 +109,24 @@ export const Header = () => {
           </ul>
         </details>
         <Link href="/" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
-          <div className="flex items-center justify-center w-10 h-10 text-base-content">
-            <BoltIcon className="h-10 w-10" />
-          </div>
           <div className="flex flex-col">
-            <span className="font-bold leading-tight">Roboshare</span>
-            <span className="text-xs">Tokenized asset marketplace</span>
+            <Image
+              src="/logo.svg"
+              alt="Roboshare"
+              width={240}
+              height={40}
+              className="h-10 w-auto dark:hidden"
+              priority
+            />
+            <Image
+              src="/logo-dark.svg"
+              alt="Roboshare"
+              width={240}
+              height={40}
+              className="hidden h-10 w-auto dark:block"
+              priority
+            />
+            <span className="pl-12 text-xs dark:text-base-content/80">Tokenized asset marketplace</span>
           </div>
         </Link>
         <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
