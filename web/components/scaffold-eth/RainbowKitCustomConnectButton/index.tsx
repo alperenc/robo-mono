@@ -136,7 +136,7 @@ const PrivyConnectButton = () => {
   const { address, chain, connector } = useAccount();
   const { client: smartWalletClient } = useSmartWallets();
   const { disconnect } = useDisconnect();
-  const { ready, authenticated, login, connectOrCreateWallet, user } = usePrivy();
+  const { ready, authenticated, login, connectWallet, user } = usePrivy();
   const { logout } = useLogout();
   const transactingAddress = (smartWalletClient?.account?.address as Address | undefined) ?? address;
   const transactingChainName = smartWalletClient?.chain?.name ?? chain?.name;
@@ -170,10 +170,10 @@ const PrivyConnectButton = () => {
     return (
       <button
         className="btn btn-primary btn-sm"
-        onClick={() => (authenticated ? connectOrCreateWallet() : login())}
+        onClick={() => (authenticated ? connectWallet() : login())}
         type="button"
       >
-        {authenticated ? "Open Wallet" : "Log In"}
+        {authenticated ? "Connect Wallet" : "Get Started"}
       </button>
     );
   }

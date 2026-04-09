@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -11,6 +12,10 @@ const nextConfig: NextConfig = {
   },
   webpack: config => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "@farcaster/mini-app-solana": path.resolve(__dirname, "./shims/farcaster-mini-app-solana.ts"),
+    };
     config.externals.push("pino-pretty", "lokijs", "encoding");
     return config;
   },

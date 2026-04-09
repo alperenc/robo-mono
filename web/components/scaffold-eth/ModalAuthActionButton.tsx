@@ -9,7 +9,7 @@ type ModalAuthActionButtonProps = {
 };
 
 const PrivyModalAuthActionButton = ({ className }: ModalAuthActionButtonProps) => {
-  const { ready, authenticated, login, connectOrCreateWallet } = usePrivy();
+  const { ready, authenticated, login, connectWallet } = usePrivy();
 
   return (
     <button
@@ -18,14 +18,14 @@ const PrivyModalAuthActionButton = ({ className }: ModalAuthActionButtonProps) =
       disabled={!ready}
       onClick={() => {
         if (authenticated) {
-          void connectOrCreateWallet();
+          void connectWallet();
           return;
         }
 
         void login();
       }}
     >
-      {!ready ? "Loading..." : authenticated ? "Open Wallet to Continue" : "Log In to Continue"}
+      {!ready ? "Loading..." : authenticated ? "Connect Wallet to Continue" : "Get Started to Continue"}
     </button>
   );
 };
