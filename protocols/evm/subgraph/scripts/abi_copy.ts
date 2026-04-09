@@ -27,8 +27,12 @@ const DEFAULT_NETWORKS_BY_CHAIN_ID: Record<number, string> = {
   31337: "localhost",
   11155111: "sepolia",
   80002: "polygon-amoy",
+  10143: "monad-testnet",
   421614: "arbitrum-sepolia",
 };
+const CHAIN_ID_BY_NETWORK_NAME: Record<string, number> = Object.fromEntries(
+  Object.entries(DEFAULT_NETWORKS_BY_CHAIN_ID).map(([chainId, networkName]) => [networkName, Number.parseInt(chainId, 10)])
+);
 const EXCLUDED_CONTRACTS = new Set(["ERC1967Proxy"]);
 
 const GRAPH_DIR = "./";
@@ -156,6 +160,7 @@ function parseCliArgs() {
 
   const chainId =
     chainIdArg ??
+    (networkArg ? CHAIN_ID_BY_NETWORK_NAME[networkArg] : undefined) ??
     (process.env.SUBGRAPH_CHAIN_ID ? Number.parseInt(process.env.SUBGRAPH_CHAIN_ID, 10) : undefined) ??
     DEFAULT_CHAIN_ID;
 
@@ -164,7 +169,9 @@ function parseCliArgs() {
   }
 
   const networkName =
-    networkArg ?? process.env.SUBGRAPH_NETWORK ?? DEFAULT_NETWORKS_BY_CHAIN_ID[chainId];
+    networkArg ??
+    process.env.SUBGRAPH_NETWORK ??
+    DEFAULT_NETWORKS_BY_CHAIN_ID[chainId];
 
   if (!networkName) {
     throw new Error(
