@@ -60,7 +60,7 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
         throw new Error("No public client configured for the active network");
       }
 
-      notificationId = notification.loading(<TxnNotification message="Awaiting for user confirmation" />);
+      notificationId = notification.loading(<TxnNotification message="Submitting transaction..." />);
       if (typeof tx === "function") {
         // Tx is already prepared by the caller
         const result = await tx();
