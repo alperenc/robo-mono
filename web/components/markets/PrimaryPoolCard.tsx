@@ -391,7 +391,7 @@ export function PrimaryPoolCard({
       tabIndex={isCardPressable ? 0 : undefined}
       aria-label={isCardPressable ? primaryActionLabel : undefined}
     >
-      <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-base-200 group">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-base-200 [clip-path:inset(0_round_1rem_1rem_0_0)]">
         {imageUrl ? (
           <Image
             src={imageUrl}

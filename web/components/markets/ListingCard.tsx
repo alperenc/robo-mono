@@ -660,7 +660,7 @@ export function ListingCard({
       ) : null}
 
       {/* Image Section */}
-      <div className="relative aspect-[16/10] bg-base-200 overflow-hidden group">
+      <div className="relative aspect-[16/10] bg-base-200 overflow-hidden rounded-t-2xl [clip-path:inset(0_round_1rem_1rem_0_0)]">
         {imageUrl ? (
           <Image
             src={imageUrl}
