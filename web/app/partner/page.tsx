@@ -128,6 +128,8 @@ type AssetAction = {
   tone?: "default" | "danger";
 };
 
+const SUBGRAPH_REFRESH_DELAYS_MS = [1500, 5000, 12000, 25000];
+
 const payoutGhostActionClass =
   "btn btn-primary border-0 bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 dark:text-primary-content dark:hover:bg-primary/35";
 
@@ -188,10 +190,10 @@ const PartnerDashboard: NextPage = () => {
   };
 
   const refreshPartnerAfterSuccess = () => {
-    // Immediate refresh attempt, then delayed retries for subgraph indexing lag.
+    // Immediate refresh attempt, then delayed retries for subgraph indexing lag on slower networks.
     setRefreshCounter(c => c + 1);
     refetchPending?.();
-    [1200, 3500].forEach(delayMs => {
+    SUBGRAPH_REFRESH_DELAYS_MS.forEach(delayMs => {
       setTimeout(() => {
         setRefreshCounter(c => c + 1);
         refetchPending?.();
