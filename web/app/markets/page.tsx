@@ -1285,7 +1285,9 @@ const MarketsPage: NextPage = () => {
               </ul>
             </div>
           </div>
-          <p className="text-lg opacity-70 mt-2">Discover and invest in tokenized real-world assets</p>
+          <p className="text-lg opacity-70 mt-2">
+            Discover offerings and secondary listings for tokenized revenue streams
+          </p>
         </div>
 
         {/* Filters & Sort */}

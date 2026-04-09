@@ -18,7 +18,7 @@ export const getPrivyConfig = (theme: "light" | "dark"): PrivyClientConfig => ({
     accentColor: "#2299dd",
     showWalletLoginFirst: false,
     landingHeader: "Roboshare",
-    loginMessage: "Access tokenized markets with an embedded wallet or your existing wallet.",
+    loginMessage: "Access markets for tokenized revenue streams with an embedded wallet or your existing wallet.",
   },
   // Work around a missing-key warning in Privy's default landing screen renderer by
   // using the ordered-login variant instead.

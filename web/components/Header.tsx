@@ -126,7 +126,7 @@ export const Header = () => {
               className="hidden h-10 w-auto dark:block"
               priority
             />
-            <span className="pl-12 text-xs dark:text-base-content/80">Tokenized asset marketplace</span>
+            <span className="pl-12 text-xs dark:text-base-content/80">Tokenized revenue streams</span>
           </div>
         </Link>
         <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">

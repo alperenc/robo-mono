@@ -51,11 +51,12 @@ const HomePage = () => {
               <div className="space-y-3">
                 <p className="text-sm font-semibold uppercase tracking-[0.3em] text-base-content/50">Roboshare</p>
                 <h1 className="max-w-3xl text-4xl font-black tracking-tight text-base-content sm:text-5xl">
-                  Asset-backed markets for investors and partners.
+                  Revenue-stream markets for investors and partners.
                 </h1>
                 <p className="max-w-2xl text-lg leading-relaxed text-base-content/70">
-                  Browse live offerings, acquire claim units, collect payouts, and manage partner inventory from one
-                  app. Sign in from the header to use an embedded wallet, or continue with your existing wallet.
+                  Browse live offerings, acquire claim units tied to asset revenue streams, collect payouts, and manage
+                  partner inventory from one app. Sign in from the header to use an embedded wallet, or continue with
+                  your existing wallet.
                 </p>
               </div>
 

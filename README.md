@@ -1,6 +1,6 @@
 # Roboshare
 
-Roboshare is a tokenized asset marketplace built as an EVM dApp.
+Roboshare is a marketplace for tokenized revenue streams built as an EVM dApp.
 This repository contains the smart contracts, subgraph, and web application used for Roboshare's public testnet release.
 It was originally bootstrapped on top of Scaffold-ETH 2 and still builds on that foundation heavily.
 
