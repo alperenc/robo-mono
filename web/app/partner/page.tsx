@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { NextPage } from "next";
 import { formatUnits } from "viem";
@@ -147,6 +147,7 @@ const PartnerDashboard: NextPage = () => {
   const subgraphUrl = getSubgraphQueryUrl(chainId);
   const partnerManagerContract = getDeployedContract(chainId, "PartnerManager");
   const roboshareTokensContract = getDeployedContract(chainId, "RoboshareTokens");
+  const vehicleRegistryContract = getDeployedContract(chainId, "VehicleRegistry");
   const registryRouterContract = getDeployedContract(chainId, "RegistryRouter");
   const marketplaceContract = getDeployedContract(chainId, "Marketplace");
   const treasuryContract = getDeployedContract(chainId, "Treasury");
@@ -304,14 +305,51 @@ const PartnerDashboard: NextPage = () => {
     fetchData();
   }, [accountAddress, chainId, refreshCounter, subgraphUrl]);
 
+  const { data: assetMetadataData, refetch: refetchAssetMetadata } = useReadContracts({
+    allowFailure: true,
+    contracts: vehicleRegistryContract
+      ? allAssets.map(asset => ({
+          address: vehicleRegistryContract.address,
+          abi: vehicleRegistryContract.abi,
+          functionName: "getVehicleInfo",
+          args: [BigInt(asset.id)],
+        }))
+      : [],
+    query: { enabled: !!vehicleRegistryContract && allAssets.length > 0 },
+  });
+
+  const hydratedAssets = useMemo(() => {
+    const results = assetMetadataData as Array<{ result?: readonly unknown[]; status: string }> | undefined;
+
+    return allAssets.map((asset, index) => {
+      const result = results?.[index];
+      if (result?.status !== "success" || result.result === undefined) {
+        return asset;
+      }
+
+      const info = result.result;
+      const liveYear = info[3];
+      return {
+        ...asset,
+        vin: (info[0] as string | undefined) || asset.vin,
+        make: (info[1] as string | undefined) || asset.make,
+        model: (info[2] as string | undefined) || asset.model,
+        year: liveYear !== undefined && liveYear !== null ? String(liveYear as bigint | number | string) : asset.year,
+        metadataURI: (info[6] as string | undefined) || asset.metadataURI,
+      };
+    });
+  }, [allAssets, assetMetadataData]);
+
+  const assetRecords = hydratedAssets;
+
   // Fetch image URLs from IPFS metadata
   useEffect(() => {
     const fetchImageUrls = async () => {
-      const assetsWithMetadata = allAssets.filter(a => a.metadataURI && !a.imageUrl);
+      const assetsWithMetadata = assetRecords.filter(a => a.metadataURI && !a.imageUrl);
       if (assetsWithMetadata.length === 0) return;
 
       const updatedAssets = await Promise.all(
-        allAssets.map(async asset => {
+        assetRecords.map(async asset => {
           if (asset.imageUrl || !asset.metadataURI) return asset;
 
           try {
@@ -326,14 +364,14 @@ const PartnerDashboard: NextPage = () => {
         }),
       );
 
-      const hasNewImages = updatedAssets.some((a, i) => a.imageUrl !== allAssets[i].imageUrl);
+      const hasNewImages = updatedAssets.some((a, i) => a.imageUrl !== assetRecords[i].imageUrl);
       if (hasNewImages) {
         setAllAssets(updatedAssets);
       }
     };
 
     fetchImageUrls();
-  }, [allAssets]);
+  }, [assetRecords]);
 
   // Fetch Token Supplies
   const contractConfig = {
@@ -345,78 +383,78 @@ const PartnerDashboard: NextPage = () => {
   type ContractResult<T> = { result?: T; status: string; error?: Error };
 
   const { data: suppliesData, refetch: refetchSupplies } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...contractConfig,
       functionName: "getRevenueTokenSupply",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && assetRecords.length > 0 },
   });
   // Cast to break deep type inference
   const supplies = suppliesData as ContractResult<bigint>[] | undefined;
 
   const { data: tokenPricesData, refetch: refetchTokenPrices } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...contractConfig,
       functionName: "getTokenPrice",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && assetRecords.length > 0 },
   });
   const tokenPrices = tokenPricesData as ContractResult<bigint>[] | undefined;
 
   const { data: maxSuppliesData, refetch: refetchMaxSupplies } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...contractConfig,
       functionName: "getRevenueTokenMaxSupply",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && assetRecords.length > 0 },
   });
   const maxSupplies = maxSuppliesData as ContractResult<bigint>[] | undefined;
 
   const { data: partnerTokenBalancesData, refetch: refetchPartnerTokenBalances } = useReadContracts({
     contracts: accountAddress
-      ? allAssets.map(asset => ({
+      ? assetRecords.map(asset => ({
           ...contractConfig,
           functionName: "balanceOf",
           args: [accountAddress, BigInt(asset.id) + 1n],
         }))
       : [],
-    query: { enabled: !!accountAddress && !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!accountAddress && !!roboshareTokensContract && assetRecords.length > 0 },
   });
   const partnerTokenBalances = partnerTokenBalancesData as ContractResult<bigint>[] | undefined;
 
   const { data: maturityDatesData, refetch: refetchMaturityDates } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       address: roboshareTokensContract?.address,
       abi: roboshareTokensContract?.abi,
       functionName: "getTokenMaturityDate",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && assetRecords.length > 0 },
   });
   const tokenMaturityDates = maturityDatesData as ContractResult<bigint>[] | undefined;
 
   const { data: immediateProceedsData, refetch: refetchImmediateProceeds } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       address: roboshareTokensContract?.address,
       abi: roboshareTokensContract?.abi,
       functionName: "getRevenueTokenImmediateProceedsEnabled",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && assetRecords.length > 0 },
   });
   const immediateProceedsFlags = immediateProceedsData as ContractResult<boolean>[] | undefined;
 
   const { data: protectionEnabledData, refetch: refetchProtectionEnabled } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       address: roboshareTokensContract?.address,
       abi: roboshareTokensContract?.abi,
       functionName: "getRevenueTokenProtectionEnabled",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!roboshareTokensContract && allAssets.length > 0 },
+    query: { enabled: !!roboshareTokensContract && assetRecords.length > 0 },
   });
   const protectionEnabledFlags = protectionEnabledData as ContractResult<boolean>[] | undefined;
 
@@ -427,12 +465,12 @@ const PartnerDashboard: NextPage = () => {
   } as const;
 
   const { data: statusesData, refetch: refetchStatuses } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...routerConfig,
       functionName: "getAssetStatus",
       args: [BigInt(asset.id)],
     })),
-    query: { enabled: !!registryRouterContract && allAssets.length > 0 },
+    query: { enabled: !!registryRouterContract && assetRecords.length > 0 },
   });
   // Cast to break deep type inference
   const assetStatuses = statusesData as ContractResult<number>[] | undefined;
@@ -443,22 +481,22 @@ const PartnerDashboard: NextPage = () => {
   } as const;
 
   const { data: primaryPoolCreatedData, refetch: refetchPrimaryPoolCreated } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...marketplaceConfig,
       functionName: "primaryPoolCreated",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!marketplaceContract && allAssets.length > 0 },
+    query: { enabled: !!marketplaceContract && assetRecords.length > 0 },
   });
   const primaryPoolCreated = primaryPoolCreatedData as ContractResult<boolean>[] | undefined;
 
   const { data: primaryPoolDetailsData, refetch: refetchPrimaryPoolDetails } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...marketplaceConfig,
       functionName: "getPrimaryPool",
       args: [BigInt(asset.id) + 1n],
     })),
-    query: { enabled: !!marketplaceContract && allAssets.length > 0 },
+    query: { enabled: !!marketplaceContract && assetRecords.length > 0 },
     allowFailure: true,
   });
   const primaryPoolDetails = primaryPoolDetailsData as
@@ -471,18 +509,18 @@ const PartnerDashboard: NextPage = () => {
   } as const;
 
   const { data: collateralInfoData, refetch: refetchCollateralInfo } = useReadContracts({
-    contracts: allAssets.map(asset => ({
+    contracts: assetRecords.map(asset => ({
       ...treasuryConfig,
       functionName: "assetCollateral",
       args: [BigInt(asset.id)],
     })),
-    query: { enabled: !!treasuryContract && allAssets.length > 0 },
+    query: { enabled: !!treasuryContract && assetRecords.length > 0 },
     allowFailure: true,
   });
   const collateralInfo = collateralInfoData as Array<{ result?: any; status: string; error?: Error }> | undefined;
 
   const { data: primaryPoolBufferRequirementsData, refetch: refetchPrimaryPoolBufferRequirements } = useReadContracts({
-    contracts: allAssets.map((asset, index) => ({
+    contracts: assetRecords.map((asset, index) => ({
       ...marketplaceConfig,
       functionName: "previewPrimaryPoolBufferRequirements",
       args: [
@@ -511,7 +549,10 @@ const PartnerDashboard: NextPage = () => {
     })),
     query: {
       enabled:
-        !!marketplaceContract && allAssets.length > 0 && !!collateralInfo && collateralInfo.length === allAssets.length,
+        !!marketplaceContract &&
+        assetRecords.length > 0 &&
+        !!collateralInfo &&
+        collateralInfo.length === assetRecords.length,
     },
     allowFailure: true,
   });
@@ -527,6 +568,7 @@ const PartnerDashboard: NextPage = () => {
   const refetchMaturityDatesRef = useRef(refetchMaturityDates);
   const refetchImmediateProceedsRef = useRef(refetchImmediateProceeds);
   const refetchProtectionEnabledRef = useRef(refetchProtectionEnabled);
+  const refetchAssetMetadataRef = useRef(refetchAssetMetadata);
   const refetchPrimaryPoolCreatedRef = useRef(refetchPrimaryPoolCreated);
   const refetchPrimaryPoolDetailsRef = useRef(refetchPrimaryPoolDetails);
   const refetchCollateralInfoRef = useRef(refetchCollateralInfo);
@@ -539,6 +581,7 @@ const PartnerDashboard: NextPage = () => {
   refetchMaturityDatesRef.current = refetchMaturityDates;
   refetchImmediateProceedsRef.current = refetchImmediateProceeds;
   refetchProtectionEnabledRef.current = refetchProtectionEnabled;
+  refetchAssetMetadataRef.current = refetchAssetMetadata;
   refetchPrimaryPoolCreatedRef.current = refetchPrimaryPoolCreated;
   refetchPrimaryPoolDetailsRef.current = refetchPrimaryPoolDetails;
   refetchCollateralInfoRef.current = refetchCollateralInfo;
@@ -547,7 +590,7 @@ const PartnerDashboard: NextPage = () => {
 
   // Refetch supplies and statuses when refreshCounter changes
   useEffect(() => {
-    if (refreshCounter > 0 && allAssets.length > 0) {
+    if (refreshCounter > 0 && assetRecords.length > 0) {
       void refetchSuppliesRef.current();
       void refetchTokenPricesRef.current();
       void refetchMaxSuppliesRef.current();
@@ -555,17 +598,18 @@ const PartnerDashboard: NextPage = () => {
       void refetchMaturityDatesRef.current();
       void refetchImmediateProceedsRef.current();
       void refetchProtectionEnabledRef.current();
+      void refetchAssetMetadataRef.current();
       void refetchPrimaryPoolCreatedRef.current();
       void refetchPrimaryPoolDetailsRef.current();
       void refetchCollateralInfoRef.current();
       void refetchPrimaryPoolBufferRequirementsRef.current();
       void refetchPartnerTokenBalancesRef.current();
     }
-  }, [refreshCounter, allAssets.length]);
+  }, [assetRecords.length, refreshCounter]);
 
   const chainNowSec = latestBlock?.timestamp ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
   const assetMaturityDateById = new Map<string, bigint>(
-    allAssets.map((asset, index) => [asset.id, (tokenMaturityDates?.[index]?.result as bigint | undefined) ?? 0n]),
+    assetRecords.map((asset, index) => [asset.id, (tokenMaturityDates?.[index]?.result as bigint | undefined) ?? 0n]),
   );
 
   // View/Display Mode State
@@ -594,7 +638,7 @@ const PartnerDashboard: NextPage = () => {
     const pendingListings: CategorizedAsset[] = [];
     const settledAssets: CategorizedAsset[] = [];
 
-    allAssets.forEach((asset, index) => {
+    assetRecords.forEach((asset, index) => {
       // Filter by asset type if needed
       if (!ASSET_REGISTRIES[asset.type].active) return;
       if (filterType !== "ALL" && filterType !== asset.type) return;

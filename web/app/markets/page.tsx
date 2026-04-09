@@ -220,6 +220,7 @@ const MarketsPage: NextPage = () => {
   const marketplaceContract = getDeployedContract(chainId, "Marketplace");
   const treasuryContract = getDeployedContract(chainId, "Treasury");
   const registryRouterContract = getDeployedContract(chainId, "RegistryRouter");
+  const vehicleRegistryContract = getDeployedContract(chainId, "VehicleRegistry");
   const earningsManagerContract = getDeployedContract(chainId, "EarningsManager");
   const { symbol, decimals } = usePaymentToken();
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
@@ -239,6 +240,70 @@ const MarketsPage: NextPage = () => {
   });
   const hasPendingWithdrawal = !!pendingWithdrawal && (pendingWithdrawal as bigint) > 0n;
   const pendingWithdrawalDisplay = pendingWithdrawal ? formatUnits(pendingWithdrawal as bigint, decimals) : "0";
+
+  const { data: vehicleInfoData } = useReadContracts({
+    allowFailure: true,
+    contracts: vehicleRegistryContract
+      ? vehicles.map(vehicle => ({
+          address: vehicleRegistryContract.address,
+          abi: vehicleRegistryContract.abi,
+          functionName: "getVehicleInfo",
+          args: [BigInt(vehicle.id)],
+        }))
+      : ([] as any),
+    query: { enabled: !!vehicleRegistryContract && vehicles.length > 0 },
+  });
+
+  const marketVehicles = useMemo(() => {
+    const results = vehicleInfoData as Array<{ result?: readonly unknown[]; status: string }> | undefined;
+
+    return vehicles.map((vehicle, index) => {
+      const result = results?.[index];
+      if (result?.status !== "success" || result.result === undefined) {
+        return vehicle;
+      }
+
+      const info = result.result;
+      const liveYear = info[3];
+      return {
+        ...vehicle,
+        vin: (info[0] as string | undefined) || vehicle.vin,
+        make: (info[1] as string | undefined) || vehicle.make,
+        model: (info[2] as string | undefined) || vehicle.model,
+        year: liveYear !== undefined && liveYear !== null ? String(liveYear as bigint | number | string) : vehicle.year,
+        metadataURI: (info[6] as string | undefined) || vehicle.metadataURI,
+      };
+    });
+  }, [vehicleInfoData, vehicles]);
+
+  const { data: targetYieldData } = useReadContracts({
+    allowFailure: true,
+    contracts: roboshareTokensContract
+      ? tokens.map(token => ({
+          address: roboshareTokensContract.address,
+          abi: roboshareTokensContract.abi,
+          functionName: "getTargetYieldBP",
+          args: [BigInt(token.revenueTokenId)],
+        }))
+      : ([] as any),
+    query: { enabled: !!roboshareTokensContract && tokens.length > 0 },
+  });
+
+  const marketTokens = useMemo(() => {
+    const results = targetYieldData as Array<{ result?: bigint; status: string }> | undefined;
+
+    return tokens.map((token, index) => {
+      const result = results?.[index];
+      if (result?.status !== "success" || result.result === undefined) {
+        return token;
+      }
+
+      return {
+        ...token,
+        targetYieldBP: String(result.result),
+      };
+    });
+  }, [targetYieldData, tokens]);
 
   // Fetch data from subgraph
   const fetchData = useCallback(
@@ -672,7 +737,7 @@ const MarketsPage: NextPage = () => {
   // Fetch IPFS images
   useEffect(() => {
     const fetchImages = async () => {
-      const vehiclesWithMetadata = vehicles.filter(v => v.metadataURI && !imageUrls[getVehicleImageKey(v)]);
+      const vehiclesWithMetadata = marketVehicles.filter(v => v.metadataURI && !imageUrls[getVehicleImageKey(v)]);
       if (vehiclesWithMetadata.length === 0) return;
 
       const newImageUrls: Record<string, string> = { ...imageUrls };
@@ -695,7 +760,7 @@ const MarketsPage: NextPage = () => {
     };
 
     fetchImages();
-  }, [getVehicleImageKey, imageUrls, vehicles]);
+  }, [getVehicleImageKey, imageUrls, marketVehicles]);
 
   const tokenSoldTotals = useMemo(() => {
     const totals = new Map<string, bigint>();
@@ -710,7 +775,7 @@ const MarketsPage: NextPage = () => {
   // Helper to calculate listing APY for sorting (match card display logic)
   const calculateListingApy = useCallback(
     (listing: SubgraphListing): number => {
-      const token = tokens.find(t => t.revenueTokenId === listing.tokenId);
+      const token = marketTokens.find(t => t.revenueTokenId === listing.tokenId);
       const earning = assetEarnings.find(e => e.assetId === listing.assetId);
 
       if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
@@ -736,12 +801,12 @@ const MarketsPage: NextPage = () => {
       const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
       return targetYieldBp / 100;
     },
-    [assetEarnings, primaryPoolCreatedAtByTokenId, primaryPoolSupplyByTokenId, tokens],
+    [assetEarnings, marketTokens, primaryPoolCreatedAtByTokenId, primaryPoolSupplyByTokenId],
   );
 
   const calculatePrimaryPoolApy = useCallback(
     (pool: SubgraphPrimaryPool): number => {
-      const token = tokens.find(t => t.revenueTokenId === pool.tokenId);
+      const token = marketTokens.find(t => t.revenueTokenId === pool.tokenId);
       const earning = assetEarnings.find(e => e.assetId === pool.assetId);
 
       if (!token) return Number(BENCHMARK_EARNINGS_BP) / 100;
@@ -763,7 +828,7 @@ const MarketsPage: NextPage = () => {
       const targetYieldBp = token.targetYieldBP ? Number(token.targetYieldBP) : Number(BENCHMARK_EARNINGS_BP);
       return targetYieldBp / 100;
     },
-    [assetEarnings, primaryPoolSupplyByTokenId, tokens],
+    [assetEarnings, marketTokens, primaryPoolSupplyByTokenId],
   );
 
   const hasLikelyAction = useCallback(
@@ -1479,8 +1544,8 @@ const MarketsPage: NextPage = () => {
               }`}
             >
               {visiblePrimaryPools.map(pool => {
-                const vehicle = vehicles.find(v => v.id === pool.assetId);
-                const token = tokens.find(t => t.revenueTokenId === pool.tokenId);
+                const vehicle = marketVehicles.find(v => v.id === pool.assetId);
+                const token = marketTokens.find(t => t.revenueTokenId === pool.tokenId);
                 const partner = partners.find(p => p.address.toLowerCase() === pool.partner.toLowerCase());
 
                 return (
@@ -1609,8 +1674,8 @@ const MarketsPage: NextPage = () => {
             }`}
           >
             {visibleListings.map((listing, index) => {
-              const vehicle = vehicles.find(v => v.id === listing.assetId);
-              const rawToken = tokens.find(t => t.revenueTokenId === listing.tokenId);
+              const vehicle = marketVehicles.find(v => v.id === listing.assetId);
+              const rawToken = marketTokens.find(t => t.revenueTokenId === listing.tokenId);
               const token = rawToken
                 ? { ...rawToken, supply: primaryPoolSupplyByTokenId.get(listing.tokenId) || rawToken.supply }
                 : undefined;
@@ -1682,7 +1747,7 @@ const MarketsPage: NextPage = () => {
           }}
           tokenId={selectedRedeemPool.tokenId}
           vehicleName={(() => {
-            const vehicle = vehicles.find(v => v.id === selectedRedeemPool.assetId);
+            const vehicle = marketVehicles.find(v => v.id === selectedRedeemPool.assetId);
             return vehicle
               ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
               : `Asset #${selectedRedeemPool.assetId}`;
@@ -1708,7 +1773,7 @@ const MarketsPage: NextPage = () => {
           assetId={selectedLiquidationPool.assetId}
           liquidationReason={liquidationPreviewByAssetId.get(selectedLiquidationPool.assetId)?.reason}
           vehicleName={(() => {
-            const vehicle = vehicles.find(v => v.id === selectedLiquidationPool.assetId);
+            const vehicle = marketVehicles.find(v => v.id === selectedLiquidationPool.assetId);
             return vehicle
               ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
               : `Asset #${selectedLiquidationPool.assetId}`;
@@ -1729,7 +1794,7 @@ const MarketsPage: NextPage = () => {
           </div>
           <div className="stat">
             <div className="stat-title">Total Assets</div>
-            <div className="stat-value">{vehicles.length}</div>
+            <div className="stat-value">{marketVehicles.length}</div>
           </div>
           <div className="stat">
             <div className="stat-title">Partners</div>
@@ -1788,7 +1853,7 @@ const MarketsPage: NextPage = () => {
           })()}
           vehicleName={(() => {
             const targetAssetId = selectedListing?.assetId || selectedPool?.assetId;
-            const vehicle = targetAssetId ? vehicles.find(v => v.id === targetAssetId) : undefined;
+            const vehicle = targetAssetId ? marketVehicles.find(v => v.id === targetAssetId) : undefined;
             if (vehicle?.make && vehicle?.model && vehicle?.year) {
               return `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
             }
@@ -1796,7 +1861,7 @@ const MarketsPage: NextPage = () => {
           })()}
           partnerName={(() => {
             const targetAssetId = selectedListing?.assetId || selectedPool?.assetId;
-            const vehicle = targetAssetId ? vehicles.find(v => v.id === targetAssetId) : undefined;
+            const vehicle = targetAssetId ? marketVehicles.find(v => v.id === targetAssetId) : undefined;
             if (vehicle) {
               const partner = partners.find(p => p.address.toLowerCase() === vehicle.partner.toLowerCase());
               return partner?.name;
@@ -1806,7 +1871,7 @@ const MarketsPage: NextPage = () => {
           totalSupply={(() => {
             if (selectedPool) return selectedPool.maxSupply;
             const tokenId = (BigInt(selectedListing!.assetId) + 1n).toString();
-            const token = tokens.find(t => t.revenueTokenId === tokenId);
+            const token = marketTokens.find(t => t.revenueTokenId === tokenId);
             return token?.supply;
           })()}
         />
@@ -1826,7 +1891,7 @@ const MarketsPage: NextPage = () => {
             assetId={selectedListing?.assetId || selectedPool!.assetId}
             vehicleName={(() => {
               const assetId = selectedListing?.assetId || selectedPool?.assetId;
-              const vehicle = assetId ? vehicles.find(v => v.id === assetId) : undefined;
+              const vehicle = assetId ? marketVehicles.find(v => v.id === assetId) : undefined;
               return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
             })()}
           />
@@ -1842,7 +1907,7 @@ const MarketsPage: NextPage = () => {
               assetId={selectedListing?.assetId || selectedPool!.assetId}
               vehicleName={(() => {
                 const assetId = selectedListing?.assetId || selectedPool?.assetId;
-                const vehicle = assetId ? vehicles.find(v => v.id === assetId) : undefined;
+                const vehicle = assetId ? marketVehicles.find(v => v.id === assetId) : undefined;
                 return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
               })()}
               autoWithdraw={shouldAutoWithdrawSingleClaim}
@@ -1866,12 +1931,12 @@ const MarketsPage: NextPage = () => {
           vehicleId={selectedListing?.assetId || selectedPool!.assetId}
           vin={(() => {
             const assetId = selectedListing?.assetId || selectedPool!.assetId;
-            const vehicle = vehicles.find(v => v.id === assetId);
+            const vehicle = marketVehicles.find(v => v.id === assetId);
             return vehicle?.vin || "";
           })()}
           assetName={(() => {
             const assetId = selectedListing?.assetId || selectedPool!.assetId;
-            const vehicle = vehicles.find(v => v.id === assetId);
+            const vehicle = marketVehicles.find(v => v.id === assetId);
             return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : `Asset #${assetId}`;
           })()}
           prefillAmount={prefillListAmount}
