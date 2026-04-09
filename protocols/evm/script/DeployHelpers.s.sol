@@ -128,6 +128,11 @@ contract ScaffoldETHDeploy is Script {
     }
 
     function _getChainName() internal returns (string memory) {
+        string memory knownNetworkName = getNetworkName();
+        if (bytes(knownNetworkName).length != 0 && keccak256(bytes(knownNetworkName)) != keccak256(bytes("unknown"))) {
+            return knownNetworkName;
+        }
+
         try vm.rpcUrl("mainnet") returns (string memory) {
             Chain memory chain = getChain(block.chainid);
             return chain.name;
@@ -268,7 +273,8 @@ contract ScaffoldETHDeploy is Script {
             || block.chainid == 11155111 // Sepolia
             || block.chainid == 84532 // Base Sepolia
             || block.chainid == 421614 // Arbitrum Sepolia
-            || block.chainid == 80002; // Polygon Amoy
+            || block.chainid == 80002 // Polygon Amoy
+            || block.chainid == 10143; // Monad Testnet
     }
 
     /// @notice Get network name for logging
@@ -281,6 +287,7 @@ contract ScaffoldETHDeploy is Script {
         if (block.chainid == 84532) return "baseSepolia";
         if (block.chainid == 421614) return "arbitrumSepolia";
         if (block.chainid == 80002) return "polygonAmoy";
+        if (block.chainid == 10143) return "monadTestnet";
         if (block.chainid == 31337) return "anvil";
         return "unknown";
     }

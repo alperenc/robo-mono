@@ -26,6 +26,8 @@ export const RPC_CHAIN_NAMES: Record<number, string> = {
   [chains.polygon.id]: "polygon-mainnet",
   [chains.polygonMumbai.id]: "polygon-mumbai",
   [chains.polygonAmoy.id]: "polygon-amoy",
+  [chains.monad.id]: "monad-mainnet",
+  [chains.monadTestnet.id]: "monad-testnet",
   [chains.astar.id]: "astar-mainnet",
   [chains.polygonZkEvm.id]: "polygonzkevm-mainnet",
   [chains.polygonZkEvmTestnet.id]: "polygonzkevm-testnet",
@@ -75,14 +77,14 @@ export const NETWORKS_EXTRA_DATA: Record<string, ChainAttributes> = {
   [chains.arbitrum.id]: {
     color: "#28a0f0",
   },
+  [chains.monadTestnet.id]: {
+    color: ["#836EF9", "#A58CFF"],
+  },
   [chains.fantom.id]: {
     color: "#1969ff",
   },
   [chains.fantomTestnet.id]: {
     color: "#1969ff",
-  },
-  [chains.scrollSepolia.id]: {
-    color: "#fbebd4",
   },
   [chains.celo.id]: {
     color: "#FCFF52",

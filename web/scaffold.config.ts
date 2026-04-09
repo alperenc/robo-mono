@@ -16,6 +16,7 @@ export const DEFAULT_ALCHEMY_API_KEY = "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";
 const RELEASE_TARGET_NETWORKS = [
   chains.sepolia,
   chains.polygonAmoy,
+  chains.monadTestnet,
   chains.arbitrumSepolia,
   chains.baseSepolia,
 ] as const;
