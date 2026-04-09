@@ -65,6 +65,8 @@ import {
   PrimaryPoolRedemption
 } from "../generated/schema"
 
+const DEFAULT_TARGET_YIELD_BP = BigInt.fromI32(1000)
+
 function assetIdFromTokenId(tokenId: BigInt): BigInt {
   const one = BigInt.fromI32(1)
   if (tokenId.le(one)) return BigInt.fromI32(0)
@@ -117,11 +119,11 @@ export function handleRoboshareTokensTransferSingle(
 
 export function handleRevenueTokenInfoSet(event: RevenueTokenInfoSetEvent): void {
   let token = new RoboshareToken(event.params.revenueTokenId.toString())
-  let roboshareTokens = RoboshareTokens.bind(event.address)
   token.revenueTokenId = event.params.revenueTokenId
   token.price = event.params.price
   token.supply = event.params.supply
-  token.targetYieldBP = roboshareTokens.getTargetYieldBP(event.params.revenueTokenId)
+  // Avoid historical eth_call reads during indexing so chains without archival call support can still index.
+  token.targetYieldBP = DEFAULT_TARGET_YIELD_BP
   token.maturityDate = event.params.maturityDate
   token.createdAt = event.block.timestamp
   token.setAtBlock = event.block.number
@@ -164,37 +166,18 @@ export function handleAssetRegistered(event: AssetRegisteredEvent): void {
   let id = event.params.assetId.toString()
   let vehicle = Vehicle.load(id)
 
-  // Prefer registry address from id binding when this event is emitted by a router.
-  let bound = BoundId.load(id)
-  let registryAddress = event.address
-  if (bound) {
-    registryAddress = changetype<Address>(bound.registry)
-  }
-
-  let contract = VehicleRegistry.bind(registryAddress)
-  let infoCall = contract.try_getVehicleInfo(event.params.assetId)
-
-  // If this is the first time we see the entity and vehicle info is unavailable yet,
-  // skip this event and let VehicleRegistered/create handlers populate it.
-  if (!vehicle && infoCall.reverted) {
-    return
-  }
-
   if (!vehicle) {
     vehicle = new Vehicle(id)
+    vehicle.partner = event.params.owner
+    vehicle.vin = ""
+    vehicle.blockNumber = event.block.number
+    vehicle.blockTimestamp = event.block.timestamp
+    vehicle.transactionHash = event.transaction.hash
+  } else {
     vehicle.partner = event.params.owner
     vehicle.blockNumber = event.block.number
     vehicle.blockTimestamp = event.block.timestamp
     vehicle.transactionHash = event.transaction.hash
-  }
-
-  if (!infoCall.reverted) {
-    let info = infoCall.value
-    vehicle.vin = info.value0
-    vehicle.make = info.value1
-    vehicle.model = info.value2
-    vehicle.year = info.value3
-    vehicle.metadataURI = info.value6
   }
 
   vehicle.assetValue = event.params.assetValue
@@ -214,17 +197,6 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
     vehicle.partner = event.params.partner
   }
   vehicle.vin = event.params.vin
-
-  // Fetch vehicle info from contract
-  let contract = VehicleRegistry.bind(event.address)
-  let infoCall = contract.try_getVehicleInfo(event.params.vehicleId)
-  if (!infoCall.reverted) {
-    let info = infoCall.value
-    vehicle.make = info.value1 // make
-    vehicle.model = info.value2 // model
-    vehicle.year = info.value3 // year
-    vehicle.metadataURI = info.value6 // dynamicMetadataURI
-  }
 
   vehicle.save()
 
