@@ -61,7 +61,7 @@ Privy exposes two different gas-related setup models:
    - uses Privy's `useSendTransaction(..., { sponsor: true })` flow
    - is a separate execution path from the app's current wagmi-based contract writes
 
-Roboshare currently uses the smart-wallet-ready wagmi path, not the `useSendTransaction` sponsorship path.
+Roboshare currently uses the smart-wallet wagmi path with dashboard-configured bundler and paymaster support, not the separate `useSendTransaction(..., { sponsor: true })` sponsorship path.
 
 ## Current App Behavior
 
@@ -74,11 +74,11 @@ The current integration includes:
 - batched `approve + buy` when the connected wallet exposes atomic call support
 - dynamic payment-token handling instead of hard-coded `MockUSDC`
 
-## Next Production Step
+## Current Sponsorship Model
 
-To sponsor investor transactions end-to-end in production:
+The current setup assumes:
 
-1. create Pimlico bundler and paymaster endpoints for the target chain
-2. paste those URLs into the corresponding chain configuration in the Privy dashboard
-3. restrict sponsorship to the Roboshare transaction surface you intend to subsidize
-4. test the batched investor flows on this branch against that chain
+1. Pimlico bundler and paymaster endpoints are configured in the Privy dashboard for each target chain.
+2. Roboshare uses the smart-wallet execution path, so sponsored gas is surfaced through the connected smart wallet instead of a separate frontend transaction hook.
+3. Sponsorship can be limited by chain, transaction surface, and paymaster policy without changing the app-level integration model.
+4. The remaining production work is operational: funding rails, sponsorship budgets, abuse controls, and monitoring for subsidized investor flows.
