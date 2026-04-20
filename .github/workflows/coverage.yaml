@@ -5,12 +5,14 @@ on:
     branches:
       - main
       - dev
+      - "integration/**"
     paths:
       - "protocols/evm/**"
   push:
     branches:
       - main
       - dev
+      - "integration/**"
     paths:
       - "protocols/evm/**"
 
