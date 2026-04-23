@@ -3,12 +3,12 @@ pragma solidity ^0.8.19;
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import {
-    ERC1155HolderUpgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
+import { ERC1155HolderUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ProtocolLib, TokenLib } from "./Libraries.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 
 /**
  * @title RoboshareTokens
@@ -54,11 +54,13 @@ contract RoboshareTokens is
     event PrimaryRedemptionStateUpdated(
         uint256 indexed revenueTokenId, uint256 redemptionEpoch, uint256 epochSupply, uint256 backedPrincipal
     );
+    event PositionManagerUpdated(address indexed previousManager, address indexed newManager);
 
     // Token state
     uint256 private _tokenIdCounter;
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
     mapping(address => mapping(uint256 => uint256)) private _lockedRevenueTokenAmounts;
+    IPositionManager public positionManager;
     bool private _currentEpochBurnActive;
     address private _currentEpochBurnHolder;
     uint256 private _currentEpochBurnTokenId;
@@ -68,8 +70,8 @@ contract RoboshareTokens is
         _disableInitializers();
     }
 
-    function initialize(address defaultAdmin) public initializer {
-        if (defaultAdmin == address(0)) revert ZeroAddress();
+    function initialize(address defaultAdmin, address initialPositionManager) public initializer {
+        if (defaultAdmin == address(0) || initialPositionManager == address(0)) revert ZeroAddress();
         __ERC1155_init("");
         __ERC1155Holder_init();
         __AccessControl_init();
@@ -82,6 +84,8 @@ contract RoboshareTokens is
         _grantRole(UPGRADER_ROLE, defaultAdmin);
         _grantRole(AUTHORIZED_CONTRACT_ROLE, defaultAdmin);
 
+        positionManager = IPositionManager(initialPositionManager);
+
         _tokenIdCounter = 1; // Start from 1, 0 reserved.
     }
 
@@ -92,7 +96,11 @@ contract RoboshareTokens is
      * @return assetId The unique ID for the new asset.
      * @return revenueTokenId The unique ID for the asset's corresponding revenue token.
      */
-    function reserveNextTokenIdPair() external onlyRole(MINTER_ROLE) returns (uint256 assetId, uint256 revenueTokenId) {
+    function reserveNextTokenIdPair()
+        external
+        onlyRole(MINTER_ROLE)
+        returns (uint256 assetId, uint256 revenueTokenId)
+    {
         assetId = _tokenIdCounter;
         revenueTokenId = _tokenIdCounter + 1;
         _tokenIdCounter += 2;
@@ -193,6 +201,15 @@ contract RoboshareTokens is
      */
     function setURI(string memory newuri) external onlyRole(URI_SETTER_ROLE) {
         _setURI(newuri);
+    }
+
+    function setPositionManager(address newPositionManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newPositionManager == address(0)) revert ZeroAddress();
+
+        address previousManager = address(positionManager);
+        positionManager = IPositionManager(newPositionManager);
+
+        emit PositionManagerUpdated(previousManager, newPositionManager);
     }
 
     /**
@@ -542,6 +559,13 @@ contract RoboshareTokens is
             }
         }
 
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 tokenId = ids[i];
+            if (TokenLib.isRevenueToken(tokenId)) {
+                positionManager.beforeRevenueTokenUpdate(from, to, tokenId, values[i]);
+            }
+        }
+
         // Call parent implementation first
         super._update(from, to, ids, values);
 
@@ -639,7 +663,9 @@ contract RoboshareTokens is
         info.currentRedemptionBackedPrincipal = 0;
     }
 
-    function _transferPositionsFifo(TokenLib.TokenInfo storage info, address from, address to, uint256 amount) private {
+    function _transferPositionsFifo(TokenLib.TokenInfo storage info, address from, address to, uint256 amount)
+        private
+    {
         TokenLib.PositionQueue storage queue = info.positions[from];
         uint256 remaining = amount;
 

@@ -40,7 +40,7 @@ abstract contract DeployCore is ScaffoldETHDeploy {
         // Deploy RoboshareTokens
         {
             RoboshareTokens tokenImplementation = new RoboshareTokens();
-            bytes memory tokenInitData = abi.encodeWithSignature("initialize(address)", _deployer);
+            bytes memory tokenInitData = abi.encodeWithSignature("initialize(address,address)", _deployer, _deployer);
             ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImplementation), tokenInitData);
             contracts.roboshareTokens = RoboshareTokens(address(tokenProxy));
         }
@@ -156,8 +156,9 @@ abstract contract DeployCore is ScaffoldETHDeploy {
         contracts.roboshareTokens.grantRole(contracts.roboshareTokens.BURNER_ROLE(), address(contracts.vehicleRegistry));
         // Grant BURNER_ROLE to Router (for primary-redemption burns routed via RegistryRouter)
         contracts.roboshareTokens.grantRole(contracts.roboshareTokens.BURNER_ROLE(), address(contracts.router));
-        contracts.roboshareTokens
-            .grantRole(contracts.roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace));
+        contracts.roboshareTokens.grantRole(
+            contracts.roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), address(contracts.marketplace)
+        );
 
         // Grant AUTHORIZED_MARKETPLACE_ROLE to Marketplace on Treasury for purchase/redemption settlement flows
         contracts.treasury.grantRole(contracts.treasury.AUTHORIZED_MARKETPLACE_ROLE(), address(contracts.marketplace));

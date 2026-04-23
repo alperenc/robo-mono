@@ -20,7 +20,7 @@ contract DeployRoboshareTokens is ScaffoldETHDeploy {
         console.log("RoboshareTokens implementation deployed at:", address(tokenImplementation));
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSignature("initialize(address)", deployer);
+        bytes memory initData = abi.encodeWithSignature("initialize(address,address)", deployer, deployer);
 
         // Deploy proxy contract
         ERC1967Proxy proxy = new ERC1967Proxy(address(tokenImplementation), initData);
