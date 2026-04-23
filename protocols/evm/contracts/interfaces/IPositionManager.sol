@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import { TokenLib } from "../Libraries.sol";
+
 /**
  * @title IPositionManager
  * @notice Canonical manager boundary for position, lock, redemption, and settlement state.
@@ -87,6 +89,8 @@ interface IPositionManager {
     );
 
     error ZeroAddress();
+    error NotRevenueToken();
+    error UnsupportedPositionMutation(PositionMutationType mutationType);
 
     function initialize(
         address admin,
@@ -119,6 +123,11 @@ interface IPositionManager {
     function updateUsdc(address newUsdc) external;
 
     function recordPositionMutation(PositionMutation calldata mutation) external;
+
+    function getUserPositions(uint256 revenueTokenId, address holder)
+        external
+        view
+        returns (TokenLib.TokenPosition[] memory positions);
 
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)
         external;
