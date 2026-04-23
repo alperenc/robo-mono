@@ -245,12 +245,7 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
 
         // Register asset only
         vm.startPrank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         (uint256 revenueTokenId, uint256 tokenSupply) = router.createRevenueTokenPool(
             assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
@@ -592,12 +587,7 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         vm.stopPrank();
 
         vm.prank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         vm.prank(address(assetRegistry));
         vm.expectRevert();

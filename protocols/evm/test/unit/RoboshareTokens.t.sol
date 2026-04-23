@@ -155,6 +155,27 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertEq(roboshareTokens.uri(1), newURI);
     }
 
+    function testSetTokenMetadataURI() public {
+        string memory tokenMetadata = "ipfs://QmTokenMetadata";
+
+        vm.prank(admin);
+        roboshareTokens.setTokenMetadataURI(1, tokenMetadata);
+
+        assertEq(roboshareTokens.uri(1), tokenMetadata);
+    }
+
+    function testSetTokenMetadataURIUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                roboshareTokens.URI_SETTER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        roboshareTokens.setTokenMetadataURI(1, "ipfs://QmTokenMetadata");
+    }
+
     function testTransfers() public {
         // Setup: mint tokens to user1
         uint256 tokenId = 101;
