@@ -35,6 +35,7 @@ contract RoboshareTokens is
     error InvalidLockAmount();
     error InsufficientUnlockedBalance();
     error InsufficientLockedBalance();
+    error EmptyMetadataURI();
 
     // Events
     event RevenueTokenPositionsUpdated(
@@ -54,11 +55,13 @@ contract RoboshareTokens is
     event PrimaryRedemptionStateUpdated(
         uint256 indexed revenueTokenId, uint256 redemptionEpoch, uint256 epochSupply, uint256 backedPrincipal
     );
+    event TokenMetadataURISet(uint256 indexed tokenId, string metadataURI);
 
     // Token state
     uint256 private _tokenIdCounter;
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
     mapping(address => mapping(uint256 => uint256)) private _lockedRevenueTokenAmounts;
+    mapping(uint256 => string) private _tokenMetadataURIs;
     bool private _currentEpochBurnActive;
     address private _currentEpochBurnHolder;
     uint256 private _currentEpochBurnTokenId;
@@ -193,6 +196,30 @@ contract RoboshareTokens is
      */
     function setURI(string memory newuri) external onlyRole(URI_SETTER_ROLE) {
         _setURI(newuri);
+    }
+
+    /**
+     * @dev Sets metadata URI for a specific token ID.
+     * Can be called by token minters (registries) and URI setters (admin/ops).
+     */
+    function setTokenMetadataURI(uint256 tokenId, string calldata metadataURI) external {
+        if (!hasRole(URI_SETTER_ROLE, msg.sender) && !hasRole(MINTER_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, URI_SETTER_ROLE);
+        }
+        if (bytes(metadataURI).length == 0) revert EmptyMetadataURI();
+        _tokenMetadataURIs[tokenId] = metadataURI;
+        emit TokenMetadataURISet(tokenId, metadataURI);
+    }
+
+    /**
+     * @dev Returns metadata URI for a token ID if present, else falls back to ERC1155 base URI pattern.
+     */
+    function uri(uint256 id) public view override returns (string memory) {
+        string memory tokenMetadataURI = _tokenMetadataURIs[id];
+        if (bytes(tokenMetadataURI).length > 0) {
+            return tokenMetadataURI;
+        }
+        return super.uri(id);
     }
 
     /**
