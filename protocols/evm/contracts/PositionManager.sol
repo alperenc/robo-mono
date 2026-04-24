@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { TokenLib } from "./Libraries.sol";
 import { IPositionManager } from "./interfaces/IPositionManager.sol";
 
 /**
@@ -24,6 +25,8 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
     address public marketplace;
     address public treasury;
     address public usdc;
+
+    mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -148,6 +151,25 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     function recordPositionMutation(PositionMutation calldata mutation) external onlyRole(AUTHORIZED_MARKETPLACE_ROLE) {
+        if (!TokenLib.isRevenueToken(mutation.tokenId)) {
+            revert NotRevenueToken();
+        }
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[mutation.tokenId];
+        if (tokenInfo.tokenId == 0) {
+            tokenInfo.tokenId = mutation.tokenId;
+        }
+
+        if (mutation.mutationType == PositionMutationType.Mint) {
+            tokenInfo.tokenSupply += mutation.amount;
+            TokenLib.addPosition(tokenInfo, mutation.account, mutation.amount);
+        } else if (mutation.mutationType == PositionMutationType.Burn) {
+            tokenInfo.tokenSupply -= mutation.amount;
+            TokenLib.removePosition(tokenInfo, mutation.account, mutation.amount);
+        } else {
+            revert UnsupportedPositionMutation(mutation.mutationType);
+        }
+
         emit PositionMutated(
             mutation.assetId,
             mutation.tokenId,
@@ -157,6 +179,24 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
             mutation.mutationType,
             mutation.reason
         );
+    }
+
+    function getUserPositions(uint256 revenueTokenId, address holder)
+        external
+        view
+        returns (TokenLib.TokenPosition[] memory positions)
+    {
+        if (!TokenLib.isRevenueToken(revenueTokenId)) {
+            revert NotRevenueToken();
+        }
+
+        TokenLib.PositionQueue storage queue = _revenueTokenInfos[revenueTokenId].positions[holder];
+        uint256 size = queue.tail - queue.head;
+        positions = new TokenLib.TokenPosition[](size);
+
+        for (uint256 i = 0; i < size; i++) {
+            positions[i] = queue.items[queue.head + i];
+        }
     }
 
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)

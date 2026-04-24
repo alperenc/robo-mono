@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Test } from "forge-std/Test.sol";
+import { TokenLib } from "../../contracts/Libraries.sol";
 import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { PositionManager } from "../../contracts/PositionManager.sol";
 
@@ -18,6 +19,11 @@ contract PositionManagerTest is Test {
     address public treasury = makeAddr("treasury");
     address public usdc = makeAddr("usdc");
     address public unauthorized = makeAddr("unauthorized");
+    address public alice = makeAddr("alice");
+    address public bob = makeAddr("bob");
+
+    uint256 private constant ASSET_ID = 101;
+    uint256 private constant TOKEN_ID = 102;
 
     bytes32 private constant PRIMARY_REASON = keccak256("primary");
     bytes32 private constant LISTING_REASON = keccak256("listing");
@@ -157,9 +163,9 @@ contract PositionManagerTest is Test {
 
     function testAuthorizedMarketplaceCanRecordPositionMutation() public {
         IPositionManager.PositionMutation memory mutation = IPositionManager.PositionMutation({
-            assetId: 1,
-            tokenId: 2,
-            account: makeAddr("holder"),
+            assetId: ASSET_ID,
+            tokenId: TOKEN_ID,
+            account: alice,
             amount: 3,
             auxValue: 4,
             mutationType: IPositionManager.PositionMutationType.Mint,
@@ -181,11 +187,117 @@ contract PositionManagerTest is Test {
         positionManager.recordPositionMutation(mutation);
     }
 
+    function testAuthorizedMarketplaceMintMutationStoresPosition() public {
+        vm.prank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 100,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+
+        TokenLib.TokenPosition[] memory positions = positionManager.getUserPositions(TOKEN_ID, alice);
+        assertEq(positions.length, 1);
+        assertEq(positions[0].uid, 0);
+        assertEq(positions[0].tokenId, TOKEN_ID);
+        assertEq(positions[0].amount, 100);
+        assertGt(positions[0].acquiredAt, 0);
+        assertEq(positions[0].soldAt, 0);
+        assertEq(positions[0].redemptionEpoch, 0);
+    }
+
+    function testBurnConsumesPositionsFifo() public {
+        vm.startPrank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 100,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+        vm.warp(block.timestamp + 1);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 50,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+        vm.warp(block.timestamp + 1);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 120,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Burn,
+                reason: REDEEM_REASON
+            })
+        );
+        vm.stopPrank();
+
+        TokenLib.TokenPosition[] memory positions = positionManager.getUserPositions(TOKEN_ID, alice);
+        assertEq(positions.length, 2);
+        assertEq(positions[0].amount, 0);
+        assertTrue(positions[0].soldAt > 0);
+        assertEq(positions[1].amount, 30);
+    }
+
+    function testNonRevenueTokenPositionMutationReverts() public {
+        vm.expectRevert(IPositionManager.NotRevenueToken.selector);
+        vm.prank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: ASSET_ID,
+                account: alice,
+                amount: 1,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+    }
+
+    function testTransferMutationsRevertUntilHookShapeIsImplemented() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPositionManager.UnsupportedPositionMutation.selector, IPositionManager.PositionMutationType.TransferOut
+            )
+        );
+        vm.prank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 1,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.TransferOut,
+                reason: LISTING_REASON
+            })
+        );
+    }
+
     function testUnauthorizedCallerCannotRecordPositionMutation() public {
         IPositionManager.PositionMutation memory mutation = IPositionManager.PositionMutation({
-            assetId: 1,
-            tokenId: 2,
-            account: makeAddr("holder"),
+            assetId: ASSET_ID,
+            tokenId: TOKEN_ID,
+            account: alice,
             amount: 3,
             auxValue: 4,
             mutationType: IPositionManager.PositionMutationType.Mint,
@@ -205,26 +317,26 @@ contract PositionManagerTest is Test {
 
     function testAuthorizedRouterCanRecordPositionLock() public {
         vm.expectEmit(true, true, true, true, address(positionManager));
-        emit PositionLockUpdated(1, 2, makeAddr("holder"), block.timestamp + 1 days, LISTING_REASON);
+        emit PositionLockUpdated(ASSET_ID, TOKEN_ID, alice, block.timestamp + 1 days, LISTING_REASON);
 
         vm.prank(registryRouter);
-        positionManager.recordPositionLock(1, 2, makeAddr("holder"), block.timestamp + 1 days, LISTING_REASON);
+        positionManager.recordPositionLock(ASSET_ID, TOKEN_ID, alice, block.timestamp + 1 days, LISTING_REASON);
     }
 
     function testAuthorizedTreasuryCanRecordRedemptionAndSettlementEvents() public {
         vm.startPrank(treasury);
 
         vm.expectEmit(true, true, false, true, address(positionManager));
-        emit RedemptionEpochUpdated(2, 1, 100, REDEEM_REASON);
-        positionManager.recordRedemptionEpoch(2, 1, 100, REDEEM_REASON);
+        emit RedemptionEpochUpdated(TOKEN_ID, 1, 100, REDEEM_REASON);
+        positionManager.recordRedemptionEpoch(TOKEN_ID, 1, 100, REDEEM_REASON);
 
         vm.expectEmit(true, true, false, true, address(positionManager));
-        emit SettlementConfigured(1, 1, 1000, 10, SETTLE_REASON);
-        positionManager.recordSettlement(1, 1, 1000, 10, SETTLE_REASON);
+        emit SettlementConfigured(ASSET_ID, 1, 1000, 10, SETTLE_REASON);
+        positionManager.recordSettlement(ASSET_ID, 1, 1000, 10, SETTLE_REASON);
 
         vm.expectEmit(true, true, true, true, address(positionManager));
-        emit SettlementClaimRecorded(1, 2, makeAddr("holder"), 20, 200, CLAIM_REASON);
-        positionManager.recordSettlementClaim(1, 2, makeAddr("holder"), 20, 200, CLAIM_REASON);
+        emit SettlementClaimRecorded(ASSET_ID, TOKEN_ID, alice, 20, 200, CLAIM_REASON);
+        positionManager.recordSettlementClaim(ASSET_ID, TOKEN_ID, alice, 20, 200, CLAIM_REASON);
 
         vm.stopPrank();
     }
