@@ -7,6 +7,31 @@ import { AssetMetadataBaseTest } from "../base/AssetMetadataBaseTest.t.sol";
 import { TokenLib } from "../../contracts/Libraries.sol";
 import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 
+contract MockPositionManager {
+    error HookBlocked();
+
+    uint256 public callCount;
+    address public lastFrom;
+    address public lastTo;
+    uint256 public lastTokenId;
+    uint256 public lastAmount;
+    bool public shouldRevert;
+
+    function setShouldRevert(bool value) external {
+        shouldRevert = value;
+    }
+
+    function beforeRevenueTokenUpdate(address from, address to, uint256 tokenId, uint256 amount) external {
+        if (shouldRevert) revert HookBlocked();
+
+        callCount++;
+        lastFrom = from;
+        lastTo = to;
+        lastTokenId = tokenId;
+        lastAmount = amount;
+    }
+}
+
 contract RoboshareTokensTest is AssetMetadataBaseTest {
     address public minter;
     address public burner;
@@ -254,6 +279,56 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         );
         vm.prank(unauthorized);
         roboshareTokens.setURI("ipfs://new-uri");
+    }
+
+    function testRevenueTokenMintCallsPositionManagerHook() public {
+        MockPositionManager mockManager = new MockPositionManager();
+
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(mockManager));
+
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        assertEq(mockManager.callCount(), 1);
+        assertEq(mockManager.lastFrom(), address(0));
+        assertEq(mockManager.lastTo(), user1);
+        assertEq(mockManager.lastTokenId(), tokenId);
+        assertEq(mockManager.lastAmount(), 100);
+    }
+
+    function testRevenueTokenTransferCallsPositionManagerHook() public {
+        MockPositionManager mockManager = new MockPositionManager();
+
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(mockManager));
+
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        vm.prank(user1);
+        roboshareTokens.safeTransferFrom(user1, user2, tokenId, 25, "");
+
+        assertEq(mockManager.callCount(), 2);
+        assertEq(mockManager.lastFrom(), user1);
+        assertEq(mockManager.lastTo(), user2);
+        assertEq(mockManager.lastTokenId(), tokenId);
+        assertEq(mockManager.lastAmount(), 25);
+    }
+
+    function testRevenueTokenBurnRevertsWhenPositionManagerHookReverts() public {
+        MockPositionManager mockManager = new MockPositionManager();
+
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(mockManager));
+
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        mockManager.setShouldRevert(true);
+
+        vm.expectRevert(MockPositionManager.HookBlocked.selector);
+        vm.prank(burner);
+        roboshareTokens.burn(user1, tokenId, 10);
+
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), 100);
     }
 
     function testGetUserPositionsAndBalance() public {

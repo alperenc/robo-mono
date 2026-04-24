@@ -184,6 +184,29 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         );
     }
 
+    function beforeRevenueTokenUpdate(address from, address to, uint256 tokenId, uint256 amount) external {
+        if (msg.sender != roboshareTokens) {
+            revert UnauthorizedTokenHookCaller(msg.sender);
+        }
+
+        _requireRevenueToken(tokenId);
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
+        if (tokenInfo.tokenId == 0) {
+            tokenInfo.tokenId = tokenId;
+        }
+
+        if (from == address(0)) {
+            tokenInfo.tokenSupply += amount;
+            TokenLib.addPosition(tokenInfo, to, amount);
+        } else if (to == address(0)) {
+            tokenInfo.tokenSupply -= amount;
+            TokenLib.removePosition(tokenInfo, from, amount);
+        } else {
+            _transferPositionsFifo(tokenInfo, from, to, amount);
+        }
+    }
+
     function getUserPositions(uint256 revenueTokenId, address holder)
         external
         view
@@ -322,5 +345,53 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
+    }
+
+    function _transferPositionsFifo(TokenLib.TokenInfo storage info, address from, address to, uint256 amount)
+        internal
+    {
+        TokenLib.PositionQueue storage queue = info.positions[from];
+        uint256 remaining = amount;
+
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenLib.TokenPosition storage pos = queue.items[i];
+            if (pos.amount == 0) continue;
+
+            uint256 toMove = remaining > pos.amount ? pos.amount : remaining;
+            uint256 epoch = pos.redemptionEpoch;
+            uint256 acquiredAt = pos.acquiredAt;
+
+            pos.amount -= toMove;
+            if (pos.amount == 0) {
+                pos.soldAt = block.timestamp;
+            }
+
+            _appendPosition(info, to, toMove, acquiredAt, epoch);
+            remaining -= toMove;
+        }
+
+        if (remaining > 0) {
+            revert TokenLib.InsufficientTokenBalance();
+        }
+    }
+
+    function _appendPosition(
+        TokenLib.TokenInfo storage info,
+        address holder,
+        uint256 amount,
+        uint256 acquiredAt,
+        uint256 redemptionEpoch
+    ) internal {
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 id = queue.tail;
+        queue.items[id] = TokenLib.TokenPosition({
+            uid: id,
+            tokenId: info.tokenId,
+            amount: amount,
+            acquiredAt: acquiredAt,
+            soldAt: 0,
+            redemptionEpoch: redemptionEpoch
+        });
+        queue.tail++;
     }
 }

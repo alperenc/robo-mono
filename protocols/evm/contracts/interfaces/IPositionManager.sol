@@ -102,6 +102,7 @@ interface IPositionManager {
     error InvalidAmount();
     error InsufficientUnlockedBalance();
     error InsufficientLockedBalance();
+    error UnauthorizedTokenHookCaller(address caller);
     error UnsupportedPositionMutation(PositionMutationType mutationType);
 
     function initialize(
@@ -159,6 +160,8 @@ interface IPositionManager {
     function clearSalePenalty(uint256 listingId) external;
 
     function getSalePenalty(uint256 listingId) external view returns (uint256);
+
+    function beforeRevenueTokenUpdate(address from, address to, uint256 tokenId, uint256 amount) external;
 
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)
         external;
