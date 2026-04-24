@@ -41,6 +41,15 @@ contract PositionManagerTest is Test {
         bytes32 reason
     );
 
+    event ListingLocked(address indexed holder, uint256 indexed revenueTokenId, uint256 amount);
+    event ListingUnlocked(address indexed holder, uint256 indexed revenueTokenId, uint256 amount);
+    event LockedTransferSettled(
+        address indexed from, address indexed to, uint256 indexed revenueTokenId, uint256 amount
+    );
+    event SalePenaltyBooked(
+        uint256 indexed listingId, address indexed seller, uint256 indexed revenueTokenId, uint256 amount
+    );
+
     event PositionLockUpdated(
         uint256 indexed assetId, uint256 indexed tokenId, address indexed account, uint256 lockUntil, bytes32 reason
     );
@@ -257,6 +266,76 @@ contract PositionManagerTest is Test {
         assertEq(positions[1].amount, 30);
     }
 
+    function testGetLockedAmountRevertsForNonRevenueToken() public {
+        vm.expectRevert(IPositionManager.NotRevenueToken.selector);
+        positionManager.getLockedAmount(alice, ASSET_ID);
+    }
+
+    function testLockForListingTracksAmount() public {
+        vm.expectEmit(true, true, false, true, address(positionManager));
+        emit ListingLocked(alice, TOKEN_ID, 40);
+
+        vm.prank(marketplace);
+        positionManager.lockForListing(alice, TOKEN_ID, 40, 100);
+
+        assertEq(positionManager.getLockedAmount(alice, TOKEN_ID), 40);
+        assertEq(positionManager.getAvailableAmount(alice, TOKEN_ID, 100), 60);
+    }
+
+    function testLockForListingRevertsWhenUnlockedBalanceInsufficient() public {
+        vm.startPrank(marketplace);
+        positionManager.lockForListing(alice, TOKEN_ID, 80, 100);
+
+        vm.expectRevert(IPositionManager.InsufficientUnlockedBalance.selector);
+        positionManager.lockForListing(alice, TOKEN_ID, 21, 100);
+        vm.stopPrank();
+    }
+
+    function testUnlockForListingRevertsWhenLockedBalanceInsufficient() public {
+        vm.expectRevert(IPositionManager.InsufficientLockedBalance.selector);
+        vm.prank(marketplace);
+        positionManager.unlockForListing(alice, TOKEN_ID, 1);
+    }
+
+    function testSettleLockedTransferConsumesLockBeforeTokenMove() public {
+        vm.prank(marketplace);
+        positionManager.lockForListing(alice, TOKEN_ID, 55, 100);
+
+        vm.expectEmit(true, true, false, true, address(positionManager));
+        emit ListingUnlocked(alice, TOKEN_ID, 20);
+        vm.expectEmit(true, true, true, true, address(positionManager));
+        emit LockedTransferSettled(alice, bob, TOKEN_ID, 20);
+
+        vm.prank(marketplace);
+        positionManager.settleLockedTransfer(alice, bob, TOKEN_ID, 20);
+
+        assertEq(positionManager.getLockedAmount(alice, TOKEN_ID), 35);
+    }
+
+    function testSettleLockedTransferRevertsForInvalidMove() public {
+        vm.prank(marketplace);
+        positionManager.lockForListing(alice, TOKEN_ID, 10, 100);
+
+        vm.expectRevert(IPositionManager.InsufficientLockedBalance.selector);
+        vm.prank(marketplace);
+        positionManager.settleLockedTransfer(alice, bob, TOKEN_ID, 11);
+    }
+
+    function testSalesPenaltyBookkeeping() public {
+        uint256 listingId = 7;
+
+        vm.expectEmit(true, true, true, true, address(positionManager));
+        emit SalePenaltyBooked(listingId, alice, TOKEN_ID, 15e6);
+
+        vm.prank(marketplace);
+        positionManager.bookSalePenalty(listingId, alice, TOKEN_ID, 15e6);
+        assertEq(positionManager.getSalePenalty(listingId), 15e6);
+
+        vm.prank(marketplace);
+        positionManager.clearSalePenalty(listingId);
+        assertEq(positionManager.getSalePenalty(listingId), 0);
+    }
+
     function testNonRevenueTokenPositionMutationReverts() public {
         vm.expectRevert(IPositionManager.NotRevenueToken.selector);
         vm.prank(marketplace);
@@ -313,6 +392,18 @@ contract PositionManagerTest is Test {
         );
         vm.prank(unauthorized);
         positionManager.recordPositionMutation(mutation);
+    }
+
+    function testUnauthorizedCallerCannotLockForListing() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                positionManager.AUTHORIZED_MARKETPLACE_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        positionManager.lockForListing(alice, TOKEN_ID, 1, 1);
     }
 
     function testAuthorizedRouterCanRecordPositionLock() public {
