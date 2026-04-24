@@ -148,7 +148,7 @@ interface IPositionManager {
         view
         returns (uint256);
 
-    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount, uint256 totalBalance) external;
+    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
 
     function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
 

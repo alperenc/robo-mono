@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { TokenLib } from "./Libraries.sol";
 import { IPositionManager } from "./interfaces/IPositionManager.sol";
 
@@ -218,7 +219,7 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return totalBalance - lockedAmount;
     }
 
-    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount, uint256 totalBalance)
+    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount)
         external
         onlyRole(AUTHORIZED_MARKETPLACE_ROLE)
     {
@@ -226,6 +227,7 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (amount == 0) revert InvalidAmount();
 
         uint256 lockedAmount = _lockedAmounts[holder][revenueTokenId];
+        uint256 totalBalance = IERC1155(roboshareTokens).balanceOf(holder, revenueTokenId);
         if (totalBalance < lockedAmount + amount) revert InsufficientUnlockedBalance();
 
         _lockedAmounts[holder][revenueTokenId] = lockedAmount + amount;

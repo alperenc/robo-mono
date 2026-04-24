@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { Test } from "forge-std/Test.sol";
 import { TokenLib } from "../../contracts/Libraries.sol";
 import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
@@ -272,23 +273,35 @@ contract PositionManagerTest is Test {
     }
 
     function testLockForListingTracksAmount() public {
+        _mockRevenueTokenBalance(alice, TOKEN_ID, 100);
+
         vm.expectEmit(true, true, false, true, address(positionManager));
         emit ListingLocked(alice, TOKEN_ID, 40);
 
         vm.prank(marketplace);
-        positionManager.lockForListing(alice, TOKEN_ID, 40, 100);
+        positionManager.lockForListing(alice, TOKEN_ID, 40);
 
         assertEq(positionManager.getLockedAmount(alice, TOKEN_ID), 40);
         assertEq(positionManager.getAvailableAmount(alice, TOKEN_ID, 100), 60);
     }
 
     function testLockForListingRevertsWhenUnlockedBalanceInsufficient() public {
+        _mockRevenueTokenBalance(alice, TOKEN_ID, 100);
+
         vm.startPrank(marketplace);
-        positionManager.lockForListing(alice, TOKEN_ID, 80, 100);
+        positionManager.lockForListing(alice, TOKEN_ID, 80);
 
         vm.expectRevert(IPositionManager.InsufficientUnlockedBalance.selector);
-        positionManager.lockForListing(alice, TOKEN_ID, 21, 100);
+        positionManager.lockForListing(alice, TOKEN_ID, 21);
         vm.stopPrank();
+    }
+
+    function testLockForListingChecksRoboshareTokenBalance() public {
+        _mockRevenueTokenBalance(alice, TOKEN_ID, 39);
+
+        vm.expectRevert(IPositionManager.InsufficientUnlockedBalance.selector);
+        vm.prank(marketplace);
+        positionManager.lockForListing(alice, TOKEN_ID, 40);
     }
 
     function testUnlockForListingRevertsWhenLockedBalanceInsufficient() public {
@@ -298,8 +311,10 @@ contract PositionManagerTest is Test {
     }
 
     function testSettleLockedTransferConsumesLockBeforeTokenMove() public {
+        _mockRevenueTokenBalance(alice, TOKEN_ID, 100);
+
         vm.prank(marketplace);
-        positionManager.lockForListing(alice, TOKEN_ID, 55, 100);
+        positionManager.lockForListing(alice, TOKEN_ID, 55);
 
         vm.expectEmit(true, true, false, true, address(positionManager));
         emit ListingUnlocked(alice, TOKEN_ID, 20);
@@ -313,8 +328,10 @@ contract PositionManagerTest is Test {
     }
 
     function testSettleLockedTransferRevertsForInvalidMove() public {
+        _mockRevenueTokenBalance(alice, TOKEN_ID, 100);
+
         vm.prank(marketplace);
-        positionManager.lockForListing(alice, TOKEN_ID, 10, 100);
+        positionManager.lockForListing(alice, TOKEN_ID, 10);
 
         vm.expectRevert(IPositionManager.InsufficientLockedBalance.selector);
         vm.prank(marketplace);
@@ -403,7 +420,7 @@ contract PositionManagerTest is Test {
             )
         );
         vm.prank(unauthorized);
-        positionManager.lockForListing(alice, TOKEN_ID, 1, 1);
+        positionManager.lockForListing(alice, TOKEN_ID, 1);
     }
 
     function testAuthorizedRouterCanRecordPositionLock() public {
@@ -470,5 +487,9 @@ contract PositionManagerTest is Test {
         );
 
         return PositionManager(address(proxy));
+    }
+
+    function _mockRevenueTokenBalance(address holder, uint256 tokenId, uint256 balance) internal {
+        vm.mockCall(roboshareTokens, abi.encodeCall(IERC1155.balanceOf, (holder, tokenId)), abi.encode(balance));
     }
 }
