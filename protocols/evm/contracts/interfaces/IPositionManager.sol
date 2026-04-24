@@ -166,6 +166,8 @@ interface IPositionManager {
 
     function recordPositionMutation(PositionMutation calldata mutation) external;
 
+    function syncRevenueTokenPolicy(uint256 revenueTokenId, uint256 tokenPrice, uint256 minHoldingPeriod) external;
+
     function getUserPositions(uint256 revenueTokenId, address holder)
         external
         view
@@ -198,7 +200,14 @@ interface IPositionManager {
 
     function getSalePenalty(uint256 listingId) external view returns (uint256);
 
+    function getSalesPenalty(address seller, uint256 revenueTokenId, uint256 amount)
+        external
+        view
+        returns (uint256 penaltyAmount);
+
     function beforeRevenueTokenUpdate(address from, address to, uint256 tokenId, uint256 amount) external;
+
+    function preparePrimaryRedemptionBurn(address holder, uint256 tokenId) external;
 
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)
         external;
@@ -212,6 +221,8 @@ interface IPositionManager {
     ) external;
 
     function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount, bytes32 reason) external;
+
+    function recordPrimaryRedemptionPayout(uint256 tokenId, uint256 payoutAmount, bytes32 reason) external;
 
     function consumePrimaryRedemption(
         address holder,

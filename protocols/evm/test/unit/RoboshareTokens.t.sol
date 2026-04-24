@@ -5,6 +5,7 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { AssetMetadataBaseTest } from "../base/AssetMetadataBaseTest.t.sol";
 import { TokenLib } from "../../contracts/Libraries.sol";
+import { PositionManager } from "../../contracts/PositionManager.sol";
 import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 
 contract MockPositionManager {
@@ -30,6 +31,48 @@ contract MockPositionManager {
         lastTokenId = tokenId;
         lastAmount = amount;
     }
+
+    function syncRevenueTokenPolicy(uint256, uint256, uint256) external { }
+
+    function getLockedAmount(address, uint256) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getAvailableAmount(address, uint256, uint256 totalBalance) external pure returns (uint256) {
+        return totalBalance;
+    }
+
+    function getUserPositions(uint256, address) external pure returns (TokenLib.TokenPosition[] memory positions) {
+        positions = new TokenLib.TokenPosition[](0);
+    }
+
+    function getPrimaryRedemptionEligibleBalance(address, uint256) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getCurrentPrimaryRedemptionEpochSupply(uint256) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getCurrentPrimaryRedemptionBackedPrincipal(uint256) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getSalesPenalty(address, uint256, uint256) external pure returns (uint256) {
+        return 0;
+    }
+
+    function lockForListing(address, uint256, uint256) external { }
+
+    function unlockForListing(address, uint256, uint256) external { }
+
+    function settleLockedTransfer(address, address, uint256, uint256) external { }
+
+    function preparePrimaryRedemptionBurn(address, uint256) external { }
+
+    function recordImmediateProceedsRelease(uint256, uint256, bytes32) external { }
+
+    function recordPrimaryRedemptionPayout(uint256, uint256, bytes32) external { }
 }
 
 contract RoboshareTokensTest is AssetMetadataBaseTest {
@@ -37,6 +80,7 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
     address public burner;
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
+    PositionManager public testPositionManager;
 
     function _setupBuffersFunded() internal override { }
 
@@ -44,6 +88,9 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
 
     function setUp() public {
         _ensureState(SetupState.ContractsDeployed);
+        testPositionManager = _deployPositionManager(address(roboshareTokens));
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(testPositionManager));
         minter = admin; // Admin has minter role by default
         burner = admin; // Admin has burner role by default
 
@@ -51,6 +98,27 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         // deterministic test users are EOAs even if the forked chain has code there.
         vm.etch(user1, bytes(""));
         vm.etch(user2, bytes(""));
+    }
+
+    function _deployPositionManager(address tokenAddress) internal returns (PositionManager) {
+        PositionManager implementation = new PositionManager();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(implementation),
+            abi.encodeCall(
+                PositionManager.initialize,
+                (
+                    admin,
+                    address(router),
+                    tokenAddress,
+                    address(partnerManager),
+                    address(marketplace),
+                    address(treasury),
+                    address(usdc)
+                )
+            )
+        );
+
+        return PositionManager(address(proxy));
     }
 
     function _setupRevenueTokenForLocks(address holder, uint256 amount) internal returns (uint256 tokenId) {
@@ -329,6 +397,32 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.burn(user1, tokenId, 10);
 
         assertEq(roboshareTokens.balanceOf(user1, tokenId), 100);
+    }
+
+    function testSetPositionManagerBackfillsExistingRevenueTokenPolicy() public {
+        RoboshareTokens freshToken = RoboshareTokens(
+            address(
+                new ERC1967Proxy(address(new RoboshareTokens()), abi.encodeWithSignature("initialize(address)", admin))
+            )
+        );
+        PositionManager freshManager = _deployPositionManager(address(freshToken));
+
+        vm.prank(admin);
+        (, uint256 tokenId) = freshToken.reserveNextTokenIdPair();
+        uint256 amount = 100;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(admin);
+        freshToken.setRevenueTokenInfo(tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false);
+
+        vm.prank(admin);
+        freshToken.setPositionManager(address(freshManager));
+
+        vm.prank(admin);
+        freshToken.mint(user1, tokenId, amount, "");
+
+        uint256 penalty = freshToken.getSalesPenalty(user1, tokenId, amount);
+        assertGt(penalty, 0, "Penalty should use backfilled manager policy after late manager attach");
     }
 
     function testGetUserPositionsAndBalance() public {

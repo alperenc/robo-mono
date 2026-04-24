@@ -340,19 +340,19 @@ library TokenLib {
      */
     struct TokenInfo {
         uint256 tokenId; // ERC1155 token ID
-        uint256 tokenPrice; // Price per token in USDC (6 decimals)
+        uint256 tokenPrice; // Price per token in USDC (6 decimals), synced to PositionManager for live policy reads
         uint256 maxSupply; // Max primary-pool supply used for revenue split bounds
         uint256 tokenSupply; // Total number of tokens issued
-        uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer
+        uint256 minHoldingPeriod; // Minimum holding period before penalty-free transfer, synced to PositionManager
         uint256 maturityDate; // Date by which the revenue commitment ends
         uint256 revenueShareBP; // Max investor share of reported revenue (basis points)
         uint256 targetYieldBP; // Target yield for buffer benchmarks (basis points)
         bool immediateProceeds; // True: higher-upside profile, False: earlier-liquidity profile
         bool protectionEnabled; // True when protection buffer policy is enabled
-        uint256 currentRedemptionEpoch; // Current tranche for primary redemptions
-        uint256 currentRedemptionEpochSupply; // Outstanding claim units in current redemption tranche
-        uint256 currentRedemptionBackedPrincipal; // Remaining backed principal for current redemption tranche
-        // Track positions per user using Queue
+        uint256 currentRedemptionEpoch; // Manager-owned live state once PositionManager is wired
+        uint256 currentRedemptionEpochSupply; // Manager-owned live state once PositionManager is wired
+        uint256 currentRedemptionBackedPrincipal; // Manager-owned live state once PositionManager is wired
+        // Track positions per user using Queue; live ownership moves to PositionManager after the split.
         mapping(address => PositionQueue) positions;
     }
 
