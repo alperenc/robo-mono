@@ -9,6 +9,7 @@ import {
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ProtocolLib, TokenLib } from "./Libraries.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 
 /**
  * @title RoboshareTokens
@@ -56,12 +57,14 @@ contract RoboshareTokens is
         uint256 indexed revenueTokenId, uint256 redemptionEpoch, uint256 epochSupply, uint256 backedPrincipal
     );
     event TokenMetadataURISet(uint256 indexed tokenId, string metadataURI);
+    event PositionManagerUpdated(address indexed previousManager, address indexed newManager);
 
     // Token state
     uint256 private _tokenIdCounter;
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
     mapping(address => mapping(uint256 => uint256)) private _lockedRevenueTokenAmounts;
     mapping(uint256 => string) private _tokenMetadataURIs;
+    IPositionManager public positionManager;
     bool private _currentEpochBurnActive;
     address private _currentEpochBurnHolder;
     uint256 private _currentEpochBurnTokenId;
@@ -196,6 +199,15 @@ contract RoboshareTokens is
      */
     function setURI(string memory newuri) external onlyRole(URI_SETTER_ROLE) {
         _setURI(newuri);
+    }
+
+    function setPositionManager(address newPositionManager) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newPositionManager == address(0)) revert ZeroAddress();
+
+        address previousManager = address(positionManager);
+        positionManager = IPositionManager(newPositionManager);
+
+        emit PositionManagerUpdated(previousManager, newPositionManager);
     }
 
     /**
@@ -566,6 +578,13 @@ contract RoboshareTokens is
                 uint256 lockedAmount = _lockedRevenueTokenAmounts[from][tokenId];
                 uint256 available = balanceOf(from, tokenId) - lockedAmount;
                 if (cumulative > available) revert InsufficientUnlockedBalance();
+            }
+        }
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 tokenId = ids[i];
+            if (TokenLib.isRevenueToken(tokenId) && address(positionManager) != address(0)) {
+                positionManager.beforeRevenueTokenUpdate(from, to, tokenId, values[i]);
             }
         }
 
