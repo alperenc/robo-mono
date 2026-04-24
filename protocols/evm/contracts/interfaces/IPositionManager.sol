@@ -63,6 +63,15 @@ interface IPositionManager {
         bytes32 reason
     );
 
+    event ListingLocked(address indexed holder, uint256 indexed revenueTokenId, uint256 amount);
+    event ListingUnlocked(address indexed holder, uint256 indexed revenueTokenId, uint256 amount);
+    event LockedTransferSettled(
+        address indexed from, address indexed to, uint256 indexed revenueTokenId, uint256 amount
+    );
+    event SalePenaltyBooked(
+        uint256 indexed listingId, address indexed seller, uint256 indexed revenueTokenId, uint256 amount
+    );
+
     event PositionLockUpdated(
         uint256 indexed assetId, uint256 indexed tokenId, address indexed account, uint256 lockUntil, bytes32 reason
     );
@@ -90,6 +99,9 @@ interface IPositionManager {
 
     error ZeroAddress();
     error NotRevenueToken();
+    error InvalidAmount();
+    error InsufficientUnlockedBalance();
+    error InsufficientLockedBalance();
     error UnsupportedPositionMutation(PositionMutationType mutationType);
 
     function initialize(
@@ -128,6 +140,25 @@ interface IPositionManager {
         external
         view
         returns (TokenLib.TokenPosition[] memory positions);
+
+    function getLockedAmount(address holder, uint256 revenueTokenId) external view returns (uint256);
+
+    function getAvailableAmount(address holder, uint256 revenueTokenId, uint256 totalBalance)
+        external
+        view
+        returns (uint256);
+
+    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
+
+    function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
+
+    function settleLockedTransfer(address from, address to, uint256 revenueTokenId, uint256 amount) external;
+
+    function bookSalePenalty(uint256 listingId, address seller, uint256 revenueTokenId, uint256 amount) external;
+
+    function clearSalePenalty(uint256 listingId) external;
+
+    function getSalePenalty(uint256 listingId) external view returns (uint256);
 
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)
         external;
