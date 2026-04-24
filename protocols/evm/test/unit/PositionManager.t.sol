@@ -432,13 +432,7 @@ contract PositionManagerTest is Test {
     }
 
     function testUnauthorizedCallerCannotLockForListing() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                positionManager.AUTHORIZED_MARKETPLACE_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IPositionManager.UnauthorizedTokenHookCaller.selector, unauthorized));
         vm.prank(unauthorized);
         positionManager.lockForListing(alice, TOKEN_ID, 1);
     }
