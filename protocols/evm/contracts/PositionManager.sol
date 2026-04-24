@@ -8,12 +8,30 @@ import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { TokenLib } from "./Libraries.sol";
 import { IPositionManager } from "./interfaces/IPositionManager.sol";
 
+interface IRoboshareTokenPriceReader {
+    function getTokenPrice(uint256 revenueTokenId) external view returns (uint256);
+}
+
 /**
  * @title PositionManager
  * @notice Upgradeable boundary contract for position, lock, redemption-epoch, and settlement state.
  * @dev This scaffold intentionally keeps redemption and settlement responsibilities in the same manager.
  */
 contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgradeable, IPositionManager {
+    struct SettlementStateInternal {
+        bool isConfigured;
+        uint256 epochId;
+        uint256 settlementAmount;
+        uint256 settlementPerToken;
+        uint256 claimedBurnAmount;
+        uint256 claimedPayout;
+    }
+
+    struct SettlementClaimStateInternal {
+        uint256 burnedAmount;
+        uint256 payout;
+    }
+
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant POSITION_ADMIN_ROLE = keccak256("POSITION_ADMIN_ROLE");
     bytes32 public constant AUTHORIZED_ROUTER_ROLE = keccak256("AUTHORIZED_ROUTER_ROLE");
@@ -30,6 +48,8 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
     mapping(uint256 => TokenLib.TokenInfo) private _revenueTokenInfos;
     mapping(address => mapping(uint256 => uint256)) private _lockedAmounts;
     mapping(uint256 => uint256) private _listingSalePenalties;
+    mapping(uint256 => SettlementStateInternal) private _settlementStates;
+    mapping(uint256 => mapping(uint256 => mapping(address => SettlementClaimStateInternal))) private _settlementClaims;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -166,9 +186,10 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (mutation.mutationType == PositionMutationType.Mint) {
             tokenInfo.tokenSupply += mutation.amount;
             TokenLib.addPosition(tokenInfo, mutation.account, mutation.amount);
+            _increaseCurrentEpochState(tokenInfo, mutation.tokenId, mutation.amount);
         } else if (mutation.mutationType == PositionMutationType.Burn) {
             tokenInfo.tokenSupply -= mutation.amount;
-            TokenLib.removePosition(tokenInfo, mutation.account, mutation.amount);
+            _burnPositionsFifo(tokenInfo, mutation.account, mutation.amount);
         } else {
             revert UnsupportedPositionMutation(mutation.mutationType);
         }
@@ -199,9 +220,10 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (from == address(0)) {
             tokenInfo.tokenSupply += amount;
             TokenLib.addPosition(tokenInfo, to, amount);
+            _increaseCurrentEpochState(tokenInfo, tokenId, amount);
         } else if (to == address(0)) {
             tokenInfo.tokenSupply -= amount;
-            TokenLib.removePosition(tokenInfo, from, amount);
+            _burnPositionsFifo(tokenInfo, from, amount);
         } else {
             _transferPositionsFifo(tokenInfo, from, to, amount);
         }
@@ -240,6 +262,40 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
             return 0;
         }
         return totalBalance - lockedAmount;
+    }
+
+    function getPrimaryRedemptionEligibleBalance(address holder, uint256 revenueTokenId)
+        external
+        view
+        returns (uint256 eligibleBalance)
+    {
+        _requireRevenueToken(revenueTokenId);
+
+        TokenLib.TokenInfo storage info = _revenueTokenInfos[revenueTokenId];
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 currentEpoch = info.currentRedemptionEpoch;
+
+        for (uint256 i = queue.head; i < queue.tail; i++) {
+            TokenLib.TokenPosition storage position = queue.items[i];
+            if (position.amount > 0 && position.redemptionEpoch == currentEpoch) {
+                eligibleBalance += position.amount;
+            }
+        }
+    }
+
+    function getCurrentPrimaryRedemptionEpoch(uint256 revenueTokenId) external view returns (uint256) {
+        _requireRevenueToken(revenueTokenId);
+        return _revenueTokenInfos[revenueTokenId].currentRedemptionEpoch;
+    }
+
+    function getCurrentPrimaryRedemptionEpochSupply(uint256 revenueTokenId) external view returns (uint256) {
+        _requireRevenueToken(revenueTokenId);
+        return _revenueTokenInfos[revenueTokenId].currentRedemptionEpochSupply;
+    }
+
+    function getCurrentPrimaryRedemptionBackedPrincipal(uint256 revenueTokenId) external view returns (uint256) {
+        _requireRevenueToken(revenueTokenId);
+        return _revenueTokenInfos[revenueTokenId].currentRedemptionBackedPrincipal;
     }
 
     function lockForListing(address holder, uint256 revenueTokenId, uint256 amount)
@@ -311,11 +367,85 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         emit PositionLockUpdated(assetId, tokenId, account, lockUntil, reason);
     }
 
-    function recordRedemptionEpoch(uint256 tokenId, uint256 epochId, uint256 redeemableSupply, bytes32 reason)
+    function recordRedemptionEpoch(
+        uint256 tokenId,
+        uint256 epochId,
+        uint256 redeemableSupply,
+        uint256 backedPrincipal,
+        bytes32 reason
+    ) external onlyRole(AUTHORIZED_TREASURY_ROLE) {
+        _requireRevenueToken(tokenId);
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
+        if (tokenInfo.tokenId == 0) {
+            tokenInfo.tokenId = tokenId;
+        }
+
+        tokenInfo.currentRedemptionEpoch = epochId;
+        tokenInfo.currentRedemptionEpochSupply = redeemableSupply;
+        tokenInfo.currentRedemptionBackedPrincipal = backedPrincipal;
+
+        emit RedemptionStateUpdated(tokenId, epochId, redeemableSupply, backedPrincipal, reason);
+    }
+
+    function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount, bytes32 reason)
         external
         onlyRole(AUTHORIZED_TREASURY_ROLE)
     {
-        emit RedemptionEpochUpdated(tokenId, epochId, redeemableSupply, reason);
+        _requireRevenueToken(tokenId);
+        if (releasedAmount == 0) {
+            return;
+        }
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
+        uint256 backedPrincipal = tokenInfo.currentRedemptionBackedPrincipal;
+        if (backedPrincipal == 0) {
+            return;
+        }
+
+        tokenInfo.currentRedemptionBackedPrincipal =
+            releasedAmount >= backedPrincipal ? 0 : backedPrincipal - releasedAmount;
+
+        _rollRedemptionEpochIfExhausted(tokenInfo);
+
+        emit RedemptionStateUpdated(
+            tokenId,
+            tokenInfo.currentRedemptionEpoch,
+            tokenInfo.currentRedemptionEpochSupply,
+            tokenInfo.currentRedemptionBackedPrincipal,
+            reason
+        );
+    }
+
+    function consumePrimaryRedemption(
+        address holder,
+        uint256 tokenId,
+        uint256 burnAmount,
+        uint256 payout,
+        bytes32 reason
+    ) external onlyRole(AUTHORIZED_TREASURY_ROLE) {
+        _requireRevenueToken(tokenId);
+        if (burnAmount == 0) {
+            revert InvalidAmount();
+        }
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
+        uint256 currentEpoch = tokenInfo.currentRedemptionEpoch;
+        // Token-side burns already flow through beforeRevenueTokenUpdate(...), so this
+        // transition only consumes the remaining backed principal and epoch aggregate state.
+        uint256 backedPrincipal = tokenInfo.currentRedemptionBackedPrincipal;
+        tokenInfo.currentRedemptionBackedPrincipal = payout >= backedPrincipal ? 0 : backedPrincipal - payout;
+
+        _rollRedemptionEpochIfExhausted(tokenInfo);
+
+        emit PrimaryRedemptionConsumed(tokenId, currentEpoch, holder, burnAmount, payout, reason);
+        emit RedemptionStateUpdated(
+            tokenId,
+            tokenInfo.currentRedemptionEpoch,
+            tokenInfo.currentRedemptionEpochSupply,
+            tokenInfo.currentRedemptionBackedPrincipal,
+            reason
+        );
     }
 
     function recordSettlement(
@@ -325,6 +455,16 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 settlementPerToken,
         bytes32 reason
     ) external onlyRole(AUTHORIZED_TREASURY_ROLE) {
+        SettlementStateInternal storage state = _settlementStates[assetId];
+        if (!state.isConfigured || state.epochId != epochId) {
+            state.claimedBurnAmount = 0;
+            state.claimedPayout = 0;
+        }
+        state.isConfigured = true;
+        state.epochId = epochId;
+        state.settlementAmount = settlementAmount;
+        state.settlementPerToken = settlementPerToken;
+
         emit SettlementConfigured(assetId, epochId, settlementAmount, settlementPerToken, reason);
     }
 
@@ -336,7 +476,48 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 payout,
         bytes32 reason
     ) external onlyRole(AUTHORIZED_TREASURY_ROLE) {
+        SettlementStateInternal storage state = _settlementStates[assetId];
+        if (!state.isConfigured) {
+            revert SettlementNotConfigured(assetId);
+        }
+
+        SettlementClaimStateInternal storage claimState = _settlementClaims[assetId][state.epochId][account];
+        claimState.burnedAmount += burnAmount;
+        claimState.payout += payout;
+        state.claimedBurnAmount += burnAmount;
+        state.claimedPayout += payout;
+
         emit SettlementClaimRecorded(assetId, tokenId, account, burnAmount, payout, reason);
+    }
+
+    function getSettlementState(uint256 assetId) external view returns (SettlementState memory state) {
+        SettlementStateInternal storage settlement = _settlementStates[assetId];
+        state = SettlementState({
+            isConfigured: settlement.isConfigured,
+            epochId: settlement.epochId,
+            settlementAmount: settlement.settlementAmount,
+            settlementPerToken: settlement.settlementPerToken,
+            claimedBurnAmount: settlement.claimedBurnAmount,
+            claimedPayout: settlement.claimedPayout
+        });
+    }
+
+    function getSettlementClaimState(uint256 assetId, address account)
+        external
+        view
+        returns (SettlementClaimState memory state)
+    {
+        uint256 epochId = _settlementStates[assetId].epochId;
+        SettlementClaimStateInternal storage claimState = _settlementClaims[assetId][epochId][account];
+        state = SettlementClaimState({ burnedAmount: claimState.burnedAmount, payout: claimState.payout });
+    }
+
+    function previewSettlementClaim(uint256 assetId, uint256 burnAmount) external view returns (uint256 payout) {
+        SettlementStateInternal storage settlement = _settlementStates[assetId];
+        if (!settlement.isConfigured || burnAmount == 0) {
+            return 0;
+        }
+        return burnAmount * settlement.settlementPerToken;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
@@ -344,6 +525,53 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
     function _requireRevenueToken(uint256 revenueTokenId) internal pure {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
+        }
+    }
+
+    function _increaseCurrentEpochState(TokenLib.TokenInfo storage info, uint256 tokenId, uint256 amount) internal {
+        uint256 tokenPrice = IRoboshareTokenPriceReader(roboshareTokens).getTokenPrice(tokenId);
+        info.currentRedemptionEpochSupply += amount;
+        info.currentRedemptionBackedPrincipal += amount * tokenPrice;
+    }
+
+    function _rollRedemptionEpochIfExhausted(TokenLib.TokenInfo storage info) internal {
+        if (info.currentRedemptionEpochSupply > 0 && info.currentRedemptionBackedPrincipal > 0) {
+            return;
+        }
+
+        info.currentRedemptionEpoch++;
+        info.currentRedemptionEpochSupply = 0;
+        info.currentRedemptionBackedPrincipal = 0;
+    }
+
+    function _burnPositionsFifo(TokenLib.TokenInfo storage info, address holder, uint256 amount) internal {
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 remaining = amount;
+        uint256 currentEpoch = info.currentRedemptionEpoch;
+        uint256 burnedFromCurrentEpoch = 0;
+
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenLib.TokenPosition storage pos = queue.items[i];
+            if (pos.amount == 0) continue;
+
+            uint256 toBurn = remaining > pos.amount ? pos.amount : remaining;
+            if (pos.redemptionEpoch == currentEpoch) {
+                burnedFromCurrentEpoch += toBurn;
+            }
+
+            pos.amount -= toBurn;
+            if (pos.amount == 0) {
+                pos.soldAt = block.timestamp;
+            }
+            remaining -= toBurn;
+        }
+
+        if (remaining > 0) {
+            revert TokenLib.InsufficientTokenBalance();
+        }
+
+        if (burnedFromCurrentEpoch > 0) {
+            info.currentRedemptionEpochSupply -= burnedFromCurrentEpoch;
         }
     }
 
