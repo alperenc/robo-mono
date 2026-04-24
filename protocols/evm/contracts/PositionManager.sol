@@ -5,7 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import { TokenLib } from "./Libraries.sol";
+import { ProtocolLib, TokenLib } from "./Libraries.sol";
 import { IPositionManager } from "./interfaces/IPositionManager.sol";
 
 interface IRoboshareTokenPriceReader {
@@ -50,6 +50,9 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
     mapping(uint256 => uint256) private _listingSalePenalties;
     mapping(uint256 => SettlementStateInternal) private _settlementStates;
     mapping(uint256 => mapping(uint256 => mapping(address => SettlementClaimStateInternal))) private _settlementClaims;
+    bool private _currentEpochBurnActive;
+    address private _currentEpochBurnHolder;
+    uint256 private _currentEpochBurnTokenId;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -205,6 +208,23 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         );
     }
 
+    function syncRevenueTokenPolicy(uint256 revenueTokenId, uint256 tokenPrice, uint256 minHoldingPeriod) external {
+        if (msg.sender != roboshareTokens && !hasRole(POSITION_ADMIN_ROLE, msg.sender)) {
+            revert UnauthorizedTokenHookCaller(msg.sender);
+        }
+
+        _requireRevenueToken(revenueTokenId);
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[revenueTokenId];
+        if (tokenInfo.tokenId == 0) {
+            tokenInfo.tokenId = revenueTokenId;
+        }
+
+        tokenInfo.tokenPrice = tokenPrice;
+        tokenInfo.minHoldingPeriod =
+            minHoldingPeriod < ProtocolLib.MONTHLY_INTERVAL ? ProtocolLib.MONTHLY_INTERVAL : minHoldingPeriod;
+    }
+
     function beforeRevenueTokenUpdate(address from, address to, uint256 tokenId, uint256 amount) external {
         if (msg.sender != roboshareTokens) {
             revert UnauthorizedTokenHookCaller(msg.sender);
@@ -222,8 +242,7 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
             TokenLib.addPosition(tokenInfo, to, amount);
             _increaseCurrentEpochState(tokenInfo, tokenId, amount);
         } else if (to == address(0)) {
-            tokenInfo.tokenSupply -= amount;
-            _burnPositionsFifo(tokenInfo, from, amount);
+            _burnRevenueToken(tokenInfo, from, tokenId, amount);
         } else {
             _transferPositionsFifo(tokenInfo, from, to, amount);
         }
@@ -298,10 +317,8 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         return _revenueTokenInfos[revenueTokenId].currentRedemptionBackedPrincipal;
     }
 
-    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount)
-        external
-        onlyRole(AUTHORIZED_MARKETPLACE_ROLE)
-    {
+    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount) external {
+        _requireTokenOrMarketplaceCaller();
         _requireRevenueToken(revenueTokenId);
         if (amount == 0) revert InvalidAmount();
 
@@ -313,10 +330,8 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         emit ListingLocked(holder, revenueTokenId, amount);
     }
 
-    function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount)
-        external
-        onlyRole(AUTHORIZED_MARKETPLACE_ROLE)
-    {
+    function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount) external {
+        _requireTokenOrMarketplaceCaller();
         _requireRevenueToken(revenueTokenId);
         if (amount == 0) revert InvalidAmount();
 
@@ -327,10 +342,8 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         emit ListingUnlocked(holder, revenueTokenId, amount);
     }
 
-    function settleLockedTransfer(address from, address to, uint256 revenueTokenId, uint256 amount)
-        external
-        onlyRole(AUTHORIZED_MARKETPLACE_ROLE)
-    {
+    function settleLockedTransfer(address from, address to, uint256 revenueTokenId, uint256 amount) external {
+        _requireTokenOrMarketplaceCaller();
         _requireRevenueToken(revenueTokenId);
         if (amount == 0) revert InvalidAmount();
 
@@ -358,6 +371,33 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
     function getSalePenalty(uint256 listingId) external view returns (uint256) {
         return _listingSalePenalties[listingId];
+    }
+
+    function getSalesPenalty(address seller, uint256 revenueTokenId, uint256 amount)
+        external
+        view
+        returns (uint256 penaltyAmount)
+    {
+        _requireRevenueToken(revenueTokenId);
+
+        uint256 assetId = TokenLib.getAssetIdFromTokenId(revenueTokenId);
+        if (IERC1155(roboshareTokens).balanceOf(seller, assetId) > 0) {
+            return 0;
+        }
+
+        return TokenLib.calculateSalesPenalty(_revenueTokenInfos[revenueTokenId], seller, amount);
+    }
+
+    function preparePrimaryRedemptionBurn(address holder, uint256 tokenId) external {
+        if (msg.sender != roboshareTokens) {
+            revert UnauthorizedTokenHookCaller(msg.sender);
+        }
+
+        _requireRevenueToken(tokenId);
+
+        _currentEpochBurnActive = true;
+        _currentEpochBurnHolder = holder;
+        _currentEpochBurnTokenId = tokenId;
     }
 
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)
@@ -388,33 +428,14 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         emit RedemptionStateUpdated(tokenId, epochId, redeemableSupply, backedPrincipal, reason);
     }
 
-    function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount, bytes32 reason)
-        external
-        onlyRole(AUTHORIZED_TREASURY_ROLE)
-    {
-        _requireRevenueToken(tokenId);
-        if (releasedAmount == 0) {
-            return;
-        }
+    function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount, bytes32 reason) external {
+        _requireTokenOrTreasuryCaller();
+        _recordPrincipalRelease(tokenId, releasedAmount, reason);
+    }
 
-        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
-        uint256 backedPrincipal = tokenInfo.currentRedemptionBackedPrincipal;
-        if (backedPrincipal == 0) {
-            return;
-        }
-
-        tokenInfo.currentRedemptionBackedPrincipal =
-            releasedAmount >= backedPrincipal ? 0 : backedPrincipal - releasedAmount;
-
-        _rollRedemptionEpochIfExhausted(tokenInfo);
-
-        emit RedemptionStateUpdated(
-            tokenId,
-            tokenInfo.currentRedemptionEpoch,
-            tokenInfo.currentRedemptionEpochSupply,
-            tokenInfo.currentRedemptionBackedPrincipal,
-            reason
-        );
+    function recordPrimaryRedemptionPayout(uint256 tokenId, uint256 payoutAmount, bytes32 reason) external {
+        _requireTokenOrTreasuryCaller();
+        _recordPrincipalRelease(tokenId, payoutAmount, reason);
     }
 
     function consumePrimaryRedemption(
@@ -529,9 +550,38 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
     }
 
     function _increaseCurrentEpochState(TokenLib.TokenInfo storage info, uint256 tokenId, uint256 amount) internal {
-        uint256 tokenPrice = IRoboshareTokenPriceReader(roboshareTokens).getTokenPrice(tokenId);
+        uint256 tokenPrice = info.tokenPrice;
+        if (tokenPrice == 0) {
+            tokenPrice = IRoboshareTokenPriceReader(roboshareTokens).getTokenPrice(tokenId);
+        }
         info.currentRedemptionEpochSupply += amount;
         info.currentRedemptionBackedPrincipal += amount * tokenPrice;
+    }
+
+    function _recordPrincipalRelease(uint256 tokenId, uint256 releasedAmount, bytes32 reason) internal {
+        _requireRevenueToken(tokenId);
+        if (releasedAmount == 0) {
+            return;
+        }
+
+        TokenLib.TokenInfo storage tokenInfo = _revenueTokenInfos[tokenId];
+        uint256 backedPrincipal = tokenInfo.currentRedemptionBackedPrincipal;
+        if (backedPrincipal == 0) {
+            return;
+        }
+
+        tokenInfo.currentRedemptionBackedPrincipal =
+            releasedAmount >= backedPrincipal ? 0 : backedPrincipal - releasedAmount;
+
+        _rollRedemptionEpochIfExhausted(tokenInfo);
+
+        emit RedemptionStateUpdated(
+            tokenId,
+            tokenInfo.currentRedemptionEpoch,
+            tokenInfo.currentRedemptionEpochSupply,
+            tokenInfo.currentRedemptionBackedPrincipal,
+            reason
+        );
     }
 
     function _rollRedemptionEpochIfExhausted(TokenLib.TokenInfo storage info) internal {
@@ -542,6 +592,22 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         info.currentRedemptionEpoch++;
         info.currentRedemptionEpochSupply = 0;
         info.currentRedemptionBackedPrincipal = 0;
+    }
+
+    function _burnRevenueToken(TokenLib.TokenInfo storage info, address holder, uint256 tokenId, uint256 amount)
+        internal
+    {
+        info.tokenSupply -= amount;
+
+        if (_currentEpochBurnActive && holder == _currentEpochBurnHolder && tokenId == _currentEpochBurnTokenId) {
+            _currentEpochBurnActive = false;
+            _currentEpochBurnHolder = address(0);
+            _currentEpochBurnTokenId = 0;
+            _burnCurrentEpochPositions(info, holder, amount);
+            return;
+        }
+
+        _burnPositionsFifo(info, holder, amount);
     }
 
     function _burnPositionsFifo(TokenLib.TokenInfo storage info, address holder, uint256 amount) internal {
@@ -573,6 +639,30 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (burnedFromCurrentEpoch > 0) {
             info.currentRedemptionEpochSupply -= burnedFromCurrentEpoch;
         }
+    }
+
+    function _burnCurrentEpochPositions(TokenLib.TokenInfo storage info, address holder, uint256 amount) internal {
+        TokenLib.PositionQueue storage queue = info.positions[holder];
+        uint256 remaining = amount;
+        uint256 currentEpoch = info.currentRedemptionEpoch;
+
+        for (uint256 i = queue.head; i < queue.tail && remaining > 0; i++) {
+            TokenLib.TokenPosition storage pos = queue.items[i];
+            if (pos.amount == 0 || pos.redemptionEpoch != currentEpoch) continue;
+
+            uint256 toBurn = remaining > pos.amount ? pos.amount : remaining;
+            pos.amount -= toBurn;
+            if (pos.amount == 0) {
+                pos.soldAt = block.timestamp;
+            }
+            remaining -= toBurn;
+        }
+
+        if (remaining > 0) {
+            revert TokenLib.InsufficientTokenBalance();
+        }
+
+        info.currentRedemptionEpochSupply -= amount;
     }
 
     function _transferPositionsFifo(TokenLib.TokenInfo storage info, address from, address to, uint256 amount)
@@ -621,5 +711,17 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
             redemptionEpoch: redemptionEpoch
         });
         queue.tail++;
+    }
+
+    function _requireTokenOrTreasuryCaller() internal view {
+        if (msg.sender != roboshareTokens && !hasRole(AUTHORIZED_TREASURY_ROLE, msg.sender)) {
+            revert UnauthorizedTokenHookCaller(msg.sender);
+        }
+    }
+
+    function _requireTokenOrMarketplaceCaller() internal view {
+        if (msg.sender != roboshareTokens && !hasRole(AUTHORIZED_MARKETPLACE_ROLE, msg.sender)) {
+            revert UnauthorizedTokenHookCaller(msg.sender);
+        }
     }
 }
