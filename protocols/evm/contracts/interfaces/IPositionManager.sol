@@ -36,6 +36,20 @@ interface IPositionManager {
         bytes32 reason;
     }
 
+    struct SettlementState {
+        bool isConfigured;
+        uint256 epochId;
+        uint256 settlementAmount;
+        uint256 settlementPerToken;
+        uint256 claimedBurnAmount;
+        uint256 claimedPayout;
+    }
+
+    struct SettlementClaimState {
+        uint256 burnedAmount;
+        uint256 payout;
+    }
+
     event PositionManagerInitialized(
         address indexed admin,
         address indexed registryRouter,
@@ -76,8 +90,12 @@ interface IPositionManager {
         uint256 indexed assetId, uint256 indexed tokenId, address indexed account, uint256 lockUntil, bytes32 reason
     );
 
-    event RedemptionEpochUpdated(
-        uint256 indexed tokenId, uint256 indexed epochId, uint256 redeemableSupply, bytes32 reason
+    event RedemptionStateUpdated(
+        uint256 indexed tokenId,
+        uint256 indexed epochId,
+        uint256 redeemableSupply,
+        uint256 backedPrincipal,
+        bytes32 reason
     );
 
     event SettlementConfigured(
@@ -97,11 +115,22 @@ interface IPositionManager {
         bytes32 reason
     );
 
+    event PrimaryRedemptionConsumed(
+        uint256 indexed tokenId,
+        uint256 indexed epochId,
+        address indexed account,
+        uint256 burnAmount,
+        uint256 payout,
+        bytes32 reason
+    );
+
     error ZeroAddress();
     error NotRevenueToken();
     error InvalidAmount();
     error InsufficientUnlockedBalance();
     error InsufficientLockedBalance();
+    error InsufficientRedemptionBalance();
+    error SettlementNotConfigured(uint256 assetId);
     error UnauthorizedTokenHookCaller(address caller);
     error UnsupportedPositionMutation(PositionMutationType mutationType);
 
@@ -149,6 +178,14 @@ interface IPositionManager {
         view
         returns (uint256);
 
+    function getPrimaryRedemptionEligibleBalance(address holder, uint256 revenueTokenId) external view returns (uint256);
+
+    function getCurrentPrimaryRedemptionEpoch(uint256 revenueTokenId) external view returns (uint256);
+
+    function getCurrentPrimaryRedemptionEpochSupply(uint256 revenueTokenId) external view returns (uint256);
+
+    function getCurrentPrimaryRedemptionBackedPrincipal(uint256 revenueTokenId) external view returns (uint256);
+
     function lockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
 
     function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
@@ -166,7 +203,23 @@ interface IPositionManager {
     function recordPositionLock(uint256 assetId, uint256 tokenId, address account, uint256 lockUntil, bytes32 reason)
         external;
 
-    function recordRedemptionEpoch(uint256 tokenId, uint256 epochId, uint256 redeemableSupply, bytes32 reason) external;
+    function recordRedemptionEpoch(
+        uint256 tokenId,
+        uint256 epochId,
+        uint256 redeemableSupply,
+        uint256 backedPrincipal,
+        bytes32 reason
+    ) external;
+
+    function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount, bytes32 reason) external;
+
+    function consumePrimaryRedemption(
+        address holder,
+        uint256 tokenId,
+        uint256 burnAmount,
+        uint256 payout,
+        bytes32 reason
+    ) external;
 
     function recordSettlement(
         uint256 assetId,
@@ -184,4 +237,13 @@ interface IPositionManager {
         uint256 payout,
         bytes32 reason
     ) external;
+
+    function getSettlementState(uint256 assetId) external view returns (SettlementState memory state);
+
+    function getSettlementClaimState(uint256 assetId, address account)
+        external
+        view
+        returns (SettlementClaimState memory state);
+
+    function previewSettlementClaim(uint256 assetId, uint256 burnAmount) external view returns (uint256 payout);
 }

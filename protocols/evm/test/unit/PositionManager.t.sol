@@ -25,6 +25,7 @@ contract PositionManagerTest is Test {
 
     uint256 private constant ASSET_ID = 101;
     uint256 private constant TOKEN_ID = 102;
+    uint256 private constant TOKEN_PRICE = 10e6;
 
     bytes32 private constant PRIMARY_REASON = keccak256("primary");
     bytes32 private constant LISTING_REASON = keccak256("listing");
@@ -55,8 +56,12 @@ contract PositionManagerTest is Test {
         uint256 indexed assetId, uint256 indexed tokenId, address indexed account, uint256 lockUntil, bytes32 reason
     );
 
-    event RedemptionEpochUpdated(
-        uint256 indexed tokenId, uint256 indexed epochId, uint256 redeemableSupply, bytes32 reason
+    event RedemptionStateUpdated(
+        uint256 indexed tokenId,
+        uint256 indexed epochId,
+        uint256 redeemableSupply,
+        uint256 backedPrincipal,
+        bytes32 reason
     );
 
     event SettlementConfigured(
@@ -76,10 +81,19 @@ contract PositionManagerTest is Test {
         bytes32 reason
     );
 
+    event PrimaryRedemptionConsumed(
+        uint256 indexed tokenId,
+        uint256 indexed epochId,
+        address indexed account,
+        uint256 burnAmount,
+        uint256 payout,
+        bytes32 reason
+    );
+
     function setUp() public {
-        positionManager = _deployPositionManager(
-            admin, registryRouter, roboshareTokens, partnerManager, marketplace, treasury, usdc
-        );
+        positionManager =
+            _deployPositionManager(admin, registryRouter, roboshareTokens, partnerManager, marketplace, treasury, usdc);
+        _mockTokenPrice(TOKEN_ID, TOKEN_PRICE);
     }
 
     function testInitialization() public view {
@@ -219,6 +233,10 @@ contract PositionManagerTest is Test {
         assertGt(positions[0].acquiredAt, 0);
         assertEq(positions[0].soldAt, 0);
         assertEq(positions[0].redemptionEpoch, 0);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpoch(TOKEN_ID), 0);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 100);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 100 * TOKEN_PRICE);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 100);
     }
 
     function testBurnConsumesPositionsFifo() public {
@@ -265,6 +283,8 @@ contract PositionManagerTest is Test {
         assertEq(positions[0].amount, 0);
         assertTrue(positions[0].soldAt > 0);
         assertEq(positions[1].amount, 30);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 30);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 30);
     }
 
     function testGetLockedAmountRevertsForNonRevenueToken() public {
@@ -435,8 +455,8 @@ contract PositionManagerTest is Test {
         vm.startPrank(treasury);
 
         vm.expectEmit(true, true, false, true, address(positionManager));
-        emit RedemptionEpochUpdated(TOKEN_ID, 1, 100, REDEEM_REASON);
-        positionManager.recordRedemptionEpoch(TOKEN_ID, 1, 100, REDEEM_REASON);
+        emit RedemptionStateUpdated(TOKEN_ID, 1, 100, 1000, REDEEM_REASON);
+        positionManager.recordRedemptionEpoch(TOKEN_ID, 1, 100, 1000, REDEEM_REASON);
 
         vm.expectEmit(true, true, false, true, address(positionManager));
         emit SettlementConfigured(ASSET_ID, 1, 1000, 10, SETTLE_REASON);
@@ -447,6 +467,120 @@ contract PositionManagerTest is Test {
         positionManager.recordSettlementClaim(ASSET_ID, TOKEN_ID, alice, 20, 200, CLAIM_REASON);
 
         vm.stopPrank();
+    }
+
+    function testConsumePrimaryRedemptionDoesNotDoubleConsumeBurnHookState() public {
+        vm.prank(treasury);
+        positionManager.recordRedemptionEpoch(TOKEN_ID, 2, 0, 0, REDEEM_REASON);
+
+        vm.prank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 100,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(alice, address(0), TOKEN_ID, 40);
+
+        TokenLib.TokenPosition[] memory positionsAfterBurn = positionManager.getUserPositions(TOKEN_ID, alice);
+        assertEq(positionsAfterBurn[0].amount, 60);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 60);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 60);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 100 * TOKEN_PRICE);
+
+        vm.expectEmit(true, true, true, true, address(positionManager));
+        emit PrimaryRedemptionConsumed(TOKEN_ID, 2, alice, 40, 40 * TOKEN_PRICE, REDEEM_REASON);
+        vm.expectEmit(true, true, false, true, address(positionManager));
+        emit RedemptionStateUpdated(TOKEN_ID, 2, 60, 60 * TOKEN_PRICE, REDEEM_REASON);
+
+        vm.prank(treasury);
+        positionManager.consumePrimaryRedemption(alice, TOKEN_ID, 40, 40 * TOKEN_PRICE, REDEEM_REASON);
+
+        TokenLib.TokenPosition[] memory positions = positionManager.getUserPositions(TOKEN_ID, alice);
+        assertEq(positions[0].amount, 60);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 60);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpoch(TOKEN_ID), 2);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 60);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 60 * TOKEN_PRICE);
+    }
+
+    function testRecordImmediateProceedsReleaseReducesBackedPrincipal() public {
+        vm.prank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 100,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+
+        vm.expectEmit(true, true, false, true, address(positionManager));
+        emit RedemptionStateUpdated(TOKEN_ID, 0, 100, 60 * TOKEN_PRICE, REDEEM_REASON);
+
+        vm.prank(treasury);
+        positionManager.recordImmediateProceedsRelease(TOKEN_ID, 40 * TOKEN_PRICE, REDEEM_REASON);
+
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpoch(TOKEN_ID), 0);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 100);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 60 * TOKEN_PRICE);
+    }
+
+    function testSettlementStateTracksClaimTotals() public {
+        vm.startPrank(treasury);
+        positionManager.recordSettlement(ASSET_ID, 4, 900, 9, SETTLE_REASON);
+        assertEq(positionManager.previewSettlementClaim(ASSET_ID, 25), 225);
+
+        positionManager.recordSettlementClaim(ASSET_ID, TOKEN_ID, alice, 20, 180, CLAIM_REASON);
+        positionManager.recordSettlementClaim(ASSET_ID, TOKEN_ID, alice, 5, 45, CLAIM_REASON);
+        vm.stopPrank();
+
+        IPositionManager.SettlementState memory settlement = positionManager.getSettlementState(ASSET_ID);
+        assertTrue(settlement.isConfigured);
+        assertEq(settlement.epochId, 4);
+        assertEq(settlement.settlementAmount, 900);
+        assertEq(settlement.settlementPerToken, 9);
+        assertEq(settlement.claimedBurnAmount, 25);
+        assertEq(settlement.claimedPayout, 225);
+
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(ASSET_ID, alice);
+        assertEq(claimState.burnedAmount, 25);
+        assertEq(claimState.payout, 225);
+    }
+
+    function testSettlementClaimsResetAcrossEpochs() public {
+        vm.startPrank(treasury);
+        positionManager.recordSettlement(ASSET_ID, 4, 900, 9, SETTLE_REASON);
+        positionManager.recordSettlementClaim(ASSET_ID, TOKEN_ID, alice, 20, 180, CLAIM_REASON);
+
+        positionManager.recordSettlement(ASSET_ID, 5, 500, 5, SETTLE_REASON);
+        vm.stopPrank();
+
+        IPositionManager.SettlementState memory settlement = positionManager.getSettlementState(ASSET_ID);
+        assertTrue(settlement.isConfigured);
+        assertEq(settlement.epochId, 5);
+        assertEq(settlement.settlementAmount, 500);
+        assertEq(settlement.settlementPerToken, 5);
+        assertEq(settlement.claimedBurnAmount, 0);
+        assertEq(settlement.claimedPayout, 0);
+
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(ASSET_ID, alice);
+        assertEq(claimState.burnedAmount, 0);
+        assertEq(claimState.payout, 0);
+
+        assertEq(positionManager.previewSettlementClaim(ASSET_ID, 10), 50);
     }
 
     function testUpgradeAuthorizedCaller() public {
@@ -491,5 +625,9 @@ contract PositionManagerTest is Test {
 
     function _mockRevenueTokenBalance(address holder, uint256 tokenId, uint256 balance) internal {
         vm.mockCall(roboshareTokens, abi.encodeCall(IERC1155.balanceOf, (holder, tokenId)), abi.encode(balance));
+    }
+
+    function _mockTokenPrice(uint256 tokenId, uint256 price) internal {
+        vm.mockCall(roboshareTokens, abi.encodeWithSignature("getTokenPrice(uint256)", tokenId), abi.encode(price));
     }
 }
