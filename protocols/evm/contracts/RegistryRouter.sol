@@ -444,7 +444,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (idToRegistry[tokenId] == address(0)) {
             revert RegistryNotFound(tokenId);
         }
-        roboshareTokens.burnCurrentEpochForPrimaryRedemption(holder, tokenId, amount);
+        roboshareTokens.managerBurnCurrentEpoch(holder, tokenId, amount);
     }
 
     function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount) external {

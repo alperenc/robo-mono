@@ -27,6 +27,7 @@ contract RoboshareTokens is
     bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant AUTHORIZED_CONTRACT_ROLE = keccak256("AUTHORIZED_CONTRACT_ROLE");
 
     // Errors
@@ -87,6 +88,7 @@ contract RoboshareTokens is
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(MINTER_ROLE, defaultAdmin);
         _grantRole(BURNER_ROLE, defaultAdmin);
+        _grantRole(MANAGER_ROLE, defaultAdmin);
         _grantRole(URI_SETTER_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
         _grantRole(AUTHORIZED_CONTRACT_ROLE, defaultAdmin);
@@ -197,6 +199,30 @@ contract RoboshareTokens is
      */
     function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external onlyRole(BURNER_ROLE) {
         _burnBatch(from, ids, amounts);
+    }
+
+    function managerTransfer(address from, address to, uint256 id, uint256 amount, bytes memory data)
+        external
+        onlyRole(MANAGER_ROLE)
+    {
+        if (!TokenLib.isRevenueToken(id)) {
+            revert NotRevenueToken();
+        }
+        _safeTransferFrom(from, to, id, amount, data);
+    }
+
+    function managerBurn(address from, uint256 id, uint256 amount) external onlyRole(MANAGER_ROLE) {
+        if (!TokenLib.isRevenueToken(id)) {
+            revert NotRevenueToken();
+        }
+        _burn(from, id, amount);
+    }
+
+    function managerBurnCurrentEpoch(address holder, uint256 revenueTokenId, uint256 amount)
+        external
+        onlyRole(MANAGER_ROLE)
+    {
+        _managerBurnCurrentEpoch(holder, revenueTokenId, amount);
     }
 
     /**
@@ -349,10 +375,7 @@ contract RoboshareTokens is
         return _requirePositionManager().getLockedAmount(holder, revenueTokenId);
     }
 
-    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount)
-        external
-        onlyRole(AUTHORIZED_CONTRACT_ROLE)
-    {
+    function lockForListing(address holder, uint256 revenueTokenId, uint256 amount) external onlyRole(MANAGER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
@@ -360,10 +383,7 @@ contract RoboshareTokens is
         _requirePositionManager().lockForListing(holder, revenueTokenId, amount);
     }
 
-    function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount)
-        external
-        onlyRole(AUTHORIZED_CONTRACT_ROLE)
-    {
+    function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount) external onlyRole(MANAGER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
@@ -371,10 +391,17 @@ contract RoboshareTokens is
         _requirePositionManager().unlockForListing(holder, revenueTokenId, amount);
     }
 
+    /**
+     * @dev Deprecated compatibility alias for managerBurnCurrentEpoch().
+     */
     function burnCurrentEpochForPrimaryRedemption(address holder, uint256 revenueTokenId, uint256 amount)
         external
-        onlyRole(BURNER_ROLE)
+        onlyRole(MANAGER_ROLE)
     {
+        _managerBurnCurrentEpoch(holder, revenueTokenId, amount);
+    }
+
+    function _managerBurnCurrentEpoch(address holder, uint256 revenueTokenId, uint256 amount) internal {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
@@ -385,7 +412,7 @@ contract RoboshareTokens is
 
     function recordImmediateProceedsRelease(uint256 revenueTokenId, uint256 releasedAmount)
         external
-        onlyRole(BURNER_ROLE)
+        onlyRole(MANAGER_ROLE)
     {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
@@ -397,7 +424,7 @@ contract RoboshareTokens is
 
     function recordPrimaryRedemptionPayout(uint256 revenueTokenId, uint256 payoutAmount)
         external
-        onlyRole(BURNER_ROLE)
+        onlyRole(MANAGER_ROLE)
     {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
@@ -413,7 +440,7 @@ contract RoboshareTokens is
         uint256 revenueTokenId,
         uint256 amount,
         bytes memory data
-    ) external onlyRole(AUTHORIZED_CONTRACT_ROLE) {
+    ) external onlyRole(MANAGER_ROLE) {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
         }
