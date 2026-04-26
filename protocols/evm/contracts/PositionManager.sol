@@ -14,6 +14,14 @@ interface IRoboshareTokenPriceReader {
 
 interface IRoboshareTokenManager {
     function managerBurnCurrentEpoch(address holder, uint256 revenueTokenId, uint256 amount) external;
+
+    function transferLockedForListing(
+        address from,
+        address to,
+        uint256 revenueTokenId,
+        uint256 amount,
+        bytes memory data
+    ) external;
 }
 
 /**
@@ -357,6 +365,16 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         _lockedAmounts[from][revenueTokenId] = lockedAmount - amount;
         emit ListingUnlocked(from, revenueTokenId, amount);
         emit LockedTransferSettled(from, to, revenueTokenId, amount);
+    }
+
+    function transferLockedForListing(address from, address to, uint256 revenueTokenId, uint256 amount)
+        external
+        onlyRole(AUTHORIZED_MARKETPLACE_ROLE)
+    {
+        _requireRevenueToken(revenueTokenId);
+        if (amount == 0) revert InvalidAmount();
+
+        IRoboshareTokenManager(roboshareTokens).transferLockedForListing(from, to, revenueTokenId, amount, "");
     }
 
     function burnCurrentEpochForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount)

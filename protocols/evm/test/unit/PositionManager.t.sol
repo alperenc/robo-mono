@@ -376,6 +376,30 @@ contract PositionManagerTest is Test {
         positionManager.settleLockedTransfer(alice, bob, TOKEN_ID, 0);
     }
 
+    function testAuthorizedMarketplaceCanTransferLockedForListingViaTokenManager() public {
+        vm.expectCall(
+            roboshareTokens,
+            abi.encodeWithSignature(
+                "transferLockedForListing(address,address,uint256,uint256,bytes)", alice, bob, TOKEN_ID, 20, ""
+            )
+        );
+
+        vm.prank(marketplace);
+        positionManager.transferLockedForListing(alice, bob, TOKEN_ID, 20);
+    }
+
+    function testTransferLockedForListingUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                positionManager.AUTHORIZED_MARKETPLACE_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        positionManager.transferLockedForListing(alice, bob, TOKEN_ID, 20);
+    }
+
     function testAuthorizedRouterCanBurnCurrentEpochForPrimaryRedemption() public {
         vm.expectCall(
             roboshareTokens,

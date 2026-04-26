@@ -952,6 +952,27 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
     }
 
+    function testBuyFromSecondaryListingAfterSellerRevokesMarketplaceApproval() public {
+        _ensureSecondaryListingScenario();
+
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), false);
+
+        uint256 totalPrice = SECONDARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), totalPrice + protocolFee);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        vm.stopPrank();
+
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), SECONDARY_PURCHASE_AMOUNT);
+        assertEq(
+            roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId),
+            SECONDARY_LISTING_AMOUNT - SECONDARY_PURCHASE_AMOUNT
+        );
+    }
+
     function testBuyFromSecondaryListingInsufficientPayment() public {
         _ensureSecondaryListingScenario();
 

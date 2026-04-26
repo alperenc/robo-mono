@@ -691,8 +691,7 @@ contract Marketplace is
         }
 
         _routeProtocolFee(quote.protocolFee + quote.earlySalePenalty);
-        _positionManager().settleLockedTransfer(listing.seller, buyer, listing.tokenId, amount);
-        roboshareTokens.safeTransferFrom(listing.seller, buyer, listing.tokenId, amount, "");
+        _positionManager().transferLockedForListing(listing.seller, buyer, listing.tokenId, amount);
 
         emit RevenueTokensTraded(listing.tokenId, listing.seller, buyer, amount, listingId, quote.grossProceeds);
     }
