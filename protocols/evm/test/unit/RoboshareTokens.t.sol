@@ -640,6 +640,24 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.lockForListing(user1, tokenId, 0);
     }
 
+    function testLockForListingRejectsLegacyAuthorizedAndBurnerRoles() public {
+        address legacyActor = makeAddr("legacyActor");
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.AUTHORIZED_CONTRACT_ROLE(), legacyActor);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), legacyActor);
+        vm.stopPrank();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, legacyActor, roboshareTokens.MANAGER_ROLE()
+            )
+        );
+        vm.prank(legacyActor);
+        roboshareTokens.lockForListing(user1, tokenId, 1);
+    }
+
     function testLockForListingInsufficientUnlockedBalance() public {
         uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
 
