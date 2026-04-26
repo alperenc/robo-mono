@@ -133,6 +133,7 @@ interface IPositionManager {
     error SettlementNotConfigured(uint256 assetId);
     error UnauthorizedTokenHookCaller(address caller);
     error UnsupportedPositionMutation(PositionMutationType mutationType);
+    error InvalidRoboshareTokens(address token);
 
     function initialize(
         address admin,
@@ -193,6 +194,10 @@ interface IPositionManager {
     function unlockForListing(address holder, uint256 revenueTokenId, uint256 amount) external;
 
     function settleLockedTransfer(address from, address to, uint256 revenueTokenId, uint256 amount) external;
+
+    function transferLockedForListing(address from, address to, uint256 revenueTokenId, uint256 amount) external;
+
+    function burnCurrentEpochForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount) external;
 
     function bookSalePenalty(uint256 listingId, address seller, uint256 revenueTokenId, uint256 amount) external;
 
