@@ -374,7 +374,7 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         _requireRevenueToken(revenueTokenId);
         if (amount == 0) revert InvalidAmount();
 
-        IRoboshareTokenManager(roboshareTokens).transferLockedForListing(from, to, revenueTokenId, amount, "");
+        _roboshareTokenManager().transferLockedForListing(from, to, revenueTokenId, amount, "");
     }
 
     function burnCurrentEpochForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount)
@@ -384,7 +384,7 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         _requireRevenueToken(tokenId);
         if (amount == 0) revert InvalidAmount();
 
-        IRoboshareTokenManager(roboshareTokens).managerBurnCurrentEpoch(holder, tokenId, amount);
+        _roboshareTokenManager().managerBurnCurrentEpoch(holder, tokenId, amount);
     }
 
     function bookSalePenalty(uint256 listingId, address seller, uint256 revenueTokenId, uint256 amount)
@@ -614,6 +614,12 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
             tokenInfo.currentRedemptionBackedPrincipal,
             reason
         );
+    }
+
+    function _roboshareTokenManager() internal view returns (IRoboshareTokenManager manager) {
+        address token = roboshareTokens;
+        if (token.code.length == 0) revert InvalidRoboshareTokens(token);
+        return IRoboshareTokenManager(token);
     }
 
     function _rollRedemptionEpochIfExhausted(TokenLib.TokenInfo storage info) internal {

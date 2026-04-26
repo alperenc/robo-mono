@@ -133,6 +133,7 @@ interface IPositionManager {
     error SettlementNotConfigured(uint256 assetId);
     error UnauthorizedTokenHookCaller(address caller);
     error UnsupportedPositionMutation(PositionMutationType mutationType);
+    error InvalidRoboshareTokens(address token);
 
     function initialize(
         address admin,

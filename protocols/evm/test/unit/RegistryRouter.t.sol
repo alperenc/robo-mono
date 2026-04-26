@@ -261,6 +261,26 @@ contract RegistryRouterTest is AssetMetadataBaseTest {
         router.recordImmediateProceedsRelease(scenario.revenueTokenId, 1);
     }
 
+    function testCreateRevenueTokenPoolRevertsWhenMarketplaceIsNotContract() public {
+        _ensureState(SetupState.AssetRegistered);
+
+        vm.prank(admin);
+        router.setMarketplace(unauthorized);
+
+        vm.prank(partner1);
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.InvalidMarketplace.selector, unauthorized));
+        assetRegistry.createRevenueTokenPool(
+            scenario.assetId,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            ASSET_VALUE / REVENUE_TOKEN_PRICE,
+            false,
+            false
+        );
+    }
+
     function testBurnRevenueTokensFromHolderForPrimaryRedemptionRevertsWhenPositionManagerIsNotContract() public {
         _ensureState(SetupState.PrimaryPoolCreated);
 

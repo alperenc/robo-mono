@@ -91,6 +91,7 @@ contract PositionManagerTest is Test {
     );
 
     function setUp() public {
+        vm.etch(roboshareTokens, hex"00");
         positionManager =
             _deployPositionManager(admin, registryRouter, roboshareTokens, partnerManager, marketplace, treasury, usdc);
         _mockTokenPrice(TOKEN_ID, TOKEN_PRICE);
@@ -400,6 +401,15 @@ contract PositionManagerTest is Test {
         positionManager.transferLockedForListing(alice, bob, TOKEN_ID, 20);
     }
 
+    function testTransferLockedForListingRevertsWhenRoboshareTokensIsNotContract() public {
+        vm.prank(admin);
+        positionManager.updateRoboshareTokens(unauthorized);
+
+        vm.prank(marketplace);
+        vm.expectRevert(abi.encodeWithSelector(IPositionManager.InvalidRoboshareTokens.selector, unauthorized));
+        positionManager.transferLockedForListing(alice, bob, TOKEN_ID, 20);
+    }
+
     function testAuthorizedRouterCanBurnCurrentEpochForPrimaryRedemption() public {
         vm.expectCall(
             roboshareTokens,
@@ -425,6 +435,15 @@ contract PositionManagerTest is Test {
             )
         );
         vm.prank(unauthorized);
+        positionManager.burnCurrentEpochForPrimaryRedemption(alice, TOKEN_ID, 10);
+    }
+
+    function testBurnCurrentEpochForPrimaryRedemptionRevertsWhenRoboshareTokensIsNotContract() public {
+        vm.prank(admin);
+        positionManager.updateRoboshareTokens(unauthorized);
+
+        vm.prank(registryRouter);
+        vm.expectRevert(abi.encodeWithSelector(IPositionManager.InvalidRoboshareTokens.selector, unauthorized));
         positionManager.burnCurrentEpochForPrimaryRedemption(alice, TOKEN_ID, 10);
     }
 

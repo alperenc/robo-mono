@@ -42,6 +42,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     error TreasuryNotSet();
     error EarningsManagerNotSet();
     error MarketplaceNotSet();
+    error InvalidMarketplace(address marketplace);
     error NotTreasury();
     error NotMarketplace();
     error DirectCallNotAllowed();
@@ -243,10 +244,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         (settlementAmount, settlementPerToken) = ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
 
         // Best-effort: settlement should close primary pool if it exists.
-        if (marketplace != address(0)) {
-            uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
-            try IMarketplace(marketplace).closePrimaryPool(tokenId) { } catch { }
-        }
+        _closePrimaryPoolIfMarketplaceConfigured(TokenLib.getTokenIdFromAssetId(assetId));
     }
 
     /**
@@ -270,10 +268,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         (liquidationAmount, settlementPerToken) = ITreasury(treasury).executeLiquidation(assetId);
 
         // Best-effort: liquidation should close primary pool if it exists.
-        if (marketplace != address(0)) {
-            uint256 tokenId = TokenLib.getTokenIdFromAssetId(assetId);
-            try IMarketplace(marketplace).closePrimaryPool(tokenId) { } catch { }
-        }
+        _closePrimaryPoolIfMarketplaceConfigured(TokenLib.getTokenIdFromAssetId(assetId));
     }
 
     /**
@@ -593,7 +588,21 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         emit RevenueTokenPoolCreated(assetId, tokenId, partner, supply * tokenPrice, supply);
         IAssetRegistry(registry).setAssetStatus(assetId, AssetLib.AssetStatus.Active);
 
-        IMarketplace(marketplace).createPrimaryPoolFor(partner, tokenId, tokenPrice);
+        _requireMarketplace().createPrimaryPoolFor(partner, tokenId, tokenPrice);
+    }
+
+    function _requireMarketplace() internal view returns (IMarketplace market) {
+        address marketAddress = marketplace;
+        if (marketAddress == address(0)) revert MarketplaceNotSet();
+        if (marketAddress.code.length == 0) revert InvalidMarketplace(marketAddress);
+        return IMarketplace(marketAddress);
+    }
+
+    function _closePrimaryPoolIfMarketplaceConfigured(uint256 tokenId) internal {
+        address marketAddress = marketplace;
+        if (marketAddress == address(0)) return;
+        if (marketAddress.code.length == 0) revert InvalidMarketplace(marketAddress);
+        try IMarketplace(marketAddress).closePrimaryPool(tokenId) { } catch { }
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
