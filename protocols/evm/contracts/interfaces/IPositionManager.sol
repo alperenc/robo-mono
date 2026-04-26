@@ -194,6 +194,8 @@ interface IPositionManager {
 
     function settleLockedTransfer(address from, address to, uint256 revenueTokenId, uint256 amount) external;
 
+    function burnCurrentEpochForPrimaryRedemption(address holder, uint256 tokenId, uint256 amount) external;
+
     function bookSalePenalty(uint256 listingId, address seller, uint256 revenueTokenId, uint256 amount) external;
 
     function clearSalePenalty(uint256 listingId) external;

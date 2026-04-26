@@ -8,6 +8,7 @@ import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { IEarningsManager } from "./interfaces/IEarningsManager.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 import { AssetLib, TokenLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
@@ -444,7 +445,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (idToRegistry[tokenId] == address(0)) {
             revert RegistryNotFound(tokenId);
         }
-        roboshareTokens.managerBurnCurrentEpoch(holder, tokenId, amount);
+        _positionManager().burnCurrentEpochForPrimaryRedemption(holder, tokenId, amount);
     }
 
     function recordImmediateProceedsRelease(uint256 tokenId, uint256 releasedAmount) external {
@@ -457,7 +458,8 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (idToRegistry[tokenId] == address(0)) {
             revert RegistryNotFound(tokenId);
         }
-        roboshareTokens.recordImmediateProceedsRelease(tokenId, releasedAmount);
+        _positionManager()
+            .recordImmediateProceedsRelease(tokenId, releasedAmount, keccak256("IMMEDIATE_PROCEEDS_RELEASE"));
     }
 
     function recordPrimaryRedemptionPayout(uint256 tokenId, uint256 payoutAmount) external {
@@ -470,7 +472,11 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (idToRegistry[tokenId] == address(0)) {
             revert RegistryNotFound(tokenId);
         }
-        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, payoutAmount);
+        _positionManager().recordPrimaryRedemptionPayout(tokenId, payoutAmount, keccak256("PRIMARY_REDEMPTION_PAYOUT"));
+    }
+
+    function _positionManager() internal view returns (IPositionManager) {
+        return roboshareTokens.positionManager();
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {

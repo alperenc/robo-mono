@@ -88,7 +88,6 @@ contract RoboshareTokens is
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(MINTER_ROLE, defaultAdmin);
         _grantRole(BURNER_ROLE, defaultAdmin);
-        _grantRole(MANAGER_ROLE, defaultAdmin);
         _grantRole(URI_SETTER_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
         _grantRole(AUTHORIZED_CONTRACT_ROLE, defaultAdmin);
@@ -240,7 +239,12 @@ contract RoboshareTokens is
         _syncRevenueTokenPolicies(manager);
 
         address previousManager = address(positionManager);
+        if (previousManager != address(0)) {
+            _revokeRole(MANAGER_ROLE, previousManager);
+        }
+
         positionManager = manager;
+        _grantRole(MANAGER_ROLE, newPositionManager);
 
         emit PositionManagerUpdated(previousManager, newPositionManager);
     }

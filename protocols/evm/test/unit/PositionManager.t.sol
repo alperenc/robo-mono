@@ -305,6 +305,12 @@ contract PositionManagerTest is Test {
         assertEq(positionManager.getAvailableAmount(alice, TOKEN_ID, 100), 60);
     }
 
+    function testLockForListingRevertsWhenAmountIsZero() public {
+        vm.expectRevert(IPositionManager.InvalidAmount.selector);
+        vm.prank(marketplace);
+        positionManager.lockForListing(alice, TOKEN_ID, 0);
+    }
+
     function testLockForListingRevertsWhenUnlockedBalanceInsufficient() public {
         _mockRevenueTokenBalance(alice, TOKEN_ID, 100);
 
@@ -328,6 +334,12 @@ contract PositionManagerTest is Test {
         vm.expectRevert(IPositionManager.InsufficientLockedBalance.selector);
         vm.prank(marketplace);
         positionManager.unlockForListing(alice, TOKEN_ID, 1);
+    }
+
+    function testUnlockForListingRevertsWhenAmountIsZero() public {
+        vm.expectRevert(IPositionManager.InvalidAmount.selector);
+        vm.prank(marketplace);
+        positionManager.unlockForListing(alice, TOKEN_ID, 0);
     }
 
     function testSettleLockedTransferConsumesLockBeforeTokenMove() public {
@@ -356,6 +368,40 @@ contract PositionManagerTest is Test {
         vm.expectRevert(IPositionManager.InsufficientLockedBalance.selector);
         vm.prank(marketplace);
         positionManager.settleLockedTransfer(alice, bob, TOKEN_ID, 11);
+    }
+
+    function testSettleLockedTransferRevertsWhenAmountIsZero() public {
+        vm.expectRevert(IPositionManager.InvalidAmount.selector);
+        vm.prank(marketplace);
+        positionManager.settleLockedTransfer(alice, bob, TOKEN_ID, 0);
+    }
+
+    function testAuthorizedRouterCanBurnCurrentEpochForPrimaryRedemption() public {
+        vm.expectCall(
+            roboshareTokens,
+            abi.encodeWithSignature("managerBurnCurrentEpoch(address,uint256,uint256)", alice, TOKEN_ID, 10)
+        );
+
+        vm.prank(registryRouter);
+        positionManager.burnCurrentEpochForPrimaryRedemption(alice, TOKEN_ID, 10);
+    }
+
+    function testBurnCurrentEpochForPrimaryRedemptionRevertsWhenAmountIsZero() public {
+        vm.expectRevert(IPositionManager.InvalidAmount.selector);
+        vm.prank(registryRouter);
+        positionManager.burnCurrentEpochForPrimaryRedemption(alice, TOKEN_ID, 0);
+    }
+
+    function testBurnCurrentEpochForPrimaryRedemptionUnauthorizedCaller() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                positionManager.AUTHORIZED_ROUTER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        positionManager.burnCurrentEpochForPrimaryRedemption(alice, TOKEN_ID, 10);
     }
 
     function testSalesPenaltyBookkeeping() public {
@@ -528,6 +574,32 @@ contract PositionManagerTest is Test {
         assertEq(positionManager.getCurrentPrimaryRedemptionEpoch(TOKEN_ID), 0);
         assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 100);
         assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 60 * TOKEN_PRICE);
+    }
+
+    function testAuthorizedRouterCanRecordImmediateProceedsRelease() public {
+        vm.prank(marketplace);
+        positionManager.recordPositionMutation(
+            IPositionManager.PositionMutation({
+                assetId: ASSET_ID,
+                tokenId: TOKEN_ID,
+                account: alice,
+                amount: 100,
+                auxValue: 0,
+                mutationType: IPositionManager.PositionMutationType.Mint,
+                reason: PRIMARY_REASON
+            })
+        );
+
+        vm.prank(registryRouter);
+        positionManager.recordImmediateProceedsRelease(TOKEN_ID, 25 * TOKEN_PRICE, REDEEM_REASON);
+
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 75 * TOKEN_PRICE);
+    }
+
+    function testUnauthorizedCallerCannotRecordImmediateProceedsRelease() public {
+        vm.expectRevert(abi.encodeWithSelector(IPositionManager.UnauthorizedTokenHookCaller.selector, unauthorized));
+        vm.prank(unauthorized);
+        positionManager.recordImmediateProceedsRelease(TOKEN_ID, TOKEN_PRICE, REDEEM_REASON);
     }
 
     function testSettlementStateTracksClaimTotals() public {

@@ -94,7 +94,7 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.setPositionManager(address(testPositionManager));
         minter = admin; // Admin has minter role by default
         burner = admin; // Admin has burner role by default
-        manager = admin; // Admin has manager role by default
+        manager = address(testPositionManager); // PositionManager is the sole manager role holder
 
         // These helpers run against a fork in CI/local workflows, so ensure the
         // deterministic test users are EOAs even if the forked chain has code there.
@@ -158,7 +158,8 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertTrue(roboshareTokens.hasRole(roboshareTokens.UPGRADER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), admin));
         assertTrue(roboshareTokens.hasRole(roboshareTokens.MINTER_ROLE(), minter));
-        assertTrue(roboshareTokens.hasRole(roboshareTokens.MANAGER_ROLE(), admin));
+        assertTrue(roboshareTokens.hasRole(roboshareTokens.MANAGER_ROLE(), address(testPositionManager)));
+        assertFalse(roboshareTokens.hasRole(roboshareTokens.MANAGER_ROLE(), admin));
 
         // Verify role hashes
         assertEq(roboshareTokens.MINTER_ROLE(), keccak256("MINTER_ROLE"), "Invalid MINTER_ROLE hash");
@@ -485,11 +486,70 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         vm.prank(admin);
         freshToken.setPositionManager(address(freshManager));
 
+        assertTrue(freshToken.hasRole(freshToken.MANAGER_ROLE(), address(freshManager)));
+        assertFalse(freshToken.hasRole(freshToken.MANAGER_ROLE(), admin));
+
         vm.prank(admin);
         freshToken.mint(user1, tokenId, amount, "");
 
         uint256 penalty = freshToken.getSalesPenalty(user1, tokenId, amount);
         assertGt(penalty, 0, "Penalty should use backfilled manager policy after late manager attach");
+    }
+
+    function testSetPositionManagerSkipsUnsetRevenueTokenSlots() public {
+        RoboshareTokens freshToken = RoboshareTokens(
+            address(
+                new ERC1967Proxy(address(new RoboshareTokens()), abi.encodeWithSignature("initialize(address)", admin))
+            )
+        );
+        PositionManager freshManager = _deployPositionManager(address(freshToken));
+
+        vm.startPrank(admin);
+        freshToken.reserveNextTokenIdPair();
+        (, uint256 configuredTokenId) = freshToken.reserveNextTokenIdPair();
+        vm.stopPrank();
+
+        uint256 amount = 100;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(admin);
+        freshToken.setRevenueTokenInfo(
+            configuredTokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false
+        );
+
+        vm.prank(admin);
+        freshToken.setPositionManager(address(freshManager));
+
+        vm.prank(admin);
+        freshToken.mint(user1, configuredTokenId, amount, "");
+
+        uint256 penalty = freshToken.getSalesPenalty(user1, configuredTokenId, amount);
+        assertGt(penalty, 0, "Configured revenue token should still sync when earlier slots are unset");
+    }
+
+    function testSetPositionManagerZeroAddress() public {
+        vm.expectRevert(RoboshareTokens.ZeroAddress.selector);
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(0));
+    }
+
+    function testManagerRequiredTokenPathsRevertWhenPositionManagerNotSet() public {
+        RoboshareTokens freshToken = RoboshareTokens(
+            address(
+                new ERC1967Proxy(address(new RoboshareTokens()), abi.encodeWithSignature("initialize(address)", admin))
+            )
+        );
+
+        vm.prank(admin);
+        (, uint256 tokenId) = freshToken.reserveNextTokenIdPair();
+        uint256 amount = 100;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(admin);
+        freshToken.setRevenueTokenInfo(tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false);
+
+        vm.expectRevert(RoboshareTokens.PositionManagerNotSet.selector);
+        freshToken.getLockedAmount(user1, tokenId);
     }
 
     function testGetUserPositionsAndBalance() public {
