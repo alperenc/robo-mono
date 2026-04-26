@@ -106,6 +106,8 @@ contract Marketplace is
     error InvalidDuration();
     error ListingOwnerCannotPurchase();
     error PrimaryRedemptionNotAllowed();
+    error PositionManagerNotSet();
+    error InvalidPositionManager(address manager);
 
     event PrimaryPoolCreated(
         uint256 indexed tokenId,
@@ -729,7 +731,10 @@ contract Marketplace is
     }
 
     function _positionManager() internal view returns (IPositionManager) {
-        return roboshareTokens.positionManager();
+        IPositionManager manager = roboshareTokens.positionManager();
+        if (address(manager) == address(0)) revert PositionManagerNotSet();
+        if (address(manager).code.length == 0) revert InvalidPositionManager(address(manager));
+        return manager;
     }
 
     function _isAssetMarketOperational(uint256 assetId) internal view returns (bool) {
