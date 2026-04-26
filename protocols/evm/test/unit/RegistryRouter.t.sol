@@ -6,6 +6,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { AssetMetadataBaseTest } from "../base/AssetMetadataBaseTest.t.sol";
 import { AssetLib } from "../../contracts/Libraries.sol";
 import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
+import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 
 contract RegistryRouterTest is AssetMetadataBaseTest {
     function _setupBuffersFunded() internal override { }
@@ -241,6 +242,23 @@ contract RegistryRouterTest is AssetMetadataBaseTest {
         vm.prank(address(treasury));
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, tokenIdWithoutRegistry));
         router.recordImmediateProceedsRelease(tokenIdWithoutRegistry, 1);
+    }
+
+    function testRecordImmediateProceedsReleaseRevertsWhenPositionManagerUnset() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        RoboshareTokens freshToken = RoboshareTokens(
+            address(
+                new ERC1967Proxy(address(new RoboshareTokens()), abi.encodeWithSignature("initialize(address)", admin))
+            )
+        );
+
+        vm.prank(admin);
+        router.updateRoboshareTokens(address(freshToken));
+
+        vm.prank(address(treasury));
+        vm.expectRevert(RegistryRouter.PositionManagerNotSet.selector);
+        router.recordImmediateProceedsRelease(scenario.revenueTokenId, 1);
     }
 
     function testRecordPrimaryRedemptionPayoutNotTreasury() public {

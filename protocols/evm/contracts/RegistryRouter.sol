@@ -45,6 +45,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     error NotTreasury();
     error NotMarketplace();
     error DirectCallNotAllowed();
+    error PositionManagerNotSet();
 
     // Events
     event IdBoundToRegistry(uint256 indexed id, address indexed registry);
@@ -476,7 +477,9 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     }
 
     function _positionManager() internal view returns (IPositionManager) {
-        return roboshareTokens.positionManager();
+        IPositionManager manager = roboshareTokens.positionManager();
+        if (address(manager) == address(0)) revert PositionManagerNotSet();
+        return manager;
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {
