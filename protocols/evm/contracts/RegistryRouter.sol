@@ -46,6 +46,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     error NotMarketplace();
     error DirectCallNotAllowed();
     error PositionManagerNotSet();
+    error InvalidPositionManager(address manager);
 
     // Events
     event IdBoundToRegistry(uint256 indexed id, address indexed registry);
@@ -479,6 +480,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
     function _positionManager() internal view returns (IPositionManager) {
         IPositionManager manager = roboshareTokens.positionManager();
         if (address(manager) == address(0)) revert PositionManagerNotSet();
+        if (address(manager).code.length == 0) revert InvalidPositionManager(address(manager));
         return manager;
     }
 

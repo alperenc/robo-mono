@@ -261,6 +261,26 @@ contract RegistryRouterTest is AssetMetadataBaseTest {
         router.recordImmediateProceedsRelease(scenario.revenueTokenId, 1);
     }
 
+    function testBurnRevenueTokensFromHolderForPrimaryRedemptionRevertsWhenPositionManagerIsNotContract() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        RoboshareTokens freshToken = RoboshareTokens(
+            address(
+                new ERC1967Proxy(address(new RoboshareTokens()), abi.encodeWithSignature("initialize(address)", admin))
+            )
+        );
+
+        vm.prank(admin);
+        freshToken.setPositionManager(unauthorized);
+
+        vm.prank(admin);
+        router.updateRoboshareTokens(address(freshToken));
+
+        vm.prank(address(treasury));
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.InvalidPositionManager.selector, unauthorized));
+        router.burnRevenueTokensFromHolderForPrimaryRedemption(buyer, scenario.revenueTokenId, 1);
+    }
+
     function testRecordPrimaryRedemptionPayoutNotTreasury() public {
         vm.expectRevert(RegistryRouter.NotTreasury.selector);
         router.recordPrimaryRedemptionPayout(102, 1);
