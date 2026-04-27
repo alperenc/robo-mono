@@ -8,6 +8,7 @@ import { StdStorage, stdStorage } from "forge-std/StdStorage.sol";
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
 import { ProtocolLib, AssetLib, TokenLib, CollateralLib, EarningsLib } from "../../contracts/Libraries.sol";
 import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
@@ -402,11 +403,15 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testProcessPrimaryRedemptionFor() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
+        IPositionManager manager = roboshareTokens.positionManager();
         uint256 burnAmount = PRIMARY_PURCHASE_AMOUNT / 2;
         (uint256 preview,,,) = marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
         assertGt(preview, 0);
 
         CollateralLib.CollateralInfo memory beforeInfo = _getCollateralInfo(scenario.assetId);
+        uint256 supplyBefore = manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId);
+        uint256 principalBefore = manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId);
+        uint256 eligibleBefore = manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId);
         uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
         uint256 buyerTokensBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
@@ -417,10 +422,33 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         assertEq(payout, preview);
         assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + payout);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokensBefore - burnAmount);
+        assertEq(manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId), supplyBefore - burnAmount);
+        assertEq(manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId), principalBefore - payout);
+        assertEq(
+            manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId), eligibleBefore - burnAmount
+        );
         assertEq(
             afterInfo.unredeemedBasePrincipal,
             beforeInfo.unredeemedBasePrincipal - (burnAmount * roboshareTokens.getTokenPrice(scenario.revenueTokenId))
         );
+    }
+
+    function testProcessPrimaryRedemptionForConsumesManagerStateAfterFullPayout() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+
+        IPositionManager manager = roboshareTokens.positionManager();
+        uint256 burnAmount = PRIMARY_PURCHASE_AMOUNT;
+        (uint256 preview,,,) = marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
+        uint256 epochBefore = manager.getCurrentPrimaryRedemptionEpoch(scenario.revenueTokenId);
+
+        vm.prank(address(marketplace));
+        uint256 payout = treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, burnAmount, preview);
+
+        assertEq(payout, preview);
+        assertEq(manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId), 0);
+        assertEq(manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId), 0);
+        assertEq(manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId), 0);
+        assertEq(manager.getCurrentPrimaryRedemptionEpoch(scenario.revenueTokenId), epochBefore + 1);
     }
 
     function testProcessPrimaryRedemptionForMultipleBurnsPreservesSnapshottedEarnings() public {
