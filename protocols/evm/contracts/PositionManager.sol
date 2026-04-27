@@ -529,18 +529,25 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
         uint256 payout,
         bytes32 reason
     ) external onlyRole(AUTHORIZED_TREASURY_ROLE) {
+        _recordSettlementClaim(assetId, tokenId, account, burnAmount, payout, reason);
+    }
+
+    function creditSettlementClaim(address account, uint256 assetId, uint256 burnAmount, bytes32 reason)
+        external
+        onlyRole(AUTHORIZED_TREASURY_ROLE)
+        returns (uint256 payout)
+    {
+        if (burnAmount == 0) {
+            return 0;
+        }
+
         SettlementStateInternal storage state = _settlementStates[assetId];
         if (!state.isConfigured) {
             revert SettlementNotConfigured(assetId);
         }
 
-        SettlementClaimStateInternal storage claimState = _settlementClaims[assetId][state.epochId][account];
-        claimState.burnedAmount += burnAmount;
-        claimState.payout += payout;
-        state.claimedBurnAmount += burnAmount;
-        state.claimedPayout += payout;
-
-        emit SettlementClaimRecorded(assetId, tokenId, account, burnAmount, payout, reason);
+        payout = burnAmount * state.settlementPerToken;
+        _recordSettlementClaim(assetId, TokenLib.getTokenIdFromAssetId(assetId), account, burnAmount, payout, reason);
     }
 
     function getSettlementState(uint256 assetId) external view returns (SettlementState memory state) {
@@ -614,6 +621,28 @@ contract PositionManager is Initializable, AccessControlUpgradeable, UUPSUpgrade
             tokenInfo.currentRedemptionBackedPrincipal,
             reason
         );
+    }
+
+    function _recordSettlementClaim(
+        uint256 assetId,
+        uint256 tokenId,
+        address account,
+        uint256 burnAmount,
+        uint256 payout,
+        bytes32 reason
+    ) internal {
+        SettlementStateInternal storage state = _settlementStates[assetId];
+        if (!state.isConfigured) {
+            revert SettlementNotConfigured(assetId);
+        }
+
+        SettlementClaimStateInternal storage claimState = _settlementClaims[assetId][state.epochId][account];
+        claimState.burnedAmount += burnAmount;
+        claimState.payout += payout;
+        state.claimedBurnAmount += burnAmount;
+        state.claimedPayout += payout;
+
+        emit SettlementClaimRecorded(assetId, tokenId, account, burnAmount, payout, reason);
     }
 
     function _roboshareTokenManager() internal view returns (IRoboshareTokenManager manager) {

@@ -668,6 +668,53 @@ contract PositionManagerTest is Test {
         assertEq(claimState.payout, 225);
     }
 
+    function testCreditSettlementClaimUsesConfiguredSettlementRate() public {
+        vm.prank(treasury);
+        positionManager.recordSettlement(ASSET_ID, 4, 900, 9, SETTLE_REASON);
+
+        vm.expectEmit(true, true, true, true, address(positionManager));
+        emit SettlementClaimRecorded(ASSET_ID, TOKEN_ID, alice, 20, 180, CLAIM_REASON);
+
+        vm.prank(treasury);
+        uint256 payout = positionManager.creditSettlementClaim(alice, ASSET_ID, 20, CLAIM_REASON);
+
+        assertEq(payout, 180);
+
+        IPositionManager.SettlementState memory settlement = positionManager.getSettlementState(ASSET_ID);
+        assertEq(settlement.claimedBurnAmount, 20);
+        assertEq(settlement.claimedPayout, 180);
+
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(ASSET_ID, alice);
+        assertEq(claimState.burnedAmount, 20);
+        assertEq(claimState.payout, 180);
+    }
+
+    function testCreditSettlementClaimReturnsZeroForZeroBurnAmount() public {
+        vm.prank(treasury);
+        positionManager.recordSettlement(ASSET_ID, 4, 900, 9, SETTLE_REASON);
+
+        vm.prank(treasury);
+        uint256 payout = positionManager.creditSettlementClaim(alice, ASSET_ID, 0, CLAIM_REASON);
+
+        assertEq(payout, 0);
+
+        IPositionManager.SettlementState memory settlement = positionManager.getSettlementState(ASSET_ID);
+        assertEq(settlement.claimedBurnAmount, 0);
+        assertEq(settlement.claimedPayout, 0);
+
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(ASSET_ID, alice);
+        assertEq(claimState.burnedAmount, 0);
+        assertEq(claimState.payout, 0);
+    }
+
+    function testCreditSettlementClaimRevertsWhenSettlementNotConfigured() public {
+        vm.expectRevert(abi.encodeWithSelector(IPositionManager.SettlementNotConfigured.selector, ASSET_ID));
+        vm.prank(treasury);
+        positionManager.creditSettlementClaim(alice, ASSET_ID, 1, CLAIM_REASON);
+    }
+
     function testSettlementClaimsResetAcrossEpochs() public {
         vm.startPrank(treasury);
         positionManager.recordSettlement(ASSET_ID, 4, 900, 9, SETTLE_REASON);
