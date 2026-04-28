@@ -41,6 +41,7 @@ interface IAssetRegistry {
     error AssetNotEligibleForLiquidation(uint256 assetId);
     error AssetNotSettled(uint256 assetId, AssetLib.AssetStatus currentStatus);
     error InsufficientTokenBalance(uint256 tokenId, uint256 required, uint256 available);
+    error InvalidPoolSupply();
 
     /**
      * @dev Asset registration and revenue token pool creation.
@@ -77,11 +78,11 @@ interface IAssetRegistry {
      * Reverts if the asset is invalid or caller is not authorized.
      * @param assetId The asset ID
      * @param partner The partner initiating the pool creation
-     * @param tokenPrice Price per revenue token in USDC
+     * @param requestedSupply Explicit pool size to validate
      * @return tokenId The revenue token ID
-     * @return supply The computed token supply
+     * @return supply The approved token supply
      */
-    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 requestedSupply)
         external
         view
         returns (uint256 tokenId, uint256 supply);

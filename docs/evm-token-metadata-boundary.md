@@ -10,9 +10,9 @@ This document defines the metadata model between `VehicleRegistry` and `Roboshar
   - asset NFT metadata URI pointer (`ipfs://...`)
   - paired revenue-token metadata URI pointer (`ipfs://...`)
 - **Transitional legacy state:**
-  - `assetValue` still exists because current pool creation derives issuance from it.
+  - `assetValue` still exists in registry asset info for legacy accounting/display compatibility.
+  - Pool sizing no longer derives issuance from `assetValue`; explicit pool-size terms such as `maxSupply` are authoritative.
   - The target boundary does not treat appraisal/display value as registry business metadata or as the source of pool sizing.
-  - ROB-97 owns removing `assetValue`-driven issuance in favor of explicit pool-size terms such as `maxSupply`.
 - **Protocol/economic terms (trusted on-chain when contracts use them):**
   - token price or current price/NAV, depending on the final pricing model
   - maturity date
