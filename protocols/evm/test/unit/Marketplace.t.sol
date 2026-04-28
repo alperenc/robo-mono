@@ -91,6 +91,59 @@ contract MarketplaceRoboshareTokensStub {
     }
 }
 
+contract MarketplacePositionManagerStub {
+    uint256 internal _penalty;
+    uint256 internal _eligibleBalance;
+    uint256 internal _redemptionSupply;
+    address internal _lastLockHolder;
+    uint256 internal _lastLockTokenId;
+    uint256 internal _lastLockAmount;
+    mapping(uint256 => uint256) internal _listingPenalties;
+
+    function setSalesPenalty(uint256 penalty) external {
+        _penalty = penalty;
+    }
+
+    function setRedemptionPreview(uint256 eligibleBalance, uint256 redemptionSupply) external {
+        _eligibleBalance = eligibleBalance;
+        _redemptionSupply = redemptionSupply;
+    }
+
+    function getSalesPenalty(address, uint256, uint256) external view returns (uint256) {
+        return _penalty;
+    }
+
+    function getPrimaryRedemptionEligibleBalance(address, uint256) external view returns (uint256) {
+        return _eligibleBalance;
+    }
+
+    function getCurrentPrimaryRedemptionEpochSupply(uint256) external view returns (uint256) {
+        return _redemptionSupply;
+    }
+
+    function lockForListing(address holder, uint256 tokenId, uint256 amount) external {
+        _lastLockHolder = holder;
+        _lastLockTokenId = tokenId;
+        _lastLockAmount = amount;
+    }
+
+    function getLastLock() external view returns (address holder, uint256 tokenId, uint256 amount) {
+        return (_lastLockHolder, _lastLockTokenId, _lastLockAmount);
+    }
+
+    function bookSalePenalty(uint256 listingId, address, uint256, uint256 amount) external {
+        _listingPenalties[listingId] = amount;
+    }
+
+    function clearSalePenalty(uint256 listingId) external {
+        delete _listingPenalties[listingId];
+    }
+
+    function getSalePenalty(uint256 listingId) external view returns (uint256) {
+        return _listingPenalties[listingId];
+    }
+}
+
 contract MarketplaceTest is AssetMetadataBaseTest {
     function _setupBuffersFunded() internal override { }
 
@@ -408,6 +461,36 @@ contract MarketplaceTest is AssetMetadataBaseTest {
         );
     }
 
+    function testCreateListingUsesPositionManagerPenaltyAndLocking() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        MarketplaceRoboshareTokensStub tokenStub = new MarketplaceRoboshareTokensStub();
+        MarketplacePositionManagerStub managerStub = new MarketplacePositionManagerStub();
+
+        tokenStub.setPositionManager(address(managerStub));
+        tokenStub.setRevenueTokenSupply(SECONDARY_LISTING_AMOUNT);
+        tokenStub.setSalesPenalty(17e6);
+        tokenStub.setBalance(partner1, scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
+        managerStub.setSalesPenalty(23e6);
+
+        vm.prank(admin);
+        marketplace.updateRoboshareTokens(address(tokenStub));
+
+        vm.prank(partner1);
+        uint256 listingId = marketplace.createListing(
+            scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT, REVENUE_TOKEN_PRICE, LISTING_DURATION, true
+        );
+
+        Marketplace.Listing memory listing = marketplace.getListing(listingId);
+        assertEq(listing.earlySalePenalty, 23e6);
+        assertEq(managerStub.getSalePenalty(listingId), 23e6);
+
+        (address lockedHolder, uint256 lockedTokenId, uint256 lockedAmount) = managerStub.getLastLock();
+        assertEq(lockedHolder, partner1);
+        assertEq(lockedTokenId, scenario.revenueTokenId);
+        assertEq(lockedAmount, SECONDARY_LISTING_AMOUNT);
+    }
+
     function testBuyFromSecondaryListingRevertsWhenPositionManagerIsNotContract() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         _purchasePrimaryPoolTokens(partner1, scenario.revenueTokenId, SECONDARY_LISTING_AMOUNT);
@@ -434,6 +517,53 @@ contract MarketplaceTest is AssetMetadataBaseTest {
         vm.stopPrank();
 
         assertEq(usdc.balanceOf(buyer), buyerUsdcBefore);
+    }
+
+    function testPreviewPrimaryRedemptionRevertsWhenPositionManagerUnset() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        MarketplaceRoboshareTokensStub stub = new MarketplaceRoboshareTokensStub();
+
+        vm.prank(admin);
+        marketplace.updateRoboshareTokens(address(stub));
+
+        vm.expectRevert(Marketplace.PositionManagerNotSet.selector);
+        marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, 1);
+    }
+
+    function testPreviewPrimaryRedemptionRevertsWhenPositionManagerIsNotContract() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+
+        MarketplaceRoboshareTokensStub stub = new MarketplaceRoboshareTokensStub();
+        stub.setPositionManager(unauthorized);
+
+        vm.prank(admin);
+        marketplace.updateRoboshareTokens(address(stub));
+
+        vm.expectRevert(abi.encodeWithSelector(Marketplace.InvalidPositionManager.selector, unauthorized));
+        marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, 1);
+    }
+
+    function testPreviewPrimaryRedemptionUsesPositionManagerViews() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+
+        MarketplaceRoboshareTokensStub tokenStub = new MarketplaceRoboshareTokensStub();
+        MarketplacePositionManagerStub managerStub = new MarketplacePositionManagerStub();
+
+        tokenStub.setPositionManager(address(managerStub));
+        managerStub.setRedemptionPreview(PRIMARY_PURCHASE_AMOUNT, PRIMARY_PURCHASE_AMOUNT);
+
+        vm.prank(admin);
+        marketplace.updateRoboshareTokens(address(tokenStub));
+
+        (, uint256 investorLiquidity,,,,,,,,,) = treasury.assetCollateral(scenario.assetId);
+
+        (uint256 payout,, uint256 redemptionSupply, uint256 eligibleBalance) =
+            marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, PRIMARY_PURCHASE_AMOUNT);
+
+        assertEq(payout, investorLiquidity);
+        assertEq(redemptionSupply, PRIMARY_PURCHASE_AMOUNT);
+        assertEq(eligibleBalance, PRIMARY_PURCHASE_AMOUNT);
     }
 
     function testUpdateTreasury() public {
