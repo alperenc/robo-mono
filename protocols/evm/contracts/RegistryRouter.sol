@@ -242,11 +242,15 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         }
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        (settlementAmount, settlementPerToken) = ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
+        ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
+        IPositionManager.SettlementState memory settlementState = _getConfiguredSettlementState(assetId);
         IAssetRegistry(idToRegistry[assetId]).setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
 
         // Best-effort: settlement should close primary pool if it exists.
         _closePrimaryPoolIfMarketplaceConfigured(revenueTokenId);
+
+        settlementAmount = settlementState.settlementAmount;
+        settlementPerToken = settlementState.settlementPerToken;
     }
 
     /**
@@ -268,11 +272,15 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         }
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        (liquidationAmount, settlementPerToken) = ITreasury(treasury).executeLiquidation(assetId);
+        ITreasury(treasury).executeLiquidation(assetId);
+        IPositionManager.SettlementState memory settlementState = _getConfiguredSettlementState(assetId);
         IAssetRegistry(idToRegistry[assetId]).setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
 
         // Best-effort: liquidation should close primary pool if it exists.
         _closePrimaryPoolIfMarketplaceConfigured(revenueTokenId);
+
+        liquidationAmount = settlementState.settlementAmount;
+        settlementPerToken = settlementState.settlementPerToken;
     }
 
     /**
@@ -355,20 +363,20 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         IAssetRegistry(registry).liquidateAsset(assetId);
     }
 
-    function claimSettlement(uint256 assetId, bool autoClaimEarnings)
-        external
-        pure
-        override
-        returns (uint256, uint256)
-    {
-        assetId;
-        autoClaimEarnings;
-        revert DirectCallNotAllowed();
+    function claimSettlement(uint256 assetId, bool autoClaimEarnings) external override returns (uint256, uint256) {
+        return _claimSettlementFor(msg.sender, assetId, autoClaimEarnings);
     }
 
     function claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
         external
         override
+        returns (uint256 claimedAmount, uint256 earningsClaimed)
+    {
+        return _claimSettlementFor(account, assetId, autoClaimEarnings);
+    }
+
+    function _claimSettlementFor(address account, uint256 assetId, bool autoClaimEarnings)
+        internal
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
         address registry = idToRegistry[assetId];
@@ -482,6 +490,17 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (address(manager) == address(0)) revert PositionManagerNotSet();
         if (address(manager).code.length == 0) revert InvalidPositionManager(address(manager));
         return manager;
+    }
+
+    function _getConfiguredSettlementState(uint256 assetId)
+        internal
+        view
+        returns (IPositionManager.SettlementState memory settlementState)
+    {
+        settlementState = _positionManager().getSettlementState(assetId);
+        if (!settlementState.isConfigured) {
+            revert IPositionManager.SettlementNotConfigured(assetId);
+        }
     }
 
     function getRegistryForAsset(uint256 assetId) external view override returns (address) {
