@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { AssetLib, ProtocolLib } from "../../contracts/Libraries.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
 import { Marketplace } from "../../contracts/Marketplace.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
@@ -592,12 +593,15 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
     function testPrimaryRedemptionPreviewAndRedeem() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
         uint256 burnAmount = PRIMARY_PURCHASE_AMOUNT / 2;
+        IPositionManager manager = roboshareTokens.positionManager();
 
         (uint256 previewPayout,, uint256 redemptionSupply, uint256 eligibleBalance) =
             marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
         assertGt(previewPayout, 0);
         assertGt(redemptionSupply, 0);
         assertGe(eligibleBalance, burnAmount);
+        assertEq(redemptionSupply, manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId));
+        assertEq(eligibleBalance, manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId));
 
         uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
         uint256 buyerTokensBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
@@ -696,6 +700,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
     function testEndListing() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
+        IPositionManager manager = roboshareTokens.positionManager();
 
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         vm.startPrank(buyer);
@@ -717,10 +722,12 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(lockedBefore, buyerBefore);
         assertEq(lockedAfter, 0);
         assertEq(buyerAfter, buyerBefore);
+        assertEq(manager.getSalePenalty(listingId), 0);
     }
 
     function testCreateListingSetsEarlySalePenalty() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
+        IPositionManager manager = roboshareTokens.positionManager();
         vm.startPrank(buyer);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
         uint256 secondaryListingId = marketplace.createListing(
@@ -730,6 +737,14 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
         Marketplace.Listing memory listing = marketplace.getListing(secondaryListingId);
         assertGt(listing.earlySalePenalty, 0, "Early sale penalty should be set");
+        assertEq(
+            listing.earlySalePenalty,
+            manager.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT),
+            "Listing penalty should mirror PositionManager at listing time"
+        );
+        assertEq(
+            manager.getSalePenalty(secondaryListingId), listing.earlySalePenalty, "Manager snapshot penalty mismatch"
+        );
     }
 
     // Purchase Listing Tests
@@ -792,9 +807,9 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
     function testBuyFromSecondaryListingEarlySalePenalty() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
+        IPositionManager manager = roboshareTokens.positionManager();
 
-        uint256 earlySalePenalty =
-            roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        uint256 earlySalePenalty = manager.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
         assertGt(earlySalePenalty, 0, "Sales penalty should be greater than zero");
 
         vm.startPrank(buyer);
@@ -808,7 +823,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
 
-        uint256 fillPenalty = roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        uint256 fillPenalty = manager.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
         assertEq(fillPenalty, earlySalePenalty, "Fill penalty mismatch");
 
         // 4. Partner purchases the tokens
@@ -843,6 +858,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
     function testBuyFromSecondaryListingSellerPaysFee() public {
         _ensureSecondaryListingScenario();
+        IPositionManager manager = roboshareTokens.positionManager();
 
         // Create a secondary listing with seller paying the fee
         uint256 newListingId = _setupSecondaryListing(partner2, SECONDARY_PURCHASE_AMOUNT, REVENUE_TOKEN_PRICE, false);
@@ -850,8 +866,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
             marketplace.previewSecondaryPurchase(newListingId, SECONDARY_PURCHASE_AMOUNT);
         uint256 sellerReceives = totalPrice - protocolFee;
-        uint256 fillPenalty =
-            roboshareTokens.getSalesPenalty(partner2, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        uint256 fillPenalty = manager.getSalesPenalty(partner2, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
 
         vm.startPrank(buyer);
         usdc.approve(address(marketplace), expectedPayment);
@@ -885,6 +900,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
     function testBuyFromSecondaryListingUsesFillTimePenaltyAfterHoldingPeriod() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
+        IPositionManager manager = roboshareTokens.positionManager();
 
         vm.startPrank(buyer);
         roboshareTokens.setApprovalForAll(address(marketplace), true);
@@ -898,7 +914,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
         _warpPastHoldingPeriod();
 
-        uint256 fillPenalty = roboshareTokens.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
+        uint256 fillPenalty = manager.getSalesPenalty(buyer, scenario.revenueTokenId, SECONDARY_PURCHASE_AMOUNT);
         assertEq(fillPenalty, 0, "Fill-time penalty should decay to zero after holding period");
 
         (uint256 totalPrice, uint256 protocolFee, uint256 expectedPayment) =
