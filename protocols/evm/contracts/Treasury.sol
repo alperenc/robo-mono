@@ -100,6 +100,14 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         return roboshareTokens.positionManager();
     }
 
+    function _isSettlementConfigured(uint256 assetId) internal view returns (bool) {
+        return _positionManager().getSettlementState(assetId).isConfigured;
+    }
+
+    function _isTerminalAssetStatus(AssetLib.AssetStatus status) internal pure returns (bool) {
+        return status == AssetLib.AssetStatus.Retired || status == AssetLib.AssetStatus.Expired;
+    }
+
     /**
      * @notice Initializes the treasury and wires its core protocol dependencies.
      * @param _admin Address receiving admin, upgrader, and treasurer roles
@@ -477,8 +485,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     }
 
     function isAssetSolvent(uint256 assetId) external view override returns (bool) {
-        // An asset is solvent if it hasn't been settled AND is not currently under financial distress
-        return !assetSettlements[assetId].isSettled && CollateralLib.isSolvent(assetCollateral[assetId]);
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        if (_isTerminalAssetStatus(status) || _isSettlementConfigured(assetId)) {
+            return false;
+        }
+
+        return CollateralLib.isSolvent(assetCollateral[assetId]);
     }
 
     function previewCollateralRelease(uint256 assetId, uint256 pendingNetEarnings)
@@ -794,8 +806,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         override
         returns (bool eligible, uint8 reason)
     {
-        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
-        if (settlement.isSettled) {
+        AssetLib.AssetStatus status = router.getAssetStatus(assetId);
+        if (_isTerminalAssetStatus(status) || _isSettlementConfigured(assetId)) {
             return (false, 2);
         }
 
@@ -843,10 +855,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 liquidationAmount, uint256 settlementPerToken)
     {
-        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
-        if (settlement.isSettled) {
-            revert IAssetRegistry.AssetAlreadySettled(assetId, router.getAssetStatus(assetId));
+        AssetLib.AssetStatus currentStatus = router.getAssetStatus(assetId);
+        if (_isTerminalAssetStatus(currentStatus) || _isSettlementConfigured(assetId)) {
+            revert IAssetRegistry.AssetAlreadySettled(assetId, currentStatus);
         }
+
+        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
 
         _applyMissedEarningsShortfall(assetId);
 
@@ -878,11 +892,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
                 settlement.settlementPerToken,
                 keccak256("LIQUIDATION_SETTLEMENT")
             );
-
-        // Update asset status to Expired (liquidation)
-        router.setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
-
-        return (liquidationAmount, settlement.settlementPerToken);
+        settlementPerToken = settlement.settlementPerToken;
+        return (liquidationAmount, settlementPerToken);
     }
 
     function _applyMissedEarningsShortfall(uint256 assetId) internal {
@@ -932,10 +943,9 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     function previewSettlementClaim(uint256 assetId, address holder) external view returns (uint256) {
         _requireAssetExists(assetId);
 
-        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
-        if (!settlement.isSettled || tokenBalance == 0) {
+        if (!_isSettlementConfigured(assetId) || tokenBalance == 0) {
             return 0;
         }
 
@@ -948,10 +958,12 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 settlementAmount, uint256 settlementPerToken)
     {
-        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
-        if (settlement.isSettled) {
-            revert IAssetRegistry.AssetAlreadySettled(assetId, router.getAssetStatus(assetId));
+        AssetLib.AssetStatus currentStatus = router.getAssetStatus(assetId);
+        if (_isTerminalAssetStatus(currentStatus) || _isSettlementConfigured(assetId)) {
+            revert IAssetRegistry.AssetAlreadySettled(assetId, currentStatus);
         }
+
+        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
 
         // Transfer top-up if any
         if (topUpAmount > 0) {
@@ -983,11 +995,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
                 settlement.settlementPerToken,
                 keccak256("VOLUNTARY_SETTLEMENT")
             );
-
-        // Update asset status to Retired
-        router.setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
-
-        return (settlementAmount, settlement.settlementPerToken);
+        settlementPerToken = settlement.settlementPerToken;
+        return (settlementAmount, settlementPerToken);
     }
 
     function processSettlementClaimFor(address recipient, uint256 assetId, uint256 amount)
@@ -996,8 +1005,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         onlyRole(AUTHORIZED_ROUTER_ROLE)
         returns (uint256 claimedAmount)
     {
-        CollateralLib.SettlementInfo storage settlement = assetSettlements[assetId];
-        if (!settlement.isSettled) {
+        if (!_isSettlementConfigured(assetId)) {
             revert IAssetRegistry.AssetNotSettled(assetId, router.getAssetStatus(assetId));
         }
 
@@ -1007,11 +1015,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         claimedAmount = _positionManager()
             .creditSettlementClaim(recipient, assetId, amount, keccak256("TREASURY_SETTLEMENT_CLAIM"));
-
-        // Add to pending withdrawals (consistent withdrawal pattern)
-        if (claimedAmount > 0) {
-            pendingWithdrawals[recipient] += claimedAmount;
-        }
+        pendingWithdrawals[recipient] += claimedAmount;
 
         emit SettlementClaimed(assetId, recipient, claimedAmount);
     }
