@@ -12,6 +12,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IEarningsManager } from "./interfaces/IEarningsManager.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 import { ProtocolLib, TokenLib, CollateralLib, EarningsLib, AssetLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
@@ -35,6 +36,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
     bytes32 public constant AUTHORIZED_MARKETPLACE_ROLE = keccak256("AUTHORIZED_MARKETPLACE_ROLE");
     bytes32 public constant AUTHORIZED_ROUTER_ROLE = keccak256("AUTHORIZED_ROUTER_ROLE");
     bytes32 public constant AUTHORIZED_EARNINGS_MANAGER_ROLE = keccak256("AUTHORIZED_EARNINGS_MANAGER_ROLE");
+    bytes32 private constant PRIMARY_REDEMPTION_CONSUMED_REASON = keccak256("PRIMARY_REDEMPTION_CONSUMED");
 
     // Core contracts
     PartnerManager public partnerManager;
@@ -92,6 +94,10 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         if (address(earningsManager) == address(0)) {
             revert EarningsManagerNotSet();
         }
+    }
+
+    function _positionManager() internal view returns (IPositionManager) {
+        return roboshareTokens.positionManager();
     }
 
     /**
@@ -218,11 +224,13 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             revert InsufficientPrimaryLiquidity();
         }
 
-        uint256 redemptionSupply = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
+        IPositionManager manager = _positionManager();
+
+        uint256 redemptionSupply = manager.getCurrentPrimaryRedemptionEpochSupply(tokenId);
         if (redemptionSupply == 0) {
             revert NoRedeemablePrimarySupply();
         }
-        if (roboshareTokens.getPrimaryRedemptionEligibleBalance(holder, tokenId) < burnAmount) {
+        if (manager.getPrimaryRedemptionEligibleBalance(holder, tokenId) < burnAmount) {
             revert InsufficientTokenBalance();
         }
 
@@ -239,7 +247,6 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         }
 
         router.burnRevenueTokensFromHolderForPrimaryRedemption(holder, tokenId, burnAmount);
-        router.recordPrimaryRedemptionPayout(tokenId, payout);
 
         uint256 redeemedPrincipal = burnAmount * roboshareTokens.getTokenPrice(tokenId);
         CollateralLib.CollateralInfo storage collateralInfo = assetCollateral[assetId];
@@ -250,6 +257,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
         _reconcileReleasedBaseCollateral(collateralInfo);
         totalCollateralDeposited = totalCollateralDeposited >= payout ? totalCollateralDeposited - payout : 0;
         usdc.safeTransfer(holder, payout);
+        manager.consumePrimaryRedemption(holder, tokenId, burnAmount, payout, PRIMARY_REDEMPTION_CONSUMED_REASON);
     }
 
     function _getCoverableBaseCollateral(uint256 assetId) internal view returns (uint256 coverableBaseCollateral) {
