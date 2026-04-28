@@ -5,6 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IAssetRegistry } from "./interfaces/IAssetRegistry.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 import { TokenLib, AssetLib, VehicleLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
@@ -33,6 +34,9 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
     error VehicleAlreadyExists();
     error VehicleDoesNotExist();
     error OutstandingTokensHeldByOthers();
+    error PositionManagerNotSet();
+    error InvalidPositionManager(address manager);
+    error SettlementPayoutMismatch(uint256 expected, uint256 actual);
 
     // Events
     event VehicleRegistered(uint256 indexed vehicleId, address indexed partner, bytes32 indexed vinHash);
@@ -305,7 +309,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         override
         returns (uint256 claimedAmount, uint256 earningsClaimed)
     {
-        return _claimSettlementFor(msg.sender, assetId, autoClaimEarnings);
+        return router.claimSettlementFor(msg.sender, assetId, autoClaimEarnings);
     }
 
     /**
@@ -482,6 +486,13 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
             revert InsufficientTokenBalance(revenueTokenId, 1, balance);
         }
 
+        IPositionManager positionManager = _positionManager();
+        IPositionManager.SettlementState memory settlementState = positionManager.getSettlementState(assetId);
+        if (!settlementState.isConfigured) {
+            revert AssetNotSettled(assetId, info.status);
+        }
+        uint256 expectedPayout = positionManager.previewSettlementClaim(assetId, balance);
+
         uint256 snapshotAmount = router.snapshotAndClaimEarnings(assetId, account, autoClaimEarnings);
         if (autoClaimEarnings) {
             earningsClaimed = snapshotAmount;
@@ -489,8 +500,17 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
 
         roboshareTokens.burn(account, revenueTokenId, balance);
         claimedAmount = router.processSettlementClaimFor(account, assetId, balance);
+        if (claimedAmount != expectedPayout) {
+            revert SettlementPayoutMismatch(expectedPayout, claimedAmount);
+        }
 
         emit SettlementClaimed(assetId, account, balance, claimedAmount);
+    }
+
+    function _positionManager() internal view returns (IPositionManager manager) {
+        manager = roboshareTokens.positionManager();
+        if (address(manager) == address(0)) revert PositionManagerNotSet();
+        if (address(manager).code.length == 0) revert InvalidPositionManager(address(manager));
     }
 
     /**

@@ -910,7 +910,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     }
 
     function testClaimSettlementAssetNotFound() public {
-        vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("RegistryNotFound(uint256)")), 999));
         vm.prank(partner1);
         assetRegistry.claimSettlement(999, false);
     }
@@ -943,6 +943,28 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         );
 
         assetRegistry.claimSettlement(scenario.assetId, false);
+    }
+
+    function testClaimSettlementTracksManagerPayout() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        uint256 expectedPayout = _positionManager().previewSettlementClaim(scenario.assetId, buyerBalance);
+
+        vm.prank(buyer);
+        (uint256 claimedAmount, uint256 earningsClaimed) = assetRegistry.claimSettlement(scenario.assetId, false);
+
+        assertEq(earningsClaimed, 0);
+        assertEq(claimedAmount, expectedPayout);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+
+        IPositionManager.SettlementClaimState memory claimState =
+            _positionManager().getSettlementClaimState(scenario.assetId, buyer);
+        assertEq(claimState.burnedAmount, buyerBalance);
+        assertEq(claimState.payout, claimedAmount);
     }
 
     function testClaimSettlementForUnauthorizedCaller() public {

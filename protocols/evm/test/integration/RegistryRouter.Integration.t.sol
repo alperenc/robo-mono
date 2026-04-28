@@ -5,6 +5,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { TreasuryFlowBaseTest } from "../base/TreasuryFlowBaseTest.t.sol";
 import { AssetLib, TokenLib } from "../../contracts/Libraries.sol";
 import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { Marketplace } from "../../contracts/Marketplace.sol";
 import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
 import { RegistryRouter } from "../../contracts/RegistryRouter.sol";
@@ -499,6 +500,42 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         vm.prank(unauthorizedRegistry);
         vm.expectRevert(RegistryRouter.RegistryNotBoundToAsset.selector);
         router.processSettlementClaimFor(partner1, assetId, 100);
+    }
+
+    function testInitiateSettlementReturnsManagerSettlementState() public {
+        _ensureState(SetupState.EarningsDistributed);
+        uint256 topUpAmount = SETTLEMENT_TOP_UP_AMOUNT;
+
+        vm.prank(partner1);
+        usdc.approve(address(treasury), topUpAmount);
+
+        vm.prank(address(assetRegistry));
+        (uint256 settlementAmount, uint256 settlementPerToken) =
+            router.initiateSettlement(partner1, scenario.assetId, topUpAmount);
+
+        IPositionManager.SettlementState memory settlementState =
+            roboshareTokens.positionManager().getSettlementState(scenario.assetId);
+        assertTrue(settlementState.isConfigured);
+        assertEq(settlementAmount, settlementState.settlementAmount);
+        assertEq(settlementPerToken, settlementState.settlementPerToken);
+    }
+
+    function testClaimSettlementRoutesThroughRegistry() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
+
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
+        uint256 expectedPayout =
+            roboshareTokens.positionManager().previewSettlementClaim(scenario.assetId, buyerBalance);
+
+        vm.prank(buyer);
+        (uint256 claimedAmount, uint256 earningsClaimed) = router.claimSettlement(scenario.assetId, false);
+
+        assertEq(earningsClaimed, 0);
+        assertEq(claimedAmount, expectedPayout);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
     }
 
     // TreasuryNotSet Tests
