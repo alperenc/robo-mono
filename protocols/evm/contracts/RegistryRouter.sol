@@ -241,10 +241,12 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert TreasuryNotSet();
         }
 
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         (settlementAmount, settlementPerToken) = ITreasury(treasury).initiateSettlement(partner, assetId, topUpAmount);
+        IAssetRegistry(idToRegistry[assetId]).setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
 
         // Best-effort: settlement should close primary pool if it exists.
-        _closePrimaryPoolIfMarketplaceConfigured(TokenLib.getTokenIdFromAssetId(assetId));
+        _closePrimaryPoolIfMarketplaceConfigured(revenueTokenId);
     }
 
     /**
@@ -265,10 +267,12 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert TreasuryNotSet();
         }
 
+        uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         (liquidationAmount, settlementPerToken) = ITreasury(treasury).executeLiquidation(assetId);
+        IAssetRegistry(idToRegistry[assetId]).setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
 
         // Best-effort: liquidation should close primary pool if it exists.
-        _closePrimaryPoolIfMarketplaceConfigured(TokenLib.getTokenIdFromAssetId(assetId));
+        _closePrimaryPoolIfMarketplaceConfigured(revenueTokenId);
     }
 
     /**
@@ -281,7 +285,8 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         returns (uint256 claimedAmount)
     {
         // Verify this registry owns the asset
-        if (idToRegistry[assetId] != msg.sender) {
+        address registry = idToRegistry[assetId];
+        if (registry != msg.sender) {
             revert RegistryNotBoundToAsset();
         }
 

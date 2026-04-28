@@ -1690,9 +1690,8 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testInitiateSettlementAlreadySettled() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
-        // First settlement via Treasury directly (simulating router call)
-        vm.prank(address(router));
-        treasury.initiateSettlement(partner1, scenario.assetId, 0);
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
 
         // Second settlement should revert with IAssetRegistry.AssetAlreadySettled
         vm.prank(address(router));
@@ -1708,9 +1707,8 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testExecuteLiquidationAlreadySettled() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
-        // First: settle via Treasury directly (simulating router call)
-        vm.prank(address(router));
-        treasury.initiateSettlement(partner1, scenario.assetId, 0);
+        vm.prank(partner1);
+        assetRegistry.settleAsset(scenario.assetId, 0);
 
         (bool eligible, uint8 reason) = treasury.previewLiquidationEligibility(scenario.assetId);
         assertFalse(eligible);
