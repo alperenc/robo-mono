@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import { Test } from "forge-std/Test.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { PositionManager } from "../../contracts/PositionManager.sol";
 import { RoboshareTokens } from "../../contracts/RoboshareTokens.sol";
@@ -36,6 +35,7 @@ abstract contract BaseTest is Test {
     RegistryRouter public router;
     VehicleRegistry public assetRegistry;
     Marketplace public marketplace;
+    PositionManager public positionManager;
     IERC20 public usdc;
 
     DeployForTest.NetworkConfig public config;
@@ -112,15 +112,19 @@ abstract contract BaseTest is Test {
 
     function _deployContracts() internal {
         deployer = new DeployForTest();
-        (roboshareTokens, partnerManager, router, assetRegistry, treasury, earningsManager, marketplace) =
-            deployer.run(admin);
+        (
+            roboshareTokens,
+            partnerManager,
+            router,
+            assetRegistry,
+            treasury,
+            earningsManager,
+            marketplace,
+            positionManager
+        ) = deployer.run(admin);
 
         config = deployer.getActiveNetworkConfig();
         usdc = IERC20(config.usdcToken);
-
-        PositionManager positionManager = _deployPositionManager();
-        vm.prank(admin);
-        roboshareTokens.setPositionManager(address(positionManager));
     }
 
     function _setupInitialRolesAndAccounts() internal {
@@ -144,27 +148,6 @@ abstract contract BaseTest is Test {
 
     function _fundAddressWithUsdc(address account, uint256 amount) internal {
         deal(address(usdc), account, amount);
-    }
-
-    function _deployPositionManager() internal returns (PositionManager) {
-        PositionManager implementation = new PositionManager();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(implementation),
-            abi.encodeCall(
-                PositionManager.initialize,
-                (
-                    admin,
-                    address(router),
-                    address(roboshareTokens),
-                    address(partnerManager),
-                    address(marketplace),
-                    address(treasury),
-                    address(usdc)
-                )
-            )
-        );
-
-        return PositionManager(address(proxy));
     }
 
     function _setupAssetRegistered() internal virtual returns (uint256);
