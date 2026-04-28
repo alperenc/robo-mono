@@ -47,12 +47,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
     ) internal returns (uint256 assetId, uint256 tokenId, uint256 supply) {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.prank(partner1);
-        assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
         tokenId = assetId + 1;
         supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         uint256 maxSupply = maxSupplyOverride == 0 ? supply : maxSupplyOverride;
@@ -428,12 +423,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
     function testCreatePrimaryPoolInvalidMaxSupply() public {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.prank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
         uint256 tokenId = assetId + 1;
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         vm.prank(address(router));
@@ -960,6 +950,27 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), totalSupply - SECONDARY_LISTING_AMOUNT);
         _assertTokenBalance(address(marketplace), scenario.revenueTokenId, 0, "Marketplace token balance mismatch");
         assertEq(roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId), 0);
+    }
+
+    function testBuyFromSecondaryListingAfterSellerRevokesMarketplaceApproval() public {
+        _ensureSecondaryListingScenario();
+
+        vm.prank(partner1);
+        roboshareTokens.setApprovalForAll(address(marketplace), false);
+
+        uint256 totalPrice = SECONDARY_PURCHASE_AMOUNT * REVENUE_TOKEN_PRICE;
+        uint256 protocolFee = ProtocolLib.calculateProtocolFee(totalPrice);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(marketplace), totalPrice + protocolFee);
+        marketplace.buyFromSecondaryListing(scenario.listingId, SECONDARY_PURCHASE_AMOUNT);
+        vm.stopPrank();
+
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), SECONDARY_PURCHASE_AMOUNT);
+        assertEq(
+            roboshareTokens.getLockedAmount(partner1, scenario.revenueTokenId),
+            SECONDARY_LISTING_AMOUNT - SECONDARY_PURCHASE_AMOUNT
+        );
     }
 
     function testBuyFromSecondaryListingInsufficientPayment() public {

@@ -128,9 +128,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
             usdc,
             partner1,
             buyer,
-            abi.encode(
-                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
+            _vehicleRegistrationData(vin),
             ASSET_VALUE,
             REVENUE_TOKEN_PRICE,
             PRIMARY_PURCHASE_AMOUNT
@@ -149,29 +147,23 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     // Vehicle Registration Tests
 
     function testRegisterAsset() public {
-        (
-            string memory vin,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory metadataURI
-        ) = _generateVehicleData(1);
+        (string memory vin, string memory metadataURI) = _generateVehicleData(1);
 
         vm.expectEmit(true, true, false, true, address(assetRegistry));
         emit IAssetRegistry.AssetRegistered(1, partner1, ASSET_VALUE, AssetLib.AssetStatus.Pending);
 
         vm.expectEmit(true, true, false, true, address(assetRegistry));
-        emit VehicleRegistry.VehicleRegistered(1, partner1, vin);
+        emit VehicleRegistry.VehicleRegistered(1, partner1, keccak256(bytes(vin)));
 
         vm.prank(partner1);
         uint256 newVehicleId = assetRegistry.registerAsset(
-            abi.encode(vin, make, model, year, manufacturerId, optionCodes, metadataURI), ASSET_VALUE
+            _vehicleRegistrationData(vin, metadataURI, TEST_REVENUE_TOKEN_METADATA_URI), ASSET_VALUE
         );
 
         assertEq(newVehicleId, 1);
         _assertVehicleState(newVehicleId, partner1, vin, true);
+        assertEq(roboshareTokens.uri(newVehicleId), metadataURI);
+        assertEq(roboshareTokens.uri(newVehicleId + 1), TEST_REVENUE_TOKEN_METADATA_URI);
         assertEq(roboshareTokens.getNextTokenId(), 3);
     }
 
@@ -191,9 +183,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     function testRegisterAssetAndCreateRevenueTokenPool() public {
         _ensureState(SetupState.InitialAccountsSetup);
 
-        bytes memory vehicleData = abi.encode(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
+        bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
 
         vm.prank(partner1);
         (uint256 assetId, uint256 revenueTokenId, uint256 supply) = assetRegistry.registerAssetAndCreateRevenueTokenPool(
@@ -224,12 +214,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         vm.stopPrank();
 
         vm.startPrank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         (uint256 revenueTokenId, uint256 tokenSupply) = assetRegistry.createRevenueTokenPool(
             assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
@@ -245,9 +230,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     function testRegisterAssetAndCreateRevenueTokenPoolUnauthorizedPartner() public {
         _ensureState(SetupState.InitialAccountsSetup);
 
-        bytes memory vehicleData = abi.encode(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
+        bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
 
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
@@ -268,12 +251,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
@@ -287,20 +265,25 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     function testUpdateVehicleMetadata() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         // Use a valid IPFS URI (prefix + 46-char CID)
-        string memory newURI = "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb";
+        string memory newAssetURI = "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb";
+        string memory newRevenueTokenURI = "ipfs://QmRevenueTokenMetadataUpdated";
 
         vm.prank(partner1);
-        assetRegistry.updateVehicleMetadata(scenario.assetId, newURI);
+        assetRegistry.updateVehicleMetadata(scenario.assetId, newAssetURI, newRevenueTokenURI);
 
-        (,,,,,, string memory metadataURI) = assetRegistry.getVehicleInfo(scenario.assetId);
-        assertEq(metadataURI, newURI);
+        (, string memory assetMetadataURI, string memory revenueTokenMetadataURI) =
+            assetRegistry.getVehicleInfo(scenario.assetId);
+        assertEq(assetMetadataURI, newAssetURI);
+        assertEq(revenueTokenMetadataURI, newRevenueTokenURI);
+        assertEq(roboshareTokens.uri(scenario.assetId), newAssetURI);
+        assertEq(roboshareTokens.uri(scenario.revenueTokenId), newRevenueTokenURI);
     }
 
     function testUpdateVehicleMetadataInvalidUri() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         vm.expectRevert(VehicleLib.InvalidMetadataURI.selector);
         vm.prank(partner1);
-        assetRegistry.updateVehicleMetadata(scenario.assetId, "http://not-ipfs");
+        assetRegistry.updateVehicleMetadata(scenario.assetId, "http://not-ipfs", "ipfs://QmRevenueTokenMetadataUpdated");
     }
 
     // Access Control Tests
@@ -308,45 +291,49 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     function testRegisterAssetUnauthorizedPartner() public {
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
-        assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
     }
 
     function testUpdateVehicleMetadataUnauthorizedPartner() public {
         _ensureState(SetupState.PrimaryPoolCreated);
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
-        assetRegistry.updateVehicleMetadata(scenario.assetId, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
+        assetRegistry.updateVehicleMetadata(
+            scenario.assetId,
+            "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb",
+            "ipfs://QmRevenueTokenMetadataUpdated"
+        );
+    }
+
+    function testUpdateVehicleMetadataAuthorizedPartnerNotAssetOwner() public {
+        _ensureState(SetupState.PrimaryPoolCreated);
+        vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
+        vm.prank(partner2);
+        assetRegistry.updateVehicleMetadata(
+            scenario.assetId,
+            "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb",
+            "ipfs://QmRevenueTokenMetadataUpdated"
+        );
     }
 
     // Error Cases
 
     function testRegisterAssetDuplicateVIN() public {
         _ensureState(SetupState.PrimaryPoolCreated);
-        (
-            ,
-            string memory make,
-            string memory model,
-            uint256 year,
-            uint256 manufacturerId,
-            string memory optionCodes,
-            string memory metadataURI
-        ) = _generateVehicleData(3);
+        (, string memory metadataURI) = _generateVehicleData(3);
         vm.expectRevert(VehicleRegistry.VehicleAlreadyExists.selector);
         vm.prank(partner2);
         assetRegistry.registerAsset(
-            abi.encode(TEST_VIN, make, model, year, manufacturerId, optionCodes, metadataURI), ASSET_VALUE
+            _vehicleRegistrationData(TEST_VIN, metadataURI, TEST_REVENUE_TOKEN_METADATA_URI), ASSET_VALUE
         );
     }
 
     function testUpdateVehicleMetadataVehicleDoesNotExist() public {
         vm.expectRevert(VehicleRegistry.VehicleDoesNotExist.selector);
         vm.prank(partner1);
-        assetRegistry.updateVehicleMetadata(999, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb");
+        assetRegistry.updateVehicleMetadata(
+            999, "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb", "ipfs://QmRevenueTokenMetadataUpdated"
+        );
     }
 
     function testPreviewMintRevenueTokensAssetNotFound() public {
@@ -389,9 +376,9 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     }
 
     function testVINExists() public {
-        assertFalse(assetRegistry.vinExists("FAKE_VIN"));
+        assertFalse(assetRegistry.vinHashExists(keccak256(bytes("FAKE_VIN"))));
         _ensureState(SetupState.PrimaryPoolCreated);
-        assertTrue(assetRegistry.vinExists(TEST_VIN));
+        assertTrue(assetRegistry.vinHashExists(keccak256(bytes(TEST_VIN))));
     }
 
     // New: registry introspection and asset info branches
@@ -432,9 +419,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
 
         uint256 maturityDate = block.timestamp + 365 days;
 
-        bytes memory vehicleData = abi.encode(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
+        bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
 
         (uint256 assetId, uint256 revenueTokenId, uint256 actualSupply) = assetRegistry.registerAssetAndCreateRevenueTokenPool(
             vehicleData, assetValue, tokenPrice, maturityDate, 10_000, 1_000, 0, false, false
@@ -468,9 +453,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
 
         vm.startPrank(partner1);
 
-        bytes memory vehicleData = abi.encode(
-            TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-        );
+        bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
 
         (, uint256 revenueTokenId, uint256 tokenSupply) = assetRegistry.registerAssetAndCreateRevenueTokenPool(
             vehicleData, assetValue, tokenPrice, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
@@ -491,12 +474,15 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
 
         assertTrue(assetRegistry.assetExists(scenario.assetId));
 
-        string memory newURI = "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb";
+        string memory newAssetURI = "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb";
+        string memory newRevenueTokenURI = "ipfs://QmRevenueTokenMetadataUpdated";
         vm.prank(partner1);
-        assetRegistry.updateVehicleMetadata(scenario.assetId, newURI);
+        assetRegistry.updateVehicleMetadata(scenario.assetId, newAssetURI, newRevenueTokenURI);
 
-        (,,,,,, string memory metadataURI) = assetRegistry.getVehicleInfo(scenario.assetId);
-        assertEq(metadataURI, newURI);
+        (, string memory assetMetadataURI, string memory revenueTokenMetadataURI) =
+            assetRegistry.getVehicleInfo(scenario.assetId);
+        assertEq(assetMetadataURI, newAssetURI);
+        assertEq(revenueTokenMetadataURI, newRevenueTokenURI);
     }
 
     function testSetAssetStatus() public {

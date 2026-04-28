@@ -8,11 +8,16 @@ import { StdStorage, stdStorage } from "forge-std/StdStorage.sol";
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
 import { ProtocolLib, AssetLib, TokenLib, CollateralLib, EarningsLib } from "../../contracts/Libraries.sol";
 import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
 contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     using stdStorage for StdStorage;
+
+    function _positionManager() internal view returns (IPositionManager) {
+        return roboshareTokens.positionManager();
+    }
 
     function setUp() public {
         // Integration tests need funded accounts and authorized partners as a baseline
@@ -310,12 +315,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        scenario.assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        scenario.assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         vm.prank(partner1);
@@ -355,12 +355,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        scenario.assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        scenario.assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         vm.prank(partner1);
@@ -412,11 +407,15 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testProcessPrimaryRedemptionFor() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
 
+        IPositionManager manager = roboshareTokens.positionManager();
         uint256 burnAmount = PRIMARY_PURCHASE_AMOUNT / 2;
         (uint256 preview,,,) = marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
         assertGt(preview, 0);
 
         CollateralLib.CollateralInfo memory beforeInfo = _getCollateralInfo(scenario.assetId);
+        uint256 supplyBefore = manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId);
+        uint256 principalBefore = manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId);
+        uint256 eligibleBefore = manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId);
         uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
         uint256 buyerTokensBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
 
@@ -427,10 +426,33 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         assertEq(payout, preview);
         assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + payout);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokensBefore - burnAmount);
+        assertEq(manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId), supplyBefore - burnAmount);
+        assertEq(manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId), principalBefore - payout);
+        assertEq(
+            manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId), eligibleBefore - burnAmount
+        );
         assertEq(
             afterInfo.unredeemedBasePrincipal,
             beforeInfo.unredeemedBasePrincipal - (burnAmount * roboshareTokens.getTokenPrice(scenario.revenueTokenId))
         );
+    }
+
+    function testProcessPrimaryRedemptionForConsumesManagerStateAfterFullPayout() public {
+        _ensureState(SetupState.PurchasedFromPrimaryPool);
+
+        IPositionManager manager = roboshareTokens.positionManager();
+        uint256 burnAmount = PRIMARY_PURCHASE_AMOUNT;
+        (uint256 preview,,,) = marketplace.previewPrimaryRedemption(scenario.revenueTokenId, buyer, burnAmount);
+        uint256 epochBefore = manager.getCurrentPrimaryRedemptionEpoch(scenario.revenueTokenId);
+
+        vm.prank(address(marketplace));
+        uint256 payout = treasury.processPrimaryRedemptionFor(buyer, scenario.revenueTokenId, burnAmount, preview);
+
+        assertEq(payout, preview);
+        assertEq(manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId), 0);
+        assertEq(manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId), 0);
+        assertEq(manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId), 0);
+        assertEq(manager.getCurrentPrimaryRedemptionEpoch(scenario.revenueTokenId), epochBefore + 1);
     }
 
     function testProcessPrimaryRedemptionForMultipleBurnsPreservesSnapshottedEarnings() public {
@@ -543,12 +565,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        scenario.assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        scenario.assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         vm.prank(partner1);
@@ -626,12 +643,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        scenario.assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        scenario.assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         vm.prank(partner1);
@@ -977,13 +989,27 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
+        IPositionManager positionManager = _positionManager();
+        IPositionManager.SettlementState memory settlementState = positionManager.getSettlementState(scenario.assetId);
+        assertTrue(settlementState.isConfigured, "PositionManager settlement should be configured");
+
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         uint256 previewAmount = treasury.previewSettlementClaim(scenario.assetId, buyer);
         assertGt(previewAmount, 0, "Settled preview should be positive");
+        assertEq(
+            previewAmount,
+            positionManager.previewSettlementClaim(scenario.assetId, buyerBalance),
+            "Treasury preview should use PositionManager settlement rate"
+        );
 
         vm.prank(buyer);
         (uint256 settlementClaimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
 
         assertEq(settlementClaimed, previewAmount, "Preview should match settlement claimed");
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(scenario.assetId, buyer);
+        assertEq(claimState.burnedAmount, buyerBalance, "PositionManager should track claimed burn amount");
+        assertEq(claimState.payout, settlementClaimed, "PositionManager should track claimed payout");
         assertEq(treasury.previewSettlementClaim(scenario.assetId, buyer), 0, "Preview should be zero after claim");
     }
 
@@ -1502,12 +1528,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         uint256 maturityDate = block.timestamp + 365 days;
@@ -1881,12 +1902,7 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         string memory vin = _generateVin(4242);
         uint256 assetValue = 4_400 * 10 ** 6;
         vm.prank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                vin, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            assetValue
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(vin), assetValue);
 
         vm.prank(partner1);
         (uint256 revenueTokenId,) = assetRegistry.createRevenueTokenPool(

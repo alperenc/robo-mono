@@ -12,6 +12,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ProtocolLib, TokenLib, AssetLib, CollateralLib } from "./Libraries.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IMarketplace } from "./interfaces/IMarketplace.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
 import { PartnerManager } from "./PartnerManager.sol";
 import { RegistryRouter } from "./RegistryRouter.sol";
@@ -105,6 +106,8 @@ contract Marketplace is
     error InvalidDuration();
     error ListingOwnerCannotPurchase();
     error PrimaryRedemptionNotAllowed();
+    error PositionManagerNotSet();
+    error InvalidPositionManager(address manager);
 
     event PrimaryPoolCreated(
         uint256 indexed tokenId,
@@ -387,7 +390,7 @@ contract Marketplace is
         });
 
         assetListings[assetId].push(listingId);
-        roboshareTokens.lockForListing(seller, tokenId, amount);
+        _positionManager().lockForListing(seller, tokenId, amount);
 
         emit ListingCreated(listingId, tokenId, assetId, seller, amount, pricePerToken, expiresAt, buyerPaysFee);
         return listingId;
@@ -429,7 +432,7 @@ contract Marketplace is
         listing.isActive = false;
 
         if (listing.amount > 0) {
-            roboshareTokens.unlockForListing(listing.seller, listing.tokenId, listing.amount);
+            _positionManager().unlockForListing(listing.seller, listing.tokenId, listing.amount);
             listing.amount = 0;
         }
 
@@ -690,7 +693,7 @@ contract Marketplace is
         }
 
         _routeProtocolFee(quote.protocolFee + quote.earlySalePenalty);
-        roboshareTokens.transferLockedForListing(listing.seller, buyer, listing.tokenId, amount, "");
+        _positionManager().transferLockedForListing(listing.seller, buyer, listing.tokenId, amount);
 
         emit RevenueTokensTraded(listing.tokenId, listing.seller, buyer, amount, listingId, quote.grossProceeds);
     }
@@ -700,7 +703,7 @@ contract Marketplace is
 
         listing.isActive = false;
         if (listing.amount > 0) {
-            roboshareTokens.unlockForListing(listing.seller, listing.tokenId, listing.amount);
+            _positionManager().unlockForListing(listing.seller, listing.tokenId, listing.amount);
             listing.amount = 0;
         }
         return true;
@@ -725,6 +728,13 @@ contract Marketplace is
         if (amount == 0) return;
         _transferUSDC(address(treasury), amount);
         treasury.recordPendingWithdrawalFor(treasury.treasuryFeeRecipient(), amount);
+    }
+
+    function _positionManager() internal view returns (IPositionManager) {
+        IPositionManager manager = roboshareTokens.positionManager();
+        if (address(manager) == address(0)) revert PositionManagerNotSet();
+        if (address(manager).code.length == 0) revert InvalidPositionManager(address(manager));
+        return manager;
     }
 
     function _isAssetMarketOperational(uint256 assetId) internal view returns (bool) {

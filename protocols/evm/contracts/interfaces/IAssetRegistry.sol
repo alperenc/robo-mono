@@ -44,6 +44,8 @@ interface IAssetRegistry {
 
     /**
      * @dev Asset registration and revenue token pool creation.
+     * @param data Registry-specific ABI payload. VehicleRegistry expects
+     *        abi.encode(string vin, string assetMetadataURI, string revenueTokenMetadataURI).
      */
     function registerAsset(bytes calldata data, uint256 assetValue) external returns (uint256 assetId);
 
