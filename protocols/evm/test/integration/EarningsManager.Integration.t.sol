@@ -173,7 +173,7 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(earningsManager.previewClaimEarnings(scenario.assetId, unauthorized), 0);
     }
 
-    function testClaimEarningsUsesPositionManagerPositionsWhenTokenBalanceGetterReturnsZero() public {
+    function testClaimEarningsUsesTokenBalanceGateBeforeManagerPositions() public {
         _ensureState(SetupState.EarningsDistributed);
 
         TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, buyer);
@@ -192,12 +192,9 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
             abi.encode(uint256(0))
         );
 
-        uint256 pendingBefore = treasury.pendingWithdrawals(buyer);
+        vm.expectRevert(ITreasury.InsufficientTokenBalance.selector);
         vm.prank(buyer);
         earningsManager.claimEarnings(scenario.assetId);
-        uint256 pendingAfter = treasury.pendingWithdrawals(buyer);
-
-        assertGt(pendingAfter - pendingBefore, 0);
     }
 
     function testPreviewClaimEarningsNoEarningsInitialized() public {

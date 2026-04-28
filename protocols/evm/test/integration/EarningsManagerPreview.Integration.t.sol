@@ -52,7 +52,7 @@ contract EarningsManagerPreviewIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(collateralReleased, 0);
     }
 
-    function testPreviewDistributeEarningsUsesPositionManagerPartnerPositions() public {
+    function testPreviewDistributeEarningsUsesTokenBalanceGateBeforeManagerPositions() public {
         _ensureState(SetupState.BuffersFunded);
 
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
@@ -74,13 +74,13 @@ contract EarningsManagerPreviewIntegrationTest is MarketplaceFlowBaseTest {
             abi.encode(positions)
         );
 
-        (uint256 investorAmount, uint256 protocolFee, uint256 netEarnings, uint256 collateralReleased) =
+        (uint256 investorAmount, uint256 protocolFee, uint256 netEarnings,) =
             earningsManager.previewDistributeEarnings(partner1, scenario.assetId, EARNINGS_AMOUNT, true);
 
-        assertEq(investorAmount, 0);
-        assertEq(protocolFee, 0);
-        assertEq(netEarnings, 0);
-        assertEq(collateralReleased, 0);
+        assertGt(investorAmount, 0);
+        assertGt(netEarnings, 0);
+        assertEq(netEarnings, investorAmount - protocolFee);
+        assertEq(protocolFee, ProtocolLib.calculateProtocolFee(investorAmount));
     }
 
     function testPreviewDistributeEarningsBelowMinimumFeeReturnsInvestorAmountOnly() public {

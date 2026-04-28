@@ -166,7 +166,7 @@ contract EarningsManager is
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
         uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-        uint256 partnerTokenBalance = _getRevenuePositionBalance(revenueTokenId, partner);
+        uint256 partnerTokenBalance = roboshareTokens.balanceOf(partner, revenueTokenId);
         if (partnerTokenBalance >= tokenTotalSupply) {
             return (0, 0, 0, 0);
         }
@@ -230,7 +230,7 @@ contract EarningsManager is
         {
             uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
             uint256 tokenTotalSupply = roboshareTokens.getRevenueTokenSupply(revenueTokenId);
-            uint256 partnerTokenBalance = _getRevenuePositionBalance(revenueTokenId, msg.sender);
+            uint256 partnerTokenBalance = roboshareTokens.balanceOf(msg.sender, revenueTokenId);
             if (partnerTokenBalance >= tokenTotalSupply) {
                 revert ITreasury.NoInvestors();
             }
@@ -322,16 +322,6 @@ contract EarningsManager is
         positions = _positionManager().getUserPositions(revenueTokenId, holder);
     }
 
-    function _sumPositionAmounts(TokenLib.TokenPosition[] memory positions) internal pure returns (uint256 total) {
-        for (uint256 i = 0; i < positions.length; i++) {
-            total += positions[i].amount;
-        }
-    }
-
-    function _getRevenuePositionBalance(uint256 revenueTokenId, address holder) internal view returns (uint256) {
-        return _sumPositionAmounts(_getRevenuePositions(revenueTokenId, holder));
-    }
-
     function claimEarnings(uint256 assetId) external nonReentrant {
         uint256 claimedAmount = _claimEarningsFor(msg.sender, assetId);
         if (claimedAmount == 0) {
@@ -363,11 +353,11 @@ contract EarningsManager is
                 return 0;
             }
             uint256 settledRevenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-            TokenLib.TokenPosition[] memory settledPositions = _getRevenuePositions(settledRevenueTokenId, holder);
-            if (_sumPositionAmounts(settledPositions) == 0) {
+            if (roboshareTokens.balanceOf(holder, settledRevenueTokenId) == 0) {
                 return 0;
             }
 
+            TokenLib.TokenPosition[] memory settledPositions = _getRevenuePositions(settledRevenueTokenId, holder);
             return EarningsLib.previewEarningsForHolder(earningsInfo, holder, settledPositions);
         }
 
@@ -376,11 +366,11 @@ contract EarningsManager is
         }
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
-        if (_sumPositionAmounts(positions) == 0) {
+        if (roboshareTokens.balanceOf(holder, revenueTokenId) == 0) {
             return 0;
         }
 
+        TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
         return EarningsLib.previewEarningsForHolder(earningsInfo, holder, positions);
     }
 
@@ -423,9 +413,9 @@ contract EarningsManager is
             if (unclaimedAmount == 0) {
                 if (roboshareTokens.balanceOf(holder, assetId) == 0) {
                     uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-                    TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
-                    uint256 tokenBalance = _sumPositionAmounts(positions);
+                    uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
                     if (tokenBalance > 0) {
+                        TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
                         unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
                         if (unclaimedAmount > 0) {
                             EarningsLib.updateClaimPeriods(earningsInfo, holder, positions);
@@ -438,12 +428,12 @@ contract EarningsManager is
                 revert ITreasury.NoEarningsToClaim();
             }
             uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-            TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
-            uint256 tokenBalance = _sumPositionAmounts(positions);
+            uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
             if (tokenBalance == 0) {
                 revert ITreasury.InsufficientTokenBalance();
             }
 
+            TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
             unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
 
             if (unclaimedAmount > 0) {
