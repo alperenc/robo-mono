@@ -15,6 +15,10 @@ import { PartnerManager } from "../../contracts/PartnerManager.sol";
 contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     using stdStorage for StdStorage;
 
+    function _positionManager() internal view returns (IPositionManager) {
+        return roboshareTokens.positionManager();
+    }
+
     function setUp() public {
         // Integration tests need funded accounts and authorized partners as a baseline
         _ensureState(SetupState.InitialAccountsSetup);
@@ -985,13 +989,27 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
+        IPositionManager positionManager = _positionManager();
+        IPositionManager.SettlementState memory settlementState = positionManager.getSettlementState(scenario.assetId);
+        assertTrue(settlementState.isConfigured, "PositionManager settlement should be configured");
+
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         uint256 previewAmount = treasury.previewSettlementClaim(scenario.assetId, buyer);
         assertGt(previewAmount, 0, "Settled preview should be positive");
+        assertEq(
+            previewAmount,
+            positionManager.previewSettlementClaim(scenario.assetId, buyerBalance),
+            "Treasury preview should use PositionManager settlement rate"
+        );
 
         vm.prank(buyer);
         (uint256 settlementClaimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
 
         assertEq(settlementClaimed, previewAmount, "Preview should match settlement claimed");
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(scenario.assetId, buyer);
+        assertEq(claimState.burnedAmount, buyerBalance, "PositionManager should track claimed burn amount");
+        assertEq(claimState.payout, settlementClaimed, "PositionManager should track claimed payout");
         assertEq(treasury.previewSettlementClaim(scenario.assetId, buyer), 0, "Preview should be zero after claim");
     }
 

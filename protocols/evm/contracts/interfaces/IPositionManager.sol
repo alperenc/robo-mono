@@ -254,6 +254,10 @@ interface IPositionManager {
         bytes32 reason
     ) external;
 
+    function creditSettlementClaim(address account, uint256 assetId, uint256 burnAmount, bytes32 reason)
+        external
+        returns (uint256 payout);
+
     function getSettlementState(uint256 assetId) external view returns (SettlementState memory state);
 
     function getSettlementClaimState(uint256 assetId, address account)

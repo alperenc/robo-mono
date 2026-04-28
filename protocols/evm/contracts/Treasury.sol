@@ -870,6 +870,14 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         settlement.isSettled = true;
         settlement.totalSettlementPool = liquidationAmount;
+        _positionManager()
+            .recordSettlement(
+                assetId,
+                _positionManager().getCurrentPrimaryRedemptionEpoch(revenueTokenId),
+                liquidationAmount,
+                settlement.settlementPerToken,
+                keccak256("LIQUIDATION_SETTLEMENT")
+            );
 
         // Update asset status to Expired (liquidation)
         router.setAssetStatus(assetId, AssetLib.AssetStatus.Expired);
@@ -931,7 +939,7 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             return 0;
         }
 
-        return tokenBalance * settlement.settlementPerToken;
+        return _positionManager().previewSettlementClaim(assetId, tokenBalance);
     }
 
     function initiateSettlement(address partner, uint256 assetId, uint256 topUpAmount)
@@ -967,6 +975,14 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
 
         settlement.isSettled = true;
         settlement.totalSettlementPool = settlementAmount;
+        _positionManager()
+            .recordSettlement(
+                assetId,
+                _positionManager().getCurrentPrimaryRedemptionEpoch(revenueTokenId),
+                settlementAmount,
+                settlement.settlementPerToken,
+                keccak256("VOLUNTARY_SETTLEMENT")
+            );
 
         // Update asset status to Retired
         router.setAssetStatus(assetId, AssetLib.AssetStatus.Retired);
@@ -989,8 +1005,8 @@ contract Treasury is Initializable, AccessControlUpgradeable, UUPSUpgradeable, R
             return 0;
         }
 
-        // Calculate claim
-        claimedAmount = amount * settlement.settlementPerToken;
+        claimedAmount = _positionManager()
+            .creditSettlementClaim(recipient, assetId, amount, keccak256("TREASURY_SETTLEMENT_CLAIM"));
 
         // Add to pending withdrawals (consistent withdrawal pattern)
         if (claimedAmount > 0) {
