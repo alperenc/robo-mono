@@ -15,6 +15,7 @@ import { EarningsManager } from "../../contracts/EarningsManager.sol";
 import { Marketplace } from "../../contracts/Marketplace.sol";
 import { AssetLib, VehicleLib, CollateralLib, ProtocolLib, EarningsLib } from "../../contracts/Libraries.sol";
 import { IAssetRegistry } from "../../contracts/interfaces/IAssetRegistry.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
 import { VehicleRegistry } from "../../contracts/VehicleRegistry.sol";
@@ -87,6 +88,10 @@ contract VehicleRegistryIntegrationHelper is Test {
 
 contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceFlowBaseTest {
     VehicleRegistryIntegrationHelper internal helper;
+
+    function _positionManager() internal view returns (IPositionManager) {
+        return roboshareTokens.positionManager();
+    }
 
     function setUp() public {
         _ensureState(SetupState.InitialAccountsSetup);
@@ -765,6 +770,9 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, topUpAmount);
 
+        IPositionManager.SettlementState memory settlementState =
+            _positionManager().getSettlementState(scenario.assetId);
+        assertTrue(settlementState.isConfigured);
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Retired));
         assertFalse(marketplace.isPrimaryPoolActive(scenario.revenueTokenId));
     }
@@ -787,9 +795,14 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
 
         (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) =
             treasury.assetSettlements(scenario.assetId);
+        IPositionManager.SettlementState memory settlementState =
+            _positionManager().getSettlementState(scenario.assetId);
         assertTrue(isSettled);
+        assertTrue(settlementState.isConfigured);
         assertEq(totalSettlementPool, expectedLiquidationAmount);
         assertEq(settlementPerToken, expectedPerToken);
+        assertEq(settlementState.settlementAmount, expectedLiquidationAmount);
+        assertEq(settlementState.settlementPerToken, expectedPerToken);
         assertEq(uint8(assetRegistry.getAssetStatus(scenario.assetId)), uint8(AssetLib.AssetStatus.Expired));
         assertFalse(marketplace.isPrimaryPoolActive(scenario.revenueTokenId));
     }
@@ -827,9 +840,13 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         uint256 expectedPerToken = totalSupply > 0 ? expectedLiquidationAmount / totalSupply : 0;
 
         (bool isSettled, uint256 settlementPerToken, uint256 totalSettlementPool) = treasury.assetSettlements(assetId);
+        IPositionManager.SettlementState memory settlementState = _positionManager().getSettlementState(assetId);
         assertTrue(isSettled);
+        assertTrue(settlementState.isConfigured);
         assertEq(totalSettlementPool, expectedLiquidationAmount);
         assertEq(settlementPerToken, expectedPerToken);
+        assertEq(settlementState.settlementAmount, expectedLiquidationAmount);
+        assertEq(settlementState.settlementPerToken, expectedPerToken);
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Expired));
     }
 
