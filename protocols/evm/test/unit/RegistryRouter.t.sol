@@ -221,8 +221,8 @@ contract RegistryRouterTest is AssetMetadataBaseTest {
         );
     }
 
-    function testClaimSettlementDirectCallNotAllowed() public {
-        vm.expectRevert(RegistryRouter.DirectCallNotAllowed.selector);
+    function testClaimSettlementRegistryNotFound() public {
+        vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, uint256(0)));
         router.claimSettlement(scenario.assetId, false);
     }
 
