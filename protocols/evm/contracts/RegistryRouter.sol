@@ -163,7 +163,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             );
     }
 
-    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 requestedSupply)
         external
         view
         override
@@ -173,7 +173,7 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
         if (registry == address(0)) {
             revert RegistryNotFound(assetId);
         }
-        return IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
+        return IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, requestedSupply);
     }
 
     function registerAssetAndCreateRevenueTokenPool(
@@ -576,14 +576,13 @@ contract RegistryRouter is Initializable, AccessControlUpgradeable, UUPSUpgradea
             revert RegistryNotFound(assetId);
         }
 
-        (tokenId, supply) = IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, tokenPrice);
-        uint256 poolMaxSupply = maxSupply == 0 ? supply : maxSupply;
+        (tokenId, supply) = IAssetRegistry(registry).previewCreateRevenueTokenPool(assetId, partner, maxSupply);
 
         roboshareTokens.setRevenueTokenInfo(
             tokenId,
             tokenPrice,
             supply,
-            poolMaxSupply,
+            supply,
             maturityDate,
             revenueShareBP,
             targetYieldBP,

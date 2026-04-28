@@ -46,13 +46,14 @@ contract MockRegistry is IAssetRegistry {
 
         // 3. Compute supply for preview + mint flow
         uint256 maturityDate = block.timestamp + 365 days;
+        uint256 supplyToOffer = assetValue / tokenPrice;
 
         // Mint Asset NFT first so partner owns it for collateral locking
         roboshareTokens.mint(partner, assetId, 1, "");
 
         // 4. Configure token economics and create the primary pool through the router flow.
         (revenueTokenId, supply) = router.createRevenueTokenPoolFor(
-            partner, assetId, tokenPrice, maturityDate, 10_000, 1_000, 0, false, false
+            partner, assetId, tokenPrice, maturityDate, 10_000, 1_000, supplyToOffer, false, false
         );
 
         return (assetId, revenueTokenId, supply);
@@ -107,7 +108,7 @@ contract MockRegistry is IAssetRegistry {
         return (0, 0);
     }
 
-    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 requestedSupply)
         external
         view
         override
@@ -124,8 +125,11 @@ contract MockRegistry is IAssetRegistry {
         if (roboshareTokens.getRevenueTokenSupply(tokenId) > 0) {
             revert RevenueTokensAlreadyMinted();
         }
+        if (requestedSupply == 0) {
+            revert InvalidPoolSupply();
+        }
 
-        supply = assets[assetId].info.assetValue / tokenPrice;
+        supply = requestedSupply;
     }
 
     function setAssetStatus(uint256, AssetLib.AssetStatus) external override { }
@@ -246,13 +250,15 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         // Register asset only
         vm.startPrank(partner1);
         uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
+        uint256 explicitSupply = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
 
         (uint256 revenueTokenId, uint256 tokenSupply) = router.createRevenueTokenPool(
-            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, explicitSupply, false, false
         );
         vm.stopPrank();
 
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
+        assertEq(tokenSupply, explicitSupply);
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
         assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
         Marketplace.PrimaryPool memory pool = marketplace.getPrimaryPool(revenueTokenId);
@@ -345,23 +351,37 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(buyer);
         router.createRevenueTokenPool(
-            scenario.assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+            scenario.assetId,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            ASSET_VALUE / REVENUE_TOKEN_PRICE,
+            false,
+            false
         );
     }
 
     function testPreviewMintRevenueTokensRegistryNotFound() public {
         uint256 nonExistentAssetId = 999;
         vm.expectRevert(abi.encodeWithSelector(RegistryRouter.RegistryNotFound.selector, nonExistentAssetId));
-        router.previewCreateRevenueTokenPool(nonExistentAssetId, partner1, REVENUE_TOKEN_PRICE);
+        router.previewCreateRevenueTokenPool(nonExistentAssetId, partner1, ASSET_VALUE / REVENUE_TOKEN_PRICE);
     }
 
     function testPreviewMintRevenueTokens() public {
         _ensureState(SetupState.AssetRegistered);
+        uint256 explicitSupply = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
         (uint256 tokenId, uint256 supply) =
-            router.previewCreateRevenueTokenPool(scenario.assetId, partner1, REVENUE_TOKEN_PRICE);
+            router.previewCreateRevenueTokenPool(scenario.assetId, partner1, explicitSupply);
 
         assertEq(tokenId, TokenLib.getTokenIdFromAssetId(scenario.assetId));
-        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+        assertEq(supply, explicitSupply);
+    }
+
+    function testPreviewMintRevenueTokensZeroSupply() public {
+        _ensureState(SetupState.AssetRegistered);
+        vm.expectRevert(IAssetRegistry.InvalidPoolSupply.selector);
+        router.previewCreateRevenueTokenPool(scenario.assetId, partner1, 0);
     }
 
     function testGetAssetStatusRegistryNotFound() public {
@@ -588,11 +608,20 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
 
         vm.prank(partner1);
         uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
+        uint256 explicitSupply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
 
         vm.prank(address(assetRegistry));
         vm.expectRevert();
         proxyRouter.createRevenueTokenPoolFor(
-            partner1, assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+            partner1,
+            assetId,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            explicitSupply,
+            false,
+            false
         );
     }
 

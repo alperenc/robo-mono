@@ -189,6 +189,7 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         _ensureState(SetupState.InitialAccountsSetup);
 
         bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
+        uint256 explicitSupply = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
 
         vm.prank(partner1);
         (uint256 assetId, uint256 revenueTokenId, uint256 supply) = assetRegistry.registerAssetAndCreateRevenueTokenPool(
@@ -198,14 +199,14 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
             block.timestamp + 365 days,
             10_000,
             1_000,
-            ASSET_VALUE / REVENUE_TOKEN_PRICE,
+            explicitSupply,
             false,
             false
         );
 
         assertEq(assetId, 1);
         assertEq(revenueTokenId, 2);
-        assertEq(supply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+        assertEq(supply, explicitSupply);
         assertTrue(marketplace.isPrimaryPoolActive(revenueTokenId));
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
     }
@@ -220,14 +221,15 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
 
         vm.startPrank(partner1);
         uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
+        uint256 explicitSupply = (ASSET_VALUE / REVENUE_TOKEN_PRICE) / 2;
 
         (uint256 revenueTokenId, uint256 tokenSupply) = assetRegistry.createRevenueTokenPool(
-            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, explicitSupply, false, false
         );
         vm.stopPrank();
 
         assertEq(uint8(assetRegistry.getAssetStatus(assetId)), uint8(AssetLib.AssetStatus.Active));
-        assertEq(tokenSupply, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+        assertEq(tokenSupply, explicitSupply);
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
         assertEq(roboshareTokens.getRevenueTokenSupply(revenueTokenId), 0);
     }
@@ -261,7 +263,14 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
         vm.prank(unauthorized);
         assetRegistry.createRevenueTokenPool(
-            assetId, REVENUE_TOKEN_PRICE, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+            assetId,
+            REVENUE_TOKEN_PRICE,
+            block.timestamp + 365 days,
+            10_000,
+            1_000,
+            ASSET_VALUE / REVENUE_TOKEN_PRICE,
+            false,
+            false
         );
     }
 
@@ -344,19 +353,19 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
     function testPreviewMintRevenueTokensAssetNotFound() public {
         _ensureState(SetupState.InitialAccountsSetup);
         vm.expectRevert(abi.encodeWithSelector(IAssetRegistry.AssetNotFound.selector, 999));
-        assetRegistry.previewCreateRevenueTokenPool(999, partner1, REVENUE_TOKEN_PRICE);
+        assetRegistry.previewCreateRevenueTokenPool(999, partner1, ASSET_VALUE / REVENUE_TOKEN_PRICE);
     }
 
     function testPreviewMintRevenueTokensUnauthorizedPartner() public {
         _ensureState(SetupState.AssetRegistered);
         vm.expectRevert(PartnerManager.UnauthorizedPartner.selector);
-        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, unauthorized, REVENUE_TOKEN_PRICE);
+        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, unauthorized, ASSET_VALUE / REVENUE_TOKEN_PRICE);
     }
 
     function testPreviewMintRevenueTokensNotAssetOwner() public {
         _ensureState(SetupState.AssetRegistered);
         vm.expectRevert(IAssetRegistry.NotAssetOwner.selector);
-        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, partner2, REVENUE_TOKEN_PRICE);
+        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, partner2, ASSET_VALUE / REVENUE_TOKEN_PRICE);
     }
 
     function testPreviewMintRevenueTokensAlreadyMinted() public {
@@ -369,7 +378,13 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         vm.stopPrank();
 
         vm.expectRevert(IAssetRegistry.RevenueTokensAlreadyMinted.selector);
-        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, partner1, REVENUE_TOKEN_PRICE);
+        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, partner1, ASSET_VALUE / REVENUE_TOKEN_PRICE);
+    }
+
+    function testPreviewMintRevenueTokensZeroSupply() public {
+        _ensureState(SetupState.AssetRegistered);
+        vm.expectRevert(IAssetRegistry.InvalidPoolSupply.selector);
+        assetRegistry.previewCreateRevenueTokenPool(scenario.assetId, partner1, 0);
     }
 
     // View Function Tests
@@ -402,13 +417,15 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
 
     // Fuzz Tests
 
-    function testFuzzRegisterAssetAndMintTokens(uint256 assetValue, uint256 tokenPrice) public {
+    function testFuzzRegisterAssetAndMintTokens(uint256 assetValue, uint256 tokenPrice, uint256 explicitSupply) public {
         // Constraints:
-        // 1. tokenPrice > 0 (avoid div by zero)
-        // 2. assetValue >= tokenPrice (to ensure supply >= 1)
-        // 3. Cap assetValue at 1B USDC to avoid overflow/unrealistic scenarios
+        // 1. tokenPrice > 0 and realistically bounded
+        // 2. explicitSupply > 0 to satisfy explicit pool sizing
+        // 3. Cap assetValue at 1B USDC to avoid unrealistic scenarios
         vm.assume(tokenPrice > 0);
-        vm.assume(assetValue >= tokenPrice && assetValue <= 1_000_000_000 * 1e6);
+        vm.assume(tokenPrice <= 1_000_000_000 * 1e6);
+        vm.assume(assetValue <= 1_000_000_000 * 1e6);
+        vm.assume(explicitSupply > 0 && explicitSupply <= 1_000_000_000);
 
         _ensureState(SetupState.InitialAccountsSetup);
 
@@ -427,12 +444,12 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
 
         (uint256 assetId, uint256 revenueTokenId, uint256 actualSupply) = assetRegistry.registerAssetAndCreateRevenueTokenPool(
-            vehicleData, assetValue, tokenPrice, maturityDate, 10_000, 1_000, 0, false, false
+            vehicleData, assetValue, tokenPrice, maturityDate, 10_000, 1_000, explicitSupply, false, false
         );
         vm.stopPrank();
 
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
-        assertEq(actualSupply, assetValue / tokenPrice, "Supply should be derived from asset value and price");
+        assertEq(actualSupply, explicitSupply, "Supply should match explicit pool size");
 
         // Buffers are not funded by pool creation alone.
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(assetId);
@@ -440,13 +457,19 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         assertEq(info.isLocked, false);
     }
 
-    function testFuzzRegisterAssetAndCreateRevenueTokenPool(uint256 assetValue, uint256 tokenPrice) public {
+    function testFuzzRegisterAssetAndCreateRevenueTokenPool(
+        uint256 assetValue,
+        uint256 tokenPrice,
+        uint256 explicitSupply
+    ) public {
         // Constraints:
-        // 1. tokenPrice >= 1 USDC (1e6)
-        // 2. assetValue >= tokenPrice (to ensure supply >= 1)
-        // 3. Cap assetValue at 1B USDC to avoid overflow/unrealistic scenarios
+        // 1. tokenPrice >= 1 USDC (1e6) and realistically bounded
+        // 2. explicitSupply > 0 to satisfy explicit pool sizing
+        // 3. Cap assetValue at 1B USDC to avoid unrealistic scenarios
         vm.assume(tokenPrice >= 1e6);
-        vm.assume(assetValue >= tokenPrice && assetValue <= 1_000_000_000 * 1e6);
+        vm.assume(tokenPrice <= 1_000_000_000 * 1e6);
+        vm.assume(assetValue <= 1_000_000_000 * 1e6);
+        vm.assume(explicitSupply > 0 && explicitSupply <= 1_000_000_000);
 
         _ensureState(SetupState.InitialAccountsSetup);
 
@@ -461,13 +484,11 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         bytes memory vehicleData = _vehicleRegistrationData(TEST_VIN);
 
         (, uint256 revenueTokenId, uint256 tokenSupply) = assetRegistry.registerAssetAndCreateRevenueTokenPool(
-            vehicleData, assetValue, tokenPrice, block.timestamp + 365 days, 10_000, 1_000, 0, false, false
+            vehicleData, assetValue, tokenPrice, block.timestamp + 365 days, 10_000, 1_000, explicitSupply, false, false
         );
         vm.stopPrank();
 
-        // Verify supply calculation
-        uint256 expectedSupply = assetValue / tokenPrice;
-        assertEq(tokenSupply, expectedSupply, "Supply should match calculated value");
+        assertEq(tokenSupply, explicitSupply, "Supply should match explicit pool size");
 
         assertEq(roboshareTokens.balanceOf(address(marketplace), revenueTokenId), 0);
     }

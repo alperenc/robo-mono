@@ -186,7 +186,7 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         );
     }
 
-    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 tokenPrice)
+    function previewCreateRevenueTokenPool(uint256 assetId, address partner, uint256 requestedSupply)
         external
         view
         override
@@ -207,9 +207,11 @@ contract VehicleRegistry is Initializable, AccessControlUpgradeable, UUPSUpgrade
         if (roboshareTokens.getRevenueTokenSupply(revenueTokenId) > 0) {
             revert RevenueTokensAlreadyMinted();
         }
+        if (requestedSupply == 0) {
+            revert InvalidPoolSupply();
+        }
 
-        uint256 assetValue = vehicles[assetId].assetInfo.assetValue;
-        supply = assetValue / tokenPrice;
+        supply = requestedSupply;
     }
 
     /**
