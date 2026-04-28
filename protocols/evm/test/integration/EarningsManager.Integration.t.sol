@@ -2,8 +2,9 @@
 pragma solidity ^0.8.19;
 
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
-import { ProtocolLib, AssetLib, CollateralLib } from "../../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib, CollateralLib, TokenLib } from "../../contracts/Libraries.sol";
 import { IEarningsManager } from "../../contracts/interfaces/IEarningsManager.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
@@ -170,6 +171,30 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
     function testPreviewClaimEarningsNoTokenBalanceReturnsZero() public {
         _ensureState(SetupState.EarningsDistributed);
         assertEq(earningsManager.previewClaimEarnings(scenario.assetId, unauthorized), 0);
+    }
+
+    function testClaimEarningsUsesTokenBalanceGateBeforeManagerPositions() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, buyer);
+        assertGt(positions.length, 0);
+
+        address mockManager = makeAddr("mockManager");
+        vm.mockCall(address(roboshareTokens), abi.encodeWithSignature("positionManager()"), abi.encode(mockManager));
+        vm.mockCall(
+            mockManager,
+            abi.encodeWithSelector(IPositionManager.getUserPositions.selector, scenario.revenueTokenId, buyer),
+            abi.encode(positions)
+        );
+        vm.mockCall(
+            address(roboshareTokens),
+            abi.encodeWithSignature("balanceOf(address,uint256)", buyer, scenario.revenueTokenId),
+            abi.encode(uint256(0))
+        );
+
+        vm.expectRevert(ITreasury.InsufficientTokenBalance.selector);
+        vm.prank(buyer);
+        earningsManager.claimEarnings(scenario.assetId);
     }
 
     function testPreviewClaimEarningsNoEarningsInitialized() public {

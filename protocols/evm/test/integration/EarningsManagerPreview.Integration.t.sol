@@ -2,7 +2,8 @@
 pragma solidity ^0.8.19;
 
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
-import { ProtocolLib } from "../../contracts/Libraries.sol";
+import { ProtocolLib, TokenLib } from "../../contracts/Libraries.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 
 contract EarningsManagerPreviewIntegrationTest is MarketplaceFlowBaseTest {
     function setUp() public {
@@ -49,6 +50,37 @@ contract EarningsManagerPreviewIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(protocolFee, 0);
         assertEq(netEarnings, 0);
         assertEq(collateralReleased, 0);
+    }
+
+    function testPreviewDistributeEarningsUsesTokenBalanceGateBeforeManagerPositions() public {
+        _ensureState(SetupState.BuffersFunded);
+
+        uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
+        TokenLib.TokenPosition[] memory positions = new TokenLib.TokenPosition[](1);
+        positions[0] = TokenLib.TokenPosition({
+            uid: 1,
+            tokenId: scenario.revenueTokenId,
+            amount: totalSupply,
+            acquiredAt: block.timestamp,
+            soldAt: 0,
+            redemptionEpoch: 0
+        });
+
+        address mockManager = makeAddr("mockManager");
+        vm.mockCall(address(roboshareTokens), abi.encodeWithSignature("positionManager()"), abi.encode(mockManager));
+        vm.mockCall(
+            mockManager,
+            abi.encodeWithSelector(IPositionManager.getUserPositions.selector, scenario.revenueTokenId, partner1),
+            abi.encode(positions)
+        );
+
+        (uint256 investorAmount, uint256 protocolFee, uint256 netEarnings,) =
+            earningsManager.previewDistributeEarnings(partner1, scenario.assetId, EARNINGS_AMOUNT, true);
+
+        assertGt(investorAmount, 0);
+        assertGt(netEarnings, 0);
+        assertEq(netEarnings, investorAmount - protocolFee);
+        assertEq(protocolFee, ProtocolLib.calculateProtocolFee(investorAmount));
     }
 
     function testPreviewDistributeEarningsBelowMinimumFeeReturnsInvestorAmountOnly() public {
