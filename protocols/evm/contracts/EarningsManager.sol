@@ -8,6 +8,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IEarningsManager } from "./interfaces/IEarningsManager.sol";
+import { IPositionManager } from "./interfaces/IPositionManager.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { ProtocolLib, TokenLib, EarningsLib, AssetLib } from "./Libraries.sol";
 import { RoboshareTokens } from "./RoboshareTokens.sol";
@@ -306,6 +307,21 @@ contract EarningsManager is
         emit EarningsDistributed(assetId, msg.sender, totalRevenue, netEarnings, currentPeriod);
     }
 
+    function _positionManager() internal view returns (IPositionManager manager) {
+        manager = roboshareTokens.positionManager();
+        if (address(manager) == address(0)) {
+            revert RoboshareTokens.PositionManagerNotSet();
+        }
+    }
+
+    function _getRevenuePositions(uint256 revenueTokenId, address holder)
+        internal
+        view
+        returns (TokenLib.TokenPosition[] memory positions)
+    {
+        positions = _positionManager().getUserPositions(revenueTokenId, holder);
+    }
+
     function claimEarnings(uint256 assetId) external nonReentrant {
         uint256 claimedAmount = _claimEarningsFor(msg.sender, assetId);
         if (claimedAmount == 0) {
@@ -341,8 +357,7 @@ contract EarningsManager is
                 return 0;
             }
 
-            TokenLib.TokenPosition[] memory settledPositions =
-                roboshareTokens.getUserPositions(settledRevenueTokenId, holder);
+            TokenLib.TokenPosition[] memory settledPositions = _getRevenuePositions(settledRevenueTokenId, holder);
             return EarningsLib.previewEarningsForHolder(earningsInfo, holder, settledPositions);
         }
 
@@ -355,7 +370,7 @@ contract EarningsManager is
             return 0;
         }
 
-        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+        TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
         return EarningsLib.previewEarningsForHolder(earningsInfo, holder, positions);
     }
 
@@ -370,7 +385,7 @@ contract EarningsManager is
         }
 
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
-        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+        TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
         snapshotAmount = EarningsLib.snapshotHolderEarnings(earningsInfo, holder, positions);
 
         if (autoClaim && snapshotAmount > 0) {
@@ -400,8 +415,7 @@ contract EarningsManager is
                     uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(assetId);
                     uint256 tokenBalance = roboshareTokens.balanceOf(holder, revenueTokenId);
                     if (tokenBalance > 0) {
-                        TokenLib.TokenPosition[] memory positions =
-                            roboshareTokens.getUserPositions(revenueTokenId, holder);
+                        TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
                         unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
                         if (unclaimedAmount > 0) {
                             EarningsLib.updateClaimPeriods(earningsInfo, holder, positions);
@@ -419,7 +433,7 @@ contract EarningsManager is
                 revert ITreasury.InsufficientTokenBalance();
             }
 
-            TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(revenueTokenId, holder);
+            TokenLib.TokenPosition[] memory positions = _getRevenuePositions(revenueTokenId, holder);
             unclaimedAmount = EarningsLib.calculateEarningsForPositions(earningsInfo, holder, positions);
 
             if (unclaimedAmount > 0) {

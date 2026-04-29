@@ -23,7 +23,7 @@ type RoboshareToken @entity(immutable: true) {
   revenueTokenId: BigInt!
   price: BigInt!
   supply: BigInt!
-  targetYieldBP: BigInt!
+  targetYieldBP: BigInt
   maturityDate: BigInt!
   createdAt: BigInt!
   setAtBlock: BigInt!
@@ -75,7 +75,8 @@ type VehicleRegistryContract @entity(immutable: true) {
 type Vehicle @entity(immutable: false) {
   id: ID! # vehicleId
   partner: Bytes!
-  vin: String!
+  vin: String
+  vinHash: Bytes
   make: String
   model: String
   year: BigInt

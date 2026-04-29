@@ -2,8 +2,9 @@
 pragma solidity ^0.8.19;
 
 import { MarketplaceFlowBaseTest } from "../base/MarketplaceFlowBaseTest.t.sol";
-import { ProtocolLib, AssetLib, CollateralLib } from "../../contracts/Libraries.sol";
+import { ProtocolLib, AssetLib, CollateralLib, TokenLib } from "../../contracts/Libraries.sol";
 import { IEarningsManager } from "../../contracts/interfaces/IEarningsManager.sol";
+import { IPositionManager } from "../../contracts/interfaces/IPositionManager.sol";
 import { ITreasury } from "../../contracts/interfaces/ITreasury.sol";
 import { PartnerManager } from "../../contracts/PartnerManager.sol";
 
@@ -172,6 +173,30 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(earningsManager.previewClaimEarnings(scenario.assetId, unauthorized), 0);
     }
 
+    function testClaimEarningsUsesTokenBalanceGateBeforeManagerPositions() public {
+        _ensureState(SetupState.EarningsDistributed);
+
+        TokenLib.TokenPosition[] memory positions = roboshareTokens.getUserPositions(scenario.revenueTokenId, buyer);
+        assertGt(positions.length, 0);
+
+        address mockManager = makeAddr("mockManager");
+        vm.mockCall(address(roboshareTokens), abi.encodeWithSignature("positionManager()"), abi.encode(mockManager));
+        vm.mockCall(
+            mockManager,
+            abi.encodeWithSelector(IPositionManager.getUserPositions.selector, scenario.revenueTokenId, buyer),
+            abi.encode(positions)
+        );
+        vm.mockCall(
+            address(roboshareTokens),
+            abi.encodeWithSignature("balanceOf(address,uint256)", buyer, scenario.revenueTokenId),
+            abi.encode(uint256(0))
+        );
+
+        vm.expectRevert(ITreasury.InsufficientTokenBalance.selector);
+        vm.prank(buyer);
+        earningsManager.claimEarnings(scenario.assetId);
+    }
+
     function testPreviewClaimEarningsNoEarningsInitialized() public {
         _ensureState(SetupState.PurchasedFromPrimaryPool);
         assertEq(earningsManager.previewClaimEarnings(scenario.assetId, buyer), 0);
@@ -183,8 +208,13 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         vm.prank(buyer);
         assetRegistry.claimSettlement(scenario.assetId, false);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        IPositionManager.SettlementClaimState memory claimState =
+            roboshareTokens.positionManager().getSettlementClaimState(scenario.assetId, buyer);
+        assertEq(claimState.burnedAmount, buyerBalance);
 
         uint256 previewAmount = earningsManager.previewClaimEarnings(scenario.assetId, buyer);
         assertGt(previewAmount, 0);
@@ -384,6 +414,7 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         assertGt(settlementClaimed, 0);
         assertEq(earningsClaimed, 0);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        assertGt(earningsManager.previewClaimEarnings(scenario.assetId, buyer), 0);
 
         vm.prank(buyer);
         earningsManager.claimEarnings(scenario.assetId);
@@ -498,12 +529,7 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         _ensureState(SetupState.InitialAccountsSetup);
 
         vm.prank(partner1);
-        uint256 assetId = assetRegistry.registerAsset(
-            abi.encode(
-                TEST_VIN, TEST_MAKE, TEST_MODEL, TEST_YEAR, TEST_MANUFACTURER_ID, TEST_OPTION_CODES, TEST_METADATA_URI
-            ),
-            ASSET_VALUE
-        );
+        uint256 assetId = assetRegistry.registerAsset(_vehicleRegistrationData(TEST_VIN), ASSET_VALUE);
 
         uint256 supply = ASSET_VALUE / REVENUE_TOKEN_PRICE;
         uint256 maturityDate = block.timestamp + 365 days;

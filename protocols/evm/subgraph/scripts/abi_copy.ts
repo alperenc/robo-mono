@@ -88,6 +88,22 @@ function publishContract(
 }
 
 const DEPLOYED_CONTRACTS_FILE = "../../../web/contracts/deployedContracts.ts";
+const FORGE_ARTIFACT_FILE_BY_CONTRACT = (contractName: string) =>
+  `../out/${contractName}.sol/${contractName}.json`;
+
+function loadAbiFromForgeArtifact(contractName: string): any[] | undefined {
+  const artifactPath = FORGE_ARTIFACT_FILE_BY_CONTRACT(contractName);
+
+  if (!fs.existsSync(artifactPath)) {
+    return undefined;
+  }
+
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8")) as {
+    abi?: any[];
+  };
+
+  return Array.isArray(artifact.abi) ? artifact.abi : undefined;
+}
 
 function loadStartBlocks(chainId: number): Record<string, number> {
   const broadcastFile = BROADCAST_FILE_BY_CHAIN_ID(chainId);
@@ -222,10 +238,12 @@ async function main() {
       );
       continue;
     }
+    const latestAbi = loadAbiFromForgeArtifact(contractName);
     publishContract(
       contractName,
       {
         ...contractObject,
+        abi: latestAbi ?? contractObject.abi,
         startBlock: startBlockByAddress[contractObject.address.toLowerCase()],
       },
       networkName

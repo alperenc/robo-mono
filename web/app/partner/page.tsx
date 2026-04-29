@@ -21,6 +21,7 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
+import { normalizeVehicleMetadata } from "~~/utils/protocolState";
 import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
 import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
@@ -327,16 +328,7 @@ const PartnerDashboard: NextPage = () => {
         return asset;
       }
 
-      const info = result.result;
-      const liveYear = info[3];
-      return {
-        ...asset,
-        vin: (info[0] as string | undefined) || asset.vin,
-        make: (info[1] as string | undefined) || asset.make,
-        model: (info[2] as string | undefined) || asset.model,
-        year: liveYear !== undefined && liveYear !== null ? String(liveYear as bigint | number | string) : asset.year,
-        metadataURI: (info[6] as string | undefined) || asset.metadataURI,
-      };
+      return normalizeVehicleMetadata(result.result, asset);
     });
   }, [allAssets, assetMetadataData]);
 

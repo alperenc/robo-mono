@@ -28,6 +28,13 @@ import { usePaymentToken } from "~~/hooks/usePaymentToken";
 import { useTransactingAccount } from "~~/hooks/useTransactingAccount";
 import { getDeployedContract } from "~~/utils/contracts";
 import { fetchIpfsMetadata, ipfsToHttp } from "~~/utils/ipfsGateway";
+import {
+  POSITION_MANAGER_PRIMARY_REDEMPTION_READER_ABI,
+  ROBOSHARE_TOKENS_MANAGER_READER_ABI,
+  normalizePositionManagerAddress,
+  normalizePrimaryRedemptionPreview,
+  normalizeVehicleMetadata,
+} from "~~/utils/protocolState";
 import { getTargetNetworks, notification } from "~~/utils/scaffold-eth";
 import { getSubgraphQueryUrl } from "~~/utils/subgraph";
 
@@ -225,6 +232,13 @@ const MarketsPage: NextPage = () => {
   const { symbol, decimals } = usePaymentToken();
   const { writeContractAsync: writeTreasury } = useScaffoldWriteContract({ contractName: "Treasury" });
   const { writeContractAsync: writeEarningsManager } = useScaffoldWriteContract({ contractName: "EarningsManager" });
+  const { data: positionManagerAddressData } = useReadContract({
+    address: roboshareTokensContract?.address,
+    abi: ROBOSHARE_TOKENS_MANAGER_READER_ABI,
+    functionName: "positionManager",
+    query: { enabled: !!roboshareTokensContract },
+  });
+  const positionManagerAddress = normalizePositionManagerAddress(positionManagerAddressData);
 
   const getVehicleImageKey = useCallback(
     (vehicle: Pick<SubgraphVehicle, "id" | "metadataURI">) => `${chainId}:${vehicle.id}:${vehicle.metadataURI || ""}`,
@@ -263,16 +277,7 @@ const MarketsPage: NextPage = () => {
         return vehicle;
       }
 
-      const info = result.result;
-      const liveYear = info[3];
-      return {
-        ...vehicle,
-        vin: (info[0] as string | undefined) || vehicle.vin,
-        make: (info[1] as string | undefined) || vehicle.make,
-        model: (info[2] as string | undefined) || vehicle.model,
-        year: liveYear !== undefined && liveYear !== null ? String(liveYear as bigint | number | string) : vehicle.year,
-        metadataURI: (info[6] as string | undefined) || vehicle.metadataURI,
-      };
+      return normalizeVehicleMetadata(result.result, vehicle);
     });
   }, [vehicleInfoData, vehicles]);
 
@@ -486,15 +491,15 @@ const MarketsPage: NextPage = () => {
 
   const { data: primaryPoolEligibleRedemptionData, refetch: refetchPrimaryPoolEligibleRedemptionBalances } =
     useReadContracts({
-      contracts: roboshareTokensContract
+      contracts: positionManagerAddress
         ? primaryPools.map(pool => ({
-            address: roboshareTokensContract.address,
-            abi: roboshareTokensContract.abi,
+            address: positionManagerAddress,
+            abi: POSITION_MANAGER_PRIMARY_REDEMPTION_READER_ABI,
             functionName: "getPrimaryRedemptionEligibleBalance",
             args: [address, BigInt(pool.tokenId)],
           }))
         : ([] as any),
-      query: { enabled: !!address && !!roboshareTokensContract && primaryPools.length > 0 },
+      query: { enabled: !!address && !!positionManagerAddress && primaryPools.length > 0 },
     });
 
   const { data: primaryPoolRedemptionPreviewData, refetch: refetchPrimaryPoolRedemptionPreviews } = useReadContracts({
@@ -670,17 +675,16 @@ const MarketsPage: NextPage = () => {
     >();
     primaryPools.forEach((pool, index) => {
       const result = primaryPoolRedemptionPreviewData?.[index];
-      if (result?.status !== "success" || !Array.isArray(result.result)) {
-        const eligibleResult = primaryPoolEligibleRedemptionData?.[index];
-        const eligibleBalance =
-          eligibleResult?.status === "success" && eligibleResult.result !== undefined
-            ? (eligibleResult.result as bigint)
-            : 0n;
-        byTokenId.set(pool.tokenId, { payout: 0n, liquidity: 0n, redemptionSupply: 0n, eligibleBalance });
-        return;
-      }
-      const [payout, liquidity, redemptionSupply, eligibleBalance] = result.result as [bigint, bigint, bigint, bigint];
-      byTokenId.set(pool.tokenId, { payout, liquidity, redemptionSupply, eligibleBalance });
+      const eligibleResult = primaryPoolEligibleRedemptionData?.[index];
+      const eligibleBalance =
+        eligibleResult?.status === "success" && eligibleResult.result !== undefined
+          ? (eligibleResult.result as bigint)
+          : 0n;
+      const preview =
+        result?.status === "success"
+          ? normalizePrimaryRedemptionPreview(result.result, eligibleBalance)
+          : normalizePrimaryRedemptionPreview(undefined, eligibleBalance);
+      byTokenId.set(pool.tokenId, preview);
     });
     return byTokenId;
   }, [primaryPoolEligibleRedemptionData, primaryPools, primaryPoolRedemptionPreviewData]);

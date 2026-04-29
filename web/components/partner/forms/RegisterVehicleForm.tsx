@@ -170,6 +170,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
   const bufferQuote = calculatePrimaryPoolBuffers(assetValueBigInt, targetYieldBP, formData.protectionEnabled);
   const displayedBufferLabel = formData.protectionEnabled ? "Required Total Buffer" : "Required Protocol Buffer";
   const displayedBufferAmount = formData.protectionEnabled ? bufferQuote.totalBuffer : bufferQuote.protocolBuffer;
+  const requestedSupply = tokenPriceBigInt > 0n ? assetValueBigInt / tokenPriceBigInt : 0n;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -465,7 +466,7 @@ export const RegisterVehicleForm = ({ onClose, onSuccess, maxStep, onBack }: Reg
           maturityTimestamp,
           revenueShareBP,
           targetYieldBP,
-          0n,
+          requestedSupply,
           formData.immediateProceeds,
           formData.protectionEnabled,
         ],
