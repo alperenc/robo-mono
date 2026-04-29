@@ -84,6 +84,12 @@ contract VehicleHelper {
         return info.vinHash;
     }
 
+    function initWithHash(bytes32 vinHashValue, string memory assetMetadataURI, string memory revenueTokenMetadataURI)
+        external
+    {
+        info.initializeVehicleInfo(vinHashValue, assetMetadataURI, revenueTokenMetadataURI);
+    }
+
     function updateMeta(string memory uri) external {
         info.updateMetadata(uri, uri);
     }
@@ -684,6 +690,13 @@ contract LibrariesTest is Test {
     function testVehicleInvalidMetadataUri() public {
         vm.expectRevert(VehicleLib.InvalidMetadataURI.selector);
         vh.init("1HGCM82633A123456", "http://bad-uri", "ipfs://QmRevenueTokenMetadata");
+    }
+
+    function testVehicleInitializeRejectsZeroVinHash() public {
+        vm.expectRevert(VehicleLib.InvalidVINLength.selector);
+        vh.initWithHash(
+            bytes32(0), "ipfs://QmYwAPJzv5CZsnAzt8auVTLpG1bG6dkprdFM5ocTyBCQb", "ipfs://QmRevenueTokenMetadata"
+        );
     }
 
     function testTokenUnclaimedForPositionsAndEarningsHelpers() public {
