@@ -50,6 +50,8 @@ dataSources:
         - event: RevenueTokenInfoSet(indexed
             uint256,uint256,uint256,uint256,uint256,bool,bool)
           handler: handleRevenueTokenInfoSet
+        - event: TokenMetadataURISet(indexed uint256,string)
+          handler: handleTokenMetadataURISet
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: PartnerManager
@@ -85,15 +87,12 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - RegistryRouterContract
-        - AssetRegistered
       abis:
         - name: RegistryRouter
           file: ./abis/RegistryRouter.json
       eventHandlers:
         - event: IdBoundToRegistry(indexed uint256,indexed address)
           handler: handleIdBoundToRegistry
-        - event: AssetRegistered(indexed uint256,indexed address,uint256,uint8)
-          handler: handleAssetRegistered
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: VehicleRegistry
@@ -109,15 +108,16 @@ dataSources:
       entities:
         - VehicleRegistryContract
         - VehicleRegistered
-        - VehicleRegisteredAndMinted
       abis:
         - name: VehicleRegistry
           file: ./abis/VehicleRegistry.json
       eventHandlers:
         - event: AssetRegistered(indexed uint256,indexed address,uint256,uint8)
           handler: handleAssetRegistered
-        - event: VehicleRegistered(indexed uint256,indexed address,string)
+        - event: VehicleRegistered(indexed uint256,indexed address,indexed bytes32)
           handler: handleVehicleRegistered
+        - event: VehicleMetadataUpdated(indexed uint256,string,string)
+          handler: handleVehicleMetadataUpdated
       file: ./src/mapping.ts
   - kind: ethereum/contract
     name: Treasury
