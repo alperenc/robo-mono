@@ -294,6 +294,12 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.setTokenMetadataURI(1, "ipfs://QmTokenMetadata");
     }
 
+    function testSetTokenMetadataURIRejectsEmptyUri() public {
+        vm.expectRevert(RoboshareTokens.EmptyMetadataURI.selector);
+        vm.prank(admin);
+        roboshareTokens.setTokenMetadataURI(1, "");
+    }
+
     function testTransfers() public {
         // Setup: mint tokens to user1
         uint256 tokenId = 101;
