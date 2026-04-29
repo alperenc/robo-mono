@@ -526,9 +526,9 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
+        IPositionManager positionManager = roboshareTokens.positionManager();
         uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
-        uint256 expectedPayout =
-            roboshareTokens.positionManager().previewSettlementClaim(scenario.assetId, buyerBalance);
+        uint256 expectedPayout = positionManager.previewSettlementClaim(scenario.assetId, buyerBalance);
 
         vm.prank(buyer);
         (uint256 claimedAmount, uint256 earningsClaimed) = router.claimSettlement(scenario.assetId, false);
@@ -536,6 +536,10 @@ contract RegistryRouterIntegrationTest is TreasuryFlowBaseTest {
         assertEq(earningsClaimed, 0);
         assertEq(claimedAmount, expectedPayout);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        IPositionManager.SettlementClaimState memory claimState =
+            positionManager.getSettlementClaimState(scenario.assetId, buyer);
+        assertEq(claimState.burnedAmount, buyerBalance);
+        assertEq(claimState.payout, claimedAmount);
     }
 
     // TreasuryNotSet Tests

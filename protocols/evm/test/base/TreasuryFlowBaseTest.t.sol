@@ -171,4 +171,17 @@ abstract contract TreasuryFlowBaseTest is AssetMetadataBaseTest {
         protocolBuffer = (expectedQuarterlyEarnings * ProtocolLib.PROTOCOL_FEE_BP) / ProtocolLib.BP_PRECISION;
         total = earningsBuffer + protocolBuffer;
     }
+
+    function _grantBurnerRoleToSelf() internal {
+        vm.startPrank(admin);
+        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
+        vm.stopPrank();
+    }
+
+    function _burnRevenueTokenBalance(uint256 revenueTokenId, address holder) internal {
+        uint256 balance = roboshareTokens.balanceOf(holder, revenueTokenId);
+        if (balance > 0) {
+            roboshareTokens.burn(holder, revenueTokenId, balance);
+        }
+    }
 }

@@ -208,8 +208,13 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         vm.prank(partner1);
         assetRegistry.settleAsset(scenario.assetId, 0);
 
+        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
         vm.prank(buyer);
         assetRegistry.claimSettlement(scenario.assetId, false);
+        assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        IPositionManager.SettlementClaimState memory claimState =
+            roboshareTokens.positionManager().getSettlementClaimState(scenario.assetId, buyer);
+        assertEq(claimState.burnedAmount, buyerBalance);
 
         uint256 previewAmount = earningsManager.previewClaimEarnings(scenario.assetId, buyer);
         assertGt(previewAmount, 0);
@@ -409,6 +414,7 @@ contract EarningsManagerIntegrationTest is MarketplaceFlowBaseTest {
         assertGt(settlementClaimed, 0);
         assertEq(earningsClaimed, 0);
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), 0);
+        assertGt(earningsManager.previewClaimEarnings(scenario.assetId, buyer), 0);
 
         vm.prank(buyer);
         earningsManager.claimEarnings(scenario.assetId);
