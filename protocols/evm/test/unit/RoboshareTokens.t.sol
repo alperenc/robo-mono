@@ -75,6 +75,26 @@ contract MockPositionManager {
     function recordPrimaryRedemptionPayout(uint256, uint256, bytes32) external { }
 }
 
+contract RevertingERC1155Receiver {
+    error ReceiveBlocked();
+
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+        revert ReceiveBlocked();
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        revert ReceiveBlocked();
+    }
+
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == 0x4e2312e0 || interfaceId == 0x01ffc9a7;
+    }
+}
+
 contract RoboshareTokensTest is AssetMetadataBaseTest {
     address public minter;
     address public burner;
@@ -450,6 +470,49 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertEq(mockManager.lastAmount(), 25);
     }
 
+    function testRevenueTokenMintRevertsWhenPositionManagerHookReverts() public {
+        MockPositionManager mockManager = new MockPositionManager();
+
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(mockManager));
+
+        uint256 tokenId = 106;
+        uint256 amount = 100;
+        uint256 maturityDate = block.timestamp + 365 days;
+
+        vm.prank(minter);
+        roboshareTokens.setRevenueTokenInfo(
+            tokenId, 100 * 1e6, amount, amount, maturityDate, 10_000, 1_000, false, false
+        );
+
+        mockManager.setShouldRevert(true);
+
+        vm.expectRevert(MockPositionManager.HookBlocked.selector);
+        vm.prank(minter);
+        roboshareTokens.mint(user1, tokenId, amount, "");
+
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), 0);
+        assertEq(mockManager.callCount(), 0);
+    }
+
+    function testRevenueTokenTransferRevertsWhenPositionManagerHookReverts() public {
+        MockPositionManager mockManager = new MockPositionManager();
+
+        vm.prank(admin);
+        roboshareTokens.setPositionManager(address(mockManager));
+
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+        mockManager.setShouldRevert(true);
+
+        vm.expectRevert(MockPositionManager.HookBlocked.selector);
+        vm.prank(user1);
+        roboshareTokens.safeTransferFrom(user1, user2, tokenId, 25, "");
+
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), 100);
+        assertEq(roboshareTokens.balanceOf(user2, tokenId), 0);
+        assertEq(mockManager.callCount(), 1);
+    }
+
     function testRevenueTokenBurnRevertsWhenPositionManagerHookReverts() public {
         MockPositionManager mockManager = new MockPositionManager();
 
@@ -734,6 +797,22 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertEq(roboshareTokens.getLockedAmount(user1, tokenId), 25);
         assertEq(roboshareTokens.balanceOf(user1, tokenId), 85);
         assertEq(roboshareTokens.balanceOf(user2, tokenId), 15);
+    }
+
+    function testTransferLockedForListingRollsBackUnlockWhenReceiverRejects() public {
+        RevertingERC1155Receiver receiver = new RevertingERC1155Receiver();
+        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
+
+        vm.prank(manager);
+        roboshareTokens.lockForListing(user1, tokenId, 40);
+
+        vm.expectRevert();
+        vm.prank(manager);
+        roboshareTokens.transferLockedForListing(user1, address(receiver), tokenId, 15, "");
+
+        assertEq(roboshareTokens.getLockedAmount(user1, tokenId), 40);
+        assertEq(roboshareTokens.balanceOf(user1, tokenId), 100);
+        assertEq(roboshareTokens.balanceOf(address(receiver), tokenId), 0);
     }
 
     function testBurnCurrentEpochForPrimaryRedemptionNotRevenueToken() public {
