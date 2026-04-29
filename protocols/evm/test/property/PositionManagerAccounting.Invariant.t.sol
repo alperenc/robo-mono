@@ -13,6 +13,7 @@ contract PositionManagerAccountingHandler is Test {
     PositionManager internal positionManager;
     address internal admin;
     address internal managerActor;
+    address internal proceedsActor;
     address[] internal actors;
     uint256 internal revenueTokenId;
     uint256 internal tokenPrice;
@@ -27,6 +28,7 @@ contract PositionManagerAccountingHandler is Test {
         RoboshareTokens _roboshareTokens,
         PositionManager _positionManager,
         address _admin,
+        address _proceedsActor,
         uint256 _revenueTokenId,
         uint256 _tokenPrice,
         uint256 _maxSupply,
@@ -36,6 +38,7 @@ contract PositionManagerAccountingHandler is Test {
         positionManager = _positionManager;
         admin = _admin;
         managerActor = address(_positionManager);
+        proceedsActor = _proceedsActor;
         revenueTokenId = _revenueTokenId;
         tokenPrice = _tokenPrice;
         maxSupply = _maxSupply;
@@ -151,8 +154,8 @@ contract PositionManagerAccountingHandler is Test {
 
         uint256 amount = bound(amountSeed, 1, expectedBackedPrincipal);
 
-        vm.prank(managerActor);
-        roboshareTokens.recordImmediateProceedsRelease(revenueTokenId, amount);
+        vm.prank(proceedsActor);
+        positionManager.recordImmediateProceedsRelease(revenueTokenId, amount, keccak256("IMMEDIATE_PROCEEDS_RELEASE"));
 
         _applyPrincipalRelease(amount);
     }
@@ -162,8 +165,8 @@ contract PositionManagerAccountingHandler is Test {
 
         uint256 amount = bound(amountSeed, 1, expectedBackedPrincipal);
 
-        vm.prank(managerActor);
-        roboshareTokens.recordPrimaryRedemptionPayout(revenueTokenId, amount);
+        vm.prank(proceedsActor);
+        positionManager.recordPrimaryRedemptionPayout(revenueTokenId, amount, keccak256("PRIMARY_REDEMPTION_PAYOUT"));
 
         _applyPrincipalRelease(amount);
     }
@@ -274,7 +277,7 @@ contract PositionManagerAccountingInvariantTest is StdInvariant, Test {
         }
 
         handler = new PositionManagerAccountingHandler(
-            roboshareTokens, positionManager, admin, REVENUE_TOKEN_ID, TOKEN_PRICE, MAX_SUPPLY, actors
+            roboshareTokens, positionManager, admin, registryRouter, REVENUE_TOKEN_ID, TOKEN_PRICE, MAX_SUPPLY, actors
         );
         targetContract(address(handler));
     }

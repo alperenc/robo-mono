@@ -374,69 +374,6 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.setURI("ipfs://new-uri");
     }
 
-    function testManagerTransferUnauthorizedCaller() public {
-        vm.prank(minter);
-        roboshareTokens.mint(user1, 101, 100, "");
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.MANAGER_ROLE()
-            )
-        );
-        vm.prank(unauthorized);
-        roboshareTokens.managerTransfer(user1, user2, 101, 10, "");
-    }
-
-    function testManagerTransferMovesTokens() public {
-        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
-
-        vm.prank(manager);
-        roboshareTokens.managerTransfer(user1, user2, tokenId, 10, "");
-
-        assertEq(roboshareTokens.balanceOf(user1, tokenId), 90);
-        assertEq(roboshareTokens.balanceOf(user2, tokenId), 10);
-    }
-
-    function testManagerBurnUnauthorizedCaller() public {
-        vm.prank(minter);
-        roboshareTokens.mint(user1, 101, 100, "");
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, roboshareTokens.MANAGER_ROLE()
-            )
-        );
-        vm.prank(unauthorized);
-        roboshareTokens.managerBurn(user1, 101, 10);
-    }
-
-    function testManagerBurnBurnsTokens() public {
-        uint256 tokenId = _setupRevenueTokenForLocks(user1, 100);
-
-        vm.prank(manager);
-        roboshareTokens.managerBurn(user1, tokenId, 10);
-
-        assertEq(roboshareTokens.balanceOf(user1, tokenId), 90);
-    }
-
-    function testManagerTransferNotRevenueToken() public {
-        vm.prank(minter);
-        roboshareTokens.mint(user1, 101, 100, "");
-
-        vm.prank(manager);
-        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.managerTransfer(user1, user2, 101, 10, "");
-    }
-
-    function testManagerBurnNotRevenueToken() public {
-        vm.prank(minter);
-        roboshareTokens.mint(user1, 101, 100, "");
-
-        vm.prank(manager);
-        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.managerBurn(user1, 101, 10);
-    }
-
     function testRevenueTokenMintCallsPositionManagerHook() public {
         MockPositionManager mockManager = new MockPositionManager();
 
@@ -815,18 +752,18 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         assertEq(roboshareTokens.balanceOf(address(receiver), tokenId), 0);
     }
 
-    function testBurnCurrentEpochForPrimaryRedemptionNotRevenueToken() public {
+    function testManagerBurnCurrentEpochNotRevenueToken() public {
         vm.prank(manager);
         vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.burnCurrentEpochForPrimaryRedemption(user1, 101, 1);
+        roboshareTokens.managerBurnCurrentEpoch(user1, 101, 1);
     }
 
-    function testBurnCurrentEpochForPrimaryRedemptionZeroAmount() public {
+    function testManagerBurnCurrentEpochZeroAmount() public {
         uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
 
         vm.prank(manager);
         vm.expectRevert(RoboshareTokens.InvalidLockAmount.selector);
-        roboshareTokens.burnCurrentEpochForPrimaryRedemption(user1, tokenId, 0);
+        roboshareTokens.managerBurnCurrentEpoch(user1, tokenId, 0);
     }
 
     function testManagerBurnCurrentEpochUnauthorizedCaller() public {
@@ -841,99 +778,18 @@ contract RoboshareTokensTest is AssetMetadataBaseTest {
         roboshareTokens.managerBurnCurrentEpoch(user1, tokenId, 1);
     }
 
-    function testBurnCurrentEpochForPrimaryRedemptionRequiresEligibleEpochBalance() public {
+    function testManagerBurnCurrentEpochRequiresEligibleEpochBalance() public {
         uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
         uint256 backedPrincipal = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
 
-        vm.prank(manager);
-        roboshareTokens.recordImmediateProceedsRelease(tokenId, backedPrincipal);
+        vm.prank(address(router));
+        testPositionManager.recordImmediateProceedsRelease(
+            tokenId, backedPrincipal, keccak256("IMMEDIATE_PROCEEDS_RELEASE")
+        );
 
         vm.prank(manager);
         vm.expectRevert(TokenLib.InsufficientTokenBalance.selector);
-        roboshareTokens.burnCurrentEpochForPrimaryRedemption(user1, tokenId, 1);
-    }
-
-    function testRecordImmediateProceedsReleaseNotRevenueToken() public {
-        vm.prank(manager);
-        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.recordImmediateProceedsRelease(101, 1);
-    }
-
-    function testRecordImmediateProceedsReleaseZeroAmountNoOp() public {
-        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
-        uint256 epochBefore = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
-        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
-
-        vm.prank(manager);
-        roboshareTokens.recordImmediateProceedsRelease(tokenId, 0);
-
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), epochBefore);
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), principalBefore);
-    }
-
-    function testRecordImmediateProceedsReleaseNoBackedPrincipalNoOp() public {
-        uint256 tokenId = 106;
-        uint256 maturityDate = block.timestamp + 365 days;
-
-        vm.prank(minter);
-        roboshareTokens.setRevenueTokenInfo(tokenId, 100 * 1e6, 100, 100, maturityDate, 10_000, 1_000, true, false);
-
-        vm.prank(manager);
-        roboshareTokens.recordImmediateProceedsRelease(tokenId, 1);
-
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
-    }
-
-    function testRecordPrimaryRedemptionPayoutNotRevenueToken() public {
-        vm.prank(manager);
-        vm.expectRevert(RoboshareTokens.NotRevenueToken.selector);
-        roboshareTokens.recordPrimaryRedemptionPayout(101, 1);
-    }
-
-    function testRecordPrimaryRedemptionPayoutZeroAmountNoOp() public {
-        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
-        uint256 supplyBefore = roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId);
-        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
-
-        vm.prank(manager);
-        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, 0);
-
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), supplyBefore);
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), principalBefore);
-    }
-
-    function testRecordPrimaryRedemptionPayoutAdvancesEpochWhenExhausted() public {
-        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
-        uint256 backedPrincipal = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
-
-        vm.prank(manager);
-        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, backedPrincipal);
-
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
-        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
-    }
-
-    function testRecordPrimaryRedemptionPayoutAdvancesEpochWhenSupplyExhaustedBeforePrincipal() public {
-        uint256 tokenId = _setupRevenueTokenForRedemptionEpochs(user1, 100);
-        uint256 principalBefore = roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId);
-
-        vm.prank(burner);
-        roboshareTokens.burn(user1, tokenId, 100);
-
-        vm.prank(manager);
-        roboshareTokens.recordPrimaryRedemptionPayout(tokenId, principalBefore / 2);
-
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionEpochSupply(tokenId), 0);
-        assertEq(roboshareTokens.getCurrentPrimaryRedemptionBackedPrincipal(tokenId), 0);
-        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
-
-        vm.prank(minter);
-        roboshareTokens.mint(user2, tokenId, 10, "");
-
-        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user1, tokenId), 0);
-        assertEq(roboshareTokens.getPrimaryRedemptionEligibleBalance(user2, tokenId), 10);
+        roboshareTokens.managerBurnCurrentEpoch(user1, tokenId, 1);
     }
 
     function testBurnRevenueTokenSkipsConsumedHeadPositions() public {
