@@ -587,9 +587,10 @@ contract VehicleRegistryIntegrationTest is VehicleRegistryBaseTest, MarketplaceF
         _ensureState(SetupState.PrimaryPoolCreated);
         uint256 totalSupply = roboshareTokens.getRevenueTokenSupply(scenario.revenueTokenId);
 
-        // In the continuous primary-pool model, no buys means no outstanding revenue token supply.
+        // In the manager-backed primary-pool model, inventory is capacity only until a buy mints positions.
+        assertEq(totalSupply, 0);
         assertEq(roboshareTokens.balanceOf(partner1, scenario.revenueTokenId), 0);
-        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), totalSupply);
+        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
 
         CollateralLib.CollateralInfo memory info = _getCollateralInfo(scenario.assetId);
         uint256 expectedCollateral = _getCollateralTotal(info);

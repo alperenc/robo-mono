@@ -680,26 +680,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testReleaseCollateral() public {
         _ensureState(SetupState.BuffersFunded);
 
-        // Burn tokens first (prerequisite for full release)
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
-
-        // Grant burner role to this test contract to simulate burning
-        vm.startPrank(admin);
-        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
-        vm.stopPrank();
-
-        uint256 marketplaceBalance = roboshareTokens.balanceOf(address(marketplace), revenueTokenId);
-        if (marketplaceBalance > 0) {
-            roboshareTokens.burn(address(marketplace), revenueTokenId, marketplaceBalance);
-        }
-        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, revenueTokenId);
-        if (buyerBalance > 0) {
-            roboshareTokens.burn(buyer, revenueTokenId, buyerBalance);
-        }
-        uint256 partnerBalance = roboshareTokens.balanceOf(partner1, revenueTokenId);
-        if (partnerBalance > 0) {
-            roboshareTokens.burn(partner1, revenueTokenId, partnerBalance);
-        }
+        _grantBurnerRoleToSelf();
+        _burnRevenueTokenBalance(revenueTokenId, buyer);
+        _burnRevenueTokenBalance(revenueTokenId, partner1);
 
         // Partner calls releaseCollateral
         uint256 pendingBefore = treasury.pendingWithdrawals(partner1);
@@ -714,25 +698,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testReleaseCollateralFor() public {
         _ensureState(SetupState.BuffersFunded);
 
-        // Burn tokens first
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
-
-        vm.startPrank(admin);
-        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
-        vm.stopPrank();
-
-        uint256 marketplaceBalance = roboshareTokens.balanceOf(address(marketplace), revenueTokenId);
-        if (marketplaceBalance > 0) {
-            roboshareTokens.burn(address(marketplace), revenueTokenId, marketplaceBalance);
-        }
-        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, revenueTokenId);
-        if (buyerBalance > 0) {
-            roboshareTokens.burn(buyer, revenueTokenId, buyerBalance);
-        }
-        uint256 partnerBalance = roboshareTokens.balanceOf(partner1, revenueTokenId);
-        if (partnerBalance > 0) {
-            roboshareTokens.burn(partner1, revenueTokenId, partnerBalance);
-        }
+        _grantBurnerRoleToSelf();
+        _burnRevenueTokenBalance(revenueTokenId, buyer);
+        _burnRevenueTokenBalance(revenueTokenId, partner1);
 
         uint256 pendingBefore = treasury.pendingWithdrawals(partner1);
         vm.prank(address(router));
@@ -820,25 +789,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
     function testProcessWithdrawal() public {
         _ensureState(SetupState.BuffersFunded);
 
-        // Burn tokens first
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
-
-        vm.startPrank(admin);
-        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
-        vm.stopPrank();
-
-        uint256 marketplaceBalance = roboshareTokens.balanceOf(address(marketplace), revenueTokenId);
-        if (marketplaceBalance > 0) {
-            roboshareTokens.burn(address(marketplace), revenueTokenId, marketplaceBalance);
-        }
-        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, revenueTokenId);
-        if (buyerBalance > 0) {
-            roboshareTokens.burn(buyer, revenueTokenId, buyerBalance);
-        }
-        uint256 partnerBalance = roboshareTokens.balanceOf(partner1, revenueTokenId);
-        if (partnerBalance > 0) {
-            roboshareTokens.burn(partner1, revenueTokenId, partnerBalance);
-        }
+        _grantBurnerRoleToSelf();
+        _burnRevenueTokenBalance(revenueTokenId, buyer);
+        _burnRevenueTokenBalance(revenueTokenId, partner1);
 
         vm.prank(address(router));
         treasury.releaseCollateralFor(partner1, scenario.assetId);
@@ -930,25 +884,10 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         // 1. Lock Collateral (already done in setup)
         assertTrue(_getCollateralInfo(scenario.assetId).isLocked);
 
-        // 2. Burn tokens
         uint256 revenueTokenId = TokenLib.getTokenIdFromAssetId(scenario.assetId);
-
-        vm.startPrank(admin);
-        roboshareTokens.grantRole(roboshareTokens.BURNER_ROLE(), address(this));
-        vm.stopPrank();
-
-        uint256 marketplaceBalance = roboshareTokens.balanceOf(address(marketplace), revenueTokenId);
-        if (marketplaceBalance > 0) {
-            roboshareTokens.burn(address(marketplace), revenueTokenId, marketplaceBalance);
-        }
-        uint256 buyerBalance = roboshareTokens.balanceOf(buyer, revenueTokenId);
-        if (buyerBalance > 0) {
-            roboshareTokens.burn(buyer, revenueTokenId, buyerBalance);
-        }
-        uint256 partnerBalance = roboshareTokens.balanceOf(partner1, revenueTokenId);
-        if (partnerBalance > 0) {
-            roboshareTokens.burn(partner1, revenueTokenId, partnerBalance);
-        }
+        _grantBurnerRoleToSelf();
+        _burnRevenueTokenBalance(revenueTokenId, buyer);
+        _burnRevenueTokenBalance(revenueTokenId, partner1);
 
         // 3. Unlock Collateral
         vm.prank(address(router));
@@ -1006,6 +945,9 @@ contract TreasuryIntegrationTest is MarketplaceFlowBaseTest, ERC1155Holder {
         (uint256 settlementClaimed,) = assetRegistry.claimSettlement(scenario.assetId, false);
 
         assertEq(settlementClaimed, previewAmount, "Preview should match settlement claimed");
+        settlementState = positionManager.getSettlementState(scenario.assetId);
+        assertEq(settlementState.claimedBurnAmount, buyerBalance, "Settlement aggregate should track burned amount");
+        assertEq(settlementState.claimedPayout, settlementClaimed, "Settlement aggregate should track claimed payout");
         IPositionManager.SettlementClaimState memory claimState =
             positionManager.getSettlementClaimState(scenario.assetId, buyer);
         assertEq(claimState.burnedAmount, buyerBalance, "PositionManager should track claimed burn amount");

@@ -161,6 +161,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         assertEq(lockedBefore, 0);
         assertEq(lockedAfter, buyerBalance);
         assertEq(buyerBalanceAfter, buyerBalanceBefore);
+        assertEq(roboshareTokens.balanceOf(address(marketplace), scenario.revenueTokenId), 0);
         Marketplace.Listing memory listing = marketplace.getListing(listingId);
         assertEq(listing.amount, buyerBalance);
     }
@@ -602,6 +603,7 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
         assertGe(eligibleBalance, burnAmount);
         assertEq(redemptionSupply, manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId));
         assertEq(eligibleBalance, manager.getPrimaryRedemptionEligibleBalance(buyer, scenario.revenueTokenId));
+        uint256 backedPrincipalBefore = manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId);
 
         uint256 buyerUsdcBefore = usdc.balanceOf(buyer);
         uint256 buyerTokensBefore = roboshareTokens.balanceOf(buyer, scenario.revenueTokenId);
@@ -612,6 +614,10 @@ contract MarketplaceIntegrationTest is MarketplaceFlowBaseTest {
 
         assertEq(roboshareTokens.balanceOf(buyer, scenario.revenueTokenId), buyerTokensBefore - burnAmount);
         assertEq(usdc.balanceOf(buyer), buyerUsdcBefore + payout);
+        assertEq(manager.getCurrentPrimaryRedemptionEpochSupply(scenario.revenueTokenId), redemptionSupply - burnAmount);
+        assertEq(
+            manager.getCurrentPrimaryRedemptionBackedPrincipal(scenario.revenueTokenId), backedPrincipalBefore - payout
+        );
     }
 
     function testPreviewPrimaryRedemptionZeroAmount() public {
