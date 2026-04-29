@@ -240,6 +240,84 @@ contract PositionManagerTest is Test {
         assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 100);
     }
 
+    function testBeforeRevenueTokenUpdateMintStoresPosition() public {
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(address(0), alice, TOKEN_ID, 80);
+
+        TokenLib.TokenPosition[] memory positions = positionManager.getUserPositions(TOKEN_ID, alice);
+        assertEq(positions.length, 1);
+        assertEq(positions[0].uid, 0);
+        assertEq(positions[0].tokenId, TOKEN_ID);
+        assertEq(positions[0].amount, 80);
+        assertGt(positions[0].acquiredAt, 0);
+        assertEq(positions[0].soldAt, 0);
+        assertEq(positions[0].redemptionEpoch, 0);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpoch(TOKEN_ID), 0);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 80);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 80 * TOKEN_PRICE);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 80);
+    }
+
+    function testBeforeRevenueTokenUpdateTransferMovesFifoLotsAndBurnConsumesRecipientQueue() public {
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(address(0), alice, TOKEN_ID, 100);
+        vm.warp(block.timestamp + 1);
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(address(0), alice, TOKEN_ID, 50);
+
+        vm.warp(block.timestamp + 1);
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(alice, bob, TOKEN_ID, 120);
+
+        TokenLib.TokenPosition[] memory alicePositions = positionManager.getUserPositions(TOKEN_ID, alice);
+        assertEq(alicePositions.length, 2);
+        assertEq(alicePositions[0].amount, 0);
+        assertEq(alicePositions[1].amount, 30);
+
+        TokenLib.TokenPosition[] memory bobPositions = positionManager.getUserPositions(TOKEN_ID, bob);
+        assertEq(bobPositions.length, 2);
+        assertEq(bobPositions[0].amount, 100);
+        assertEq(bobPositions[0].redemptionEpoch, 0);
+        assertEq(bobPositions[1].amount, 20);
+        assertEq(bobPositions[1].redemptionEpoch, 0);
+        assertLt(bobPositions[0].acquiredAt, bobPositions[1].acquiredAt);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 150);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 150 * TOKEN_PRICE);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 30);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(bob, TOKEN_ID), 120);
+
+        vm.warp(block.timestamp + 1);
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(bob, address(0), TOKEN_ID, 110);
+
+        bobPositions = positionManager.getUserPositions(TOKEN_ID, bob);
+        assertEq(bobPositions.length, 2);
+        assertEq(bobPositions[0].amount, 0);
+        assertTrue(bobPositions[0].soldAt > 0);
+        assertEq(bobPositions[1].amount, 10);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 40);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 150 * TOKEN_PRICE);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(alice, TOKEN_ID), 30);
+        assertEq(positionManager.getPrimaryRedemptionEligibleBalance(bob, TOKEN_ID), 10);
+    }
+
+    function testBeforeRevenueTokenUpdateTransferRevertsWhenSenderBalanceIsInsufficient() public {
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(address(0), alice, TOKEN_ID, 50);
+
+        vm.expectRevert(TokenLib.InsufficientTokenBalance.selector);
+        vm.prank(roboshareTokens);
+        positionManager.beforeRevenueTokenUpdate(alice, bob, TOKEN_ID, 51);
+
+        TokenLib.TokenPosition[] memory alicePositions = positionManager.getUserPositions(TOKEN_ID, alice);
+        TokenLib.TokenPosition[] memory bobPositions = positionManager.getUserPositions(TOKEN_ID, bob);
+        assertEq(alicePositions.length, 1);
+        assertEq(alicePositions[0].amount, 50);
+        assertEq(bobPositions.length, 0);
+        assertEq(positionManager.getCurrentPrimaryRedemptionEpochSupply(TOKEN_ID), 50);
+        assertEq(positionManager.getCurrentPrimaryRedemptionBackedPrincipal(TOKEN_ID), 50 * TOKEN_PRICE);
+    }
+
     function testBurnConsumesPositionsFifo() public {
         vm.startPrank(marketplace);
         positionManager.recordPositionMutation(
