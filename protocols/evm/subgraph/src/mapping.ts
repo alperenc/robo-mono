@@ -1,4 +1,4 @@
-import { BigInt, Address } from "@graphprotocol/graph-ts"
+import { Address, BigInt, ethereum } from "@graphprotocol/graph-ts"
 import {
   MockUSDC,
   Transfer as MockUSDCTransferEvent
@@ -6,7 +6,8 @@ import {
 import {
   RoboshareTokens,
   TransferSingle as RoboshareTokensTransferSingleEvent,
-  RevenueTokenInfoSet as RevenueTokenInfoSetEvent
+  RevenueTokenInfoSet as RevenueTokenInfoSetEvent,
+  TokenMetadataURISet as TokenMetadataURISetEvent
 } from "../generated/RoboshareTokens/RoboshareTokens"
 import {
   PartnerManager,
@@ -19,6 +20,7 @@ import {
 import {
   VehicleRegistry,
   AssetRegistered as AssetRegisteredEvent,
+  VehicleMetadataUpdated as VehicleMetadataUpdatedEvent,
   VehicleRegistered as VehicleRegisteredEvent
 } from "../generated/VehicleRegistry/VehicleRegistry"
 import {
@@ -65,12 +67,38 @@ import {
   PrimaryPoolRedemption
 } from "../generated/schema"
 
-const DEFAULT_TARGET_YIELD_BP = BigInt.fromI32(1000)
+const ZERO_ADDRESS = Address.fromString("0x0000000000000000000000000000000000000000")
+const ZERO_BIGINT = BigInt.fromI32(0)
 
 function assetIdFromTokenId(tokenId: BigInt): BigInt {
   const one = BigInt.fromI32(1)
   if (tokenId.le(one)) return BigInt.fromI32(0)
   return tokenId.minus(one)
+}
+
+function isAssetTokenId(tokenId: BigInt): bool {
+  return tokenId.mod(BigInt.fromI32(2)).equals(BigInt.fromI32(1))
+}
+
+function getOrCreateVehicle(id: string, event: ethereum.Event): Vehicle {
+  let vehicle = Vehicle.load(id)
+
+  if (!vehicle) {
+    vehicle = new Vehicle(id)
+    vehicle.partner = ZERO_ADDRESS
+    vehicle.vin = null
+    vehicle.vinHash = null
+    vehicle.make = null
+    vehicle.model = null
+    vehicle.year = null
+    vehicle.assetValue = ZERO_BIGINT
+    vehicle.metadataURI = null
+    vehicle.blockNumber = event.block.number
+    vehicle.blockTimestamp = event.block.timestamp
+    vehicle.transactionHash = event.transaction.hash
+  }
+
+  return vehicle
 }
 
 export function handleMockUSDCTransfer(event: MockUSDCTransferEvent): void {
@@ -122,12 +150,21 @@ export function handleRevenueTokenInfoSet(event: RevenueTokenInfoSetEvent): void
   token.revenueTokenId = event.params.revenueTokenId
   token.price = event.params.price
   token.supply = event.params.supply
-  // Avoid historical eth_call reads during indexing so chains without archival call support can still index.
-  token.targetYieldBP = DEFAULT_TARGET_YIELD_BP
   token.maturityDate = event.params.maturityDate
   token.createdAt = event.block.timestamp
   token.setAtBlock = event.block.number
   token.save()
+}
+
+export function handleTokenMetadataURISet(event: TokenMetadataURISetEvent): void {
+  if (!isAssetTokenId(event.params.tokenId)) return
+
+  let vehicle = getOrCreateVehicle(event.params.tokenId.toString(), event)
+  vehicle.metadataURI = event.params.metadataURI
+  vehicle.blockNumber = event.block.number
+  vehicle.blockTimestamp = event.block.timestamp
+  vehicle.transactionHash = event.transaction.hash
+  vehicle.save()
 }
 
 export function handlePartnerAuthorized(event: PartnerAuthorizedEvent): void {
@@ -164,40 +201,25 @@ export function handleIdBoundToRegistry(event: IdBoundToRegistryEvent): void {
 
 export function handleAssetRegistered(event: AssetRegisteredEvent): void {
   let id = event.params.assetId.toString()
-  let vehicle = Vehicle.load(id)
+  let vehicle = getOrCreateVehicle(id, event)
 
-  if (!vehicle) {
-    vehicle = new Vehicle(id)
-    vehicle.partner = event.params.owner
-    vehicle.vin = ""
-    vehicle.blockNumber = event.block.number
-    vehicle.blockTimestamp = event.block.timestamp
-    vehicle.transactionHash = event.transaction.hash
-  } else {
-    vehicle.partner = event.params.owner
-    vehicle.blockNumber = event.block.number
-    vehicle.blockTimestamp = event.block.timestamp
-    vehicle.transactionHash = event.transaction.hash
-  }
-
+  vehicle.partner = event.params.owner
   vehicle.assetValue = event.params.assetValue
+  vehicle.blockNumber = event.block.number
+  vehicle.blockTimestamp = event.block.timestamp
+  vehicle.transactionHash = event.transaction.hash
   vehicle.save()
 }
 
 export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
   let id = event.params.vehicleId.toString()
-  let vehicle = Vehicle.load(id)
-  if (!vehicle) {
-    vehicle = new Vehicle(id)
-    vehicle.partner = event.params.partner
-    vehicle.blockNumber = event.block.number
-    vehicle.blockTimestamp = event.block.timestamp
-    vehicle.transactionHash = event.transaction.hash
-  } else {
-    vehicle.partner = event.params.partner
-  }
-  vehicle.vin = event.params.vin
+  let vehicle = getOrCreateVehicle(id, event)
 
+  vehicle.partner = event.params.partner
+  vehicle.vinHash = event.params.vinHash
+  vehicle.blockNumber = event.block.number
+  vehicle.blockTimestamp = event.block.timestamp
+  vehicle.transactionHash = event.transaction.hash
   vehicle.save()
 
   let registryContract = VehicleRegistryContract.load("1")
@@ -206,6 +228,16 @@ export function handleVehicleRegistered(event: VehicleRegisteredEvent): void {
     registryContract.address = event.address
     registryContract.save()
   }
+}
+
+export function handleVehicleMetadataUpdated(event: VehicleMetadataUpdatedEvent): void {
+  let vehicle = getOrCreateVehicle(event.params.vehicleId.toString(), event)
+
+  vehicle.metadataURI = event.params.assetMetadataURI
+  vehicle.blockNumber = event.block.number
+  vehicle.blockTimestamp = event.block.timestamp
+  vehicle.transactionHash = event.transaction.hash
+  vehicle.save()
 }
 
 
