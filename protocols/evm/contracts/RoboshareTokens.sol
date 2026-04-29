@@ -200,23 +200,6 @@ contract RoboshareTokens is
         _burnBatch(from, ids, amounts);
     }
 
-    function managerTransfer(address from, address to, uint256 id, uint256 amount, bytes memory data)
-        external
-        onlyRole(MANAGER_ROLE)
-    {
-        if (!TokenLib.isRevenueToken(id)) {
-            revert NotRevenueToken();
-        }
-        _safeTransferFrom(from, to, id, amount, data);
-    }
-
-    function managerBurn(address from, uint256 id, uint256 amount) external onlyRole(MANAGER_ROLE) {
-        if (!TokenLib.isRevenueToken(id)) {
-            revert NotRevenueToken();
-        }
-        _burn(from, id, amount);
-    }
-
     function managerBurnCurrentEpoch(address holder, uint256 revenueTokenId, uint256 amount)
         external
         onlyRole(MANAGER_ROLE)
@@ -395,16 +378,6 @@ contract RoboshareTokens is
         _requirePositionManager().unlockForListing(holder, revenueTokenId, amount);
     }
 
-    /**
-     * @dev Deprecated compatibility alias for managerBurnCurrentEpoch().
-     */
-    function burnCurrentEpochForPrimaryRedemption(address holder, uint256 revenueTokenId, uint256 amount)
-        external
-        onlyRole(MANAGER_ROLE)
-    {
-        _managerBurnCurrentEpoch(holder, revenueTokenId, amount);
-    }
-
     function _managerBurnCurrentEpoch(address holder, uint256 revenueTokenId, uint256 amount) internal {
         if (!TokenLib.isRevenueToken(revenueTokenId)) {
             revert NotRevenueToken();
@@ -412,30 +385,6 @@ contract RoboshareTokens is
         if (amount == 0) revert InvalidLockAmount();
         _requirePositionManager().preparePrimaryRedemptionBurn(holder, revenueTokenId);
         _burn(holder, revenueTokenId, amount);
-    }
-
-    function recordImmediateProceedsRelease(uint256 revenueTokenId, uint256 releasedAmount)
-        external
-        onlyRole(MANAGER_ROLE)
-    {
-        if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert NotRevenueToken();
-        }
-        if (releasedAmount == 0) return;
-        _requirePositionManager()
-            .recordImmediateProceedsRelease(revenueTokenId, releasedAmount, keccak256("IMMEDIATE_PROCEEDS_RELEASE"));
-    }
-
-    function recordPrimaryRedemptionPayout(uint256 revenueTokenId, uint256 payoutAmount)
-        external
-        onlyRole(MANAGER_ROLE)
-    {
-        if (!TokenLib.isRevenueToken(revenueTokenId)) {
-            revert NotRevenueToken();
-        }
-        if (payoutAmount == 0) return;
-        _requirePositionManager()
-            .recordPrimaryRedemptionPayout(revenueTokenId, payoutAmount, keccak256("PRIMARY_REDEMPTION_PAYOUT"));
     }
 
     function transferLockedForListing(
